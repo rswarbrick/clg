@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.10 2005-03-11 10:56:58 espen Exp $
+;; $Id: ginterface.lisp,v 1.11 2005-03-11 19:13:05 espen Exp $
 
 (in-package "GLIB")
 
@@ -62,7 +62,8 @@
 	   (find-type-number class-name)
 	   (register-type class-name 
 	    (or (first gtype) (default-type-init-name class-name))))))
-    (type-default-interface-ref type-number))
+;    (type-default-interface-ref type-number)
+    )
   (call-next-method))
 
 
