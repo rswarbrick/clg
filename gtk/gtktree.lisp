@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.6 2005-02-03 23:09:09 espen Exp $
+;; $Id: gtktree.lisp,v 1.7 2005-02-27 19:56:06 espen Exp $
 
 
 (in-package "GTK")
@@ -47,11 +47,12 @@
 (defbinding cell-layout-clear () nil
   (cell-layout cell-layout))
 
-(defbinding cell-layout-add-attribute (cell-layout cell attribute column) nil
+(defbinding cell-layout-add-attribute 
+    (cell-layout cell attribute column &optional model) nil
   (cell-layout cell-layout)
   (cell cell-renderer)
   ((string-downcase attribute) string)
-  (column int))
+  ((if model (column-index model column) column) int))
 
 (def-callback-marshal %cell-layout-data-func 
     (nil cell-layout cell-renderer tree-model (copy-of tree-iter)))
