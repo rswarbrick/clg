@@ -6,6 +6,15 @@
 
 (in-package "CLG-SYSTEM")
 
+;; Suggested by Marco Antoniotti
+(eval-when (:load-toplevel :execute :compile-toplevel)
+  (unless (find-package "MAKE")
+    (error "CLG requires the MK:DEFSYSTEM to be properly compiled ~
+            and loaded.~%~
+            You can download MK:DEFSYSTEM from the CLOCC.~@
+            <http://sourceforge.net/projects/clocc/.")))
+
+
 ;; We used to do this, but I think it's better if everybody puts such
 ;; definitions in his/her own Lisp startup files so that clg.system
 ;; can be used without local modifications.
@@ -27,120 +36,116 @@
 ;; TODO: Find and fix the bug, then remove this.
 (setq mk::*cmu-errors-to-file* nil)
 
-(eval
- `(mk:defsystem clg
-    :initially-do
-    (progn
-      (pkg-exists-p "glib-2.0" :atleast-version "2.0.0")
-      (pkg-exists-p "pango" :atleast-version "1.0.0")
-      (pkg-exists-p "atk" :atleast-version "1.0.0")
-      (pkg-exists-p "gtk+-2.0" :atleast-version "2.0.0"))
-    :source-pathname "clg:"
-    :binary-pathname "clg:"
-    :components
-    ((:module tools
-      :components ("autoexport"))
-     (:file "pcl" :source-pathname "glib;" :binary-pathname "glib;")
-     (:module glib
-      :initially-do
-      (progn
-	(load-shared-library "libglib-2.0.so")
-	(load-shared-library "libgobject-2.0.so" :init "g_type_init"))
-      :components
-      ((:file "callback"
-	:language :c
-	:source-extension "c"
-	:binary-extension "o"
-	:compiler-options
-	(:cflags ,(pkg-cflags "glib-2.0")
-		 :optimize 2
-		 :definitions (#+cmu CMUCL)
-		 :include-paths (,*cmucl-include-path*)))
-       (:file "glib-package")
-       (:file "gutils" :depends-on ("glib-package"))
-       (:file "gforeign" :depends-on ("gutils"))
-       (:file "glib" :depends-on ("gforeign"))
-       (:file "proxy" :depends-on ("glib"))
-       (:file "gtype" :depends-on ("proxy"))
-       (:file "gboxed" :depends-on ("gtype"))
-       (:file "genums" :depends-on ("gtype"))
-       (:file "gparam" :depends-on ("genums"))
-       (:file "ginterface" :depends-on ("gtype"))
-       (:file "gobject" :depends-on ("gparam"))
-       (:file "gcallback" :depends-on ("gtype" "gparam" "gobject" "callback"))
-       (:file "glib-export"
-	:depends-on
-	("gutils" "glib" "proxy" "gboxed" "gtype" "gparam" "gcallback"
-	 "genums" "gobject")))
-      :depends-on (tools "pcl"))
-     (:file "gdkglue"
-      :source-pathname "gdk;"
-      :binary-pathname "gdk;"
-      :initially-do
-      (progn
-	(load-shared-library "libgdk_pixbuf-2.0.so")
-	(load-shared-library "libgdk-x11-2.0.so"
-	 :init "gdk_init"
-	 :prototype '(function
-		      c-call:void
-		      system-area-pointer
-		      system-area-pointer)
-	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
-      :language :c
-      :source-extension "c"
-      :binary-extension "o"
-      :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
-			 :optimize 2))
-     (:module gdk
-       :components
-       ((:file "gdk-package")
-        (:file "gdk-export" :depends-on ("gdkevents" "gdktypes" "gdk"))
-        (:file "gdktypes" :depends-on ("gdk-package"))
-        (:file "gdkevents" :depends-on ("gdktypes"))
-	(:file "gdk" :depends-on ("gdkevents")))
-       :depends-on (glib "gdkglue"))
-     (:module pango
-      :initially-do (load-shared-library "libpango-1.0.so")
-       :components
-       ((:file "pango-package")
-        (:file "pango" :depends-on ("pango-package"))
-        (:file "pango-export" :depends-on ("pango")))
-       :depends-on (glib))
-     (:module atk
-      :initially-do (load-shared-library "libatk-1.0.so")
-       :components
-       ((:file "atk-package")
-        (:file "atk" :depends-on ("atk-package"))
-        (:file "atk-export" :depends-on ("atk")))
-       :depends-on (glib))
-     (:file "gtkglue"
-      :source-pathname "gtk;"
-      :binary-pathname "gtk;"
-      :initially-do
-      (progn
-	(load-shared-library
-	 "libgtk-x11-2.0.so"
-	 :init "gtk_init"
-	 :prototype '(function
-		      c-call:void
-		      system-area-pointer
-		      system-area-pointer)
-	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
-      :language :c
-      :source-extension "c"
-      :binary-extension "o"
-      :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
-			 :optimize 2
-			 :definitions (#+cmu CMUCL)
-			 :include-paths (,*cmucl-include-path*)))
-     (:module gtk
-      :components
-      ((:file "gtk-package")
-       (:file "gtk-export" :depends-on ("gtktypes" "gtk"))
-       (:file "gtkobject" :depends-on ("gtk-package"))
-       (:file "gtktypes" :depends-on ("gtkobject"))
-       (:file "gtkwidget" :depends-on ("gtktypes"))
-       (:file "gtkcontainer" :depends-on ("gtktypes"))
-       (:file "gtk" :depends-on ("gtktypes"))
-       (:file "gtkutils" :depends-on ("gtk")))
-      :depends-on (glib gdk pango atk "gtkglue")))))
+(mk:defsystem clg
+ :initially-do
+ (progn
+   (pkg-exists-p "glib-2.0" :atleast-version "2.0.0")
+   (pkg-exists-p "pango" :atleast-version "1.0.0")
+   (pkg-exists-p "atk" :atleast-version "1.0.0")
+   (pkg-exists-p "gtk+-2.0" :atleast-version "2.0.0"))
+ :source-pathname "clg:"
+ :binary-pathname "clg:"
+ :components
+ ((:module tools
+   :components ("autoexport"))
+  (:file "pcl" :source-pathname "glib;" :binary-pathname "glib;")
+  (:module glib
+   :initially-do
+   (progn
+     (load-shared-library "libglib-2.0.so")
+     (load-shared-library "libgobject-2.0.so" :init "g_type_init"))
+   :components
+   ((:file "callback"
+     :language :c
+     :source-extension "c"
+     :binary-extension "o"
+     :compiler-options (:cflags #.(pkg-cflags "glib-2.0")
+				:optimize 2
+				:definitions (#+cmu CMUCL)
+				:include-paths (#.*cmucl-include-path*)))
+    (:file "glib-package")
+    (:file "gutils" :depends-on ("glib-package"))
+    (:file "gforeign" :depends-on ("gutils"))
+    (:file "glib" :depends-on ("gforeign"))
+    (:file "proxy" :depends-on ("glib"))
+    (:file "gtype" :depends-on ("proxy"))
+    (:file "gboxed" :depends-on ("gtype"))
+    (:file "genums" :depends-on ("gtype"))
+    (:file "gparam" :depends-on ("genums"))
+    (:file "ginterface" :depends-on ("gtype"))
+    (:file "gobject" :depends-on ("gparam"))
+    (:file "gcallback" :depends-on ("gtype" "gparam" "gobject" "callback"))
+    (:file "glib-export" :depends-on ("gutils" "glib" "proxy" "gboxed" "gtype"
+				      "gparam" "gcallback" "genums" "gobject")))
+   :depends-on (tools "pcl"))
+  (:file "gdkglue"
+   :source-pathname "gdk;"
+   :binary-pathname "gdk;"
+   :initially-do
+   (progn
+     (load-shared-library "libgdk_pixbuf-2.0.so")
+     (load-shared-library "libgdk-x11-2.0.so"
+      :init "gdk_init"
+      :prototype '(function
+		   c-call:void
+		   system-area-pointer
+		   system-area-pointer)
+      :initargs (list (system:int-sap 0) (system:int-sap 0))))
+   :language :c
+   :source-extension "c"
+   :binary-extension "o"
+   :compiler-options (:cflags #.(pkg-cflags "gtk+-2.0")
+		      :optimize 2))
+  (:module gdk
+   :components
+   ((:file "gdk-package")
+    (:file "gdk-export" :depends-on ("gdkevents" "gdktypes" "gdk"))
+    (:file "gdktypes" :depends-on ("gdk-package"))
+    (:file "gdkevents" :depends-on ("gdktypes"))
+    (:file "gdk" :depends-on ("gdkevents")))
+   :depends-on (glib "gdkglue"))
+  (:module pango
+   :initially-do (load-shared-library "libpango-1.0.so")
+   :components
+   ((:file "pango-package")
+    (:file "pango" :depends-on ("pango-package"))
+    (:file "pango-export" :depends-on ("pango")))
+   :depends-on (glib))
+  (:module atk
+   :initially-do (load-shared-library "libatk-1.0.so")
+   :components
+   ((:file "atk-package")
+    (:file "atk" :depends-on ("atk-package"))
+    (:file "atk-export" :depends-on ("atk")))
+   :depends-on (glib))
+  (:file "gtkglue"
+   :source-pathname "gtk;"
+   :binary-pathname "gtk;"
+   :initially-do
+   (progn
+     (load-shared-library
+      "libgtk-x11-2.0.so"
+      :init "gtk_init"
+      :prototype '(function
+		   c-call:void
+		   system-area-pointer
+		   system-area-pointer)
+      :initargs (list (system:int-sap 0) (system:int-sap 0))))
+   :language :c
+   :source-extension "c"
+   :binary-extension "o"
+   :compiler-options (:cflags #.(pkg-cflags "gtk+-2.0")
+			      :optimize 2
+			      :definitions (#+cmu CMUCL)
+			      :include-paths (#.*cmucl-include-path*)))
+  (:module gtk
+   :components
+   ((:file "gtk-package")
+    (:file "gtk-export" :depends-on ("gtktypes" "gtk"))
+    (:file "gtkobject" :depends-on ("gtk-package"))
+    (:file "gtktypes" :depends-on ("gtkobject"))
+    (:file "gtkwidget" :depends-on ("gtktypes"))
+    (:file "gtkcontainer" :depends-on ("gtktypes"))
+    (:file "gtk" :depends-on ("gtktypes"))
+    (:file "gtkutils" :depends-on ("gtk")))
+   :depends-on (glib gdk pango atk "gtkglue"))))
