@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.3 2001-10-21 23:02:40 espen Exp $
+;; $Id: gdkevents.lisp,v 1.4 2004-10-31 11:53:30 espen Exp $
 
 (in-package "GDK")
 
@@ -67,12 +67,12 @@
     ((event-type :reader event-class-type)))
 
   
-  (defmethod shared-initialize ((class event-class) names
-				&rest initargs &key type)
-    (declare (ignore initargs names))
+  (defmethod shared-initialize ((class event-class) names &key name type)
     (call-next-method)
     (setf (slot-value class 'event-type) (first type))
-    (setf (gethash (first type) *event-classes*) class))
+    (setf (gethash (first type) *event-classes*) class)
+    (let ((class-name (or name (class-name class))))
+      (register-type class-name 'event)))
   
 
   (defmethod validate-superclass
