@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.23 2005-02-27 19:15:07 espen Exp $
+;; $Id: testgtk.lisp,v 1.24 2005-03-06 17:12:22 espen Exp $
 
 
 ;(use-package "GTK")
@@ -501,7 +501,7 @@
 
 ;;; Image
 
-(define-toplevel create-image (window "Image")
+(define-toplevel create-image (window "Image" :resizable nil)
   (make-instance 'image :file #p"clg:examples;gtk.png" :parent window))
 
 
@@ -1223,17 +1223,20 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		      :label label :xalign 0.0 :yalign 0.5)
 	      :child (make-instance 'spin-button
 		      :adjustment adjustment :wrap t))))
-      (make-instance 'frame 
-       :label "Not accelerated" :parent main
-       :child (make-instance 'h-box 
-	       :border-width 10
-	       :child-args '(:padding 5)
-	       :child (create-date-spinner "Day : " 
-		       (adjustment-new 1.0 1.0 31.0 1.0 5.0 0.0) :out)
-	       :child (create-date-spinner "Month : " 
-		       (adjustment-new 1.0 1.0 12.0 1.0 5.0 0.0) :etched-in)
-	       :child (create-date-spinner "Year : " 
-		       (adjustment-new 1998.0 0.0 2100.0 1.0 100.0 0.0) :in))))
+      (multiple-value-bind (sec min hour date month year day daylight-p zone)
+	  (get-decoded-time)
+	(declare (ignore sec min hour day daylight-p zone))
+	(make-instance 'frame 
+	 :label "Not accelerated" :parent main
+	 :child (make-instance 'h-box 
+	         :border-width 10
+		 :child-args '(:padding 5)
+		 :child (create-date-spinner "Day : " 
+			 (adjustment-new date 1 31 1 5 0) :out)
+		 :child (create-date-spinner "Month : " 
+		         (adjustment-new month 1 12 1 5 0) :etched-in)
+		 :child (create-date-spinner "Year : " 
+		         (adjustment-new year 0 2100 1 100 0) :in)))))
 
     (let ((spinner1 (make-instance 'spin-button
 		     :adjustment (adjustment-new 0.0 -10000.0 10000.0 0.5 100.0 0.0)
