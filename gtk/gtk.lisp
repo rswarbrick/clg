@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.22 2004-12-20 00:51:38 espen Exp $
+;; $Id: gtk.lisp,v 1.23 2004-12-20 20:00:07 espen Exp $
 
 
 (in-package "GTK")
@@ -1042,27 +1042,6 @@
   (child widget)
   (resize boolean)
   (shrink boolean))
-
-(defun (setf paned-child1) (child paned)
-  (paned-pack1 paned child nil t)
-  child)
-
-(defun (setf paned-child2) (child paned)
-  (paned-pack2 paned child t t)
-  child)
-
-;; Defined in gtkglue.c
-(defbinding paned-child1 () widget
-  (paned paned)
-  (resize boolean :out)
-  (shrink boolean :out))
-
-;; Defined in gtkglue.c
-(defbinding paned-child2 () widget
-  (paned paned)
-  (resize boolean :out)
-  (shrink boolean :out))
-
 
 
 ;;; Layout

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.22 2004-12-17 00:42:55 espen Exp $
+;; $Id: gtktypes.lisp,v 1.23 2004-12-20 20:00:07 espen Exp $
 
 
 (in-package "GTK")
@@ -400,14 +400,16 @@
    :slots
    ((child1
     :allocation :virtual
-    :getter paned-child1
-    :setter (setf paned-child1)
+    :getter "gtk_paned_get_child1"
+    :setter "gtk_paned_add1"
+    :accessor paned-child1
     :initarg :child1
     :type widget)
    (child2
     :allocation :virtual
-    :getter paned-child2
-    :setter (setf paned-child2)
+    :getter "gtk_paned_get_child2"
+    :setter "gtk_paned_add2"
+    :accessor paned-child2
     :initarg :child2
     :type widget)))
 
