@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.2 2004-11-01 00:08:50 espen Exp $ */
+/* $Id: glue.c,v 1.3 2004-12-20 00:45:24 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -90,112 +90,12 @@ gtk_dialog_get_action_area (GtkDialog *dialog)
 
 
 
-/* Check menu item */
-
-gboolean
-gtk_check_menu_item_get_active (GtkCheckMenuItem* check_menu_item)
-{
-  return check_menu_item->active;
-}
-
-gboolean
-gtk_check_menu_item_get_show_toggle (GtkCheckMenuItem* check_menu_item)
-{
-  return check_menu_item->always_show_toggle;
-}
-
-
-
 /* Window */
 
 GtkWidget*
 gtk_window_get_default (GtkWindow *window)
 {
   return window->default_widget;
-}
-
-
-/* File selection */
-
-GtkWidget*
-gtk_file_selection_get_action_area (GtkFileSelection *filesel)
-{
-  return filesel->action_area;
-}
-
-GtkWidget*
-gtk_file_selection_get_ok_button (GtkFileSelection *filesel)
-{
-  return filesel->ok_button;
-}
-
-GtkWidget*
-gtk_file_selection_get_cancel_button (GtkFileSelection *filesel)
-{
-  return filesel->cancel_button;
-}
-
-
-/* Color selection */
-
-gtk_color_selection_set_color_by_values (GtkColorSelection *colorsel,
-					 gdouble red,
-					 gdouble green,
-					 gdouble blue,
-					 gdouble opacity)
-{
-  gdouble color[4];
-
-  color[0] = red;
-  color[1] = green;
-  color[2] = blue;
-  color[3] = opacity;
-
-  gtk_color_selection_set_color (colorsel, color);
-}
-
-void
-gtk_color_selection_get_color_as_values (GtkColorSelection *colorsel,
-					 gdouble *red,
-					 gdouble *green,
-					 gdouble *blue,
-					 gdouble *opacity)
-{
-  gdouble color[4];
-
-  gtk_color_selection_get_color (colorsel, color);
-
-  *red = color[0];
-  *green = color[1];
-  *blue = color[2];
-  *opacity = color[3];
-}
-
-
-/* Combo */
-
-GtkWidget*
-gtk_combo_get_entry (GtkCombo *combo)
-{
-  return combo->entry;
-}
-
-gboolean
-gtk_combo_get_use_arrows (GtkCombo *combo)
-{
-  return combo->use_arrows;
-}
-
-gboolean
-gtk_combo_get_use_arrows_always (GtkCombo *combo)
-{
-  return combo->use_arrows_always;
-}
-
-gboolean
-gtk_combo_get_case_sensitive (GtkCombo *combo)
-{
-  return combo->case_sensitive;
 }
 
 
@@ -230,25 +130,6 @@ gtk_layout_get_bin_window (GtkLayout *layout)
 }
 
 
-/* List */
-
-GList*
-gtk_list_selection (GtkList *list)
-{
-  return list->selection;
-}
-
-
-
-/* Toolbar */
-
-gint
-gtk_toolbar_get_tooltips (GtkToolbar *toolbar)
-{
-  return toolbar->tooltips->enabled;
-}
-
-
 /* Drawing area */
 
 void
@@ -262,30 +143,6 @@ gtk_drawing_area_get_size (GtkDrawingArea *darea, gint *width, gint *height)
 }
 
 
-/* Progress */
-
-gchar*
-gtk_progress_get_format_string (GtkProgress *progress)
-{
-  return progress->format;
-}
-
-GtkAdjustment*
-gtk_progress_get_adjustment (GtkProgress *progress)
-{
-  return progress->adjustment;
-}
-
-
-/* Tooltips */
-
-gboolean
-gtk_tooltips_get_enabled (GtkTooltips *tooltips)
-{
-  return tooltips->enabled;
-}
-
-
 /* GtkStyle accessor functions */
 
 typedef enum {
@@ -296,6 +153,7 @@ typedef enum {
   GTK_COLOR_MID,
   GTK_COLOR_TEXT,
   GTK_COLOR_BASE,
+  GTK_COLOR_TEXT_AA,
   GTK_COLOR_WHITE,
   GTK_COLOR_BLACK
 } GtkColorType;
@@ -324,11 +182,13 @@ gtk_style_get_color (GtkStyle *style, GtkColorType color_type,
       return &style->text[state];
     case GTK_COLOR_BASE:
       return &style->base[state];
+    case GTK_COLOR_TEXT_AA:
+      return &style->text_aa[state];
     }
 }
 
 
-GdkColor*
+void
 gtk_style_set_color (GtkStyle *style, GtkColorType color_type,
 		     GtkStateType state, GdkColor *color)
 {
@@ -352,25 +212,11 @@ gtk_style_set_color (GtkStyle *style, GtkColorType color_type,
       style->text[state]  = *color; break;
     case GTK_COLOR_BASE:
       style->base[state]  = *color; break;
+    case GTK_COLOR_TEXT_AA:
+      style->text_aa[state]  = *color; break;
     }
-
-  return gtk_style_get_color (style, color_type, state);
 }
 
-/*
-GdkFont*
-gtk_style_get_font (GtkStyle *style)
-{
-  return style->font;
-}
-
-
-GdkFont*
-gtk_style_set_font (GtkStyle *style, GdkFont *font)
-{
-  return style->font = font;
-}
-*/
 
 GdkGC*
 gtk_style_get_gc (GtkStyle *style, GtkColorType color_type, GtkStateType state)
@@ -395,5 +241,16 @@ gtk_style_get_gc (GtkStyle *style, GtkColorType color_type, GtkStateType state)
       return style->text_gc[state];
     case GTK_COLOR_BASE:
       return style->base_gc[state];
+    case GTK_COLOR_TEXT_AA:
+      return style->text_aa_gc[state];
     }
 }
+
+int
+gtk_style_font_desc_offset ()
+{
+  GtkStyle style;
+  
+  return (int)&style.font_desc - (int)&style;
+}
+
