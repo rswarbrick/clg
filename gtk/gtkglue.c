@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.8 2001-12-12 20:24:41 espen Exp $ */
+/* $Id: gtkglue.c,v 1.9 2002-03-22 22:34:45 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -37,15 +37,15 @@ gtk_query_version (guint *major, guint *minor, guint *micro)
 }
 
 
-/* Is this necessary? */
-
-GtkType
-gtk_object_type (GtkObject *obj)
+void gtk_callback_marshal (GtkWidget *widget, gpointer data)
 {
-  return GTK_OBJECT_TYPE (obj);
+  GValue arg;
+
+  memset (&arg, 0, sizeof (GValue));
+  g_value_init (&arg, gtk_widget_get_type ());
+  g_value_set_object (&arg, widget);
+  callback_marshal ((guint)data, NULL, 1, &arg);
 }
-
-
 
 /* Widget */
 
