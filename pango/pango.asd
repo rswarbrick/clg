@@ -10,7 +10,7 @@
 
 
 (defsystem pango
-    :depends-on (glib gdk)
+    :depends-on (glib)
     :components ((:library "libpango-1.0"
 			   :libdir #.(pkg-variable "pango" "libdir"))
 		 (:file "defpackage")

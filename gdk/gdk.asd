@@ -9,7 +9,7 @@
 
 
 (defsystem gdk
-    :depends-on (glib)
+    :depends-on (glib pango)
     :components ((:file "defpackage")
 		 (:library "libgdk_pixbuf-2.0" 
 			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
