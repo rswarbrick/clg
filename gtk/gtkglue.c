@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.6 2001-05-29 16:01:40 espen Exp $ */
+/* $Id: gtkglue.c,v 1.7 2001-10-21 23:22:53 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -84,14 +84,23 @@ gtk_container_get_focus_child (GtkContainer *container)
 }
 
 
-
-/* Menu item */
+/* Dialog */
 
 GtkWidget*
-gtk_menu_item_get_submenu (GtkMenuItem* menu_item)
+gtk_dialog_get_vbox (GtkDialog *dialog)
 {
-  return menu_item->submenu;
+  return dialog->vbox;
 }
+
+GtkWidget*
+gtk_dialog_get_action_area (GtkDialog *dialog)
+{
+  return dialog->action_area;
+}
+
+
+
+/* Menu item */
 
 GtkSubmenuPlacement
 gtk_menu_item_get_placement (GtkMenuItem* menu_item)
@@ -100,15 +109,15 @@ gtk_menu_item_get_placement (GtkMenuItem* menu_item)
 }
 
 gint
-gtk_menu_item_get_show_toggle (GtkMenuItem* menu_item)
-{
-  return menu_item->show_toggle_indicator;
-}
-
-gint
 gtk_menu_item_get_show_submenu (GtkMenuItem* menu_item)
 {
   return menu_item->show_submenu_indicator;
+}
+
+void
+gtk_menu_item_set_show_submenu (GtkMenuItem* menu_item, guint show)
+{
+  menu_item->show_submenu_indicator = show;
 }
 
 
@@ -255,20 +264,35 @@ gtk_paned_get_position (GtkPaned *paned)
 
 /* Layout */
 
-gint
-gtk_layout_get_size (GtkLayout *layout, gint *width, gint *height)
-		 
-{
-  *width =  layout->width;
-  *height = layout->height;
-}
-
 GdkWindow*
 gtk_layout_get_bin_window (GtkLayout *layout)
 {
   return layout->bin_window;
 }
 
+guint
+gtk_layout_get_xoffset (GtkLayout *layout)
+{
+  return layout->xoffset;
+}
+
+void
+gtk_layout_set_xoffset (GtkLayout *layout, guint xoffset)
+{
+  return layout->xoffset = xoffset;
+}
+
+guint
+gtk_layout_get_yoffset (GtkLayout *layout)
+{
+  return layout->yoffset;
+}
+
+void
+gtk_layout_set_yoffset (GtkLayout *layout, guint yoffset)
+{
+  return layout->yoffset = yoffset;
+}
 
 /* List */
 
@@ -278,37 +302,6 @@ gtk_list_selection (GtkList *list)
   return list->selection;
 }
 
-
-/* Menu */
-
-gboolean
-gtk_menu_get_tearoff_state (GtkMenu *menu)
-{
-  return menu->torn_off;
-}
-
-gchar*
-gtk_menu_get_title (GtkMenu *menu)
-{
-  return g_strdup (gtk_object_get_data (GTK_OBJECT (menu), "gtk-menu-title"));
-}
-
-
-/* Table */
-
-guint
-gtk_table_row_spacing (GtkTable *table,
-		       guint row)
-{
-  return table->rows[row].spacing;
-}
-
-guint
-gtk_table_column_spacing (GtkTable *table,
-			  guint col)
-{
-  return table->cols[col].spacing;
-}
 
 
 /* Toolbar */
@@ -354,29 +347,7 @@ gtk_progress_get_adjustment (GtkProgress *progress)
 }
 
 
-/* Scrolled window */
-     
-GtkWidget*
-gtk_scrolled_window_get_hscrollbar (GtkScrolledWindow *window)
-{
-  return window->hscrollbar;
-}
-
-GtkWidget*
-gtk_scrolled_window_get_vscrollbar (GtkScrolledWindow *window)
-{
-  return window->vscrollbar;
-}
-
-
-
 /* Tooltips */
-
-guint
-gtk_tooltips_get_delay (GtkTooltips *tooltips)
-{
-  return tooltips->delay;
-}
 
 gboolean
 gtk_tooltips_get_enabled (GtkTooltips *tooltips)
@@ -456,7 +427,7 @@ gtk_style_set_color (GtkStyle *style, GtkColorType color_type,
   return gtk_style_get_color (style, color_type, state);
 }
 
-
+/*
 GdkFont*
 gtk_style_get_font (GtkStyle *style)
 {
@@ -469,7 +440,7 @@ gtk_style_set_font (GtkStyle *style, GdkFont *font)
 {
   return style->font = font;
 }
-
+*/
 
 GdkGC*
 gtk_style_get_gc (GtkStyle *style, GtkColorType color_type, GtkStateType state)
