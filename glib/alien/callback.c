@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.1 2004-10-27 15:07:27 espen Exp $ */
+/* $Id: callback.c,v 1.2 2004-10-31 11:34:47 espen Exp $ */
 
 #include <glib-object.h>
 
@@ -27,6 +27,7 @@
 
 lispobj callback_trampoline;
 lispobj destroy_user_data;
+lispobj log_handler;
 #endif
 
 
@@ -91,6 +92,7 @@ g_lisp_callback_closure_new (guint callback_id)
 }
 
 
+/* Callback function used for idle and timeout */
 gboolean source_callback_marshal (gpointer data)
 {
   GValue return_value;  
@@ -102,19 +104,16 @@ gboolean source_callback_marshal (gpointer data)
   return g_value_get_boolean (&return_value);
 }
 
-
-
-GEnumValue*
-g_enum_class_values (GEnumClass *class, guint *n_values)
+void
+g_logv (const gchar   *log_domain,
+	GLogLevelFlags log_level,
+	const gchar   *format,
+	va_list	       args1)
 {
-  *n_values = class->n_values;
-  return class->values;
+  gchar *msg = g_strdup_vprintf (format, args1);
+  lispobj lisp_msg = alloc_string (msg);
+  g_free (msg);
+  
+  funcall3 (log_handler, alloc_string (log_domain),
+	    alloc_number ((unsigned int)log_level), lisp_msg);
 }
-
-GFlagsValue*
-g_flags_class_values (GFlagsClass *class, guint *n_values)
-{
-  *n_values = class->n_values;
-  return class->values;
-}
-
