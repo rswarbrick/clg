@@ -1,3 +1,10 @@
+(defpackage #:pkg-config
+  (:use #:common-lisp)
+  (:export #:pkg-cflags #:pkg-libs #:pkg-exists-p #:pkg-version 
+	   #:pkg-variable))
+
+(in-package #:pkg-config)
+
 (defparameter *pkg-config* "pkg-config")
 
 (defun split-string (string &key (start 0) (end (length string)))
@@ -37,24 +44,27 @@
 
 (defun run-pkg-config (package error &rest options)
   (let ((process
-	 (run-program
+	 (ext:run-program
 	  *pkg-config* (cons package options) :wait t :output :stream)))
     (unless process
       (error "Unable to run ~A" *pkg-config*))
-    (let ((exit-code (process-exit-code process)))
+    (let ((exit-code (ext:process-exit-code process)))
       (unless (or (not error) (zerop exit-code))
 	(error
 	 (or
-	  (read-string (process-error process) nil)
+	  (read-string (ext:process-error process) nil)
 	  (format nil "~A terminated with exit code ~A"
 		  *pkg-config* exit-code))))
-      (let ((output (read-lines (process-output process))))	  
-	(process-close process)
+      (let ((output (read-lines (ext:process-output process))))	  
+	(ext:process-close process)
 	(values output exit-code)))))
 
 
 (defun pkg-cflags (package)
   (split-string (first (run-pkg-config package t "--cflags"))))
+
+(defun pkg-libs (package)
+  (split-string (first (run-pkg-config package t "--libs"))))
 
 
 (defun pkg-exists-p (package &key version atleast-version max-version
