@@ -15,10 +15,16 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.5 2000-08-23 21:41:10 espen Exp $
+;; $Id: gtkobject.lisp,v 1.6 2000-09-04 22:14:54 espen Exp $
 
 
 (in-package "GTK")
+
+
+;;;; Initializing
+
+(setf (alien-type-name 'pointer) "gpointer")
+
 
 ;;;; Misc utils
 
