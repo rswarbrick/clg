@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.32 2005-02-22 23:12:02 espen Exp $
+;; $Id: gtktypes.lisp,v 1.33 2005-02-27 15:39:52 espen Exp $
 
 (in-package "GTK")
 
@@ -153,10 +153,8 @@
      :getter "gtk_widget_get_window"
      :reader widget-window
      :type gdk:window)
-    (parent
-     :allocation :property :pname "parent"
-     :reader widget-parent
-     :type container)
+    (parent :merge t :initarg nil)
+    (visible :merge t :initarg nil)
     (parent-window
      :allocation :virtual
      :getter %widget-parent-window
