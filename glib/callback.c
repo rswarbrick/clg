@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.4 2001-05-11 16:12:27 espen Exp $ */
+/* $Id: callback.c,v 1.5 2001-10-21 21:59:22 espen Exp $ */
 
 #include <gobject/gobject.h>
 
@@ -84,13 +84,6 @@ destroy_notify_address ()
 }
 #endif
 
-
-GParamSpec**
-g_object_class_properties (GObjectClass *class, guint *n_properties)
-{
-  *n_properties  = class->n_property_specs;
-  return class->property_specs;
-}
 
 #include        <gobject/genums.h>
 GEnumValue*
