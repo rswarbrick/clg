@@ -1,5 +1,7 @@
 (use-package :gtk)
 
+(clg-init)
+
 (make-instance 'window
 ; :type :toplevel
  :title "Test"
