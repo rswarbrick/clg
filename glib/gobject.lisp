@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.19 2004-11-07 15:58:08 espen Exp $
+;; $Id: gobject.lisp,v 1.20 2004-11-09 10:10:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -205,6 +205,13 @@
   (call-next-method)
   (%object-weak-ref object))
 
+(defmethod instance-finalizer ((instance gobject))
+  (let ((location (proxy-location instance)))
+    #'(lambda ()
+	(remove-cached-instance location)
+	(%weak-object-unref location)
+	(%object-unref location))))
+
 
 (defcallback weak-notify (nil (data int) (location pointer))
   (let ((object (find-cached-instance location)))
@@ -217,6 +224,12 @@
   (object gobject)
   ((callback weak-notify) pointer)
   (0 unsigned-int))
+
+(defbinding %object-weak-unref () nil
+  (location pointer)
+  ((callback weak-notify) pointer)
+  (0 unsigned-int))
+	    
 
 (defbinding (%gobject-new "g_object_new") () pointer
   (type type-number)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.12 2004-11-07 21:41:35 espen Exp $
+;; $Id: gboxed.lisp,v 1.13 2004-11-09 10:10:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -28,6 +28,13 @@
 (defclass boxed (struct)
   ()
   (:metaclass struct-class))
+
+(defmethod instance-finalizer ((instance boxed))
+  (let ((location (proxy-location instance))
+	(type-number (type-number-of instance)))
+    #'(lambda ()
+	(remove-cached-instance location)
+	(%boxed-free type-number location))))
 
 
 ;;;; Metaclass for boxed classes
@@ -52,19 +59,19 @@
     (register-type class-name type-number)))
 
 
-(defbinding %boxed-copy (type location) pointer
-  ((find-type-number type) type-number)
+(defbinding %boxed-copy () pointer
+  (type-number type-number)
   (location pointer))
 
-(defbinding %boxed-free (type location) nil
-  ((find-type-number type) type-number)
+(defbinding %boxed-free () nil
+  (type-number type-number)
   (location pointer))
 
 (defmethod reference-foreign ((class boxed-class) location)
-  (%boxed-copy (class-name class) location))
+  (%boxed-copy (find-type-number class) location))
 
 (defmethod unreference-foreign ((class boxed-class) location)
-  (%boxed-free (class-name class) location))
+  (%boxed-free (find-type-number class) location))
 
 
 ;;;; 

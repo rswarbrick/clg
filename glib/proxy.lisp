@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.11 2004-11-06 21:39:58 espen Exp $
+;; $Id: proxy.lisp,v 1.12 2004-11-09 10:10:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -224,8 +224,7 @@
 ;;     (unless (find-method #'unreference-foreign nil (list (class-of class) t) nil)
 ;;       (error "No matching method for UNREFERENCE-INSTANCE when called with class ~A" class))
     #'(lambda ()
-	(when (instance-cached-p location)
-	  (remove-cached-instance location))
+	(remove-cached-instance location)
 	(unreference-foreign class location))))
 
 
@@ -409,9 +408,10 @@
 
 (defmethod initialize-instance ((struct struct) &rest initargs)
   (declare (ignore initargs))
-  (setf 
-   (slot-value struct 'location)
-   (allocate-memory (proxy-instance-size (class-of struct))))
+  (let ((size (proxy-instance-size (class-of struct))))
+    (if (zerop size)
+	(error "~A has zero size" (class-of struct))
+      (setf (slot-value struct 'location) (allocate-memory size))))
   (call-next-method))
 
 
