@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.5 2002-01-20 14:52:04 espen Exp $
+;; $Id: gcallback.lisp,v 1.6 2002-03-19 17:09:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -29,17 +29,19 @@
 (defbinding lisp-callback-closure-new () gclosure
   (callback-id unsigned-int))
 
+(defun register-callback-function (function)
+  (check-type function (or null symbol function))
+  (register-user-data function))
+
+(defun make-callback-closure (function)
+  (lisp-callback-closure-new (register-callback-function function)))
 
 
 ;;;; Callback mechanism
 
-(defun register-callback-function (function)
-  (check-type function (or null symbol function))
-  (lisp-callback-closure-new (register-user-data function)))
-
 (defun callback-trampoline (callback-id params return-value)
   (let* ((return-type (unless (null-pointer-p return-value)
-			(type-from-number (gvalue-type return-value))))
+			(gvalue-type return-value)))
 	 (args nil)
 	 (callback-function (find-user-data callback-id)))
 
@@ -52,7 +54,7 @@
 		   (unwind-protect
 		       (let ((result (apply callback-function (reverse args))))
 			 (when return-type
-			   (gvalue-set return-value result))))
+			   (gvalue-set (print return-value) result))))
 		
 		 (continue nil :report "Return from callback function"
 		  (when return-type
@@ -75,6 +77,29 @@
 
 (pushnew 'after-gc-hook ext:*after-gc-hooks*)
 (after-gc-hook)
+
+
+;;;; Timeouts and idle functions
+
+(defvar *source-callback-marshal*
+  (system:foreign-symbol-address "source_callback_marshal"))
+(defvar *destroy-notify*
+  (system:foreign-symbol-address "destroy_notify"))
+
+(defbinding (timeout-add "g_timeout_add_full")
+    (function interval &optional (priority 0)) unsigned-int 
+  (priority int)
+  (interval unsigned-int)
+  (*source-callback-marshal* pointer)
+  ((register-callback-function function) unsigned-long)
+  (*destroy-notify* pointer))
+
+(defbinding (idle-add "g_idle_add_full")
+    (function &optional (priority 0)) unsigned-int 
+  (priority int)
+  (*source-callback-marshal* pointer)
+  ((register-callback-function function) unsigned-long)
+  (*destroy-notify* pointer))
 
 
 
@@ -150,5 +175,5 @@
 (defmethod signal-connect :around ((gobject gobject) signal function
 				   &key after object)
   (declare (ignore object))
-  (let ((callback-id (register-callback-function (call-next-method))))
+  (let ((callback-id (make-callback-closure (call-next-method))))
     (signal-connect-closure gobject signal callback-id :after after)))
