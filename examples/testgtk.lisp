@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.21 2005-02-27 13:28:19 espen Exp $
+;; $Id: testgtk.lisp,v 1.22 2005-02-27 14:24:49 espen Exp $
 
 
 ;(use-package "GTK")
@@ -452,6 +452,12 @@
 ;; File chooser dialog
 
 (define-dialog create-file-chooser (dialog "File Chooser" 'file-chooser-dialog)
+  (file-chooser-add-filter dialog 
+   (make-instance 'file-filter :name "All files" :pattern "*"))
+  (file-chooser-add-filter dialog 
+   (make-instance 'file-filter :name "Common Lisp source code" 
+    :patterns '("*.lisp" "*.lsp")))
+
   (dialog-add-button dialog "gtk-cancel" #'widget-destroy :object t)
   (dialog-add-button dialog "gtk-ok" 
    #'(lambda ()
