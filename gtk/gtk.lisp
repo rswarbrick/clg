@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.23 2004-12-20 20:00:07 espen Exp $
+;; $Id: gtk.lisp,v 1.24 2004-12-20 22:43:26 espen Exp $
 
 
 (in-package "GTK")
@@ -470,6 +470,39 @@
   (entry entry)
   (x int :out)
   (y int :out))
+
+
+;;; Entry Completion
+
+(def-callback-marshal %entry-completion-match-func
+    (boolean entry-completion string (copy-of tree-iter)))
+
+(defbinding entry-completion-set-match-func (completion function) nil
+  (completion entry-completion)
+  ((callback %entry-completion-match-func) pointer)
+  ((register-callback-function function) unsigned-int)
+  ((callback %destroy-user-data) pointer))
+
+(defbinding entry-completion-complete () nil
+  (completion entry-completion))
+
+#+gtk2.6
+(defbinding entry-completion-insert-prefix () nil
+  (completion entry-completion))
+
+(defbinding entry-completion-insert-action-text () nil
+  (completion entry-completion)
+  (index int)
+  (text string))
+
+(defbinding entry-completion-insert-action-markup () nil
+  (completion entry-completion)
+  (index int)
+  (markup string))
+
+(defbinding entry-completion-delete-action () nil
+  (completion entry-completion)
+  (index int))
 
 
 ;;; Image
