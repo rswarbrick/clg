@@ -11,6 +11,17 @@
 
 (import 'alien:load-shared-library)
 
+;; A hack to get around a bug in gdk's init code
+(defvar argc (alien:make-alien c-call:int))
+(defvar progname (alien:make-alien c-call:char))
+(defvar argv0 (alien:make-alien (* c-call:char)))
+(defvar argv (alien:make-alien (* (* c-call:char))))
+(setf (alien:deref argc) 1)
+(setf (alien:deref progname) 0)
+(setf (alien:deref argv0) progname)
+(setf (alien:deref argv) argv0)
+
+
 (eval
  `(mk:defsystem clg
     :source-pathname "clg:"
@@ -22,8 +33,8 @@
      (:module glib
       :initially-do
       (progn
-	(load-shared-library "libglib-1.3.so.5")
-	(load-shared-library "libgobject-1.3.so.5" :init "g_type_init"))
+	(load-shared-library "libglib-1.3.so.9")
+	(load-shared-library "libgobject-1.3.so.9" :init "g_type_init"))
       :components
       ((:file "callback"
 	:language :c
@@ -39,10 +50,10 @@
        (:file "proxy" :depends-on ("glib"))
        (:file "gtype" :depends-on ("proxy"))
        (:file "gboxed" :depends-on ("gtype"))
-       (:file "gcallback" :depends-on ("gtype" "gparam" "callback"))
        (:file "genums" :depends-on ("gtype"))
        (:file "gparam" :depends-on ("genums"))
        (:file "gobject" :depends-on ("gparam"))
+       (:file "gcallback" :depends-on ("gtype" "gparam" "gobject" "callback"))
        (:file "glib-export"
 	:depends-on
 	("gutils" "glib" "proxy" "gboxed" "gtype" "gparam" "gcallback"
@@ -53,14 +64,12 @@
       :binary-pathname "gdk;"
       :initially-do
       (progn
-	(load-shared-library "libgdk_pixbuf-1.3.so.5")
-	(load-shared-library "libgdk-x11-1.3.so.5"
+	(load-shared-library "libgdk_pixbuf-1.3.so.9")
+	(load-shared-library "libgdk-x11-1.3.so.9"
 	 :init "gdk_init"
 	 :prototype '(function
-		      c-call:void
-		      alien:system-area-pointer
-		      alien:system-area-pointer)
-	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
+		      c-call:void (* c-call:int) (* (* (* char))))
+	 :initargs (list argc argv)))
       :language :c
       :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
 			 :optimize 2))
@@ -73,7 +82,7 @@
 	(:file "gdk" :depends-on ("gdkevents")))
        :depends-on (glib "gdkglue"))
      (:module pango
-      :initially-do (load-shared-library "libpango-0.16.so")
+      :initially-do (load-shared-library "libpango-0.20.so")
        :components
        ((:file "pango-package")
         (:file "pango" :depends-on ("pango-package"))
@@ -85,7 +94,7 @@
       :initially-do
       (progn
 	(load-shared-library
-	 "libgtk-x11-1.3.so.5"
+	 "libgtk-x11-1.3.so.9"
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
