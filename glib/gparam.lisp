@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.8 2004-10-28 09:33:56 espen Exp $
+;; $Id: gparam.lisp,v 1.9 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GLIB")
 
@@ -24,27 +24,31 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defbinding (size-of-gvalue "size_of_gvalue") () unsigned-int))
 
-(defconstant +gvalue-size+ (+ (size-of 'type-number) (* 2 (size-of 'double-float))))
+;(defconstant +gvalue-size+ (+ (size-of 'type-number) (* 2 (size-of 'double-float))))
 (defconstant +gvalue-size+ #.(size-of-gvalue))
 
 (defconstant +gvalue-value-offset+ (size-of 'type-number))
 
-(defbinding (gvalue-init "g_value_init") () nil
+(defbinding (%gvalue-init "g_value_init") () nil
   (value gvalue)
   (type type-number))
 
 (defbinding (gvalue-unset "g_value_unset") () nil
   (value gvalue))
 
+(defun gvalue-init (gvalue type &optional (value nil value-p))
+  (%gvalue-init gvalue (find-type-number type))
+  (when value-p
+    (funcall (writer-function type) value gvalue +gvalue-value-offset+)))
 
 (defun gvalue-new (type &optional (value nil value-p))
   (let ((gvalue (allocate-memory +gvalue-size+)))
-    (gvalue-init gvalue (find-type-number type))
-    (when value-p
-      (gvalue-set gvalue value))
+    (if value-p
+	(gvalue-init gvalue type value)
+      (gvalue-init gvalue type))
     gvalue))
 
-(defun gvalue-free (gvalue &optional unset-p)
+(defun gvalue-free (gvalue &optional (unset-p t))
   (unless (null-pointer-p gvalue)
     (when unset-p
       (gvalue-unset gvalue))
@@ -54,19 +58,13 @@
   (type-from-number (system:sap-ref-32 gvalue 0)))
 
 (defun gvalue-get (gvalue)
-  (funcall
-   (intern-reader-function (gvalue-type gvalue))
+  (funcall (reader-function (gvalue-type gvalue))
    gvalue +gvalue-value-offset+))
 
 (defun gvalue-set (gvalue value)
-  (funcall
-   (intern-writer-function (gvalue-type gvalue))
+  (funcall (writer-function (gvalue-type gvalue))
    value gvalue +gvalue-value-offset+)
   value)
-
-
-(deftype-method unreference-alien gvalue (type-spec location)
-  `(gvalue-free ,location nil))
 
 
 
@@ -79,38 +77,61 @@
     (:lax-validation 16)
     (:private 32)))
 
-;(eval-when (:compile-toplevel :load-toplevel :execute)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass param-spec-class (ginstance-class)
+    ())
+
+  (defmethod validate-superclass 
+      ((class param-spec-class) (super pcl::standard-class))
+    t ;(subtypep (class-name super) 'param)
+))
+
+
+(defbinding %param-spec-ref () pointer
+  (location pointer))
+  
+(defbinding %param-spec-unref () nil
+  (location pointer))
+
+(defmethod reference-foreign ((class param-spec-class) location)
+  (declare (ignore class))
+  (%param-spec-ref location))
+
+(defmethod unreference-foreign ((class param-spec-class) location)
+  (declare (ignore class))
+  (%param-spec-unref location))
+
+
+
 ;; TODO: rename to param-spec
-  (defclass param (ginstance)
-    ((name
-      :allocation :alien
-      :reader param-name
-      :type string)
-     (flags
-      :allocation :alien
-      :reader param-flags
-      :type param-flag-type)
-     (value-type
-      :allocation :alien
-      :reader param-value-type
-      :type type-number)
-     (owner-type
-      :allocation :alien
-      :reader param-owner-type
-      :type type-number)
-     (nickname
-      :allocation :virtual
-      :getter "g_param_spec_get_nick"
-      :reader param-nickname
-      :type string)
-     (documentation
-      :allocation :virtual
-      :getter "g_param_spec_get_blurb"
-      :reader param-documentation
-      :type string))
-    (:metaclass ginstance-class)
-    (:ref "g_param_spec_ref")
-    (:unref "g_param_spec_unref"));)
+(defclass param (ginstance)
+  ((name
+    :allocation :alien
+    :reader param-name
+    :type string)
+   (flags
+    :allocation :alien
+    :reader param-flags
+    :type param-flag-type)
+   (value-type
+    :allocation :alien
+    :reader param-value-type
+    :type type-number)
+   (owner-type
+    :allocation :alien
+    :reader param-owner-type
+    :type type-number)
+   (nickname
+    :allocation :virtual
+    :getter "g_param_spec_get_nick"
+    :reader param-nickname
+    :type string)
+   (documentation
+    :allocation :virtual
+    :getter "g_param_spec_get_blurb"
+    :reader param-documentation
+    :type string))
+  (:metaclass param-spec-class))
 
 
 (defclass param-char (param)
@@ -126,7 +147,7 @@
     :allocation :alien
     :reader param-char-default-value
     :type char))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-unsigned-char (param)
   (
@@ -143,7 +164,7 @@
 ;     :reader param-unsigned-char-default-value
 ;     :type unsigned-char)
    )
-  (:metaclass ginstance-class)
+  (:metaclass param-spec-class)
   (:alien-name "GParamUChar"))
 
 (defclass param-boolean (param)
@@ -151,7 +172,7 @@
      :allocation :alien
      :reader param-boolean-default-value
      :type boolean))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-int (param)
   ((minimum
@@ -166,7 +187,7 @@
     :allocation :alien
     :reader param-int-default-value
     :type int))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-unsigned-int (param)
   ((minimum
@@ -181,7 +202,7 @@
     :allocation :alien
     :reader param-unsigned-int-default-value
     :type unsigned-int))
-  (:metaclass ginstance-class)
+  (:metaclass param-spec-class)
   (:alien-name "GParamUInt"))
 
 (defclass param-long (param)
@@ -197,7 +218,7 @@
     :allocation :alien
     :reader param-long-default-value
     :type long))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-unsigned-long (param)
   ((minimum
@@ -212,12 +233,12 @@
     :allocation :alien
     :reader param-unsigned-long-default-value
     :type unsigned-long))
-  (:metaclass ginstance-class)
+  (:metaclass param-spec-class)
   (:alien-name "GParamULong"))
 
 (defclass param-unichar (param)
   ()
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-enum (param)
   ((class
@@ -228,7 +249,7 @@
     :allocation :alien
     :reader param-enum-default-value
     :type long))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-flags (param)
   ((class
@@ -239,7 +260,7 @@
     :allocation :alien
     :reader param-flags-default-value
     :type long))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-single-float (param)
   ((minimum
@@ -258,7 +279,7 @@
     :allocation :alien
     :reader param-single-float-epsilon
     :type single-float))
-  (:metaclass ginstance-class)
+  (:metaclass param-spec-class)
   (:alien-name "GParamFloat"))
 
 (defclass param-double-float (param)
@@ -278,7 +299,7 @@
     :allocation :alien
     :reader param-double-float-epsilon
     :type double-float))
-  (:metaclass ginstance-class)
+  (:metaclass param-spec-class)
   (:alien-name "GParamDouble"))
 
 (defclass param-string (param)
@@ -286,19 +307,19 @@
     :allocation :alien
     :reader param-string-default-value
     :type string))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-param (param)
   ()
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-boxed (param)
   ()
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-pointer (param)
   ()
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 (defclass param-value-array (param)
   ((element-spec
@@ -309,12 +330,12 @@
     :allocation :alien
     :reader param-value-array-length
     :type unsigned-int))
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))
 
 ;; (defclass param-closure (param)
 ;;   ()
-;;   (:metaclass ginstance-class))
+;;   (:metaclass param-spec-class))
 
 (defclass param-object (param)
   ()
-  (:metaclass ginstance-class))
+  (:metaclass param-spec-class))

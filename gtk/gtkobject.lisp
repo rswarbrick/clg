@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.18 2004-11-03 16:54:24 espen Exp $
+;; $Id: gtkobject.lisp,v 1.19 2004-11-06 21:39:58 espen Exp $
 
 
 (in-package "GTK")
@@ -34,7 +34,9 @@
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "libgtk-x11-2.0.so"
+  (init-types-in-library 
+   #.(concatenate 'string (pkg-config:pkg-variable "gtk+-2.0" "libdir") 
+		          "/libgtk-x11-2.0.so")
    :ignore ("gtk_window_get_type_hint"))
 
   (defclass %object (gobject)
@@ -43,15 +45,14 @@
     (:alien-name "GtkObject")))
 
 
-(defmethod shared-initialize ((object %object) names &rest initargs &key signal)
-  (declare (ignore names signal))
+(defmethod initialize-instance ((object %object) &rest initargs &key signal)
+  (declare (ignore signal))
   (call-next-method)
-  (object-ref object) ; inc ref count before sinking
-  (%object-sink object)
+  (reference-foreign (class-of object) (proxy-location object))
   (dolist (signal-definition (get-all initargs :signal))
     (apply #'signal-connect object signal-definition)))
 
-(defmethod initialize-proxy ((object %object) &rest initargs)
+(defmethod initialize-instance :around ((object %object) &rest initargs)
   (declare (ignore initargs))
   (call-next-method)
   (%object-sink object))
@@ -85,34 +86,13 @@
     (main-iteration-do nil)
     (main-iterate-all)))
 
-;;;; Initalization
-
-(defbinding (gtk-init "gtk_parse_args") () nil
-  "Initializes the library without opening the display."
-  (nil null)
-  (nil null))
-
-(defun clg-init (&optional display)
-  "Initializes the system and starts the event handling"
-  (unless (gdk:display-get-default)
-    (gdk:gdk-init)
-    (gtk-init)
-    (prog1
-	(gdk:display-open display)
-      (system:add-fd-handler 
-       (gdk:display-connection-number) :input #'main-iterate-all)
-      (setq lisp::*periodic-polling-function* #'main-iterate-all)
-      (setq lisp::*max-event-to-sec* 0)
-      (setq lisp::*max-event-to-usec* 1000))))
-
-
 
 ;;;; Metaclass for child classes
  
 (defvar *container-to-child-class-mappings* (make-hash-table))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass child-class (virtual-slot-class)
+  (defclass child-class (virtual-slots-class)
     ())
 
   (defclass direct-child-slot-definition (direct-virtual-slot-definition)
@@ -127,15 +107,6 @@
   (setf
    (gethash (find-class (first container)) *container-to-child-class-mappings*)
     class))
-
-;; (defmethod initialize-instance  ((slotd direct-child-slot-definition)
-;; 				 &rest initargs &key pname)
-;;   (declare (ignore initargs))
-;;   (call-next-method)
-;;   (if pname
-;;       (setf (slot-value slotd 'pname) pname)
-;;     ; ???
-;;     (error "Need pname for slot with allocation :property")))
 
 (defmethod direct-slot-definition-class ((class child-class) &rest initargs)
   (case (getf initargs :allocation)
@@ -169,31 +140,25 @@
        (slot-value slotd 'reader-function)
        #'(lambda (object)
 	   (with-slots (parent child) object	   
-	     (with-gc-disabled
-		 (let ((gvalue (gvalue-new type-number)))
-		   (%container-child-get-property parent child pname gvalue)
-		   (unwind-protect
-			(funcall
-			 (intern-reader-function type)
-			 gvalue +gvalue-value-offset+)
-		     (gvalue-free gvalue t))))))))
+	     (let ((gvalue (gvalue-new type-number)))
+	       (%container-child-get-property parent child pname gvalue)
+	       (unwind-protect
+		    (funcall (reader-function type) gvalue +gvalue-value-offset+)
+		 (gvalue-free gvalue t)))))))
     
     (unless (slot-boundp slotd 'writer-function)
       (setf 
        (slot-value slotd 'writer-function)
        #'(lambda (value object)
 	   (with-slots (parent child) object	   
-	     (with-gc-disabled
-		 (let ((gvalue (gvalue-new type-number)))
-		   (funcall
-		    (intern-writer-function type)
-		    value gvalue +gvalue-value-offset+)
-		   (%container-child-set-property parent child pname gvalue)
-		   (funcall
-		    (intern-destroy-function type)
-		    gvalue +gvalue-value-offset+)
-		   (gvalue-free gvalue nil)
-		   value))))))
+	     (let ((gvalue (gvalue-new type-number)))
+	       (funcall (writer-function type) value gvalue +gvalue-value-offset+)
+	       (%container-child-set-property parent child pname gvalue)
+;; 		   (funcall
+;; 		    (destroy-function type)
+;; 		    gvalue +gvalue-value-offset+)
+		   (gvalue-free gvalue t)
+		   value)))))
     
     (unless (slot-boundp slotd 'boundp-function)
       (setf 
@@ -250,7 +215,7 @@
     (multiple-value-bind (array length)
 	(%container-class-list-child-properties class)
       (unwind-protect
-	  (map-c-array 'list #'identity array 'param length)
+	  (map-c-vector 'list #'identity array 'param length)
 	(deallocate-memory array)))))
 
 (defun default-container-child-name (container-class)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.14 2004-11-03 10:41:23 espen Exp $
+;; $Id: gtk.lisp,v 1.15 2004-11-06 21:39:58 espen Exp $
 
 
 (in-package "GTK")
@@ -40,6 +40,27 @@
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
 (defbinding get-default-language () string)
+
+
+;;;; Initalization
+
+(defbinding (gtk-init "gtk_parse_args") () nil
+  "Initializes the library without opening the display."
+  (nil null)
+  (nil null))
+
+(defun clg-init (&optional display)
+  "Initializes the system and starts the event handling"
+  (unless (gdk:display-get-default)
+    (gdk:gdk-init)
+    (gtk-init)
+    (prog1
+	(gdk:display-open display)
+      (system:add-fd-handler 
+       (gdk:display-connection-number) :input #'main-iterate-all)
+      (setq lisp::*periodic-polling-function* #'main-iterate-all)
+      (setq lisp::*max-event-to-sec* 0)
+      (setq lisp::*max-event-to-usec* 1000))))
 
 
 ;;; Acccel group
@@ -248,6 +269,7 @@
 
 (defmethod shared-initialize ((combo combo) names &rest initargs
 			      &key popdown-strings)
+  (declare (ignore initargs))
   (call-next-method)
   (when popdown-strings
     (combo-set-popdown-strings combo popdown-strings)))
@@ -264,6 +286,7 @@
 ;;;; Dialog
 
 (defmethod shared-initialize ((dialog dialog) names &rest initargs &key button)
+  (declare (ignore button))
   (call-next-method)
   (dolist (button-definition (get-all initargs :button))
     (apply #'dialog-add-button dialog (mklist button-definition))))
@@ -677,14 +700,14 @@
   (edge gdk:window-edge)
   (button int)
   (root-x int) (root-y int)
-  (timestamp (unsigned-int 32)))
+  (timestamp unsigned-int))
 
 (defbinding window-begin-move-drag () nil
   (window window)
   (edge gdk:window-edge)
   (button int)
   (root-x int) (root-y int)
-  (timestamp (unsigned-int 32)))
+  (timestamp unsigned-int))
 
 (defbinding window-set-frame-dimensions () nil
   (window window)

@@ -15,35 +15,32 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.3 2001-10-21 22:02:01 espen Exp $
+;; $Id: genums.lisp,v 1.4 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GLIB")
 
 
-(defun %map-mappings (args op)
+(defun %map-enum (args op)
   (let ((current-value 0))
-    (map
-     'list 
+    (mapcar
      #'(lambda (mapping)
 	 (destructuring-bind (symbol &optional (value current-value))
 	     (mklist mapping)
 	   (setf current-value (1+ value))
 	   (case op
 	     (:enum-int (list symbol value))
-	     (:flags-int (list symbol value #|(ash 1 value)|#))
+	     (:flags-int (list symbol value))
 	     (:int-enum (list value symbol))
-	     (:int-flags (list value #|(ash 1 value)|# symbol))
+	     (:int-flags (list value symbol))
 	     (:symbols symbol))))
-     (if (integerp (first args))
-	 (rest args)
-       args))))
+     args)))
 
 (defun %query-enum-or-flags-values (query-function class type)
   (multiple-value-bind (sap length)
       (funcall query-function (type-class-ref type))
     (let ((values nil)
-	  (size (proxy-class-size (find-class class)))
-	  (proxy (make-proxy-instance class sap nil)))
+	  (size (proxy-instance-size (find-class class)))
+	  (proxy (make-instance class :location sap)))
       (dotimes (i length)
 	(with-slots (location nickname value) proxy
 	  (setf location sap)
@@ -56,42 +53,63 @@
       values)))
    
   
-;;;; Enum type
+;;;; Generic enum type
 
 (deftype enum (&rest args)
-  `(member ,@(%map-mappings args :symbols)))
+  `(member ,@(%map-enum args :symbols)))
 
-(deftype-method translate-type-spec enum (type-spec)
-  (let ((args (cdr (type-expand-to 'enum type-spec))))
-    (if (integerp (first args))
-	(translate-type-spec `(signed ,(first args)))
-      (translate-type-spec 'signed))))
+(defmethod alien-type ((type (eql 'enum)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'signed))
 
-(deftype-method size-of enum (type-spec)
-  (let ((args (cdr (type-expand-to 'enum type-spec))))
-    (if (integerp (first args))
-	(size-of `(signed ,(first args)))
-      (size-of 'signed))))
+(defmethod size-of ((type (eql 'enum)) &rest args)
+  (declare (ignore type args))
+  (size-of 'signed))
 
-(deftype-method translate-to-alien enum (type-spec expr &optional weak-ref)
-  (declare (ignore weak-ref))
-  (let ((args (cdr (type-expand-to 'enum type-spec))))
-    `(ecase ,expr
-       ,@(%map-mappings args :enum-int))))
+(defmethod to-alien-form (form (type (eql 'enum)) &rest args)
+  (declare (ignore type))
+  `(ecase ,form
+    ,@(%map-enum args :enum-int)))
 
-(deftype-method translate-from-alien enum (type-spec expr &optional weak-ref)
-  (declare (ignore weak-ref))
-  (destructuring-bind (name &rest args) (type-expand-to 'enum type-spec)
-    (declare (ignore name))
-    `(ecase ,expr
-       ,@(%map-mappings args :int-enum))))
+(defmethod from-alien-form (form (type (eql 'enum)) &rest args)
+  (declare (ignore type))
+  `(ecase ,form
+    ,@(%map-enum args :int-enum)))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass %enum-value (static)
-    ((value :allocation :alien :type int)
-     (name :allocation :alien :type string)
-     (nickname :allocation :alien :type string))
-    (:metaclass proxy-class)))
+(defmethod to-alien-function ((type (eql 'enum)) &rest args)
+  (let ((mappings (%map-enum args :enum-int)))
+    #'(lambda (enum)
+	(or
+	 (second (assoc enum mappings))
+	 (error "~S is not of type ~S" enum (cons type args))))))
+
+(defmethod from-alien-function ((type (eql 'enum)) &rest args)
+  (declare (ignore type))
+  (let ((mappings (%map-enum args :int-enum)))
+    #'(lambda (int)
+	(second (assoc int mappings)))))
+
+(defmethod writer-function ((type (eql 'enum)) &rest args)
+  (declare (ignore type))
+  (let ((writer (writer-function 'signed))
+	(function (apply #'to-alien-function 'enum args)))
+    #'(lambda (enum location &optional (offset 0))
+	(funcall writer (funcall function enum) location offset))))
+    
+(defmethod reader-function ((type (eql 'enum)) &rest args)
+  (declare (ignore type))
+  (let ((reader (reader-function 'signed))
+	(function (apply #'from-alien-function 'enum args)))
+    #'(lambda (location &optional (offset 0))
+	(funcall function (funcall reader location offset)))))
+
+
+
+(defclass %enum-value (struct)
+  ((value :allocation :alien :type int)
+   (name :allocation :alien :type string)
+   (nickname :allocation :alien :type string))
+  (:metaclass static-struct-class))
 
 (defbinding %enum-class-values () pointer
   (class pointer)
@@ -102,56 +120,80 @@
 
 
 
-;;;;  Flags type
+;;;;  Generic flags type
 
 (deftype flags (&rest args)
-  `(or
-    null
-    (cons
-     (member ,@(%map-mappings args :symbols))
-     list)))
+  `(or null (cons (member ,@(%map-enum args :symbols)) list)))
 
-(deftype-method translate-type-spec flags (type-spec)
-  (let ((args (cdr (type-expand-to 'flags type-spec))))
-    (if (integerp (first args))
-	(translate-type-spec `(unsigned ,(first args)))
-      (translate-type-spec 'unsigned))))
+(defmethod alien-type ((type (eql 'flags)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'unsigned))
 
-(deftype-method size-of flags (type-spec)
-  (let ((args (cdr (type-expand-to 'flags type-spec))))
-    (if (integerp (first args))
-	(size-of `(unsigned ,(first args)))
-      (size-of 'unsigned))))
+(defmethod size-of ((type (eql 'flags)) &rest args)
+  (declare (ignore type args))
+  (size-of 'unsigned))
 
-(deftype-method translate-to-alien flags (type-spec expr &optional weak-ref)
-  (declare (ignore weak-ref))
-  (destructuring-bind (name &rest args) (type-expand-to 'flags type-spec)
-    (declare (ignore name))
-    (let ((mappings (%map-mappings args :flags-int))
-	  (value (make-symbol "VALUE")))
-      `(let ((,value 0))
-	 (dolist (flag ,expr ,value)
-	   (setq ,value (logior ,value (second (assoc flag ',mappings)))))))))
+(defmethod to-alien-form (flags (type (eql 'flags)) &rest args)
+  `(loop
+    with value = 0
+    with flags = ,flags
+    for flag in (mklist flags)
+    do (let ((flagval
+	      (or
+	       (second (assoc flag ',(%map-enum args :flags-int)))
+	       (error "~S is not of type ~S" flags '(,type ,@args)))))
+	 (setq value (logior value flagval)))
+    finally (return value)))
 
-(deftype-method translate-from-alien flags (type-spec expr &optional weak-ref)
-  (declare (ignore weak-ref))
-  (destructuring-bind (name &rest args) (type-expand-to 'flags type-spec)
-    (declare (ignore name))
-    (let ((mappings (%map-mappings args :int-flags))
-	  (result (make-symbol "RESULT")))
-      `(let ((,result nil))
-	 (dolist (mapping ',mappings ,result)
-	   (unless (zerop (logand ,expr (first mapping)))
-	     (push (second mapping) ,result)))))))
+(defmethod from-alien-form (int (type (eql 'flags)) &rest args)
+  (declare (ignore type))
+  `(loop
+    for mapping in ',(%map-enum args :int-flags)
+    unless (zerop (logand int (first mapping)))
+    collect (second mapping)))
+
+(defmethod to-alien-function ((type (eql 'flags)) &rest args)
+  (let ((mappings (%map-enum args :flags-int)))
+    #'(lambda (flags)	
+	(loop
+	 with value = 0
+	 for flag in (mklist flags)
+	 do (let ((flagval (or
+		    (second (assoc flag mappings))
+		    (error "~S is not of type ~S" flags (cons type args)))))
+	      (setq value (logior value flagval)))
+	 finally (return value)))))
+
+(defmethod from-alien-function ((type (eql 'flags)) &rest args)
+  (declare (ignore type))
+  (let ((mappings (%map-enum args :int-flags)))
+    #'(lambda (int)
+	(loop
+	 for mapping in mappings
+	 unless (zerop (logand int (first mapping)))
+	 collect (second mapping)))))
+
+(defmethod writer-function ((type (eql 'flags)) &rest args)
+  (declare (ignore type))
+  (let ((writer (writer-function 'unsigned))
+	(function (apply #'to-alien-function 'flags args)))
+    #'(lambda (flags location &optional (offset 0))
+	(funcall writer (funcall function flags) location offset))))
+    
+(defmethod reader-function ((type (eql 'flags)) &rest args)
+  (declare (ignore type))
+  (let ((reader (reader-function 'unsigned))
+	(function (apply #'from-alien-function 'flags args)))
+    #'(lambda (location &optional (offset 0))
+	(funcall function (funcall reader location offset)))))
 
 
 
-;(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass %flags-value (static)
-    ((value :allocation :alien :type unsigned-int)
-     (name :allocation :alien :type string)
-     (nickname :allocation :alien :type string))
-    (:metaclass proxy-class));)
+(defclass %flags-value (struct)
+  ((value :allocation :alien :type unsigned-int)
+   (name :allocation :alien :type string)
+   (nickname :allocation :alien :type string))
+  (:metaclass static-struct-class))
 
 (defbinding %flags-class-values () pointer
   (class pointer)

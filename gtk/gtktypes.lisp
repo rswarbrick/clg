@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.16 2004-10-31 12:05:52 espen Exp $
+;; $Id: gtktypes.lisp,v 1.17 2004-11-06 21:39:58 espen Exp $
 
 
 (in-package "GTK")
@@ -55,7 +55,7 @@
     :accessor allocation-height
     :initarg :height
     :type int))
-  (:metaclass proxy-class))
+  (:metaclass struct-class))
 
 (defclass border (boxed)
   ((left
@@ -106,7 +106,7 @@
     :accessor stock-item-translation-domain
     :initarg :translation-domain
     :type string))
-  (:metaclass proxy-class))
+  (:metaclass static-struct-class))
 
 
 (define-types-by-introspection "Gtk"

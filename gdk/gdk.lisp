@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.10 2004-10-31 11:51:08 espen Exp $
+;; $Id: gdk.lisp,v 1.11 2004-11-06 21:39:58 espen Exp $
 
 
 (in-package "GDK")
@@ -30,11 +30,12 @@
 
 ;;; Display
 
-(defbinding %display-manager-get () display-manager)
+(defbinding (display-manager "gdk_display_manager_get") () display-manager)
+
 
 (defbinding (display-set-default "gdk_display_manager_set_default_display")
     (display) nil
-  ((%display-manager-get) display-manager)
+  ((display-manager) display-manager)
   (display display))
 
 (defbinding display-get-default () display)
@@ -318,15 +319,6 @@
 
 ;;; Cursor
 
-(deftype-method alien-ref cursor (type-spec)
-  (declare (ignore type-spec))
-  '%cursor-ref)
-
-(deftype-method alien-unref cursor (type-spec)
-  (declare (ignore type-spec))
-  '%cursor-unref)
-
-
 (defbinding cursor-new () cursor
   (cursor-type cursor-type))
 
@@ -338,10 +330,19 @@
   (x int) (y int))
 
 (defbinding %cursor-ref () pointer
-  (cursor (or cursor pointer)))
+  (location pointer))
 
 (defbinding %cursor-unref () nil
-  (cursor (or cursor pointer)))
+  (location pointer))
+
+(defmethod reference-foreign ((class (eql (find-class 'cursor))) location)
+  (declare (ignore class))
+  (%cursor-ref location))
+
+(defmethod unreference-foreign ((class (eql (find-class 'cursor))) location)
+  (declare (ignore class))
+  (%cursor-unref location))
+
 
 
 

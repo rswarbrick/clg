@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.11 2004-11-01 00:08:49 espen Exp $
+;; $Id: gcallback.lisp,v 1.12 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GLIB")
 
@@ -35,13 +35,16 @@
   (check-type function (or null symbol function))
   (register-user-data function))
 
-(def-callback closure-callback-marshal
-    (void (gclosure system-area-pointer) (return-value system-area-pointer)
-	  (n-params unsigned-int) (param-values system-area-pointer)
-	  (invocation-hint system-area-pointer) (callback-id unsigned-int))
+(def-callback closure-callback-marshal (c-call:void 
+					(gclosure system-area-pointer) 
+					(return-value system-area-pointer)
+					(n-params c-call:unsigned-int) 
+					(param-values system-area-pointer)
+					(invocation-hint system-area-pointer) 
+					(callback-id c-call:unsigned-int))
   (callback-trampoline callback-id n-params param-values return-value))
 
-(def-callback %destroy-user-data (void (id unsigned-int))
+(def-callback %destroy-user-data (c-call:void (id c-call:unsigned-int))
   (destroy-user-data id)) 
  
 (defun make-callback-closure (function)
@@ -75,7 +78,7 @@
 
 ;;;; Timeouts and idle functions
 
-(def-callback source-callback-marshal (void (callback-id unsigned-int))
+(def-callback source-callback-marshal (c-call:void (callback-id c-call:unsigned-int))
   (callback-trampoline callback-id 0 nil (make-pointer 0)))
 
 (defbinding (timeout-add "g_timeout_add_full")
@@ -172,8 +175,9 @@
 
 ;; TODO: define and signal conditions based on log-level
 ;(defun log-handler (domain log-level message)
-(def-callback log-handler (void (domain c-string) (log-level int) 
-				(message c-string))
+(def-callback log-handler (c-call:void (domain c-call:c-string) 
+				       (log-level c-call:int) 
+				       (message c-call:c-string))
   (error "~A: ~A" domain message))
 
 (setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))

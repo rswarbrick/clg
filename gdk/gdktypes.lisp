@@ -15,13 +15,21 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.7 2002-03-19 19:06:22 espen Exp $
+;; $Id: gdktypes.lisp,v 1.8 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GDK")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "libgdk-x11-2.0.so")
-  (init-types-in-library "libgdk_pixbuf-2.0.so"))
+  (init-types-in-library #.(concatenate 'string
+			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
+			    "/libgdk-x11-2.0.so") :prefix "gdk_")
+  (init-types-in-library #.(concatenate 'string
+			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
+			    "/libgdk-x11-2.0.so") :prefix "_gdk_")
+  (init-types-in-library #.(concatenate 'string
+			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
+			    "/libgdk_pixbuf-2.0.so") :prefix "gdk_"))
+
 
 (defclass color (boxed)
   ((pixel
@@ -63,11 +71,8 @@
     :accessor cursor-type
     :initarg :type
     :type cursor-type))
-  (:metaclass proxy-class)
-  (:copy %cursor-copy)
-  (:free %cursor-free))
+  (:metaclass struct-class))
 
 (defclass device (struct)
   ()
-  (:metaclass proxy-class))
-
+  (:metaclass struct-class))

@@ -3,8 +3,7 @@
 (asdf:oos 'asdf:load-op :clg-tools)
 
 (defpackage "GLIB-SYSTEM"
-  (:use "COMMON-LISP" "ASDF" "PKG-CONFIG")
-  (:export "*GTK-LIBRARY-PATH*"))
+  (:use "COMMON-LISP" "ASDF" "PKG-CONFIG"))
 
 (ext:unlock-all-packages)
 
@@ -18,9 +17,6 @@
 (pkg-exists-p "glib-2.0" :atleast-version "2.4.0")
 
 (defvar *cmucl-include-path* "/usr/lib/cmucl/include")
-
-;; TODO: remove this
-(defvar *gtk-library-path* (pkg-variable "gtk+-2.0" "libdir"))
 
 
 (defsystem glib

@@ -15,20 +15,14 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.10 2004-11-03 16:18:16 espen Exp $
+;; $Id: proxy.lisp,v 1.11 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GLIB")
-
-(import 
-'(pcl::initialize-internal-slot-functions
-  pcl::compute-effective-slot-definition-initargs
-  pcl::compute-slot-accessor-info
-  pcl::reader-function pcl::writer-function pcl::boundp-function))
 
 ;;;; Superclass for all metaclasses implementing some sort of virtual slots
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass virtual-slot-class (standard-class) 
+  (defclass virtual-slots-class (standard-class) 
     ())
 
   (defclass direct-virtual-slot-definition (standard-direct-slot-definition)
@@ -48,17 +42,16 @@
 		   instances)))
       (if object
 	  (slot-value object slot)
-	  default)))
-)
+	  default))))
 
   
 
-(defmethod direct-slot-definition-class ((class virtual-slot-class) &rest initargs)
+(defmethod direct-slot-definition-class ((class virtual-slots-class) &rest initargs)
   (if (eq (getf initargs :allocation) :virtual)
       (find-class 'direct-virtual-slot-definition)
     (call-next-method)))
 
-(defmethod effective-slot-definition-class ((class virtual-slot-class) &rest initargs)
+(defmethod effective-slot-definition-class ((class virtual-slots-class) &rest initargs)
   (if (eq (getf initargs :allocation) :virtual)
       (find-class 'effective-virtual-slot-definition)
     (call-next-method)))
@@ -76,10 +69,13 @@
 		   (error "Can't read slot: ~A" (slot-definition-name slotd))))
 	 (symbol #'(lambda (object)
 		     (funcall getter object)))
-	 (string (let ((reader (mkbinding-late getter 
-				(slot-definition-type slotd) 'pointer)))
+	 (string ;(let ()(reader  (mkbinding getter 
+;; 				(slot-definition-type slotd) 'pointer)))
 		   (setf (slot-value slotd 'reader-function)
 			 #'(lambda (object)
+			     (let ((reader
+				(mkbinding getter 
+				 (slot-definition-type slotd) 'pointer)))
 			     (funcall reader (proxy-location object)))))))))
 
     (unless (slot-boundp slotd 'writer-function)
@@ -93,10 +89,14 @@
 	 ((or symbol cons) #'(lambda (value object)
 			       (funcall (fdefinition setter) value object)))
 	 (string
-	  (let ((writer (mkbinding-late setter 'nil 'pointer 
-			 (slot-definition-type slotd))))
+	  (let ((writer ()));; (mkbinding setter 'nil 'pointer 
+;; 			 (slot-definition-type slotd))))
 	    (setf (slot-value slotd 'writer-function)
 		  #'(lambda (value object)
+		      (unless writer
+			(setq writer
+			 (mkbinding setter 'nil 'pointer 
+ 			  (slot-definition-type slotd))))
 		      (funcall writer (proxy-location object) value))))))))
 
     (unless (slot-boundp slotd 'boundp-function)
@@ -117,7 +117,7 @@
 					    type gf)
   nil)
 
-(defmethod compute-effective-slot-definition-initargs ((class virtual-slot-class) direct-slotds)
+(defmethod compute-effective-slot-definition-initargs ((class virtual-slots-class) direct-slotds)
   (if (eq (most-specific-slot-value direct-slotds 'allocation) :virtual)
       (nconc 
        (list :getter (most-specific-slot-value direct-slotds 'getter)
@@ -128,25 +128,25 @@
 
 
 (defmethod slot-value-using-class
-    ((class virtual-slot-class) (object standard-object)
+    ((class virtual-slots-class) (object standard-object)
      (slotd effective-virtual-slot-definition))
   (if (funcall (slot-value slotd 'boundp-function) object)
       (funcall (slot-value slotd 'reader-function) object)
     (slot-unbound class object (slot-definition-name slotd))))
 
 (defmethod slot-boundp-using-class
-    ((class virtual-slot-class) (object standard-object)
+    ((class virtual-slots-class) (object standard-object)
      (slotd effective-virtual-slot-definition))
   (funcall (slot-value slotd 'boundp-function) object))
   
 (defmethod (setf slot-value-using-class) 
-    (value (class virtual-slot-class) (object standard-object)
+    (value (class virtual-slots-class) (object standard-object)
      (slotd effective-virtual-slot-definition))
   (funcall (slot-value slotd 'writer-function) value object))
 
   
 (defmethod validate-superclass
-    ((class virtual-slot-class) (super standard-class))
+    ((class virtual-slots-class) (super standard-class))
   t)
 
 
@@ -171,90 +171,69 @@
 (defun remove-cached-instance (location)
   (remhash (system:sap-int location) *instance-cache*))
 
+;; For debuging
+(defun cached-instances ()
+  (let ((instances ()))
+    (maphash #'(lambda (location ref)
+		 (declare (ignore location))
+		 (push (ext:weak-pointer-value ref) instances))
+	     *instance-cache*)
+    instances))
+			
 
 
 ;;;; Proxy for alien instances
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass proxy ()
-    ((location :reader proxy-location :type system-area-pointer)))
+(defclass proxy ()
+  ((location :reader proxy-location :type system-area-pointer)))
 
-  (defgeneric initialize-proxy (object &rest initargs))
-  (defgeneric instance-finalizer (object)))
+(defgeneric initialize-proxy (object &rest initargs))
+(defgeneric instance-finalizer (object))
+(defgeneric reference-foreign (class location))
+(defgeneric unreference-foreign (class location))
+
+(defmethod unreference-foreign :around ((class class) location)
+  (unless (null-pointer-p location)
+;;     (format t "Unreferencing ~A at ~A" (class-name class) location)
+;;     (finish-output *standard-output*)
+    (call-next-method)
+;;     (write-line " done")
+;;     (finish-output *standard-output*)
+    ))
+
+(defmethod print-object ((instance proxy) stream)
+  (print-unreadable-object (instance stream :type t :identity nil)
+    (format stream "at 0x~X" (sap-int (proxy-location instance)))))
 
 (defmethod print-object ((instance proxy) stream)
   (print-unreadable-object (instance stream :type t :identity nil)
     (format stream "at 0x~X" (sap-int (proxy-location instance)))))
 
 
-(defmethod initialize-instance :after ((instance proxy)
-				       &rest initargs &key)
-  (declare (ignore initargs))
+(defmethod initialize-instance :around ((instance proxy) &key location)
+  (if location
+      (setf (slot-value instance 'location) location)      
+    (call-next-method))
   (cache-instance instance)
-  (ext:finalize instance (instance-finalizer instance)))
-
-(defmethod initialize-proxy ((instance proxy)
-			     &rest initargs &key location weak-ref)
-  (declare (ignore initargs))
-  (setf 
-   (slot-value instance 'location)
-   (if weak-ref
-       (funcall
-	(proxy-class-copy (class-of instance))
-	(type-of instance) location)
-     location))
-  (cache-instance instance)
-  (ext:finalize instance (instance-finalizer instance)))
+  (ext:finalize instance (instance-finalizer instance))
+  instance)
 
 (defmethod instance-finalizer ((instance proxy))
-  (let ((class (class-of instance))
-	(type (type-of instance))
-	(location (proxy-location instance)))
-    (declare (type symbol type) (type system-area-pointer location))
-    (let ((free (proxy-class-free class)))
-      #'(lambda ()
-	  (when (instance-cached-p location)
-	     (remove-cached-instance location)
-	     (funcall free type location))))))
-
-
-(deftype-method translate-type-spec proxy (type-spec)
-  (declare (ignore type-spec))
-  (translate-type-spec 'pointer))
-
-(deftype-method size-of proxy (type-spec)
-  (declare (ignore type-spec))
-  (size-of 'pointer))
-
-(deftype-method translate-from-alien
-    proxy (type-spec location &optional weak-ref)
-  `(let ((location ,location))
-     (unless (null-pointer-p location)
-       (ensure-proxy-instance ',type-spec location ,weak-ref))))
-
-(deftype-method translate-to-alien
-    proxy (type-spec instance &optional weak-ref)
-  (if weak-ref
-      `(proxy-location ,instance)
-      (let ((copy (proxy-class-copy (find-class type-spec)))) 
-	(if (symbolp copy)
-	    `(,copy ',type-spec (proxy-location ,instance))    
-	`(funcall ',copy ',type-spec (proxy-location ,instance))))))
-
-(deftype-method unreference-alien proxy (type-spec location)
-  (let ((free (proxy-class-free (find-class type-spec)))) 
-    (if (symbolp free)
-	`(,free ',type-spec ,location)
-    `(funcall ',free ',type-spec ,location))))
+  (let ((location (proxy-location instance))
+	(class (class-of instance)))    
+;;     (unless (find-method #'unreference-foreign nil (list (class-of class) t) nil)
+;;       (error "No matching method for UNREFERENCE-INSTANCE when called with class ~A" class))
+    #'(lambda ()
+	(when (instance-cached-p location)
+	  (remove-cached-instance location))
+	(unreference-foreign class location))))
 
 
 ;;;; Metaclass used for subclasses of proxy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass proxy-class (virtual-slot-class)
-    ((size :reader proxy-class-size)
-     (copy :reader proxy-class-copy)
-     (free :reader proxy-class-free)))
+  (defclass proxy-class (virtual-slots-class)
+    ((size :reader proxy-instance-size)))
 
   (defclass direct-alien-slot-definition (direct-virtual-slot-definition)
     ((allocation :initform :alien)
@@ -277,26 +256,12 @@
      (class-direct-superclasses class)))
   
   (defmethod shared-initialize ((class proxy-class) names
-				&rest initargs &key size copy free)
+				&rest initargs &key size)
     (declare (ignore initargs))
     (call-next-method)
     (cond
       (size (setf (slot-value class 'size) (first size)))
-      ((slot-boundp class 'size) (slot-makunbound class 'size)))
-    (cond
-      (copy (setf (slot-value class 'copy) (first copy)))
-      ((slot-boundp class 'copy) (slot-makunbound class 'copy)))
-    (cond
-      (free (setf (slot-value class 'free) (first free)))
-      ((slot-boundp class 'free) (slot-makunbound class 'free))))
-  
-  (defmethod shared-initialize :after ((class proxy-class) names &rest initargs)
-    (let ((super (most-specific-proxy-superclass class)))
-      (unless (or (not super) (eq super (find-class 'proxy)))
-	(unless (or (slot-boundp class 'copy) (not (slot-boundp super 'copy)))
-	  (setf (slot-value class 'copy) (proxy-class-copy super)))
-	(unless (or (slot-boundp class 'free) (not (slot-boundp super 'free)))
-	  (setf (slot-value class 'free) (proxy-class-free super))))))
+      ((slot-boundp class 'size) (slot-makunbound class 'size))))
   
   (defmethod direct-slot-definition-class ((class proxy-class) &rest initargs)
     (case (getf initargs :allocation)
@@ -319,23 +284,23 @@
 
   (defmethod initialize-internal-slot-functions ((slotd effective-alien-slot-definition))
     (with-slots (offset) slotd
-      (let* ((type (slot-definition-type slotd))
-	     (reader (intern-reader-function type))
-	     (writer (intern-writer-function type))
-	     (destroy (intern-destroy-function type)))
+      (let ((type (slot-definition-type slotd)))
 	(unless (slot-boundp slotd 'reader-function)
-	  (setf 
-	   (slot-value slotd 'reader-function)
-	   #'(lambda (object)
-	       (funcall reader (proxy-location object) offset))))
+	  (let ((reader (reader-function type)))
+	    (setf 
+	     (slot-value slotd 'reader-function)
+	     #'(lambda (object)
+		 (funcall reader (proxy-location object) offset)))))
 
 	(unless (slot-boundp slotd 'writer-function)
-	  (setf 
-	   (slot-value slotd 'writer-function)
-	   #'(lambda (value object)
-	       (let ((location (proxy-location object)))
-		 (funcall destroy location offset)
-		 (funcall writer value location offset)))))
+	  (let ((writer (writer-function type))
+		(destroy (destroy-function type)))
+	    (setf 
+	     (slot-value slotd 'writer-function)
+	     #'(lambda (value object)
+		 (let ((location (proxy-location object)))
+		   (funcall destroy location offset) ; destroy old value
+		   (funcall writer value location offset))))))
 
 	(unless (slot-boundp slotd 'boundp-function)
 	  (setf 
@@ -350,9 +315,8 @@
   (defconstant +struct-alignmen+ 4)
 
   (defmethod compute-slots ((class proxy-class))
-    ;; This stuff should really go somewhere else
     (loop 
-     with offset = (proxy-class-size (most-specific-proxy-superclass class))
+     with offset = (proxy-instance-size (most-specific-proxy-superclass class))
      with size = offset
      for slotd in (class-direct-slots class)
      when (eq (slot-definition-allocation slotd) :alien)
@@ -372,69 +336,111 @@
   (defmethod validate-superclass ((class proxy-class) (super standard-class))
     (subtypep (class-name super) 'proxy))
   
-  (defmethod proxy-class-size (class)
+  (defmethod proxy-instance-size (class)
     (declare (ignore class))
     0)
 )
   
-(defgeneric make-proxy-instance (class location weak-ref
-				       &rest initargs &key));)
+(defmethod alien-type ((class proxy-class) &rest args)
+  (declare (ignore class args))
+  (alien-type 'pointer))
 
-(defmethod make-proxy-instance ((class symbol) location weak-ref
-				&rest initargs &key)
-  (apply #'make-proxy-instance (find-class class) location weak-ref initargs))
+(defmethod size-of ((class proxy-class) &rest args)
+  (declare (ignore class args))
+  (size-of 'pointer))
 
-(defmethod make-proxy-instance ((class proxy-class) location weak-ref
-				&rest initargs &key)
-  (let ((instance (allocate-instance class)))
-    (apply
-     #'initialize-proxy
-     instance :location location :weak-ref weak-ref initargs)
-    instance))
+(defmethod from-alien-form (location (class proxy-class) &rest args)
+  (declare (ignore args))
+  `(ensure-proxy-instance ',(class-name class) ,location))
 
-(defun ensure-proxy-instance (class location weak-ref &rest initargs)
-  (or
-   (find-cached-instance location)
-   (apply #'make-proxy-instance class location weak-ref initargs)))
+(defmethod from-alien-function ((class proxy-class) &rest args)
+  (declare (ignore args))  
+  #'(lambda (location)
+      (ensure-proxy-instance class location)))
 
+(defmethod to-alien-form (instance (class proxy-class) &rest args)
+  (declare (ignore class args))
+  `(proxy-location ,instance))
+
+(defmethod to-alien-function ((class proxy-class) &rest args)
+  (declare (ignore class args))
+  #'proxy-location)
+
+(defmethod writer-function ((class proxy-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (instance location &optional (offset 0))
+      (assert (null-pointer-p (sap-ref-sap location offset)))
+      (setf 
+       (sap-ref-sap location offset)
+       (reference-foreign class (proxy-location instance)))))
+
+(defmethod reader-function ((class proxy-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0))
+      (ensure-proxy-instance class (sap-ref-sap location offset))))
+
+(defmethod destroy-function ((class proxy-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0))
+      (unreference-foreign class (sap-ref-sap location offset))))
+
+
+(defgeneric ensure-proxy-instance (class location)
+  (:documentation "Returns a proxy object representing the foreign object at the give location."))
+
+(defmethod ensure-proxy-instance :around (class location)
+  (unless (null-pointer-p location)
+    (or 
+     (find-cached-instance location)
+     (call-next-method))))
+  
+(defmethod ensure-proxy-instance ((class symbol) location)
+  (ensure-proxy-instance (find-class class) location))
+
+(defmethod ensure-proxy-instance ((class proxy-class) location)
+  (make-instance class :location location))
 
 
 ;;;; Superclasses for wrapping of C structures
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass struct (proxy)
-    ()
-    (:metaclass proxy-class)
-    (:copy %copy-struct)
-    (:free %free-struct)))
+(defclass struct (proxy)
+  ()
+  (:metaclass proxy-class))
 
-(defmethod initialize-instance ((structure struct) &rest initargs)
+(defmethod initialize-instance ((struct struct) &rest initargs)
   (declare (ignore initargs))
   (setf 
-   (slot-value structure 'location)
-   (allocate-memory (proxy-class-size (class-of structure))))
+   (slot-value struct 'location)
+   (allocate-memory (proxy-instance-size (class-of struct))))
   (call-next-method))
 
 
-(defun %copy-struct (type location)
-  (copy-memory location (proxy-class-size (find-class type))))
+;;;; Metaclasses used for subclasses of struct
 
-(defun %free-struct (type location)
-  (declare (ignore type))
+(defclass struct-class (proxy-class)
+  ())
+
+(defmethod reference-foreign ((class struct-class) location)
+  (copy-memory location (proxy-instance-size class)))
+
+(defmethod unreference-foreign ((class struct-class) location)
   (deallocate-memory location))
 
+(defmethod reader-function ((class struct-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0))
+      (let ((instance (sap-ref-sap location offset)))
+	(unless (null-pointer-p instance)
+	  (ensure-proxy-instance class (reference-foreign class instance))))))
 
-;(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass static (struct)
-    ()
-    (:metaclass proxy-class)
-    (:copy %copy-static)
-    (:free %free-static));)
 
-(defun %copy-static (type location)
-  (declare (ignore type))
+(defclass static-struct-class (struct-class)
+  ())
+
+(defmethod reference-foreign ((class static-struct-class) location)
+  (declare (ignore class))
   location)
 
-(defun %free-static (type location)
-  (declare (ignore type location))
+(defmethod unreference-foreign ((class static-struct-class) location)
+  (declare (ignore class location))
   nil)

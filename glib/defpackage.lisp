@@ -15,22 +15,18 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: defpackage.lisp,v 1.1 2004-10-27 14:48:00 espen Exp $
+;; $Id: defpackage.lisp,v 1.2 2004-11-06 21:39:58 espen Exp $
 
 ;(export 'kernel::type-expand-1 "KERNEL")
 
 (defpackage "GLIB"
-  (:use "ALIEN" "C-CALL" "SYSTEM" "COMMON-LISP" "PCL" "AUTOEXPORT"
-	"GLIB-SYSTEM")
-  (;:shadowing-
-   :import-from "PCL"
+  (:use "ALIEN" "SYSTEM" "COMMON-LISP" "PCL" "AUTOEXPORT")
+  (:import-from "PCL"
 	   "LOCATION" "ALLOCATION" "DIRECT-SLOTS" 
 	   "READER-FUNCTION" "WRITER-FUNCTION" "BOUNDP-FUNCTION" 
 	   "INITIALIZE-INTERNAL-SLOT-FUNCTIONS" "COMPUTE-SLOT-ACCESSOR-INFO"
 	   "COMPUTE-EFFECTIVE-SLOT-DEFINITION-INITARGS"
-	   #:initialize-internal-slot-gfs)
- ; (:import-from "KERNEL" "TYPE-EXPAND-1")
-  (:export #:load-shared-library)
+	   "INITIALIZE-INTERNAL-SLOT-GFS")
   (:export "DEFTYPE-METHOD" "TRANSLATE-TYPE-SPEC" "TRANSLATE-TO-ALIEN"
 	   "TRANSLATE-FROM-ALIEN" "CLEANUP-ALIEN" "UNREFERENCE-ALIEN"
 	   "SIZE-OF")

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.16 2004-11-03 16:18:16 espen Exp $
+;; $Id: gobject.lisp,v 1.17 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GLIB")
 
@@ -24,84 +24,90 @@
   (defclass gobject (ginstance)
     ()
     (:metaclass ginstance-class)
-    (:alien-name "GObject")
-    (:copy %object-ref)
-    (:free %object-unref)))
+    (:alien-name "GObject")))
+
+(defmethod print-object ((instance gobject) stream)
+  (print-unreadable-object (instance stream :type t :identity nil)
+    (if (slot-boundp instance 'location)
+	(format stream "at 0x~X" (sap-int (proxy-location instance)))
+      (write-string "(destroyed)" stream))))
 
 
 (defmethod initialize-instance ((object gobject) &rest initargs)
-  (let ((slotds (class-slots (class-of object)))
-	(names (make-array 0 :adjustable t :fill-pointer t))
-	(values (make-array 0 :adjustable t :fill-pointer t)))
-
-    (loop 
-     as tmp = initargs then (cddr tmp) while tmp
-     as key = (first tmp)
-     as value = (second tmp)
-     as slotd = (find-if
-		 #'(lambda (slotd)
-		     (member key (slot-definition-initargs slotd)))
-		 slotds)
-     when (and (typep slotd 'effective-property-slot-definition)
-	       (slot-value slotd 'construct))
-     do (let ((type (find-type-number (slot-definition-type slotd))))
-	  (vector-push-extend (slot-definition-pname slotd) names)
-	  (vector-push-extend (gvalue-new type value) values)
-	  (remf initargs key)))
-
-    (setf  
-     (slot-value object 'location) 
-     (if (zerop (length names))
-	 (%gobject-new (type-number-of object))
-       (%gobject-newvv (type-number-of object) (length names) names values)))
-    
-;    (map 'nil #'gvalue-free values)
-    )
+  ;; Extract initargs which we should pass directly to the GObeject
+  ;; constructor
+  (let* ((slotds (class-slots (class-of object)))
+	 (args (loop 
+		as tmp = initargs then (cddr tmp) while tmp
+		as key = (first tmp)
+		as value = (second tmp)
+		as slotd = (find-if
+			    #'(lambda (slotd)
+				(member key (slot-definition-initargs slotd)))
+			    slotds)
+		when (and (typep slotd 'effective-property-slot-definition)
+			  (slot-value slotd 'construct))
+		collect (progn 
+			  (remf initargs key)
+			  (list 
+			   (slot-definition-pname slotd)
+			   (slot-definition-type slotd)
+			   value)))))
+    (if args
+	(let* ((string-size (size-of 'string))
+	       (string-writer (writer-function 'string))
+	       (string-destroy (destroy-function 'string))
+	       (params (allocate-memory 
+			(* (length args) (+ string-size +gvalue-size+)))))
+	  (loop
+	   for (pname type value) in args
+	   as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
+	   do (funcall string-writer pname tmp)
+	      (gvalue-init (sap+ tmp string-size) type value))
+	  (unwind-protect
+	       (setf  
+		(slot-value object 'location) 
+		(%gobject-newv (type-number-of object) (length args) params))
+	    (loop
+	     repeat (length args)
+	     as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
+	     do (funcall string-destroy tmp)
+	        (gvalue-unset (sap+ tmp string-size)))
+	    (deallocate-memory params)))
+      (setf  
+       (slot-value object 'location) 
+       (%gobject-new (type-number-of object)))))
   
   (%object-weak-ref object)
   (apply #'call-next-method object initargs))
 
 
-(defmethod initialize-proxy ((object gobject) &rest initargs &key weak-ref)
+(defmethod initialize-instance :around ((object gobject) &rest initargs)
   (declare (ignore initargs))
   (call-next-method)
-  (%object-weak-ref object)
-  (unless weak-ref
-    (object-ref object)))
+  (%object-weak-ref object))
 
-(def-callback weak-notify (void (data int) (location system-area-pointer))
-  (when (instance-cached-p location)
-    (warn "~A being finalized by the GObject system while still in existence in lisp" (find-cached-instance location))
-    (remove-cached-instance location)))
+
+(def-callback weak-notify (c-call:void (data c-call:int) (location system-area-pointer))
+  (let ((object (find-cached-instance location)))
+    (when object
+;;       (warn "~A being finalized by the GObject system while still in existence in lisp" object)
+      (slot-makunbound object 'location)
+      (remove-cached-instance location))))
 
 (defbinding %object-weak-ref (object) nil
   (object gobject)
   ((callback weak-notify) pointer)
   (0 unsigned-int))
 
-
 (defbinding (%gobject-new "g_object_new") () pointer
   (type type-number)
   (nil null))
 
-(defbinding (%gobject-newvv "g_object_newvv") () pointer
+(defbinding (%gobject-newv "g_object_newv") () pointer
   (type type-number)
   (n-parameters unsigned-int)
-  (names (vector string))
-  (values (vector gvalue)))
-
-
-(defbinding %object-ref (type location) pointer
-  (location pointer))
-
- (defbinding %object-unref (type location) nil
-   (location pointer))
-
-(defun object-ref (object)
-  (%object-ref nil (proxy-location object)))
-
-(defun object-unref (object)
-  (%object-unref nil (proxy-location object)))
+  (params pointer))
 
 
 
@@ -154,7 +160,7 @@
 
 ;;;; Metaclass used for subclasses of gobject
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+;(eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass gobject-class (ginstance-class)
     ())
 
@@ -168,8 +174,21 @@
     ((pname :reader slot-definition-pname :initarg :pname)
      (readable :reader slot-readable-p :initarg :readable)
      (writable :reader slot-writable-p :initarg :writable)
-     (construct :initarg :construct))))
+     (construct :initarg :construct)));)
 
+(defbinding %object-ref () pointer
+  (location pointer))
+
+(defbinding %object-unref () nil
+  (location pointer))
+
+(defmethod reference-foreign ((class gobject-class) location)
+  (declare (ignore class))
+  (%object-ref location))
+
+(defmethod unreference-foreign ((class gobject-class) location)
+  (declare (ignore class))
+  (%object-unref location))
 
 
 ; (defbinding object-class-install-param () nil
@@ -215,14 +234,13 @@
       (setf 
        (slot-value slotd 'reader-function)
        (if (slot-readable-p slotd)
-	   #'(lambda (object)
-	       (with-gc-disabled
-		   (let ((gvalue (gvalue-new type-number)))
-		     (%object-get-property object pname gvalue)
-		     (unwind-protect
-			  (funcall
-			   (intern-reader-function (type-from-number type-number)) gvalue +gvalue-value-offset+) ; temporary workaround for wrong topological sorting of types
-		       (gvalue-free gvalue t)))))
+	   (let () ;(reader (reader-function (type-from-number type-number))))
+	     #'(lambda (object)
+		 (let ((gvalue (gvalue-new type-number)))
+		   (%object-get-property object pname gvalue)
+		   (unwind-protect
+			(funcall #|reader|# (reader-function (type-from-number type-number))  gvalue +gvalue-value-offset+)
+		     (gvalue-free gvalue t)))))
 	   #'(lambda (value object)
 	       (error "Slot is not readable: ~A" (slot-definition-name slotd))))))
     
@@ -230,18 +248,15 @@
       (setf 
        (slot-value slotd 'writer-function)
        (if (slot-writable-p slotd)
-	   #'(lambda (value object)
-	       (with-gc-disabled
-		   (let ((gvalue (gvalue-new type-number)))
-		     (funcall
-		      (intern-writer-function (type-from-number type-number)) ; temporary
-		      value gvalue +gvalue-value-offset+)
-		     (%object-set-property object pname gvalue)
-		     (funcall
-		      (intern-destroy-function (type-from-number type-number)) ; temporary
-		      gvalue +gvalue-value-offset+)
-		     (gvalue-free gvalue nil)
-		     value)))
+	   (let ();; (writer (writer-function (type-from-number type-number)))
+;; 		 (destroy (destroy-function (type-from-number type-number))))
+	     #'(lambda (value object)
+		 (let ((gvalue (gvalue-new type-number)))
+		   (funcall #|writer|# (writer-function (type-from-number type-number)) value gvalue +gvalue-value-offset+)
+		   (%object-set-property object pname gvalue)
+;		   (funcall #|destroy|#(destroy-function (type-from-number type-number)) gvalue +gvalue-value-offset+)
+		   (gvalue-free gvalue t)
+		   value)))
  	   #'(lambda (value object)
  	       (error "Slot is not writable: ~A" (slot-definition-name slotd))))))
     
@@ -270,9 +285,9 @@
 
 (defun %map-params (params length type inherited-p)
   (if inherited-p
-      (map-c-array 'list #'identity params 'param length)
+      (map-c-vector 'list #'identity params 'param length)
     (let ((properties ()))
-      (map-c-array 'list 
+      (map-c-vector 'list 
        #'(lambda (param)
 	   (when (eql (param-owner-type param) type)
 	     (push param properties)))

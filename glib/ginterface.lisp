@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.3 2004-10-31 00:56:29 espen Exp $
+;; $Id: ginterface.lisp,v 1.4 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GLIB")
 
@@ -26,30 +26,10 @@
 (defclass ginterface ()
   ())
 
-(deftype-method translate-type-spec ginterface (type-spec)
-  (declare (ignore type-spec))
-  (translate-type-spec 'gobject))
-
-(deftype-method size-of ginterface (type-spec)
-  (declare (ignore type-spec))
-  (size-of 'gobject))
-
-(deftype-method translate-from-alien
-    ginterface (type-spec location &optional weak-ref)
-  (declare (ignore type-spec))
-  (translate-from-alien 'gobject location weak-ref))
-
-(deftype-method translate-to-alien
-    ginterface (type-spec instance &optional weak-ref)
-  (declare (ignore type-spec))
-  (translate-to-alien 'gobject instance weak-ref))
-
-
-
 ;;;; Metaclass for interfaces
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginterface-class (virtual-slot-class)
+  (defclass ginterface-class (virtual-slots-class)
     ()))
 
 (defmethod direct-slot-definition-class ((class ginterface-class) &rest initargs)
@@ -88,6 +68,31 @@
 (defmethod validate-superclass
     ((class ginterface-class) (super pcl::standard-class))
   (subtypep (class-name super) 'ginterface))
+
+
+(defmethod alien-type ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (alien-type 'gobject))
+
+(defmethod size-of ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (size-of 'gobject))
+
+(defmethod from-alien-form (location (class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (from-alien-form location 'gobject))
+
+(defmethod from-alien-function ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (from-alien-function 'gobject))
+
+(defmethod to-alien-form (instance (class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (to-alien-form instance 'gobject))
+
+(defmethod to-alien-function ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (to-alien-function 'gobject))
 
 
 ;;;;

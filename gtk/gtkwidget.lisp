@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.9 2004-10-31 12:05:52 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.10 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GTK")
 
@@ -361,7 +361,7 @@ received."
 
 (defun widget-get-size-request (widget)
   (multiple-value-bind (width height) (%widget-get-size-request widget)
-    (values (unless (= width -1) width) (unless (= height -1) height))))
+     (values (unless (= width -1) width) (unless (= height -1) height))))
 
 (defbinding widget-set-size-request (widget width height) nil
   (widget widget)

@@ -15,18 +15,12 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.4 2004-10-31 11:53:30 espen Exp $
+;; $Id: gdkevents.lisp,v 1.5 2004-11-06 21:39:58 espen Exp $
 
 (in-package "GDK")
 
 
 (defvar *event-classes* (make-hash-table))
-
-(defun %type-of-event (location)
-  (class-name
-   (gethash
-    (funcall (intern-reader-function 'event-type) location 0)
-    *event-classes*)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass event (boxed)
@@ -52,32 +46,32 @@
   (call-next-method)
   (setf (slot-value event '%type) (event-class-type (class-of event))))
 
-(deftype-method translate-from-alien
-    event (type-spec location &optional weak-ref)
-  (declare (ignore type-spec))    
-  `(let ((location ,location))
-     (unless (null-pointer-p location)
-       (ensure-proxy-instance (%type-of-event location) location ,weak-ref))))
-
 
 ;;;; Metaclass for event classes
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass event-class (proxy-class)
+  (defclass event-class (boxed-class)
     ((event-type :reader event-class-type)))
 
-  
-  (defmethod shared-initialize ((class event-class) names &key name type)
-    (call-next-method)
-    (setf (slot-value class 'event-type) (first type))
-    (setf (gethash (first type) *event-classes*) class)
-    (let ((class-name (or name (class-name class))))
-      (register-type class-name 'event)))
-  
-
-  (defmethod validate-superclass
-    ((class event-class) (super pcl::standard-class))
+  (defmethod validate-superclass ((class event-class) (super standard-class))
     (subtypep (class-name super) 'event)))
+
+
+(defmethod shared-initialize ((class event-class) names &key name type)
+  (call-next-method)
+  (setf (slot-value class 'event-type) (first type))
+  (setf (gethash (first type) *event-classes*) class)
+  (let ((class-name (or name (class-name class))))
+    (register-type class-name 'event)))
+  
+(let ((reader (reader-function 'event-type)))
+  (defun %event-class (location)
+    (gethash (funcall reader location 0) *event-classes*)))
+
+(defmethod ensure-proxy-instance ((class event-class) location)
+  (declare (ignore class))
+  (let ((class (%event-class location)))
+    (make-instance class :location location)))
 
 
 ;;;;
@@ -88,12 +82,13 @@
     :accessor event-time
     :initarg :time
     :type (unsigned 32)))
-  (:metaclass proxy-class))
+  (:metaclass event-class))
   
 (defclass delete-event (event)
   ()
   (:metaclass event-class)
   (:type :delete))
+
 
 (defclass destroy-event (event)
   ()
