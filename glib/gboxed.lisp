@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.4 2001-05-29 15:46:17 espen Exp $
+;; $Id: gboxed.lisp,v 1.5 2001-05-31 12:36:20 espen Exp $
 
 (in-package "GLIB")
 
@@ -39,24 +39,24 @@
 ;;;; Metaclass for boxed classes
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass boxed-class (proxy-class)))
+  (defclass boxed-class (proxy-class))
 
 
-(defmethod shared-initialize ((class boxed-class) names
-			      &rest initargs &key name alien-name)
-  (declare (ignore initargs names))
-  (call-next-method)
+  (defmethod shared-initialize ((class boxed-class) names
+				&rest initargs &key name alien-name)
+    (declare (ignore initargs names))
+    (call-next-method)
+    
+    (let* ((class-name (or name (class-name class)))
+	   (type-number
+	    (find-type-number
+	     (or (first alien-name) (default-alien-type-name class-name)))))
+      (register-type class-name type-number)))
 
-  (let* ((class-name (or name (class-name class)))
-	 (type-number
-	  (find-type-number
-	   (or (first alien-name) (default-alien-type-name class-name)))))
-    (register-type class-name type-number)))
 
-
-(defmethod validate-superclass
+  (defmethod validate-superclass
     ((class boxed-class) (super pcl::standard-class))
-  (subtypep (class-name super) 'boxed))
+    (subtypep (class-name super) 'boxed)))
 
 
 ;;;; 

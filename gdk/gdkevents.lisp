@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.1 2001-05-11 16:20:20 espen Exp $
+;; $Id: gdkevents.lisp,v 1.2 2001-05-31 12:36:39 espen Exp $
 
 (in-package "GDK")
 
@@ -68,20 +68,20 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass event-class (proxy-class)
-    ((event-type :reader event-class-type))))
+    ((event-type :reader event-class-type)))
 
+  
+  (defmethod shared-initialize ((class event-class) names
+				&rest initargs &key type)
+    (declare (ignore initargs names))
+    (call-next-method)
+    (setf (slot-value class 'event-type) (first type))
+    (setf (gethash (first type) *event-classes*) class))
+  
 
-(defmethod shared-initialize ((class event-class) names
-			      &rest initargs &key type)
-  (declare (ignore initargs names))
-  (call-next-method)
-  (setf (slot-value class 'event-type) (first type))
-  (setf (gethash (first type) *event-classes*) class))
-
-
-(defmethod validate-superclass
-  ((class event-class) (super pcl::standard-class))
-  (subtypep (class-name super) 'event))
+  (defmethod validate-superclass
+    ((class event-class) (super pcl::standard-class))
+    (subtypep (class-name super) 'event)))
 
 
 ;;;;
