@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 2000-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,13 +15,14 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.3 2000-10-05 17:34:53 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.4 2001-05-29 15:58:24 espen Exp $
 
 (in-package "GTK")
 
 
 (defmethod initialize-instance ((widget widget) &rest initargs &key parent)
   (declare (ignore initargs))
+  (call-next-method)
   (cond
    ((consp parent)
     (with-slots ((container parent) child-slots) widget
@@ -33,18 +34,17 @@
 	(slot-value (class-of container) 'child-class)
 	:parent container :child widget (cdr parent)))))
    (parent
-    (setf (slot-value widget 'parent) parent)))
-    (call-next-method))
+    (setf (slot-value widget 'parent) parent))))
 
 
-(defmethod slot-unbound ((class object-class) (object widget) slot)
+(defmethod slot-unbound ((class gobject) (object widget) slot)
   (cond
    ((and (eq slot 'child-slots) (slot-value object 'parent))
     (with-slots (parent child-slots) object
       (setf
        child-slots
        (make-instance
-	(slot-value (class-of parent) 'child-class)
+	(gethash (class-of parent) *container-to-child-class-mappings*)
 	:parent parent :child object))))
    (t (call-next-method))))
 
@@ -62,40 +62,40 @@
 (defmacro widget-destroyed (place)
   `(setf ,place nil))
 
-(define-foreign widget-destroy () nil
+(defbinding widget-destroy () nil
   (widget widget))
 
-(define-foreign widget-unparent () nil
+(defbinding widget-unparent () nil
   (widget widget))
 
-(define-foreign widget-show () nil
+(defbinding widget-show () nil
   (widget widget))
 
-(define-foreign widget-show-now () nil
+(defbinding widget-show-now () nil
   (widget widget))
 
-(define-foreign widget-hide () nil
+(defbinding widget-hide () nil
   (widget widget))
 
-(define-foreign widget-show-all () nil
+(defbinding widget-show-all () nil
   (widget widget))
 
-(define-foreign widget-hide-all () nil
+(defbinding widget-hide-all () nil
   (widget widget))
 
-(define-foreign widget-map () nil
+(defbinding widget-map () nil
   (widget widget))
 
-(define-foreign widget-unmap () nil
+(defbinding widget-unmap () nil
   (widget widget))
 
-(define-foreign widget-realize () nil
+(defbinding widget-realize () nil
   (widget widget))
 
-(define-foreign widget-unrealize () nil
+(defbinding widget-unrealize () nil
   (widget widget))
 
-(define-foreign widget-add-accelerator
+(defbinding widget-add-accelerator
     (widget signal accel-group key modifiers flags) nil
   (widget widget)
   ((name-to-string signal) string)
@@ -104,75 +104,75 @@
   (modifiers gdk:modifier-type)
   (flags accel-flags))
 
-(define-foreign widget-remove-accelerator
+(defbinding widget-remove-accelerator
     (widget accel-group key modifiers) nil
   (widget widget)
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign widget-accelerator-signal
+(defbinding widget-accelerator-signal
     (widget accel-group key modifiers) unsigned-int
   (widget widget)
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign widget-lock-accelerators () nil
+(defbinding widget-lock-accelerators () nil
   (widget widget))
 
-(define-foreign widget-unlock-accelerators () nil
+(defbinding widget-unlock-accelerators () nil
   (widget widget))
 
-(define-foreign
-    ("gtk_widget_accelerators_locked" widget-accelerators-locked-p) () boolean
+(defbinding (widget-accelerators-locked-p "gtk_widget_accelerators_locked")
+    () boolean
   (widget widget))
 
-(define-foreign widget-event () int
+(defbinding widget-event () int
   (widget widget)
   (event gdk:event))
 
-(define-foreign get-event-widget () widget
+(defbinding get-event-widget () widget
   (event gdk:event))
 
-(define-foreign widget-activate () boolean
+(defbinding widget-activate () boolean
   (widget widget))
 
-(define-foreign widget-set-scroll-adjustments () boolean
+(defbinding widget-set-scroll-adjustments () boolean
   (widget widget)
   (hadjustment adjustment)
   (vadjustment adjustment))
 
-(define-foreign widget-reparent () nil
+(defbinding widget-reparent () nil
   (widget widget)
   (new-parent widget))
 
-(define-foreign widget-popup () nil
-  (widget widget)
-  (x int)
-  (y int))
+; (defbinding widget-popup () nil
+;   (widget widget)
+;   (x int)
+;   (y int))
 
-(define-foreign widget-grab-focus () nil
+(defbinding widget-grab-focus () nil
   (widget widget))
 
-(define-foreign widget-grab-default () nil
+(defbinding widget-grab-default () nil
   (widget widget))
 
-(define-foreign grab-add () nil
+(defbinding grab-add () nil
   (widget widget))
 
-(define-foreign grab-get-current () widget)
+(defbinding grab-get-current () widget)
 
-(define-foreign grab-remove () nil
+(defbinding grab-remove () nil
   (widget widget))
 
-(define-foreign widget-allocation () nil
+(defbinding widget-allocation () nil
   (widget widget)
   (width int :out)
   (height int :out))
 
 
-(define-foreign widget-set-uposition (widget &key (x t) (y t)) nil
+(defbinding widget-set-uposition (widget &key (x t) (y t)) nil
   (widget widget)
   ((case x
      ((t) -2)
@@ -183,43 +183,42 @@
      ((nil) -1)
      (otherwise y)) int))
 
-(define-foreign widget-add-events () nil
+(defbinding widget-add-events () nil
   (widget widget)
   (events gdk:event-mask))
 
-(define-foreign ("gtk_widget_get_toplevel" widget-toplevel) () widget
+(defbinding (widget-toplevel "gtk_widget_get_toplevel") () widget
   (widget widget))
 
-(define-foreign ("gtk_widget_get_ancestor"
-		  widget-ancestor) (widget type) widget
+(defbinding (widget-ancestor "gtk_widget_get_ancestor") (widget type) widget
   (widget widget)
   ((find-type-number type) type-number))
 
-; (define-foreign ("gtk_widget_get_colormap" widget-colormap) () gdk:colormap
+; (defbinding ("gtk_widget_get_colormap" widget-colormap) () gdk:colormap
 ;   (widget widget))
 
-; (define-foreign ("gtk_widget_get_visual" widget-visual) () gdk:visual
+; (defbinding ("gtk_widget_get_visual" widget-visual) () gdk:visual
 ;   (widget widget))
 
-(define-foreign ("gtk_widget_get_pointer" widget-pointer) () nil
+(defbinding (widget-pointer "gtk_widget_get_pointer") () nil
   (widget widget)
   (x int :out)
   (y int :out))
 
-(define-foreign ("gtk_widget_is_ancestor" widget-is-ancestor-p) () boolean
+(defbinding (widget-is-ancestor-p "gtk_widget_is_ancestor") () boolean
   (widget widget)
   (ancestor widget))
 
-(define-foreign widget-set-rc-style () nil
+(defbinding widget-set-rc-style () nil
   (widget widget))
 
-(define-foreign widget-ensure-style () nil
+(defbinding widget-ensure-style () nil
   (widget widget))
 
-(define-foreign widget-restore-default-style () nil
+(defbinding widget-restore-default-style () nil
   (widget widget))
 
-(define-foreign widget-reset-rc-styles () nil
+(defbinding widget-reset-rc-styles () nil
   (widget widget))
 
 (defun (setf widget-cursor) (cursor-type widget)
@@ -233,50 +232,50 @@
 ;; This will override the values that got set by the
 ;; widget-set-default-* functions.
 
-(define-foreign widget-push-style () nil
+(defbinding widget-push-style () nil
   (style style))
 
-(define-foreign widget-push-colormap () nil
+(defbinding widget-push-colormap () nil
   (colormap gdk:colormap))
 
-; (define-foreign widget-push-visual () nil
+; (defbinding widget-push-visual () nil
 ;   (visual gdk:visual))
 
-(define-foreign widget-push-composite-child () nil)
+(defbinding widget-push-composite-child () nil)
 
-(define-foreign widget-pop-style () nil)
+(defbinding widget-pop-style () nil)
 
-(define-foreign widget-pop-colormap () nil)
+(defbinding widget-pop-colormap () nil)
 
-;(define-foreign widget-pop-visual () nil)
+;(defbinding widget-pop-visual () nil)
 
-(define-foreign widget-pop-composite-child () nil)
+(defbinding widget-pop-composite-child () nil)
 
 
 ;; Set certain default values to be used at widget creation time.
 
-(define-foreign widget-set-default-style () nil
+(defbinding widget-set-default-style () nil
   (style style))
 
-(define-foreign widget-set-default-colormap () nil
+(defbinding widget-set-default-colormap () nil
   (colormap gdk:colormap))
 
-; (define-foreign widget-set-default-visual () nil
+; (defbinding widget-set-default-visual () nil
 ;   (visual gdk:visual))
 
-(define-foreign widget-get-default-style () style)
+(defbinding widget-get-default-style () style)
 
-(define-foreign widget-get-default-colormap () gdk:colormap)
+(defbinding widget-get-default-colormap () gdk:colormap)
 
-(define-foreign widget-get-default-visual () gdk:visual)
+(defbinding widget-get-default-visual () gdk:visual)
 
-(define-foreign widget-shape-combine-mask () nil
+(defbinding widget-shape-combine-mask () nil
   (widget widget)
   (shape-mask gdk:bitmap)
   (x-offset int)
   (y-offset int))
 
 ;; defined in gtkglue.c
-(define-foreign widget-mapped-p () boolean
+(defbinding widget-mapped-p () boolean
   (widget widget))
 

@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 2000 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.2 2000-10-05 17:21:04 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.3 2001-05-29 16:03:04 espen Exp $
 
 (in-package "GTK")
 
@@ -37,54 +37,31 @@
      (t
       (container-add container child)))))
 
-
-
-(define-foreign ("gtk_container_child_getv" container-child-get-arg) () nil
+(defbinding %container-child-getv () nil
   (container container)
   (child widget)
   (1 unsigned-int)
   (arg arg))
 
-(define-foreign ("gtk_container_child_setv" container-child-set-arg) () nil
+(defbinding %container-child-setv () nil
   (container container)
   (child widget)
   (1 unsigned-int)
   (arg arg))
+  
 
-(defun container-child-arg (container child name)
-  (with-gc-disabled
-    (let ((arg (arg-new 0)))
-      (setf (arg-name arg) name)
-      (container-child-get-arg container child arg) ; probably memory leak
-      (let ((type (type-from-number (arg-type arg))))
-	(prog1
-	    (arg-value arg type)
-	  (arg-free arg nil))))))
-
-(defun (setf container-child-arg) (value container child name)
-  (with-gc-disabled
-    (let ((arg (arg-new 0)))
-      (setf (arg-name arg) name)
-      (container-child-get-arg container child arg) ; probably memory leak
-      (let ((type (type-from-number (arg-type arg))))
-	(setf (arg-value arg type) value)
-	(container-child-set-arg container child arg)
-	(arg-free arg nil))))
-  value)
-
-
-(define-foreign container-add () nil
+(defbinding container-add () nil
   (container container)
   (widget widget))
 
-(define-foreign container-remove () nil
+(defbinding container-remove () nil
   (container container)
   (widget widget))
 
-(define-foreign container-check-resize () nil
+(defbinding container-check-resize () nil
   (container container))
 
-(define-foreign ("gtk_container_foreach_full" %container-foreach)
+(defbinding (%container-foreach "gtk_container_foreach_full")
     (container function) nil
   (container container)
   (0 unsigned-long)
@@ -127,7 +104,7 @@
 		(setq ,continue t)))))
        ,result)))
 
-(define-foreign container-children () (glist widget)
+(defbinding container-children () (glist widget)
   (container container))
 
 (defun (setf container-children) (children container)
@@ -141,5 +118,5 @@
 (defun container-num-children (container)
   (length (container-children container)))
 
-(define-foreign container-resize-children () nil
+(defbinding container-resize-children () nil
   (container container))
