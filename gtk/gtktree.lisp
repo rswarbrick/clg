@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.2 2004-11-15 19:24:03 espen Exp $
+;; $Id: gtktree.lisp,v 1.3 2004-11-21 17:57:56 espen Exp $
 
 
 (in-package "GTK")
@@ -54,7 +54,7 @@
   (column int))
 
 (def-callback-marshal %cell-layout-data-func 
-    (nil cell-layout cell-renderer tree-model tree-iter))
+    (nil cell-layout cell-renderer tree-model (copy-of tree-iter)))
 
 (defbinding cell-layout-set-cell-data-func (cell-layout cell function) nil
   (cell-layout cell-layout)
@@ -93,9 +93,25 @@
   ((length columns) unsigned-int)
   (columns (vector gtype)))
 
-(defbinding list-store-remove () boolean
+(defbinding %list-store-remove () boolean
   (list-store list-store)
   (tree-iter tree-iter))
+
+(defun list-store-remove (store row)
+  (etypecase row
+    (tree-iter 
+     (%list-store-remove store row))
+    (tree-path 
+     (multiple-value-bind (valid iter) (tree-model-get-iter store row)
+       (if valid
+	   (%list-store-remove store iter)
+	   (error "~A not poiniting to av valid iterator in ~A" row store))))
+    (tree-row-reference 
+     (let ((path (tree-row-reference-get-path row)))
+       (if path
+	   (list-store-remove store path)
+	 (error "~A not valid" row))))))
+
 
 (defbinding %list-store-insert () nil
   (list-store list-store)
@@ -192,12 +208,12 @@
     (funcall (writer-function 'pointer) c-vector location (size-of 'int))
     location))
 
-(defun %tree-path-to-vector (location &optional (destroy-p t))
-  (prog1
-      (map-c-vector 'vector #'identity (%tree-path-get-indices location)
-		    'int (%tree-path-get-depth location))
-    (when destroy-p
-      (%tree-path-free location))))
+(defun %tree-path-to-vector (location)
+  (let ((indices (%tree-path-get-indices location))
+	(depth (%tree-path-get-depth location)))
+    (if (null-pointer-p indices)
+	#()
+      (map-c-vector 'vector #'identity indices 'int depth))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmethod alien-type ((type (eql 'tree-path)) &rest args)
@@ -212,25 +228,51 @@
     (declare (ignore type args))
     `(%make-tree-path ,path))
   
-  (defmethod to-alien-function ((type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
-    #'%make-tree-path)
-  
   (defmethod from-alien-form (location (type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    `(let ((location ,location))
+       (prog1
+           (%tree-path-to-vector location)
+	 (%tree-path-free location))))
+  
+  (defmethod copy-from-alien-form (location (type (eql 'tree-path)) &rest args)
     (declare (ignore type args))
     `(%tree-path-to-vector ,location))
   
-  (defmethod from-alien-function ((type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
-    #'%tree-path-to-vector)
-  
   (defmethod cleanup-form (location (type (eql 'tree-path)) &rest args)
     (declare (ignore type args))
-    `(%tree-path-free ,location))
+    `(%tree-path-free ,location)))
+
+(defmethod to-alien-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  #'%make-tree-path)
   
-  (defmethod cleanup-function ((type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
-    #'%tree-path-free))
+(defmethod from-alien-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  #'(lambda (location)
+      (prog1
+	  (%tree-path-to-vector location)
+	(%tree-path-free location))))
+
+(defmethod copy-from-alien-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  #'%tree-path-to-vector)
+  
+(defmethod cleanup-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  #'%tree-path-free)
+
+(defmethod writer-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  (let ((writer (writer-function 'pointer)))
+    #'(lambda (path location &optional (offset 0))
+	(funcall writer (%make-tree-path path) location offset))))
+
+(defmethod reader-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  (let ((reader (reader-function 'pointer)))
+    #'(lambda (location &optional (offset 0))
+	(%tree-path-to-vector (funcall reader location offset)))))
 
 
 (defbinding %tree-row-reference-new () pointer
@@ -238,7 +280,6 @@
   (path tree-path))
 
 (defmethod initialize-instance ((reference tree-row-reference) &key model path)
-  (declare (ignore initargs))
   (setf
    (slot-value reference 'location)
    (%tree-row-reference-new model path))
@@ -308,12 +349,8 @@
   (iter tree-iter :return)
   (child tree-iter))
 
-(defbinding tree-model-get-string-from-iter () string
-  (tree-model tree-model)
-  (iter tree-iter))
-
 (def-callback-marshal %tree-model-foreach-func 
-  (boolean tree-model tree-path tree-iter))
+  (boolean tree-model (path (copy-of tree-path)) (iter (copy-of tree-iter))))
 
 (defbinding %tree-model-foreach () nil
   (tree-model tree-model)
@@ -418,6 +455,97 @@
       as (column value . rest) = data then rest
       do (setf (tree-model-column-value model iter column) value)
       while rest))))
+
+
+;;; Tree Selection
+
+(def-callback-marshal %tree-selection-func (boolean tree-selection tree-model (path (copy-of tree-path)) (path-currently-selected boolean)))
+
+(defbinding tree-selection-set-select-function (selection function) nil
+  (selection tree-selection)
+  ((callback %tree-selection-func) pointer)
+  ((register-callback-function function) unsigned-int)
+  ((callback %destroy-user-data) pointer))
+
+(defbinding tree-selection-get-selected 
+    (selection &optional (iter (make-instance 'tree-iter))) boolean
+  (selection tree-selection)
+  (nil null) 
+  (iter tree-iter :return))
+
+(def-callback-marshal %tree-selection-foreach-func (nil tree-model (path (copy-of tree-path)) (iter (copy-of tree-iter))))
+
+(defbinding %tree-selection-selected-foreach () nil
+  (tree-selection tree-selection)
+  ((callback %tree-selection-foreach-func) pointer)
+  (callback-id unsigned-int))
+
+(defun tree-selection-selected-foreach (selection function)
+  (with-callback-function (id function)
+    (%tree-selection-selected-foreach selection id)))
+
+(defbinding tree-selection-get-selected-rows () (glist tree-path)
+  (tree-selection tree-selection)
+  (nil null))
+
+(defbinding tree-selection-count-selected-rows () int
+  (tree-selection tree-selection))
+
+(defbinding %tree-selection-select-path () nil
+  (tree-selection tree-selection)
+  (tree-path tree-path))
+
+(defbinding %tree-selection-unselect-path () nil
+  (tree-selection tree-selection)
+  (tree-path tree-path))
+
+(defbinding %tree-selection-path-is-selected () boolean
+  (tree-selection tree-selection)
+  (tree-path tree-path))
+
+(defbinding %tree-selection-select-iter () nil
+  (tree-selection tree-selection)
+  (tree-path tree-path))
+
+(defbinding %tree-selection-unselect-iter () nil
+  (tree-selection tree-selection)
+  (tree-path tree-path))
+
+(defbinding %tree-selection-iter-is-selected () boolean
+  (tree-selection tree-selection)
+  (tree-path tree-path))
+
+(defun tree-selection-select (selection row)
+  (etypecase row
+    (tree-path (%tree-selection-select-path selection row))
+    (tree-iter (%tree-selection-select-iter selection row))))
+
+(defun tree-selection-unselect (selection row)
+  (etypecase row
+    (tree-path (%tree-selection-unselect-path selection row))
+    (tree-iter (%tree-selection-unselect-iter selection row))))
+
+(defun tree-selection-is-selected-p (selection row)
+  (etypecase row
+    (tree-path (%tree-selection-path-is-selected selection row))
+    (tree-iter (%tree-selection-iter-is-selected selection row))))
+
+(defbinding tree-selection-select-all () nil
+  (tree-selection tree-selection))
+
+(defbinding tree-selection-unselect-all () nil
+  (tree-selection tree-selection))
+
+(defbinding tree-selection-select-range () nil
+  (tree-selection tree-selection)
+  (start tree-path)
+  (end tree-path))
+
+(defbinding tree-selection-unselect-range () nil
+  (tree-selection tree-selection)
+  (start tree-path)
+  (end tree-path))
+
 
 
 ;;; Tree Store
@@ -537,15 +665,13 @@
 
 ;;; Tree View
 
-(defmethod initialize-instance ((tree-view tree-view) &key column)
+(defmethod initialize-instance ((tree-view tree-view) &rest initargs 
+				&key column)
   (call-next-method)
   (mapc #'(lambda (column)
 	    (tree-view-append-column tree-view column))
 	(get-all initargs :column)))
 
-
-(defbinding tree-view-get-selection () tree-selection
-  (tree-view tree-view))
 
 (defbinding tree-view-columns-autosize () nil
   (tree-view tree-view))
@@ -629,7 +755,7 @@
   (tree-view tree-view)
   (path tree-path))
 
-(def-callback-marshal %tree-view-mapping-func (nil tree-view tree-path))
+(def-callback-marshal %tree-view-mapping-func (nil tree-view (path (copy-of tree-path))))
 
 (defbinding %tree-view-map-expanded-rows () nil
   (tree-view tree-view)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.19 2004-11-15 19:24:11 espen Exp $
+;; $Id: gtktypes.lisp,v 1.20 2004-11-21 17:57:56 espen Exp $
 
 
 (in-package "GTK")
@@ -123,7 +123,7 @@
 ;;    (indices  :allocation :alien :type pointer))
 ;;   (:metaclass boxed-class))
 
-(deftype tree-path () '(vector int))
+(deftype tree-path () '(vector integer))
 (register-type 'tree-path "GtkTreePath")
 
 
@@ -679,7 +679,12 @@
      :allocation :virtual
      :getter "gtk_tree_view_get_columns"
      :reader tree-view-columns 
-     :type (glist tree-view-column))))
+     :type (glist tree-view-column))
+    (selection
+     :allocation :virtual
+     :getter "gtk_tree_view_get_selection"
+     :reader tree-view-selection
+     :type tree-selection)))
 
   ("GtkTreeModel"
    :slots
@@ -688,6 +693,21 @@
      :getter "gtk_tree_model_get_n_columns"
      :reader tree-model-n-columns 
      :type int)))
+
+  ("GtkTreeSelection"
+   :slots
+   ((mode
+     :allocation :virtual
+     :getter "gtk_tree_selection_get_mode"
+     :setter "gtk_tree_selection_set_mode"
+     :accessor tree-selection-mode
+     :initarg :mode
+     :type selection-mode)
+    (tree-view
+     :allocation :virtual
+     :getter "gtk_tree_selection_get_mode"
+     :reader tree-selection-mode
+     :type tree-view)))
 
   ("GtkComboBox"
    :slots
