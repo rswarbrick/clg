@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.17 2005-02-22 23:14:04 espen Exp $
+;; $Id: testgtk.lisp,v 1.18 2005-02-25 23:58:56 espen Exp $
 
 
 ;(use-package "GTK")
@@ -335,15 +335,15 @@
     (signal-connect drawing-area 'button-press-event
      #'(lambda (event)
 	 (case (gdk:event-button event)
-	   (1 (spin-button-spin spinner :step-forward 0.0))
-	   (3 (spin-button-spin spinner :step-backward 0.0)))
+	   (1 (spin-button-spin spinner :step-forward))
+	   (3 (spin-button-spin spinner :step-backward)))
 	 t))
 
     (signal-connect drawing-area 'scroll-event
      #'(lambda (event)
 	 (case (gdk:event-direction event)
-	   (:up (spin-button-spin spinner :step-forward 0.0))
-	   (:down (spin-button-spin spinner :step-backward 0.0)))
+	   (:up (spin-button-spin spinner :step-forward))
+	   (:down (spin-button-spin spinner :step-backward)))
 	 t))
 
     (signal-connect spinner 'changed

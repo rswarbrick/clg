@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.35 2005-02-22 23:07:35 espen Exp $
+;; $Id: gtk.lisp,v 1.36 2005-02-25 23:58:56 espen Exp $
 
 
 (in-package "GTK")
@@ -1948,10 +1948,16 @@
 (defun spin-button-value-as-int (spin-button)
   (round (spin-button-value spin-button)))
 
-(defbinding spin-button-spin () nil
+(defbinding %spin-button-spin () nil
   (spin-button spin-button)
   (direction spin-type)
-  (increment single-float))
+  (increment double-float))
+
+(defun spin-button-spin (spin-button value)
+  (etypecase value
+    (real (%spin-button-spin spin-button :spin-user-defined value))
+    (spin-type (%spin-button-spin spin-button value 0))))
+
 
 (defbinding spin-button-update () nil
   (spin-button spin-button))
