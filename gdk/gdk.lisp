@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.12 2004-12-20 00:32:15 espen Exp $
+;; $Id: gdk.lisp,v 1.13 2005-01-30 15:08:03 espen Exp $
 
 
 (in-package "GDK")
@@ -126,6 +126,13 @@
 
 (defbinding flush () nil)
 (defbinding beep () nil)
+
+(defbinding atom-intern (atom-name &optional only-if-exists) atom
+  ((string atom-name) string)
+  (only-if-exists boolean))
+
+(defbinding atom-name () string
+  (atom atom))
 
 
 
@@ -652,7 +659,7 @@
 (defbinding keyval-to-upper () unsigned-int
   (keyval unsigned-int))
 
-(defbinding keyval-to-lower ()unsigned-int
+(defbinding keyval-to-lower () unsigned-int
   (keyval unsigned-int))
 
 (defbinding (keyval-is-upper-p "gdk_keyval_is_upper") () boolean

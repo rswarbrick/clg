@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.10 2004-12-26 11:47:24 espen Exp $
+;; $Id: gdktypes.lisp,v 1.11 2005-01-30 15:08:03 espen Exp $
 
 (in-package "GDK")
 
@@ -54,7 +54,7 @@
 (deftype point () '(vector int 2))
 (deftype segment () '(vector int 4))
 (deftype trapezoid () '(vector double-float 6))
-
+(deftype atom () 'unsigned-int)
 
 
 ;; Could this just as well have been a vector?
