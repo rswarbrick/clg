@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 1999-2001 Espen S. Johnsen <espen@users.sourceforge.org>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.11 2001-10-25 08:16:17 espen Exp $
+;; $Id: gtkobject.lisp,v 1.12 2001-11-12 22:33:08 espen Exp $
 
 
 (in-package "GTK")
@@ -34,8 +34,7 @@
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library
-   "/opt/gnome/lib/libgtk-x11-1.3.so"
+  (init-types-in-library "libgtk-x11-1.3.so"
    :ignore ("gtk_window_get_type_hint"))
 
   (defclass %object (gobject)

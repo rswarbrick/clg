@@ -15,13 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.4 2001-05-29 15:53:32 espen Exp $
+;; $Id: gdktypes.lisp,v 1.5 2001-11-12 22:29:17 espen Exp $
 
 (in-package "GDK")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "/opt/gnome/lib/libgdk-x11-1.3.so")
-  (init-types-in-library "/opt/gnome/lib/libgdk_pixbuf-1.3.so"))
+  (init-types-in-library "libgdk-x11-1.3.so")
+  (init-types-in-library "libgdk_pixbuf-1.3.so"))
 
 (defclass color (boxed)
   ((pixel

@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 2001 Espen S. Johnsen <espen@users.sourceforge.org>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,13 +15,11 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: pango.lisp,v 1.2 2001-05-29 16:56:13 espen Exp $
+;; $Id: pango.lisp,v 1.3 2001-11-12 22:37:21 espen Exp $
 
 (in-package "PANGO")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library
-   "/opt/gnome/lib/libpango.so"
-   :ignore ("_pango_fribidi_get_type"))
+  (init-types-in-library "libpango.so" :ignore ("_pango_fribidi_get_type"))
 
   (define-types-by-introspection "Pango"))

@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0.x
-;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 1999-2001 Espen S. Johnsen <espen@users.sourceforge.org>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.8 2001-10-21 23:16:31 espen Exp $
+;; $Id: gtktypes.lisp,v 1.9 2001-11-12 22:32:17 espen Exp $
 
 
 (in-package "GTK")
@@ -69,10 +69,8 @@
     :accessor adjustment-upper
     :initarg :upper
     :type single-float)
-   (value
+   (%value ; to get the offset right
     :allocation :alien
-    :accessor adjustment-value
-    :initarg :value
     :type single-float)
    (step-increment
     :allocation :alien
@@ -88,6 +86,13 @@
     :allocation :alien
     :accessor adjustment-page-size
     :initarg :page-size
+    :type single-float)
+   (value
+    :allocation :virtual
+    :getter "gtk_adjustment_get_value"
+    :setter "gtk_adjustment_set_value"
+    :accessor adjustment-value
+    :initarg :value
     :type single-float))
   (:metaclass gobject-class)
   (:alien-name "GtkAdjustment"))
@@ -100,10 +105,6 @@
   ("GtkRequisition" :ignore t)
   ("GtkBorder" :ignore t)
   ("GtkAdjustment" :ignore t)
-
-  
-  ;; Temporary disabled
-  ("GtkCellRenderer" :ignore-prefix t)
 
   
   ;; Manual override
@@ -177,8 +178,10 @@
    :slots
    ((child
      :allocation :virtual
-     :getter bin-child
-     :setter (setf bin-child))))
+     :getter "gtk_bin_get_child"
+     :setter (setf bin-child)
+     :reader bin-child
+     :type widget)))
   
   ("GtkTooltips"
    :slots
