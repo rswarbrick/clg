@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.21 2004-12-16 23:49:53 espen Exp $
+;; $Id: gtk.lisp,v 1.22 2004-12-20 00:51:38 espen Exp $
 
 
 (in-package "GTK")
@@ -453,7 +453,12 @@
 
 
 
-;;; Drawing area -- no functions
+;;; Drawing area
+
+(defbinding drawing-area-get-size () nil
+  (drawing-area drawing-area)
+  (width int :out)
+  (height int :out))
 
 
 ;;; Entry
