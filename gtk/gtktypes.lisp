@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.13 2002-03-24 15:42:17 espen Exp $
+;; $Id: gtktypes.lisp,v 1.14 2002-03-24 21:54:33 espen Exp $
 
 
 (in-package "GTK")
@@ -236,6 +236,80 @@
      :setter (setf bin-child)
      :reader bin-child
      :type widget)))
+
+  ("GtkWindow"
+   :slots
+   ((gravity
+     :allocation :virtual
+     :getter "gtk_window_get_gravity"
+     :setter "gtk_window_set_gravity"
+     :accessor window-gravity
+     :initarg :gravity
+     :type gdk:gravity)
+    (focus-widget
+     :allocation :virtual
+     :getter "gtk_window_get_focus"
+     :setter "gtk_window_set_focus"
+     :accessor window-focus-widget
+     :initarg :focus-widget
+     :type widget)
+    (default-widget
+     :allocation :virtual
+     :getter "gtk_window_get_default"
+     :setter "gtk_window_set_default"
+     :accessor window-default-widget
+     :initarg :default-widget
+     :type widget)
+    (decorated
+     :allocation :virtual
+     :getter "gtk_window_get_decorated"
+     :setter "gtk_window_set_decorated"
+     :accessor window-decorated-p
+     :initarg :decorated
+     :type boolean)
+    (has-frame
+     :allocation :virtual
+     :getter "gtk_window_get_has_frame"
+     :setter "gtk_window_set_has_frame"
+     :accessor window-has-frame-p
+     :initarg :has-frame
+     :type boolean)
+    (role
+     :allocation :virtual
+     :getter "gtk_window_get_role"
+     :setter "gtk_window_set_role"
+     :accessor window-role
+     :initarg :role
+     :type string)
+    (type-hint
+     :allocation :virtual
+     :getter "gtk_window_get_type_hint"
+     :setter "gtk_window_set_type_hint"
+     :accessor window-type-hint
+     :initarg :type-hint
+     :type gdk:window-type-hint)
+    (icon
+     :allocation :virtual
+     :getter window-icon
+     :setter (setf window-icon)
+     :initarg :icon)
+    (mnemonic-modifier
+     :allocation :virtual
+     :getter "gtk_window_get_mnemonic_modifier"
+     :setter "gtk_window_set_mnemonic_modifier"
+     :accessor window-mnemonic-modifier
+     :initarg :mnemonic-modifier
+     :type gdk:modifier-type)
+    (transient-for
+     :allocation :virtual
+     :getter "gtk_window_get_transient_for"
+     :setter "gtk_window_set_transient_for"
+     :accessor window-transient-for
+     :initarg :transient-for
+     :type window)
+     
+    
+    ))
   
   ("GtkTooltips"
    :slots
