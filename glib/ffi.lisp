@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.11 2004-12-28 20:27:52 espen Exp $
+;; $Id: ffi.lisp,v 1.12 2005-01-03 16:35:05 espen Exp $
 
 (in-package "GLIB")
 
@@ -103,11 +103,11 @@
 		     (not supplied-lambda-list)
 		     (namep expr) (member style '(:in :in-out :return)))
 		(push expr lambda-list))
-	      (push
-	       (list (if (namep expr) 
-			 (make-symbol (string expr))
-		       (gensym))
-		     expr (mklist type) style) args)))))
+	      (push (list (cond 
+			   ((and (namep expr) (eq style :out)) expr)
+			   ((namep expr) (make-symbol (string expr)))
+			   ((gensym)))
+			  expr (mklist type) style) args)))))
       
       (%defbinding
        c-name lisp-name (or supplied-lambda-list (nreverse lambda-list))
