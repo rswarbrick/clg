@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.11 2004-11-06 21:39:58 espen Exp $
+;; $Id: gdk.lisp,v 1.12 2004-12-20 00:32:15 espen Exp $
 
 
 (in-package "GDK")
@@ -166,25 +166,63 @@
 
 ;;; Windows
 
-; (defbinding window-new ... )
-
 (defbinding window-destroy () nil
   (window window))
 
 
-; (defbinding window-at-pointer () window
-;   (window window)
-;   (x int :in-out)
-;   (y int :in-out))
+(defbinding window-at-pointer () window
+  (x int :out)
+  (y int :out))
 
 (defbinding window-show () nil
+  (window window))
+
+(defbinding window-show-unraised () nil
   (window window))
 
 (defbinding window-hide () nil
   (window window))
 
+(defbinding window-is-visible-p () boolean
+  (window window))
+
+(defbinding window-is-viewable-p () boolean
+  (window window))
+
 (defbinding window-withdraw () nil
   (window window))
+
+(defbinding window-iconify () nil
+  (window window))
+
+(defbinding window-deiconify () nil
+  (window window))
+
+(defbinding window-stick () nil
+  (window window))
+
+(defbinding window-unstick () nil
+  (window window))
+
+(defbinding window-maximize () nil
+  (window window))
+
+(defbinding window-unmaximize () nil
+  (window window))
+
+(defbinding window-fullscreen () nil
+  (window window))
+
+(defbinding window-unfullscreen () nil
+  (window window))
+
+(defbinding window-set-keep-above () nil
+  (window window)
+  (setting boolean))
+
+(defbinding window-set-keep-below () nil
+  (window window)
+  (setting boolean))
 
 (defbinding window-move () nil
   (window window)
@@ -203,6 +241,11 @@
   (width int)
   (height int))
 
+(defbinding window-scroll () nil
+  (window window)
+  (dx int)
+  (dy int))
+
 (defbinding window-reparent () nil
   (window window)
   (new-parent window)
@@ -212,32 +255,18 @@
 (defbinding window-clear () nil
   (window window))
 
-(unexport
- '(window-clear-area-no-e window-clear-area-e))
-
-(defbinding (window-clear-area-no-e "gdk_window_clear_area") () nil
+(defbinding %window-clear-area () nil
   (window window)
   (x int) (y int) (width int) (height int))
 
-(defbinding window-clear-area-e () nil
+(defbinding %window-clear-area-e () nil
   (window window)
   (x int) (y int) (width int) (height int))
 
 (defun window-clear-area (window x y width height &optional expose)
   (if expose
-      (window-clear-area-e window x y width height)
-    (window-clear-area-no-e window x y width height)))
-
-; (defbinding window-copy-area () nil
-;   (window window)
-;   (gc gc)
-;   (x int)
-;   (y int)
-;   (source-window window)
-;   (source-x int)
-;   (source-y int)
-;   (width int)
-;   (height int))
+      (%window-clear-area-e window x y width height)
+    (%window-clear-area window x y width height)))
 
 (defbinding window-raise () nil
   (window window))
@@ -245,7 +274,33 @@
 (defbinding window-lower () nil
   (window window))
 
-; (defbinding window-set-user-data () nil
+(defbinding window-focus () nil
+  (window window)
+  (timestamp unsigned-int))
+
+(defbinding window-register-dnd () nil
+  (window window))
+
+(defbinding window-begin-resize-drag () nil
+  (window window)
+  (edge window-edge)
+  (button int)
+  (root-x int)
+  (root-y int)
+  (timestamp unsigned-int))
+
+(defbinding window-begin-move-drag () nil
+  (window window)
+  (button int)
+  (root-x int)
+  (root-y int)
+  (timestamp unsigned-int))
+
+;; komplett så langt
+
+(defbinding window-set-user-data () nil
+  (window window)
+  (user-data pointer))
 
 (defbinding window-set-override-redirect () nil
   (window window)
@@ -267,17 +322,37 @@
 (defbinding window-merge-child-shapes () nil
   (window window))
 
-(defbinding (window-is-visible-p "gdk_window_is_visible") () boolean
-  (window window))
-
-(defbinding (window-is-viewable-p "gdk_window_is_viewable") () boolean
-  (window window))
 
 (defbinding window-set-static-gravities () boolean
   (window window)
   (use-static boolean))
 
 ; (defbinding add-client-message-filter ...
+
+(defbinding window-set-cursor () nil
+  (window window)
+  (cursor (or null cursor)))
+
+(defbinding window-get-pointer () window
+  (window window)
+  (x int :out)
+  (y int :out)
+  (mask modifier-type :out))
+
+(defbinding %window-get-toplevels () (glist window))
+
+(defun window-get-toplevels (&optional screen)
+  (if screen
+      (error "Not implemented")
+    (%window-get-toplevels)))
+
+(defbinding %get-default-root-window () window)
+
+(defun get-root-window (&optional display)
+  (if display
+      (error "Not implemented")
+    (%get-default-root-window)))
+
 
 
 ;;; Drag and Drop
@@ -292,22 +367,6 @@
 
 
 
-(defbinding window-set-cursor () nil
-  (window window)
-  (cursor cursor))
-
-(defbinding window-get-pointer () window
-  (window window)
-  (x int :out)
-  (y int :out)
-  (mask modifier-type :out))
-
-(defbinding %get-default-root-window () window)
-
-(defun get-root-window (&optional display)
-  (if display
-      (error "Not implemented")
-    (%get-default-root-window)))
 
 
 ;;
@@ -319,14 +378,30 @@
 
 ;;; Cursor
 
-(defbinding cursor-new () cursor
+(defmethod initialize-instance ((cursor cursor) &key type mask fg bg 
+				(x 0) (y 0) (display (display-get-default)))
+  (setf 
+   (slot-value cursor 'location)
+   (etypecase type
+     (keyword (%cursor-new-for-display display type))
+     (pixbuf (%cursor-new-from-pixbuf display type x y))
+     (pixmap (%cursor-new-from-pixmap type mask fg bg x y)))))
+
+
+(defbinding %cursor-new-for-display () pointer
+  (display display)
   (cursor-type cursor-type))
 
-(defbinding cursor-new-from-pixmap () cursor
+(defbinding %cursor-new-from-pixmap () pointer
   (source pixmap)
   (mask bitmap)
   (foreground color)
   (background color)
+  (x int) (y int))
+
+(defbinding %cursor-new-from-pixbuf () pointer
+  (display display)
+  (pixbuf pixbuf)
   (x int) (y int))
 
 (defbinding %cursor-ref () pointer
@@ -342,8 +417,6 @@
 (defmethod unreference-foreign ((class (eql (find-class 'cursor))) location)
   (declare (ignore class))
   (%cursor-unref location))
-
-
 
 
 ;;; Pixmaps
@@ -414,12 +487,158 @@
        
 
   
-;;; Drawing functions
+;;; Drawable
+
+(defbinding drawable-get-size () nil
+  (drawable drawable)
+  (width int :out)
+  (height int :out))
+
+(defbinding (drawable-width "gdk_drawable_get_size") () nil
+  (drawable drawable)
+  (width int :out)
+  (nil null))
+
+(defbinding (drawable-height "gdk_drawable_get_size") () nil
+  (drawable drawable)
+  (nil null)
+  (height int :out))
+
+;; (defbinding drawable-get-clip-region () region
+;;   (drawable drawable))
+
+;; (defbinding drawable-get-visible-region () region
+;;   (drawable drawable))
+
+(defbinding draw-point () nil
+  (drawable drawable) (gc gc) 
+  (x int) (y int))
+
+(defbinding %draw-points () nil
+  (drawable drawable) (gc gc) 
+  (points pointer)
+  (n-points int))
+
+;; (defun draw-points (drawable gc &rest points)
+  
+;;   )
+
+(defbinding draw-line () nil
+  (drawable drawable) (gc gc) 
+  (x1 int) (y1 int)
+  (x2 int) (y2 int))
+
+;; (defbinding draw-lines (drawable gc &rest points) nil
+;;   (drawable drawable) (gc gc) 
+;;   (points (vector point))
+;;   ((length points) int))
+
+(defbinding draw-pixbuf
+    (drawable gc pixbuf src-x src-y dest-x dest-y &optional
+     width height (dither :none) (x-dither 0) (y-dither 0)) nil
+  (drawable drawable) (gc (or null gc))
+  (pixbuf pixbuf)
+  (src-x int) (src-y int)
+  (dest-x int) (dest-y int)
+  ((or width -1) int) ((or height -1) int)
+  (dither rgb-dither)
+  (x-dither int) (y-dither int))
+
+;; (defbinding draw-segments (drawable gc &rest points) nil
+;;   (drawable drawable) (gc gc) 
+;;   (segments (vector segments))
+;;   ((length segments) int))
 
 (defbinding draw-rectangle () nil
-  (drawable (or window pixmap bitmap))
-  (gc gc) (filled boolean)
-  (x int) (y int) (width int) (height int))
+  (drawable drawable) (gc gc) 
+  (filled boolean)
+  (x int) (y int) 
+  (width int) (height int))
+
+(defbinding draw-arc () nil
+  (drawable drawable) (gc gc) 
+  (filled boolean)
+  (x int) (y int) 
+  (width int) (height int)
+  (angle1 int) (angle2 int))
+
+;; (defbinding draw-polygon (drawable gc &rest points) nil
+;;   (drawable drawable) (gc gc) 
+;;   (points (vector point))
+;;   ((length points) int))
+
+;; (defbinding draw-trapezoid (drawable gc &rest points) nil
+;;   (drawable drawable) (gc gc) 
+;;   (points (vector point))
+;;   ((length points) int))
+
+;; (defbinding %draw-layout-line () nil
+;;   (drawable drawable) (gc gc) 
+;;   (font pango:font)
+;;   (x int) (y int)
+;;   (line pango:layout-line))
+
+;; (defbinding %draw-layout-line-with-colors () nil
+;;   (drawable drawable) (gc gc) 
+;;   (font pango:font)
+;;   (x int) (y int)
+;;   (line pango:layout-line)
+;;   (foreground (or null color))
+;;   (background (or null color)))
+
+;; (defun draw-layout-line (drawable gc font x y line &optional foreground background)
+;;   (if (or foreground background)
+;;       (%draw-layout-line-with-colors drawable gc font x y line foreground background)
+;;     (%draw-layout-line drawable gc font x y line)))
+
+(defbinding %draw-layout () nil
+  (drawable drawable) (gc gc) 
+  (font pango:font)
+  (x int) (y int)
+  (layout pango:layout))
+
+(defbinding %draw-layout-with-colors () nil
+  (drawable drawable) (gc gc) 
+  (font pango:font)
+  (x int) (y int)
+  (layout pango:layout)
+  (foreground (or null color))
+  (background (or null color)))
+
+(defun draw-layout (drawable gc font x y layout &optional foreground background)
+  (if (or foreground background)
+      (%draw-layout-with-colors drawable gc font x y layout foreground background)
+    (%draw-layout drawable gc font x y layout)))
+
+(defbinding draw-drawable 
+    (drawable gc src src-x src-y dest-x dest-y &optional width height) nil
+  (drawable drawable) (gc gc) 
+  (src drawable)
+  (src-x int) (src-y int)
+  (dest-x int) (dest-y int)
+  ((or width -1) int) ((or height -1) int))
+
+(defbinding draw-image 
+    (drawable gc image src-x src-y dest-x dest-y &optional width height) nil
+  (drawable drawable) (gc gc) 
+  (image image)
+  (src-x int) (src-y int)
+  (dest-x int) (dest-y int)
+  ((or width -1) int) ((or height -1) int))
+
+(defbinding drawable-get-image () image
+  (drawable drawable)
+  (x int) (y int)
+  (width int) (height int))
+
+(defbinding drawable-copy-to-image 
+    (drawable src-x src-y width height &optional image dest-x dest-y) image
+  (drawable drawable)
+  (image (or null image))
+  (src-x int) (src-y int)
+  ((if image dest-x 0) int) 
+  ((if image dest-y 0) int)
+  (width int) (height int))
 
 
 ;;; Key values
