@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.20 2004-11-21 17:57:56 espen Exp $
+;; $Id: gtktypes.lisp,v 1.21 2004-12-04 18:18:21 espen Exp $
 
 
 (in-package "GTK")
@@ -106,7 +106,7 @@
     :accessor stock-item-translation-domain
     :initarg :translation-domain
     :type string))
-  (:metaclass static-struct-class))
+  (:metaclass struct-class))
 
 ;; We don't really need to access any of these slots, but we need to
 ;; specify the size of the struct somehow 
@@ -126,6 +126,13 @@
 (deftype tree-path () '(vector integer))
 (register-type 'tree-path "GtkTreePath")
 
+
+(defclass text-iter (boxed)
+  ((dummy14
+    :allocation :alien :offset #.(* 13 (size-of 'pointer))
+    :type pointer))
+  (:metaclass boxed-class))
+	      
 
 
 (define-types-by-introspection "Gtk"
@@ -533,7 +540,7 @@
      :allocation :virtual
      :getter "gtk_radio_button_get_group"
      :reader radio-button-group
-     :type (static (gslist widget)))))
+     :type (copy-of (gslist widget)))))
 
   ("GtkRadioMenuItem"
    :slots
@@ -613,7 +620,6 @@
    :slots
    ((file :ignore t)))
        
-  ;; Interfaces
   ("GtkEditable"
    :slots
    ((editable
@@ -718,6 +724,60 @@
      :accessor combo-box-active-iter 
      :type tree-iter)))
 
+  ("GtkTextView"
+   :slots
+   ((default-attributes
+     :allocation :virtual
+     :getter "gtk_text_view_get_default_attributes"
+     :reader text-view-default-attributes
+     :type text-attributes)))
+
+  ("GtkUIManager"
+   :type ui-manager
+   :slots
+   ((action-groups
+     :allocation :virtual
+     :getter "gtk_ui_manager_get_action_groups"
+     :reader ui-manager-action-groups
+     :type (copy-of (glist action-group)))
+    (accel-group
+     :allocation :virtual
+     :getter "gtk_ui_manager_get_accel_group"
+     :reader ui-manager-accel-group
+     :type accel-group)))
+
+  ("GtkUIManagerItemType"
+   :type ui-manager-item-type)
+
+  ("GtkToggle"
+   :slots
+   ((accelerator
+     :allocation :virtual
+     :getter action-accelerator)))
+
+  ("GtkToggleAction"
+   :slots
+   ((active
+     :allocation :virtual
+     :getter "gtk_toggle_action_get_active"
+     :setter "gtk_toggle_action_set_active"
+     :initarg :active
+     :accessor toggle-action-active-p
+     :type boolean)))
+
+  ("GtkRadioAction"
+   :slots
+   ((group
+     :allocation :virtual
+     :getter "gtk_radio_button_get_group"
+     :reader radio-button-group
+     :type (copy-of (gslist widget)))
+    (%value
+     :allocation :property  :pname "value"
+     :readable nil :type int)
+    (value 
+     :allocation :virtual
+     :getter radio-action-value)))
 
      
   ;; Not needed
@@ -733,7 +793,7 @@
   ("GtkTree" :ignore t)
   ("GtkTreeItem" :ignore t)
   ("GtkItemFactory" :ignore t)
-  ("GtkText" :ignore-prefix t :except ("GtkTextDirection"))
+  ("GtkText" :ignore t)
   ("GtkPacker" :ignore-prefix t)
   ("GtkPixmap" :ignore t)
   ("GtkPreview" :ignore-prefix t)
