@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 2000-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.4 2001-01-28 14:17:12 espen Exp $
+;; $Id: gobject.lisp,v 1.5 2001-04-29 20:17:27 espen Exp $
 
 (in-package "GLIB")
 
@@ -24,41 +24,20 @@
   (defclass gobject (ginstance)
     ()
     (:metaclass ginstance-class)
-    (:alien-name "GObject")))
+    (:alien-name "GObject")
+    (:ref "g_object_ref")
+    (:unref "g_object_unref")))
 
-
-;;;; Object construction
+(defmethod initialize-instance ((object gobject) &rest initargs)
+  (declare (ignore initargs))
+  (setf 
+   (slot-value object 'location)
+   (%gobject-new (type-number-of object)))
+  (call-next-method))
 
 (define-foreign ("g_object_new" %gobject-new) () gobject
   (type type-number)
   (nil null))
-
-
-;;;; Reference counting for gobject
-
-;; Specializing reference-instance and unreference-instance on gobject
-;; is not really necessary but done for efficiency
-
-(defmethod reference-instance ((object gobject))
-  (%object-ref object)
-  object)
-
-(defmethod unreference-instance ((object gobject))
-  (%object-unref object))
-
-(deftype-method alien-ref gobject (type-spec)
-  (declare (ignore type-spec))
-  '%object-ref)
-
-(deftype-method alien-unref gobject (type-spec)
-  (declare (ignore type-spec))
-  '%object-unref)
-
-(define-foreign %object-ref () pointer
-  (object (or gobject pointer)))
-
-(define-foreign %object-unref () nil
-  (object (or gobject pointer)))
 
 
 ;;;; Parameter stuff
@@ -118,25 +97,6 @@
   (defclass effective-gobject-slot-definition
     (effective-virtual-slot-definition)))
 
-(defmethod allocate-alien-storage ((class gobject-class))
-  (alien-instance-location (%gobject-new (find-type-number class))))
-
-(defmethod shared-initialize ((class gobject-class) names &rest initargs
-			      &key type-init name)
-  (declare (ignore initargs names))
-  (let ((alien
-	 (alien::%heap-alien
-	  (alien::make-heap-alien-info
-	   :type (alien::parse-alien-type '(function (unsigned 32)))
-	   :sap-form (system:foreign-symbol-address
-		      (or
-		       (first type-init)
-		       (default-alien-func-name
-			 (format
-			  nil "~A_get_type" (or name (class-name class))))))))))
-    (alien:alien-funcall alien))
-  (call-next-method))
-
 
 ; (define-foreign object-class-install-param () nil
 ;   (class pointer)
@@ -172,9 +132,9 @@
   (with-slots (type) slotd
     (let ((param-name (slot-definition-location (first direct-slotds)))
 	  (type-number (find-type-number type))
-	  (reader (get-reader-function type))
-	  (writer (get-writer-function type))
-	  (destroy (get-destroy-function type)))
+	  (reader (intern-reader-function type))
+	  (writer (intern-writer-function type))
+	  (destroy (intern-destroy-function type)))
       (list
        #'(lambda (object)
 	   (with-gc-disabled
@@ -196,3 +156,10 @@
 (defmethod validate-superclass ((class gobject-class)
 				(super pcl::standard-class))
   (subtypep (class-name super) 'gobject))
+
+
+;;;;
+
+; (defmacro defclass-by-query (name)
+;   (destructuring-bind (lisp-name alien-name) name
+    
