@@ -1,5 +1,5 @@
 /* Common Lisp bindings for GTK+ v2.0
- * Copyright (C) 1999-2000 Espen S. Johnsen <esj@stud.cs.uit.no>
+ * Copyright (C) 1999-2002 Espen S. Johnsen <espen@users.sourceforge.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.9 2002-03-22 22:34:45 espen Exp $ */
+/* $Id: gtkglue.c,v 1.10 2002-03-24 13:01:12 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -68,7 +68,7 @@ gtk_widget_mapped_p (GtkWidget *widget)
 }
 
 void
-gtk_widget_allocation (GtkWidget *widget, int *width, int *height)
+gtk_widget_get_size_allocation (GtkWidget *widget, int *width, int *height)
 {
   *width = widget->allocation.width;
   *height = widget->allocation.height;
