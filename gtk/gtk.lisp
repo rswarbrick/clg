@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.36 2005-02-25 23:58:56 espen Exp $
+;; $Id: gtk.lisp,v 1.37 2005-02-26 18:55:41 espen Exp $
 
 
 (in-package "GTK")
@@ -60,6 +60,17 @@
       (setq *periodic-polling-function* #'main-iterate-all)
       (setq *max-event-to-sec* 0)
       (setq *max-event-to-usec* 1000))))
+
+
+;;; Misc
+
+(defbinding grab-add () nil
+  (widget widget))
+
+(defbinding grab-get-curent () widget)
+
+(defbinding grab-remove () nil
+  (widget widget))
 
 
 ;;; About dialog
