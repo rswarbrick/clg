@@ -15,12 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.6 2001-10-21 22:02:01 espen Exp $
+;; $Id: gboxed.lisp,v 1.7 2001-12-12 20:24:41 espen Exp $
 
 (in-package "GLIB")
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (init-types-in-library "libgobject-1.3.so")
   (defclass boxed (proxy)
     ()
     (:metaclass proxy-class)

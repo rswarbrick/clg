@@ -6,7 +6,7 @@
 
 ;; Uncomment and edit the next line if pkg-config needs to search for
 ;; .pc files in directories other than the default (/usr/lib/pkgconfig)
-;(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
+:(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
 
 (load "clg:tools;config")
 (load "clg:tools;sharedlib")

@@ -16,9 +16,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.5 2001-10-21 21:59:22 espen Exp $ */
+/* $Id: callback.c,v 1.6 2001-12-12 20:24:41 espen Exp $ */
 
-#include <gobject/gobject.h>
+#include <glib-object.h>
 
 #ifdef CMUCL
 #include "lisp.h"
@@ -85,7 +85,6 @@ destroy_notify_address ()
 #endif
 
 
-#include        <gobject/genums.h>
 GEnumValue*
 g_enum_class_values (GEnumClass *class, guint *n_values)
 {

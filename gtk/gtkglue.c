@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.7 2001-10-21 23:22:53 espen Exp $ */
+/* $Id: gtkglue.c,v 1.8 2001-12-12 20:24:41 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -270,29 +270,6 @@ gtk_layout_get_bin_window (GtkLayout *layout)
   return layout->bin_window;
 }
 
-guint
-gtk_layout_get_xoffset (GtkLayout *layout)
-{
-  return layout->xoffset;
-}
-
-void
-gtk_layout_set_xoffset (GtkLayout *layout, guint xoffset)
-{
-  return layout->xoffset = xoffset;
-}
-
-guint
-gtk_layout_get_yoffset (GtkLayout *layout)
-{
-  return layout->yoffset;
-}
-
-void
-gtk_layout_set_yoffset (GtkLayout *layout, guint yoffset)
-{
-  return layout->yoffset = yoffset;
-}
 
 /* List */
 

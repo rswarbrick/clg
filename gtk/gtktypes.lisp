@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.9 2001-11-12 22:32:17 espen Exp $
+;; $Id: gtktypes.lisp,v 1.10 2001-12-12 20:24:41 espen Exp $
 
 
 (in-package "GTK")
@@ -419,20 +419,7 @@
    ((bin-window
      :getter "gtk_layout_get_bin_window"
      :reader layout-bin-window
-     :type gdk:window)
-    (x-offset
-     :getter "gtk_layout_get_xoffset"
-     :setter "gtk_layout_set_xoffset"
-     :accessor layout-x-offset
-     :initarg :x-offset
-     :type unsigned-int)
-    (y-offset
-     :getter "gtk_layout_get_yoffset"
-     :setter "gtk_layout_set_yoffset"
-     :accessor layout-y-offset
-     :initarg :x-offset
-     :type unsigned-int)))
-
+     :type gdk:window)))
      
   ;; Not needed
   ("GtkFundamentalType" :ignore t)

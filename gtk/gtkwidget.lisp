@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.6 2001-11-20 18:25:53 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.7 2001-12-12 20:24:41 espen Exp $
 
 (in-package "GTK")
 
@@ -96,6 +96,7 @@
 (defbinding widget-unrealize () nil
   (widget widget))
 
+#|
 (defbinding widget-add-accelerator
     (widget signal accel-group key modifiers flags) nil
   (widget widget)
@@ -128,6 +129,7 @@
 (defbinding (widget-accelerators-locked-p "gtk_widget_accelerators_locked")
     () boolean
   (widget widget))
+|#
 
 (defbinding widget-event () int
   (widget widget)

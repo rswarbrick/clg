@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.4 2001-10-21 21:55:41 espen Exp $
+;; $Id: gparam.lisp,v 1.5 2001-12-12 20:24:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -85,12 +85,12 @@
       :type type-number)
      (nickname
       :allocation :virtual
-      :getter "g_param_get_nick"
+      :getter "g_param_spec_get_nick"
       :reader param-nickname
       :type string)
      (documentation
       :allocation :virtual
-      :getter "g_param_get_blurb"
+      :getter "g_param_spec_get_blurb"
       :reader param-documentation
       :type string))
     (:metaclass ginstance-class)
@@ -296,9 +296,9 @@
     :type unsigned-int))
   (:metaclass ginstance-class))
 
-(defclass param-closure (param)
-  ()
-  (:metaclass ginstance-class))
+;; (defclass param-closure (param)
+;;   ()
+;;   (:metaclass ginstance-class))
 
 (defclass param-object (param)
   ()
