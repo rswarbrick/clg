@@ -4,7 +4,7 @@
  (logical-pathname-translations "clg")
  '(("**;*.*.*" "/home/espen/src/clg/**/*.*.*")))
 (setq mk::*cmu-errors-to-file* nil)
-(setq ext:*environment-list* (cons '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*))
+(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
 
 (load "clg:tools;config")
 (load "clg:tools;sharedlib")
@@ -18,11 +18,12 @@
     :components
     ((:module tools
       :components ("autoexport"))
+     (:file "pcl" :source-pathname "glib;" :binary-pathname "glib;")
      (:module glib
       :initially-do
       (progn
-	(load-shared-library "libglib-1.3.so.4")
-	(load-shared-library "libgobject-1.3.so.4" :init "g_type_init"))
+	(load-shared-library "libglib-1.3.so.5")
+	(load-shared-library "libgobject-1.3.so.5" :init "g_type_init"))
       :components
       ((:file "callback"
 	:language :c
@@ -46,14 +47,14 @@
 	:depends-on
 	("gutils" "glib" "proxy" "gboxed" "gtype" "gparam" "gcallback"
 	 "genums" "gobject")))
-      :depends-on (tools))
+      :depends-on (tools "pcl"))
      (:file "gdkglue"
       :source-pathname "gdk;"
       :binary-pathname "gdk;"
       :initially-do
       (progn
-	(load-shared-library "libgdk_pixbuf-1.3.so.4")
-	(load-shared-library "libgdk-x11-1.3.so.4"
+	(load-shared-library "libgdk_pixbuf-1.3.so.5")
+	(load-shared-library "libgdk-x11-1.3.so.5"
 	 :init "gdk_init"
 	 :prototype '(function
 		      c-call:void
@@ -71,13 +72,20 @@
         (:file "gdkevents" :depends-on ("gdktypes"))
 	(:file "gdk" :depends-on ("gdkevents")))
        :depends-on (glib "gdkglue"))
+     (:module pango
+      :initially-do (load-shared-library "libpango-0.16.so")
+       :components
+       ((:file "pango-package")
+        (:file "pango" :depends-on ("pango-package"))
+        (:file "pango-export" :depends-on ("pango")))
+       :depends-on (glib))
      (:file "gtkglue"
       :source-pathname "gtk;"
       :binary-pathname "gtk;"
       :initially-do
       (progn
 	(load-shared-library
-	 "libgtk-x11-1.3.so.4"
+	 "libgtk-x11-1.3.so.5"
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
@@ -92,16 +100,15 @@
      (:module gtk
       :components
       ((:file "gtk-package")
-;       (:file "gtk-export" :depends-on ("gtkenums" "gtktypes" "gtk"))
-;       (:file "gtkobject" :depends-on ("gtk-package"))
-;        (:file "gtktypes" :depends-on ("gtkenums" "gtkobject"))
-;        (:file "gtkwidget" :depends-on ("gtktypes"))
-;        (:file "gtkcontainer" :depends-on ("gtktypes"))
-;        (:file "gtk" :depends-on ("gtktypes"))
-;        (:file "gtkutils" :depends-on ("gtk"))
+;       (:file "gtk-export" :depends-on ("gtktypes" "gtk"))
+       (:file "gtkobject" :depends-on ("gtk-package"))
+       (:file "gtktypes" :depends-on ("gtkobject"))
+       (:file "gtkwidget" :depends-on ("gtktypes"))
+       (:file "gtkcontainer" :depends-on ("gtktypes"))
+;       (:file "gtk" :depends-on ("gtktypes"))
+;       (:file "gtkutils" :depends-on ("gtk"))
        )
-      :depends-on (glib gdk "gtkglue"))
-)))
+      :depends-on (glib gdk pango "gtkglue")))))
 
 
 
