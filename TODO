@@ -1,16 +1,18 @@
 * Enable building without opening display -- done
 
-* Complete bindings of all widgets
+* Complete bindings of all widgets -- mostly done
 
-* Clean up code in glib module
+* Clean up code in glib module -- done
 
 * Use CMUCL's native mechanism for callbacks from C -- done
 
 * Create all foreign function bindings at compile time (necessary for
-  CLisp port and to improve startup time)
+  CLisp port)
 
 * Add documentation and more examples
 
 * Make sub classing of gobjects possible
 
-* Port to SBCL
+* Port to SBCL -- done
+
+* Improve load time

@@ -1,6 +1,109 @@
-This file will contain current status of the bindings, ie. which
-widget and classes are finished and which need more work.
-
-
-editable -- done
-range -- done
+about-dialog
+accel-group -- complete (except some functions which are probably not very useful)
+accel-label
+accel-map -- complete (except some functions which are probably not very useful)
+accessible -- complete
+adjustment -- done throught introspection
+alignment -- complete
+arrow -- done throught introspection
+aspect-frame -- done throught introspection
+bin -- complete
+box -- complete
+button -- complete
+button-box -- done throught introspection
+calendar -- complete
+cell-layout -- complete
+check-button -- done throught introspection
+check-menu-item -- complete
+color-button -- done throught introspection
+color-selection -- complete minus palette
+color-selection-dialog -- complete
+combo-box -- complete (up to gtk version 2.4)
+combo-box-entry -- complete
+container
+dialog -- complete
+drawing-area -- done throught introspection
+editable -- complete
+entry -- complete
+entry-completion -- complete
+event-box -- done throught introspection
+expander -- done throught introspection
+file-chooser -- complete
+file-chooser-button -- done throught introspection (but the dialog property should be readable)
+file-chooser-dialog -- done throught introspection
+file-chooser-widget -- done throught introspection
+file-filter -- complete
+fixed -- complete
+frame -- complete
+font-button -- done throught introspection
+font-selection -- complete
+frame -- complete
+handle-box -- complete
+h-box -- done throught introspection
+h-button-box -- done throught introspection
+h-paned -- done throught introspection
+h-ruler -- done throught introspection
+h-scale -- done throught introspection
+h-scrollbar -- done throught introspection
+h-separator -- done throught introspection
+image -- complete
+image-menu-item -- complete
+im-context
+im-context-simple
+im-multicontext
+item -- complete
+label -- complete
+layout -- complete
+list-store -- complete
+menu -- complete
+menu-bar -- done throught introspection
+menu-item -- complete
+menu-shell -- complete
+menu-tool-button -- complete
+message-dialog -- done (up to gtk version 2.4)
+notebook -- complete
+paned -- complete
+plug
+progess-bar -- complete
+radio-button -- complete
+radio-menu-item -- complete
+radio-tool-button -- complete
+range -- complete
+ruler -- complete
+scale -- complete
+scrollbar -- done throught introspection
+scrolled-window -- complete
+separator -- done throught introspection
+separator-menu-item -- done throught introspection
+separator-tool-item -- done throught introspection
+size-group -- complete
+socket
+spin-button -- complete
+statusbar -- complete
+stock-item -- complete
+table -- complete
+tearoff-menu-item -- done throught introspection
+text-buffer -- complete but the API may change
+text-iter -- complete
+text-mark -- complete
+text-tag -- complete minus text-attributes
+text-tag-table -- complete
+text-view -- complete
+toggle-button -- done throught introspection
+toggle-tool-button -- complete
+toolbar -- complete
+tool-button -- done 
+tool-item -- complete (except initialize-instance)
+tooltips -- complete
+tree-store -- complete
+viewport -- done throught introspection
+v-box -- done throught introspection
+v-button-box -- done throught introspection
+v-paned -- done throught introspection
+v-ruler -- done throught introspection
+v-scale -- done throught introspection
+v-scrollbar -- done throught introspection
+v-separator -- done throught introspection
+widget -- complete (more or less)
+window -- complete
+window-group -- complete
