@@ -15,11 +15,11 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: pango.lisp,v 1.3 2001-11-12 22:37:21 espen Exp $
+;; $Id: pango.lisp,v 1.4 2002-03-19 17:14:22 espen Exp $
 
 (in-package "PANGO")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "libpango.so" :ignore ("_pango_fribidi_get_type"))
+  (init-types-in-library "libpango-1.0.so" :ignore ("_pango_fribidi_get_type"))
 
   (define-types-by-introspection "Pango"))
