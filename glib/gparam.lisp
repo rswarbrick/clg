@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.13 2005-01-03 16:42:03 espen Exp $
+;; $Id: gparam.lisp,v 1.14 2005-01-12 13:31:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -71,14 +71,15 @@
 (defbinding (gvalue-p "g_type_check_value") () boolean
   (location pointer))
 
-(defmacro with-gvalue ((gvalue &optional type value) &body body)
-  `(let ((,gvalue ,(if type
-		       `(gvalue-new ,type ,value)
-		     `(gvalue-new))))
+(defmacro with-gvalue ((gvalue &optional type (value nil value-p)) &body body)
+  `(let ((,gvalue ,(cond
+		    ((and type value-p) `(gvalue-new ,type ,value))
+		    (type `(gvalue-new ,type))
+		    (`(gvalue-new)))))
     (unwind-protect
 	 (progn
 	   ,@body
-	   ,(unless type `(gvalue-get ,gvalue)))
+	   ,(unless value-p `(gvalue-get ,gvalue)))
       (gvalue-free ,gvalue))))
 
 
