@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.4 2004-11-06 16:36:34 espen Exp $
+;; $Id: testgtk.lisp,v 1.5 2004-11-08 14:16:12 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -303,20 +303,20 @@
   (max (min n max-val) min-val))
 
 
-(defun set-cursor (spinner drawing-area label)
-  (let ((cursor
-	 (glib:int-enum
-	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
-	  'gdk:cursor-type)))	
-    (setf (label-text label) (string-downcase cursor))
-    (setf (widget-cursor drawing-area) cursor)))
+;; (defun set-cursor (spinner drawing-area label)
+;;   (let ((cursor
+;; 	 (glib:int-enum
+;; 	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
+;; 	  'gdk:cursor-type)))	
+;;     (setf (label-text label) (string-downcase cursor))
+;;     (setf (widget-cursor drawing-area) cursor)))
     
 
 ; (define-standard-dialog create-cursors "Cursors"
 ;   (setf (container-border-width main-box) 10)
 ;   (setf (box-spacing main-box) 5)
 ;   (let* ((hbox (hbox-new nil 0))
-; 	 (label (label-new "Cursor Value : "))
+; 	 (label (create-label "Cursor Value : "))
 ; 	 (adj (adjustment-new 0 0 152 2 10 0))
 ; 	 (spinner (spin-button-new adj 0 0)))
 ;     (setf (container-border-width hbox) 5)
@@ -428,21 +428,21 @@
 ;;     (editable-insert-text entry "great " 6)
 ;;     (editable-delete-text entry 6 12)
       
-      (let ((combo (make-instance 'combo 
+      (let ((combo (make-instance 'combo-box-entry 
 		    :parent main
-		    :popdown-strings '("item0"
-				       "item1 item1"
-				       "item2 item2 item2"
-				       "item3 item3 item3 item3"
-				       "item4 item4 item4 item4 item4"
-				       "item5 item5 item5 item5 item5 item5"
-				       "item6 item6 item6 item6 item6"
-				       "item7 item7 item7 item7"
-				     "item8 item8 item8"
-				       "item9 item9"))))
-	(with-slots (entry) combo 
-	  (setf (editable-text entry) "hello world")
-	  (editable-select-region entry 0)))
+		    :content '("item0"
+			       "item1 item1"
+			       "item2 item2 item2"
+			       "item3 item3 item3 item3"
+			       "item4 item4 item4 item4 item4"
+			       "item5 item5 item5 item5 item5 item5"
+			       "item6 item6 item6 item6 item6"
+			       "item7 item7 item7 item7"
+			       "item8 item8 item8"
+			       "item9 item9"))))
+	(with-slots (child) combo 
+	  (setf (editable-text child) "hello world")
+	  (editable-select-region child 0)))
 
       (flet ((create-check-button (label slot)
 	       (make-instance 'check-button
@@ -553,7 +553,7 @@
 ;;   (let ((v-box (v-box-new nil 0)))
 ;;     (container-add window v-box)
 
-;;     (container-add v-box (label-new "Above"))
+;;     (container-add v-box (create-label "Above"))
 ;;     (container-add v-box (hseparator-new))
 
 ;;     (let ((hbox (hbox-new nil 10)))
@@ -592,10 +592,10 @@
 ;; 	   handle-box2 'child-detached
 ;; 	   #'(lambda (child)
 ;; 	       (handle-box-child-signal handle-box child "detached")))
-;; 	  (container-add handle-box2 (label-new "Foo!")))))
+;; 	  (container-add handle-box2 (create-label "Foo!")))))
     
 ;;     (container-add v-box (hseparator-new))
-;;     (container-add v-box (label-new "Below"))))
+;;     (container-add v-box (create-label "Below"))))
 
 ;;; Image
 
@@ -804,7 +804,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;; 	(setf (container-border-width hbox) 5)
 ;; 	(box-pack-start cbox hbox t nil 0)
-;; 	(box-pack-start hbox (label-new "Selection Mode :") nil t 0)
+;; 	(box-pack-start hbox (create-label "Selection Mode :") nil t 0)
 ;; 	(box-pack-start hbox option-menu nil t 0)))))
 
 
@@ -854,38 +854,15 @@ This one is underlined (こんにちは) in quite a funky fashion"
       (setf (menu-item-right-justified-p menu-item) t)
       (menu-shell-append menubar menu-item))
 
-    (let ((box2 (make-instance 'v-box 
-		 :spacing 10 :border-width 10 :parent main))
-	  (menu (create-menu 1 nil)))
+    (make-instance 'v-box 
+     :spacing 10 :border-width 10 :parent main
+     :child (make-instance 'combo-box 
+	     :active 3
+	     :content (loop
+		       for i from 1 to 5
+		       collect (format nil "Item ~D" i))))
       
-;      (setf (menu-accel-group menu) accel-group)
-
-      (let ((menu-item (make-instance 'check-menu-item
-			:label "Accelerate Me")))
-	(menu-shell-append menu menu-item)
-;;         (widget-add-accelerator
-;;          menu-item 'activate accel-group "F1" '() '(:visible :signal-visible))
-	)
-    
-      (let ((menu-item (make-instance 'check-menu-item
-		        :label "Accelerator Locked")))
-	(menu-shell-append menu menu-item)
-;;         (widget-add-accelerator
-;;          menu-item 'activate accel-group "F2" '() '(:visible :locked))
-	)
-    
-      (let ((menu-item (make-instance 'check-menu-item
-			:label "Accelerator Frozen")))
-	(menu-shell-append menu menu-item)
-;;         (widget-add-accelerator
-;;          menu-item 'activate accel-group "F2" '() '(:visible))
-;;         (widget-add-accelerator
-;;          menu-item 'activate accel-group "F3" '() '(:visible))
-;;         (widget-lock-accelerators menuitem)
-	)
-      
-    (make-instance 'option-menu :parent box2 :menu menu :history 3)
-    (widget-show-all main))))
+    (widget-show-all main)))
 
 
 ;;; Notebook
@@ -994,35 +971,34 @@ This one is underlined (こんにちは) in quite a funky fashion"
        :child-args '(:expand nil)
        :child (make-instance 'label :label "Notebook Style: ")
        :child (let ((scrollable-p nil)) 
-		(create-option-menu
-		 `(("Standard"
-		    ,#'(lambda (menu-item)			
-			 (declare (ignore menu-item))
-			 (setf (notebook-show-tabs-p notebook) t)
-			 (when scrollable-p
-			   (setq scrollable-p nil)
-			   (setf (notebook-scrollable-p notebook) nil)
-			   (loop repeat 10 
-			    do (notebook-remove-page notebook 5)))))
-		   ("No tabs"
-		    ,#'(lambda (menu-item)			
-			 (declare (ignore menu-item))
-			 (setf (notebook-show-tabs-p notebook) nil)
-			 (when scrollable-p
-			   (setq scrollable-p nil)
-			   (setf (notebook-scrollable-p notebook) nil)	
-			   (loop repeat 10 
-			    do (notebook-remove-page notebook 5)))))
-		   ("Scrollable"
-		    ,#'(lambda (menu-item)			
-			 (declare (ignore menu-item))
-			 (unless scrollable-p
-			   (setq scrollable-p t)
-			   (setf (notebook-show-tabs-p notebook) t)
-			   (setf (notebook-scrollable-p notebook) t)
-			   (loop for i from 6 to 15 
-			    do (create-notebook-page notebook i))))))
-		 0))
+		;; option menu is deprecated, we should use combo-box
+		(make-instance 'combo-box
+		 :content '("Standard" "No tabs" "Scrollable") :active 0
+		 :signal (list 'changed
+			  #'(lambda (combo-box)
+			      (case (combo-box-active combo-box)
+				(0 
+				 (setf (notebook-show-tabs-p notebook) t)
+				 (when scrollable-p
+				   (setq scrollable-p nil)
+				   (setf (notebook-scrollable-p notebook) nil)
+				   (loop repeat 10 
+				    do (notebook-remove-page notebook 5))))
+				(1
+				 (setf (notebook-show-tabs-p notebook) nil)
+				 (when scrollable-p
+				   (setq scrollable-p nil)
+				   (setf (notebook-scrollable-p notebook) nil)
+				   (loop repeat 10 
+				     do (notebook-remove-page notebook 5))))
+				(2
+				 (unless scrollable-p
+				   (setq scrollable-p t)
+				   (setf (notebook-show-tabs-p notebook) t)
+				   (setf (notebook-scrollable-p notebook) t)
+				   (loop for i from 6 to 15 
+				    do (create-notebook-page notebook i))))))
+			  :object t)))
        :child (make-instance 'button
 	       :label "Show all Pages"
 	       :signal (list 'clicked
@@ -1081,7 +1057,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	 (table (make-instance 'table :n-rows 3 :n-columns 2 :homogeneous t 
 			              :parent frame)))
 
-    (table-attach table (label-new label1) 0 1 0 1)
+    (table-attach table (create-label label1) 0 1 0 1)
     (let ((check-button (make-instance 'check-button :label "Resize")))
       (table-attach table check-button 0 1 1 2)
       (signal-connect
@@ -1092,7 +1068,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
       (signal-connect
        check-button 'toggled #'toggle-shrink :object (paned-child1 paned)))
 
-    (table-attach table (label-new label2) 1 2 0 1)
+    (table-attach table (create-label label2) 1 2 0 1)
     (let ((check-button (make-instance 'check-button :label "Resize")))
       (table-attach table check-button 1 2 1 2)
       (setf (toggle-button-active-p check-button) t)
@@ -1110,7 +1086,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		  :child1 (make-instance 'frame
 			   :width-request 60 :height-request 60
 			   :shadow-type :in 
-			   :child (button-new "Hi there"))
+			   :child (make-instance 'buttun :label "Hi there"))
 		  :child2 (make-instance 'frame			    
 			   :width-request 80 :height-request 60
 			   :shadow-type :in)))
@@ -1762,8 +1738,6 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("modal window")
  	    ("notebook" create-notebook)
  	    ("panes" create-panes)
-;; 	    ("preview color")
-;; 	    ("preview gray")
 ;; 	    ("progress bar" #|create-progress-bar|#)
  	    ("radio buttons" create-radio-buttons)
  	    ("range controls" create-range-controls)
