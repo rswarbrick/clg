@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.2 2001-02-11 21:49:12 espen Exp $
+;; $Id: gcallback.lisp,v 1.3 2001-05-11 16:08:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -26,7 +26,7 @@
 
 (deftype gclosure () 'pointer)
 
-(define-foreign lisp-callback-closure-new () gclosure
+(defbinding lisp-callback-closure-new () gclosure
   (callback-id unsigned-int))
 
 
@@ -83,11 +83,11 @@
 (defun signal-name-to-string (name)
   (substitute #\_ #\- (string-downcase (string name))))
 
-(define-foreign signal-lookup (name itype) unsigned-int
+(defbinding signal-lookup (name itype) unsigned-int
   ((signal-name-to-string name) string)
   (itype type-number))
 
-(define-foreign signal-name () string
+(defbinding signal-name () string
   (signal-id unsigned-int))
 
 (defun ensure-signal-id (signal-id instance)
@@ -96,27 +96,27 @@
     (string (signal-lookup signal-id (type-number-of instance)))
     (symbol (signal-lookup signal-id (type-number-of instance)))))
   
-(define-foreign signal-stop-emission (instance signal-id) nil
+(defbinding signal-stop-emission (instance signal-id) nil
   (instance ginstance)
   ((ensure-signal-id signal-id instance) unsigned-int))
 
-; (define-foreign ("g_signal_add_emission_hook_full" signal-add-emisson-hook)
+; (defbinding (signal-add-emisson-hook "g_signal_add_emission_hook_full")
 ;     () unsigned-int
 ;   (signal-id unsigned-int)
 ;   (closure gclosure))
 
-; (define-foreign signal-remove-emisson-hook () nil
+; (defbinding signal-remove-emisson-hook () nil
 ;   (signal-id unsigned-int)
 ;   (hook-id unsigned-int))
 
-(define-foreign ("g_signal_has_handler_pending" signal-has-handler-pending-p)
+(defbinding (signal-has-handler-pending-p "g_signal_has_handler_pending")
     (instance signal-id &key detail blocked) boolean
   (instance ginstance)
   ((ensure-signal-id signal-id instance) unsigned-int)
   ((or detail 0) quark)
   (blocked boolean))
     
-(define-foreign ("g_signal_connect_closure_by_id" signal-connect-closure)
+(defbinding (signal-connect-closure "g_signal_connect_closure_by_id")
     (instance signal-id closure &key detail after) unsigned-int
   (instance ginstance)
   ((ensure-signal-id signal-id instance) unsigned-int)
@@ -124,15 +124,15 @@
   (closure gclosure)
   (after boolean))
 
-(define-foreign signal-handler-block () nil
+(defbinding signal-handler-block () nil
   (instance ginstance)
   (handler unsigned-int))
 
-(define-foreign signal-handler-unblock () nil
+(defbinding signal-handler-unblock () nil
   (instance ginstance)
   (handler unsigned-int))
 
-(define-foreign signal-handler-disconnect () nil
+(defbinding signal-handler-disconnect () nil
   (instance ginstance)
   (handler unsigned-int))
 
@@ -148,12 +148,3 @@
     
     (signal-connect-closure
      instance signal (register-callback-function callback) :after after)))
-
-
-;;;; Idles and timeouts
-
-; (defun timeout-remove (tag)
-;   (source-remove tag))
-  
-; (defun idle-remove (tag)
-;   (source-remove tag))
