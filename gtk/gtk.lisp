@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.24 2004-12-20 22:43:26 espen Exp $
+;; $Id: gtk.lisp,v 1.25 2004-12-20 23:19:19 espen Exp $
 
 
 (in-package "GTK")
@@ -329,12 +329,10 @@
     (initial-apply-add dialog #'dialog-add-button initargs :button :buttons)))
   
 
-(defvar %*response-id-key* (gensym))
-
 (defun %dialog-find-response-id-num (dialog id &optional create-p error-p)
   (or
    (cadr (assoc id (rest (type-expand-1 'response-type))))
-   (let ((response-ids (object-data dialog %*response-id-key*)))
+   (let ((response-ids (object-data dialog 'response-id-key)))
     (cond
       ((and response-ids (position id response-ids :test #'equal)))
       (create-p
@@ -344,7 +342,7 @@
 	  (1- (length response-ids)))
 	 (t
 	  (setf 
-	   (object-data dialog %*response-id-key*)
+	   (object-data dialog 'response-id-key)
 	   (make-array 1 :adjustable t :fill-pointer t :initial-element id))
 	  0)))
       (error-p
@@ -356,7 +354,7 @@
        (rassoc
 	(list response-id-num)
 	(rest (type-expand-1 'response-type)) :test #'equal))
-    (aref (object-data dialog %*response-id-key*) response-id-num )))
+    (aref (object-data dialog 'response-id-key) response-id-num )))
 
 
 (defmethod signal-connect ((dialog dialog) signal function &key object after)
@@ -390,8 +388,7 @@
 
 (defun dialog-add-button (dialog label &optional (response label)
 			  &key default object after)
-  "Adds a button to the dialog. If no response is given, then label
-   will be used."
+  "Adds a button to the dialog."
   (let* ((id (if (functionp response)
 		 label
 	       response))
@@ -436,8 +433,20 @@
   ((%dialog-find-response-id-num dialog response-id nil t) int)
   (sensitive boolean))
 
+#+gtk2.6
+(defbinding alternative-dialog-button-order-p(&optional screen)
+  (screen (or null screen)))
 
-;; Addition dialog functions
+#+gtk2.6
+(defbinding (dialog-set-alternative-button-order 
+	     "gtk_dialog_set_alternative_button_order_from_array") 
+    (dialog new-order)
+  (dialog dialog)
+  ((length new-order) int)
+  ((map 'vector #'(lambda (id)
+		    (%dialog-find-response-id-num dialog id nil t))
+	new-order) (vector int)))
+
 
 (defmethod container-add ((dialog dialog) (child widget) &rest args)
   (apply #'container-add (dialog-vbox dialog) child args))
