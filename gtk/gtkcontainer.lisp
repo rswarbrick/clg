@@ -15,14 +15,20 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.16 2005-01-06 21:00:53 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.17 2005-02-22 23:08:52 espen Exp $
 
 (in-package "GTK")
 
-
 (defmethod shared-initialize ((container container) names &rest initargs 
-			      &key child children child-args)
+			      &key child children child-args 
+			           (show-children nil show-children-p))
   (declare (ignore child children))
+  (when show-children-p
+    (if (not show-children)
+	(setf (user-data container 'show-recursive-p) nil)
+      (signal-connect container 'show #'container-show-recursive 
+       :object t :remove t)))
+
   (call-next-method)
   (initial-add container 
    #'(lambda (container args) 
@@ -30,8 +36,8 @@
    initargs :child :children))
 
 
-(defmethod create-callback-function ((container container) function arg1)
-  (if (eq arg1 :children)
+(defmethod compute-signal-function ((container container) signal function object)
+  (if (eq object :children)
       #'(lambda (&rest args)
 	  (mapc #'(lambda (child)
 		    (apply function child (rest args)))
@@ -52,7 +58,6 @@
       #'make-instance
       (gethash (class-of container) *container-to-child-class-mappings*)
       :parent container :child widget args))))
-
 
 (defbinding %container-remove () nil
   (container container)
@@ -168,3 +173,16 @@
   (if (null focusable-widgets)
       (%container-unset-focus-chain container)
     (%container-set-focus-chain container focusable-widgets)))
+
+(defgeneric container-show-recursive (container))
+
+(defmethod container-show-recursive ((container container))
+  "Recursively shows any child widgets except widgets explicit hidden during construction."
+  (labels ((recursive-show (widget)
+	     (when (typep widget 'container)
+	       (if (not (user-data-p widget 'show-recursive-p))
+		   (container-foreach widget #'recursive-show)
+		 (unset-user-data widget 'show-recursive-p)))
+	     (unless (widget-hidden-p widget)
+	       (widget-show widget))))
+    (container-foreach container #'recursive-show)))
