@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-package.lisp,v 1.1 2000-08-14 16:44:30 espen Exp $
+;; $Id: glib-package.lisp,v 1.2 2000-09-30 15:10:54 espen Exp $
 
 (export 'kernel::type-expand-1 "KERNEL")
 
@@ -27,7 +27,7 @@
 	   "ALLOCATION" "DIRECT-SLOTS")
   (:import-from "KERNEL" "TYPE-EXPAND-1")
   (:export "DEFTYPE-METHOD" "TRANSLATE-TYPE-SPEC" "TRANSLATE-TO-ALIEN"
-	   "TRANSLATE-FROM-ALIEN" "CLEANUP-ALIEN")
+	   "TRANSLATE-FROM-ALIEN" "CLEANUP-ALIEN" "SIZE-OF")
   (:export "DEFINE-FOREIGN" "USE-PREFIX" "PACKAGE-PREFIX")
   (:export "LONG" "UNSIGNED-LONG" "INT" "UNSIGNED-INT" "SHORT" "UNSIGNED-SHORT"
 	   "SIGNED" "UNSIGNED" "CHAR" "POINTER" "ENUM" "FLAGS" "TYPE-NUMBER"
@@ -35,3 +35,4 @@
   (:export "GET-TO-ALIEN-FUNCTION" "GET-FROM-ALIEN-FUNCTION"
 	   "GET-CLEANUP-FUNCTION" "GET-READER-FUNCTION" "GET-WRITER-FUNCTION"
 	   "GET-DESTROY-FUNCTION"))
+
