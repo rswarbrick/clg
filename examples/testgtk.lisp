@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.8 2004-12-04 18:41:31 espen Exp $
+;; $Id: testgtk.lisp,v 1.9 2004-12-05 00:06:41 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -55,7 +55,7 @@
 
 (defmacro define-simple-dialog (name (dialog title &rest initargs) &body body)
   `(define-dialog ,name (,dialog ,title 'dialog ,@initargs)
-    (dialog-add-button ,dialog "Close" #'widget-destroy :object t)
+    (dialog-add-button ,dialog "gtk-close" #'widget-destroy :object t)
     ,@body))
 
 
@@ -458,6 +458,16 @@
 	(create-check-button "Sensitive" 'sensitive)))
     (widget-show-all main)))
 
+
+;; Expander
+
+(define-simple-dialog create-expander (dialog "Expander" :resizable nil)
+  (make-instance 'v-box
+   :parent dialog :spacing 5 :border-width 5 :show-all t
+   :child (create-label "Expander demo. Click on the triangle for details.")
+   :child (make-instance 'expander
+	   :label "Details"
+	   :child (create-label "Details can be shown or hidden."))))
 
 
 ;; File chooser dialog
@@ -1801,6 +1811,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; ;  	    ("dnd")
  	    ("entry" create-entry)
 ;; 	    ("event watcher")
+ 	    ("enxpander" create-expander)
  	    ("file chooser" create-file-chooser)
 ;; 	    ("font selection")
 ;; 	    ("handle box" create-handle-box)
