@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.17 2004-11-07 01:23:38 espen Exp $
+;; $Id: glib.lisp,v 1.18 2004-11-07 16:03:55 espen Exp $
 
 
 (in-package "GLIB")
@@ -70,17 +70,6 @@
     (when (cdr user-data)
       (funcall (cdr user-data) (car user-data))))
   (remhash id *user-data*))
-
-(defmacro def-callback-marshal (name (return-type &rest args))
-  (let ((names (loop 
-		for arg in args 
-		collect (if (atom arg) (gensym) (first arg))))
-	(types (loop 
-		for arg in args 
-		collect (if (atom arg) arg (second arg)))))
-    `(defcallback ,name (,return-type ,@(mapcar #'list names types)
-			 (callback-id unsigned-int))
-      (invoke-callback callback-id ',return-type ,@names))))
 
 
 ;;;; Quarks
