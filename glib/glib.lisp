@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.4 2000-08-23 14:27:41 espen Exp $
+;; $Id: glib.lisp,v 1.5 2000-08-23 21:36:44 espen Exp $
 
 
 (in-package "GLIB")
@@ -54,7 +54,11 @@
     (or
      (assoc-ref object (gethash hash-code *quark-from-object*) :test test)
      (let ((quark (%quark-get-reserved)))
-       (push (cons object quark) (gethash hash-code *quark-from-object*))
+       (setf
+	(gethash hash-code *quark-from-object*)
+	(append
+	 (gethash hash-code *quark-from-object*)
+	 (list (cons object quark))))
        (setf (gethash quark *quark-to-object*) object)
        quark))))
 
