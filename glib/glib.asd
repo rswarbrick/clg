@@ -20,15 +20,21 @@
 
 (pkg-exists-p "glib-2.0" :atleast-version "2.4.0")
 
-(defvar *cmucl-include-path* "/usr/lib/cmucl/include")
-
+(when (string>= (pkg-version "glib-2.0") "2.6.0")
+  (push :glib2.6 *features*))
 
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")
-		 #+cmu(:file "pcl")
+		 #+(and cmu (not clg-pcl))(:file "pcl")
+		 ;; For preloading to work in glib 2.6, the library needs to 
+		 ;; be configured and build with '--disable-visibility'
+  		 (:unix-dso "preload"
+  		  :components ((:c-source-file "logging"
+  				:cflags #.(pkg-cflags "glib-2.0"))))
 		 (:library "libglib-2.0" 
-			    :libdir #.(pkg-variable "glib-2.0" "libdir"))
+			    :libdir #.(pkg-variable "glib-2.0" "libdir")
+ 			    :depends-on ("preload"))
 		 (:library "libgobject-2.0" 
 			    :libdir #.(pkg-variable "glib-2.0" "libdir")
 			    :depends-on ("libglib-2.0"))
@@ -41,7 +47,7 @@
 		 (:file "utils" :depends-on ("defpackage"))
 		 (:file "ffi" :depends-on ("utils"))
 		 (:file "glib" :depends-on ("ffi" "libglib-2.0"))
-		 (:file "proxy" :depends-on (#+cmu"pcl" "glib"))
+		 (:file "proxy" :depends-on (#+(and cmu (not clg-pcl))"pcl" "glib"))
 		 (:file "gtype" :depends-on ("proxy" "alien" "libgobject-2.0"))
 		 (:file "gboxed" :depends-on ("gtype"))
 		 (:file "genums" :depends-on ("gtype"))
@@ -49,4 +55,5 @@
 		 (:file "gobject" :depends-on ("gparam"))
 		 (:file "ginterface" :depends-on ("gobject"))
 		 (:file "gcallback" :depends-on ("gtype" "gparam" "gobject" "alien"))
-		 (:file "export" :depends-on ("utils" "glib" "proxy" "gboxed" "gtype" "gparam" "gcallback" "genums" "gobject"))))
+		 (:file "gerror" :depends-on ("gcallback"))
+		 (:file "export" :depends-on ("utils" "glib" "proxy" "gboxed" "gtype" "gparam" "gcallback" "genums" "gobject" "gerror"))))
