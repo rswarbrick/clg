@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.14 2004-10-31 11:37:11 espen Exp $
+;; $Id: glib.lisp,v 1.15 2004-11-01 00:08:49 espen Exp $
 
 
 (in-package "GLIB")
@@ -48,7 +48,6 @@
 
 (declaim (fixnum *user-data-count*))
 
-(defvar *destroy-notify* (system:foreign-symbol-address "destroy_notify"))
 (defvar *user-data* (make-hash-table))
 (defvar *user-data-count* 0)
 

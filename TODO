@@ -4,7 +4,7 @@
 
 * Clean up code in glib module
 
-* Use CMUCL's native mechanism for callbacks from C
+* Use CMUCL's native mechanism for callbacks from C -- done
 
 * Create all foreign function bindings at compile time (necessary for
   CLisp port and to improve startup time)

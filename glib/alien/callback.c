@@ -16,93 +16,31 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.2 2004-10-31 11:34:47 espen Exp $ */
+/* $Id: callback.c,v 1.3 2004-11-01 00:08:50 espen Exp $ */
 
 #include <glib-object.h>
 
 #ifdef CMUCL
 #include "lisp.h"
-#include "alloc.h"
-#include "arch.h"
 
-lispobj callback_trampoline;
-lispobj destroy_user_data;
-lispobj log_handler;
+void (*log_handler) (gchar*, guint, gchar*);
 #endif
 
 
-void callback_marshal (guint callback_id, GValue *return_value,
-		       guint n_params, const GValue *param_values)
-{
-#ifdef CMUCL
-  funcall3 (callback_trampoline, alloc_number ((unsigned int)callback_id),
-	    alloc_cons (alloc_number (n_params), alloc_sap (param_values)),
-	    alloc_sap (return_value));
-#elif defined(CLISP)
-  callback_trampoline ((unsigned long)callback_id,
-		       n_params, (unsigned int)param_values,
-		       (unsigned int)return_value);
-#endif
-}
-
-void destroy_notify (gpointer data)
-{ 
-#ifdef CMUCL
-  funcall1 (destroy_user_data, alloc_number ((unsigned long)data));
-#elif defined(CLISP)
-  destroy_user_data ((unsigned long)data);
-#endif
-}
-
-/* #ifndef CMUCL */
-/* void* */
-/* destroy_notify_address () */
-/* { */
-/*   return (void*)destroy_notify; */
-/* } */
-/* #endif */
-
-
-
-void closure_callback_marshal (GClosure *closure,
-			       GValue *return_value,
-			       guint n_params,
-			       const GValue *param_values,
-			       gpointer invocation_hint,
-			       gpointer marshal_data)
-{
-  callback_marshal ((guint)closure->data, return_value, n_params, param_values);
-}
-
-void closure_destroy_notify (gpointer data, GClosure *closure)
-{ 
-  destroy_notify (data);
-}
 
 GClosure*
-g_lisp_callback_closure_new (guint callback_id)
+clg_callback_closure_new (gpointer callback_id, gpointer callback,
+			  gpointer destroy_notify)
 {
   GClosure *closure;
 
   closure = g_closure_new_simple (sizeof (GClosure), (gpointer)callback_id);
-  g_closure_set_marshal (closure, closure_callback_marshal);
-  g_closure_add_finalize_notifier (closure, (gpointer)callback_id, closure_destroy_notify);
+  g_closure_set_meta_marshal (closure, callback_id, callback);
+  g_closure_add_finalize_notifier (closure, callback_id, destroy_notify);
   
   return closure;
 }
 
-
-/* Callback function used for idle and timeout */
-gboolean source_callback_marshal (gpointer data)
-{
-  GValue return_value;  
-  
-  memset (&return_value, 0, sizeof (GValue));
-  g_value_init (&return_value, G_TYPE_BOOLEAN);
-  callback_marshal ((guint)data, &return_value, 0, NULL);
-
-  return g_value_get_boolean (&return_value);
-}
 
 void
 g_logv (const gchar   *log_domain,
@@ -111,9 +49,8 @@ g_logv (const gchar   *log_domain,
 	va_list	       args1)
 {
   gchar *msg = g_strdup_vprintf (format, args1);
-  lispobj lisp_msg = alloc_string (msg);
+  log_handler (log_domain, log_level, msg);
+
+  /* Normally log_handler won't return, so we will be leaking this memory */
   g_free (msg);
-  
-  funcall3 (log_handler, alloc_string (log_domain),
-	    alloc_number ((unsigned int)log_level), lisp_msg);
 }

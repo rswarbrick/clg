@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.9 2004-10-31 12:05:52 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.10 2004-11-01 00:08:50 espen Exp $
 
 (in-package "GTK")
             
@@ -67,12 +67,13 @@
 (defbinding container-check-resize () nil
   (container container))
 
-(defvar *callback-marshal*
-  (system:foreign-symbol-address "gtk_callback_marshal"))
+(def-callback %foreach-callback (c-call:void (widget system-area-pointer) 
+					    (callback-id c-call:unsigned-int))
+  (invoke-callback callback-id nil (ensure-proxy-instance 'widget widget nil)))
 
 (defbinding %container-foreach (container callback-id) nil
   (container container)
-  (*callback-marshal* pointer)
+  ((callback %foreach-callback) pointer)
   (callback-id unsigned-int))
 
 (defun container-foreach (container function)

@@ -15,66 +15,68 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.10 2004-10-30 19:26:02 espen Exp $
+;; $Id: gcallback.lisp,v 1.11 2004-11-01 00:08:49 espen Exp $
 
 (in-package "GLIB")
 
 (use-prefix "g")
 
 
-;;;; Closures
+;;;; Callback mechanism
 
 (deftype gclosure () 'pointer)
 
-(defbinding lisp-callback-closure-new () gclosure
-  (callback-id unsigned-int))
+(defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
+  (callback-id unsigned-int) 
+  (callback pointer)
+  (destroy-notify pointer))
 
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
   (register-user-data function))
 
+(def-callback closure-callback-marshal
+    (void (gclosure system-area-pointer) (return-value system-area-pointer)
+	  (n-params unsigned-int) (param-values system-area-pointer)
+	  (invocation-hint system-area-pointer) (callback-id unsigned-int))
+  (callback-trampoline callback-id n-params param-values return-value))
+
+(def-callback %destroy-user-data (void (id unsigned-int))
+  (destroy-user-data id)) 
+ 
 (defun make-callback-closure (function)
-  (lisp-callback-closure-new (register-callback-function function)))
+  (callback-closure-new 
+   (register-callback-function function)
+   (callback closure-callback-marshal) (callback %destroy-user-data)))
 
 
-;;;; Callback mechanism
-
-(defun callback-trampoline (callback-id params return-value)
+(defun callback-trampoline (callback-id n-params param-values return-value)
   (let* ((return-type (unless (null-pointer-p return-value)
 			(gvalue-type return-value)))
-	 (args nil)
-	 (callback-function (find-user-data callback-id)))
+	 (args (loop
+		for n from 0 below n-params
+		collect (gvalue-get (sap+ param-values (* n +gvalue-size+))))))
+    (let ((result (apply #'invoke-callback callback-id return-type args)))
+      (when return-type
+	(gvalue-set return-value result)))))
 
-    (destructuring-bind (nparams . param-values) params
-      (dotimes (n nparams)
-	(push (gvalue-get (sap+ param-values (* n +gvalue-size+))) args)))
 
-    (labels ((invoke-callback ()
-	       (restart-case
-		   (unwind-protect
-		       (let ((result (apply callback-function (reverse args))))
-			 (when return-type
-			   (gvalue-set return-value result))))
-		
-		 (continue nil :report "Return from callback function"
-		  (when return-type
-		    (format
-		     *query-io*
-		     "Enter return value of type ~S: "
-		     return-type)
-		    (force-output *query-io*)
-		    (gvalue-set return-value (eval (read *query-io*)))))
-		 (re-invoke nil :report "Re-invoke callback function"
-		  (invoke-callback)))))
-      (invoke-callback))))
+(defun invoke-callback (callback-id type &rest args)
+  (restart-case
+      (apply (find-user-data callback-id) args)
+    (continue nil :report "Return from callback function"
+	      (when type
+		(format *query-io* "Enter return value of type ~S: " type)
+		(force-output *query-io*)
+		(eval (read *query-io*))))
+    (re-invoke nil :report "Re-invoke callback function"
+	       (apply #'invoke-callback callback-id type args))))
 
 
 ;;;; Timeouts and idle functions
 
-(defvar *source-callback-marshal*
-  (system:foreign-symbol-address "source_callback_marshal"))
-(defvar *destroy-notify*
-  (system:foreign-symbol-address "destroy_notify"))
+(def-callback source-callback-marshal (void (callback-id unsigned-int))
+  (callback-trampoline callback-id 0 nil (make-pointer 0)))
 
 (defbinding (timeout-add "g_timeout_add_full")
     (function interval &optional (priority 0)) unsigned-int 
@@ -82,14 +84,14 @@
   (interval unsigned-int)
   (*source-callback-marshal* pointer)
   ((register-callback-function function) unsigned-long)
-  (*destroy-notify* pointer))
+  ((callback %destroy-user-data) pointer))
 
 (defbinding (idle-add "g_idle_add_full")
     (function &optional (priority 0)) unsigned-int 
   (priority int)
   (*source-callback-marshal* pointer)
   ((register-callback-function function) unsigned-long)
-  (*destroy-notify* pointer))
+  ((callback %destroy-user-data) pointer))
 
 
 
@@ -169,21 +171,9 @@
 ;;; Message logging
 
 ;; TODO: define and signal conditions based on log-level
-(defun log-handler (domain log-level message)
-  (declare (ignore log-level))
+;(defun log-handler (domain log-level message)
+(def-callback log-handler (void (domain c-string) (log-level int) 
+				(message c-string))
   (error "~A: ~A" domain message))
 
-
-;;;
-
-(defun after-gc-hook ()
-  (setf
-   (extern-alien "callback_trampoline" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'callback-trampoline))
-   (extern-alien "destroy_user_data" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'destroy-user-data))
-   (extern-alien "log_handler" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'log-handler))))
-
-(pushnew 'after-gc-hook ext:*after-gc-hooks*)
-(after-gc-hook)
+(setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))

@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.1 2004-10-31 12:14:47 espen Exp $ */
+/* $Id: glue.c,v 1.2 2004-11-01 00:08:50 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -34,33 +34,6 @@ gtk_query_version (guint *major, guint *minor, guint *micro)
   *major = gtk_major_version;
   *minor = gtk_minor_version;
   *micro = gtk_micro_version;
-}
-
-
-void gtk_callback_marshal (GtkWidget *widget, gpointer data)
-{
-  GValue arg;
-
-  memset (&arg, 0, sizeof (GValue));
-  g_value_init (&arg, gtk_widget_get_type ());
-  g_value_set_object (&arg, widget);
-  callback_marshal ((guint)data, NULL, 1, &arg);
-}
-
-void gtk_menu_position_callback_marshal (GtkMenu *menu, gint x, gint y,
-					 gboolean push_in, gpointer data)
-{
-  GValue args[3];
-
-  memset (args, 0, 3 * sizeof (GValue));
-  g_value_init (&args[0], G_TYPE_INT);
-  g_value_set_int (&args[0], x);
-  g_value_init (&args[1], G_TYPE_INT);
-  g_value_set_int (&args[1], y);
-  g_value_init (&args[2], G_TYPE_BOOLEAN);
-  g_value_set_boolean (&args[2], push_in);
-  
-  callback_marshal ((guint)data, NULL, 3, args);
 }
 
 
