@@ -31,10 +31,10 @@
  `(mk:defsystem clg
     :initially-do
     (progn
-      (pkg-exists-p "glib-2.0" :atleast-version "1.3.12")
-      (pkg-exists-p "pango" :atleast-version "0.23")
-      (pkg-exists-p "atk" :atleast-version "0.8")
-      (pkg-exists-p "gtk+-2.0" :atleast-version "1.3.12"))
+      (pkg-exists-p "glib-2.0" :atleast-version "2.0.0")
+      (pkg-exists-p "pango" :atleast-version "1.0.0")
+      (pkg-exists-p "atk" :atleast-version "1.0.0")
+      (pkg-exists-p "gtk+-2.0" :atleast-version "2.0.0"))
     :source-pathname "clg:"
     :binary-pathname "clg:"
     :components
@@ -44,8 +44,8 @@
      (:module glib
       :initially-do
       (progn
-	(load-shared-library "libglib-1.3.so")
-	(load-shared-library "libgobject-1.3.so" :init "g_type_init"))
+	(load-shared-library "libglib-2.0.so")
+	(load-shared-library "libgobject-2.0.so" :init "g_type_init"))
       :components
       ((:file "callback"
 	:language :c
@@ -78,8 +78,8 @@
       :binary-pathname "gdk;"
       :initially-do
       (progn
-	(load-shared-library "libgdk_pixbuf-1.3.so")
-	(load-shared-library "libgdk-x11-1.3.so"
+	(load-shared-library "libgdk_pixbuf-2.0.so")
+	(load-shared-library "libgdk-x11-2.0.so"
 	 :init "gdk_init"
 	 :prototype '(function
 		      c-call:void
@@ -100,14 +100,14 @@
 	(:file "gdk" :depends-on ("gdkevents")))
        :depends-on (glib "gdkglue"))
      (:module pango
-      :initially-do (load-shared-library "libpango.so")
+      :initially-do (load-shared-library "libpango-1.0.so")
        :components
        ((:file "pango-package")
         (:file "pango" :depends-on ("pango-package"))
         (:file "pango-export" :depends-on ("pango")))
        :depends-on (glib))
      (:module atk
-      :initially-do (load-shared-library "libatk.so")
+      :initially-do (load-shared-library "libatk-1.0.so")
        :components
        ((:file "atk-package")
         (:file "atk" :depends-on ("atk-package"))
@@ -119,7 +119,7 @@
       :initially-do
       (progn
 	(load-shared-library
-	 "libgtk-x11-1.3.so"
+	 "libgtk-x11-2.0.so"
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
