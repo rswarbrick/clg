@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.14 2004-11-07 16:04:21 espen Exp $
+;; $Id: gcallback.lisp,v 1.15 2004-12-04 00:29:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -160,15 +160,16 @@
  function, or if :OBJECT is any other non NIL value, it is passed as the first 
  argument instead. If :AFTER is non NIL, the handler will be called after the 
  default handler of the signal."
-  (let ((callback-id
-	 (make-callback-closure
-	  (cond
-	   ((or (eq object t) (eq object gobject)) function)
-	   ((not object)
-	    #'(lambda (&rest args) (apply function (cdr args))))
-	   (t
-	    #'(lambda (&rest args) (apply function object (rest args))))))))
-    (signal-connect-closure gobject signal callback-id :after after)))
+  (when function
+    (let ((callback-id
+	   (make-callback-closure
+	    (cond
+	      ((or (eq object t) (eq object gobject)) function)
+	      ((not object)
+	       #'(lambda (&rest args) (apply function (cdr args))))
+	      (t
+	       #'(lambda (&rest args) (apply function object (rest args))))))))
+      (signal-connect-closure gobject signal callback-id :after after))))
 
 
 ;;; Message logging
