@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.5 2001-05-31 12:36:20 espen Exp $
+;; $Id: gboxed.lisp,v 1.6 2001-10-21 22:02:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -67,7 +67,7 @@
      (:metaclass boxed-class)
      (:alien-name ,(find-type-name type-number))))
 
-(register-derivable-type 'boxed "GBoxed" :expand 'expand-boxed-type)
+(register-derivable-type 'boxed "GBoxed" 'expand-boxed-type)
 
 ;;;; Special boxed types
 
