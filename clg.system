@@ -20,8 +20,8 @@
      (:module glib
       :initially-do
       (progn
-	(load-shared-library "libglib-1.3.so.1")
-	(load-shared-library "libgobject-1.3.so.1" :init "g_type_init"))
+	(load-shared-library "libglib-1.3.so.2")
+	(load-shared-library "libgobject-1.3.so.2" :init "g_type_init"))
       :components
       ((:file "callback"
 	:language :c
@@ -46,12 +46,12 @@
       :binary-pathname "gdk;"
       :initially-do
       (progn
-	(load-shared-library "libgdk_pixbuf-1.3.so.1")
-	(load-shared-library "libgdk-x11-1.3.so.1")
+	(load-shared-library "libgdk_pixbuf-1.3.so.2")
+	(load-shared-library "libgdk-x11-1.3.so.2")
 	;; Initializing of gdk types is done by gtk, so we
 	;; have to load an initialize it at this point
 	(load-shared-library
-	 "libgtk-x11-1.3.so.1"
+	 "libgtk-x11-1.3.so.2"
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
@@ -83,11 +83,12 @@
        (:file "gtk-export" :depends-on ("gtkenums" "gtktypes" "gtk"))
        (:file "gtkobject" :depends-on ("gtk-package"))
        (:file "gtkenums" :depends-on ("gtk-package"))
-       (:file "gtktypes" :depends-on ("gtkenums" "gtkobject"))
-       (:file "gtkwidget" :depends-on ("gtktypes"))
-       (:file "gtkcontainer" :depends-on ("gtktypes"))
-       (:file "gtk" :depends-on ("gtktypes"))
-       (:file "gtkutils" :depends-on ("gtk")))
+        (:file "gtktypes" :depends-on ("gtkenums" "gtkobject"))
+        (:file "gtkwidget" :depends-on ("gtktypes"))
+        (:file "gtkcontainer" :depends-on ("gtktypes"))
+        (:file "gtk" :depends-on ("gtktypes"))
+        (:file "gtkutils" :depends-on ("gtk"))
+       )
       :depends-on (glib gdk "gtkglue")))))
 
 
