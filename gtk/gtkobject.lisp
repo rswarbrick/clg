@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.2 2000-08-15 18:20:07 espen Exp $
+;; $Id: gtkobject.lisp,v 1.3 2000-08-16 17:30:36 espen Exp $
 
 
 (in-package "GTK")
@@ -155,8 +155,10 @@
     (let ((arg (arg-new 0)))
       (setf (arg-name arg) name)
       (object-get-arg object arg)
-      (let ((type (type-from-number (arg-type arg))))
+      (let* ((type-number (arg-type arg))
+	     (type (type-from-number type-number)))
 	(%arg-reset arg)
+	(setf (arg-type arg) type-number)
 	(setf (arg-value arg type) value)
 	(object-set-arg object arg)
 	(arg-free arg t))))
