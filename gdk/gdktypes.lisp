@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.8 2004-11-06 21:39:58 espen Exp $
+;; $Id: gdktypes.lisp,v 1.9 2004-12-20 00:31:01 espen Exp $
 
 (in-package "GDK")
 
@@ -51,16 +51,130 @@
   (:alien-name "GdkColor"))
 
 
+(deftype point () '(vector int 2))
+(deftype segment () '(vector int 4))
+(deftype trapezoid () '(vector double-float 6))
+
+
+
+;; Could this just as well have been a vector?
+(defclass rectangle (boxed)
+  ((x
+    :allocation :alien
+    :accessor rectangle-x
+    :initarg :x
+    :type int)
+   (y
+    :allocation :alien
+    :accessor rectangle-y
+    :initarg :y
+    :type int)
+   (width
+    :allocation :alien
+    :accessor rectangle-width
+    :initarg :width
+    :type int)
+   (height
+    :allocation :alien
+    :accessor rectangle-height
+    :initarg :height
+    :type int))
+  (:metaclass boxed-class)
+  (:alien-name "GdkRectangle"))
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-types-by-introspection "Gdk"
     ("GdkFunction" :type gc-function)
+    ("GdkWMDecoration" :type wm-decoration)
+    ("GdkWMFunction" :type wm-function)
     ("GdkGC" :type gc)
+    ("GdkGCX11" :type gc-x11)
+    ("GdkGCValuesMask" :type gc-values-mask)
     ("GdkDrawableImplX11" :ignore t)
     ("GdkWindowImplX11" :ignore t)
     ("GdkPixmapImplX11" :ignore t)
     ("GdkGCX11" :ignore t)
     ("GdkColor" :ignore t)
-    ("GdkEvent" :ignore t)))
+    ("GdkEvent" :ignore t)
+    ("GdkRectngle" :ignore t)
+    ("GdkFont" :ignore t) ; deprecated
+
+    ("GdkDrawable"
+     :slots
+     ((display
+       :allocation :virtual
+       :getter "gdk_drawable_get_display"
+       :reader drawable-display
+       :type display)
+      (screen
+       :allocation :virtual
+       :getter "gdk_drawable_get_screen"
+       :reader drawable-screen
+       :type screen)
+      (visual
+       :allocation :virtual
+       :getter "gdk_drawable_get_visual"
+       :reader drawable-visual
+       :type visual)
+      (colormap
+       :allocation :virtual
+       :getter "gdk_drawable_get_colormap"
+       :setter "gdk_drawable_set_colormap"
+       :unbound nil
+       :accessor drawable-colormap
+       :initarg :colormap
+       :type colormap)
+      (depth
+       :allocation :virtual
+       :getter "gdk_drawable_get_depth"
+       :reader drawable-depth
+       :type int)
+      (with 
+       :allocation :virtual
+       :getter drawable-width)
+      (height
+       :allocation :virtual
+       :getter drawable-height)))
+
+    ("GdkWindow"
+     :slots
+     ((state
+       :allocation :virtual
+       :getter "gdk_window_get_state"
+       :reader window-state
+       :type window-state)
+      (parent
+       :allocation :virtual
+       :getter "gdk_window_get_parent"
+       :reader window-parent
+       :type window)
+      (toplevel
+       :allocation :virtual
+       :getter "gdk_window_get_toplevel"
+       :reader window-toplevel
+       :type window)
+      (children
+       :allocation :virtual
+       :getter "gdk_window_get_children"
+       :reader window-children
+       :type (glist window))
+      (events
+       :allocation :virtual
+       :getter "gdk_window_get_events"
+       :setter "gdk_window_set_events"
+       :accessor window-events
+       :type event-mask)
+      (group
+       :allocation :virtual
+       :getter "gdk_window_get_group"
+       :setter "gdk_window_set_group"
+       :unbound nil
+       :accessor window-group
+       :type window)
+
+      ))
+))
 
 
 (deftype bitmap () 'pixmap)
@@ -68,9 +182,16 @@
 (defclass cursor (struct)
   ((type
     :allocation :alien
-    :accessor cursor-type
-    :initarg :type
-    :type cursor-type))
+    :reader cursor-type
+    :type cursor-type)
+   (ref-count
+    :allocation :alien
+    :type unsigned-int)
+   (display
+    :allocation :virtual
+    :getter "gdk_cursor_get_display"
+    :reader cursor-display
+    :type display))
   (:metaclass struct-class))
 
 (defclass device (struct)
