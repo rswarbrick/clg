@@ -103,7 +103,7 @@
     collect (let* ((slot-name (pcl:slot-definition-name slotd))
 		   (slot-value (if (slot-boundp object slot-name)
 				   (slot-value object slot-name)
-				 *inspect-unbound-object-marker*)))
+				 *ginspect-unbound-object-marker*)))
 	      (cons (string slot-name) slot-value)))))
 
 
