@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.11 2004-12-17 00:27:01 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.12 2004-12-20 00:53:48 espen Exp $
 
 (in-package "GTK")
 
@@ -384,5 +384,5 @@ received."
   (event gdk:event))
 
 (defun (setf widget-cursor) (cursor-type widget)
-  (let ((cursor (make-instance 'cursor  :type cursor-type)))
+  (let ((cursor (make-instance 'gdk:cursor :type cursor-type)))
     (gdk:window-set-cursor (widget-window widget) cursor)))
