@@ -8,3 +8,4 @@
 (export-from-file #p"clg:gtk;gtktree.lisp")
 (export-from-file #p"clg:gtk;gtkaction.lisp")
 (export-from-file #p"clg:gtk;gtkutils.lisp")
+(export-from-file #p"clg:gtk;gtkstyle.lisp")
