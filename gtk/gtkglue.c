@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.5 2001-04-29 20:12:12 espen Exp $ */
+/* $Id: gtkglue.c,v 1.6 2001-05-29 16:01:40 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -221,115 +221,6 @@ gtk_combo_get_case_sensitive (GtkCombo *combo)
   return combo->case_sensitive;
 }
 
-
-/* CList */
-
-#ifdef CLIST
-GList*
-gtk_clist_selection (GtkCList *clist)
-{
-  return clist->selection;
-}
-
-gint
-gtk_clist_get_titles_visible (GtkCList *clist)
-{
-  return (clist->title_window && GTK_WIDGET_VISIBLE (clist->title_window));
-}
-
-gint
-gtk_clist_get_n_rows (GtkCList *clist)
-{
-  return clist->rows;
-}
-
-gint
-gtk_clist_get_focus_row (GtkCList *clist)
-{
-  return clist->focus_row;
-}
-
-gint
-gtk_clist_get_sort_column (GtkCList *clist)
-{
-  return clist->sort_column;
-}
-
-GtkJustification
-gtk_clist_column_justification (GtkCList *clist,
-				 gint column)
-{
-  return clist->column[column].justification;
-}
-
-gboolean
-gtk_clist_column_visible_p (GtkCList *clist,
-			   gint column)
-{
-  return clist->column[column].visible;
-}
-
-gboolean
-gtk_clist_column_resizeable_p (GtkCList *clist,
-			     gint column)
-{
-  return clist->column[column].resizeable;
-}
-
-gboolean
-gtk_clist_column_auto_resize_p (GtkCList *clist,
-				gint column)
-{
-  return clist->column[column].auto_resize;
-}
-
-gint
-gtk_clist_column_width (GtkCList *clist,
-			gint column)
-{
-  return clist->column[column].width;
-}
-
-gboolean
-gtk_clist_auto_sort_p (GtkCList *clist)
-{
-  return GTK_CLIST_AUTO_SORT (clist);
-}
-#endif
-
-/* CTree */
-
-#ifdef CTREE
-gboolean
-gtk_ctree_node_leaf_p (GtkCTreeNode* node)
-{
-  return GTK_CTREE_ROW (node)->is_leaf;
-}
-
-GtkCTreeNode*
-gtk_ctree_node_child (GtkCTreeNode* node)
-{
-  return GTK_CTREE_ROW (node)->children;
-}
-
-GtkCTreeNode*
-gtk_ctree_node_parent (GtkCTreeNode* node)
-{
-  return GTK_CTREE_ROW (node)->parent;
-}
-
-GtkCTreeNode*
-gtk_ctree_node_sibling (GtkCTreeNode* node)
-{
-  return GTK_CTREE_ROW (node)->sibling;
-}
-
-gint
-gtk_ctree_node_level (GtkCTreeNode* node)
-{
-  return GTK_CTREE_ROW (node)->level;
-}
-#endif
 
 /* Paned */
 
