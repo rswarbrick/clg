@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.11 2001-05-29 15:49:23 espen Exp $
+;; $Id: gtype.lisp,v 1.12 2001-10-21 21:50:18 espen Exp $
 
 (in-package "GLIB")
 
@@ -221,31 +221,21 @@
 
 ;;;; 
 
-(defvar *derivable-type-info* ())
+(defvar *derivable-type-info* (make-hash-table))
 
-(defun register-derivable-type (type id &key query expand)
+(defun register-derivable-type (type id expander)
   (register-type type id)
-  (let* ((type-number (register-type type id))
-	 (info (assoc type-number *derivable-type-info*)))
-    (if info
-	(setf (cdr info) (list query expand))
-      (push
-       (list type-number query expand)
-       *derivable-type-info*))))
+  (let ((type-number (register-type type id)))
+    (setf (gethash type-number *derivable-type-info*) expander)))
 
 (defun find-type-info (type)
   (dolist (super (cdr (type-hierarchy type)))
-    (let ((info (assoc super *derivable-type-info*)))
+    (let ((info (gethash super *derivable-type-info*)))
       (return-if info))))
 
-(defun type-dependencies (type)
-  (let ((query (second (find-type-info type))))
-    (when query
-      (funcall query (find-type-number type t)))))
-
-(defun expand-type-definition (type)
-  (let ((expander (third (find-type-info type))))
-    (funcall expander (find-type-number type t))))
+(defun expand-type-definition (type options)
+  (let ((expander (find-type-info type)))
+    (funcall expander (find-type-number type t) options)))
 
 (defbinding type-parent (type) type-number
   ((find-type-number type t) type-number))
@@ -283,26 +273,29 @@
 
 (defun find-types (prefix)
   (let ((type-list nil))
-    (dolist (type-info *derivable-type-info*)
-      (map-subtypes
-       #'(lambda (type-number)
-	   (pushnew type-number type-list))
-       (first type-info) prefix))
+    (maphash
+     #'(lambda (type-number expander)
+	 (declare (ignore expander))
+	 (map-subtypes
+	  #'(lambda (type-number)
+	      (pushnew type-number type-list))
+	  type-number prefix))
+     *derivable-type-info*)
     type-list))
 
 (defun %sort-types-topologicaly (unsorted)
   (let ((sorted ()))
     (loop while unsorted do
       (dolist (type unsorted)
-	(let ((dependencies (type-dependencies type)))
+	(let ((dependencies (rest (type-hierarchy type))))
 	  (cond
 	   ((null dependencies)
 	    (push type sorted)
 	    (setq unsorted (delete type unsorted)))
 	   (t
 	    (unless (dolist (dep dependencies)
-		      (when (find type (type-dependencies dep))
-			(error "Cyclic type dependencies not yet supported"))
+		      (when (find type (rest (type-hierarchy dep)))
+			(error "Cyclic type dependencie"))
 		      (return-if (find dep unsorted)))
 	      (push type sorted)
 	      (setq unsorted (delete type unsorted))))))))
@@ -310,34 +303,38 @@
 
 
 (defun expand-type-definitions (prefix &optional args)
-  (flet ((type-options (type-number)
+ (flet ((type-options (type-number)
 	   (let ((name (find-type-name type-number)))
 	     (cdr (assoc name args :test #'string=)))))
 
-    (let ((type-list
-	   (delete-if
-	    #'(lambda (type-number)
-		(let ((name (find-type-name type-number)))
-		  (or
-		   (getf (type-options type-number) :ignore)
-		   (find-if
-		    #'(lambda (options)
-			(and
-			 (string-prefix-p (first options) name)
-			 (getf (cdr options) :ignore-prefix)))
-		    args))))
-	    (find-types prefix))))
+   (let ((type-list
+	  (delete-if
+	   #'(lambda (type-number)
+	       (let ((name (find-type-name type-number)))
+		 (or
+		  (getf (type-options type-number) :ignore)
+		  (find-if
+		   #'(lambda (options)
+		       (and
+			(string-prefix-p (first options) name)
+			(getf (cdr options) :ignore-prefix)))
+		   args))))
+	   (find-types prefix))))
              
-      (dolist (type-number type-list)
-	(let ((name (find-type-name type-number)))
-	  (register-type
-	   (getf (type-options type-number) :type (default-type-name name))
-	   type-number)))
+     (dolist (type-number type-list)
+       (let ((name (find-type-name type-number)))
+	 (register-type
+	  (getf (type-options type-number) :type (default-type-name name))
+	  type-number)))
+    
+     `(progn
+	,@(mapcar
+	   #'(lambda (type)
+	       (expand-type-definition type (type-options type)))
+	   (%sort-types-topologicaly type-list))))))
 
-      `(progn
-	 ,@(mapcar
-	    #'expand-type-definition
-	    (%sort-types-topologicaly type-list))))))
-	    
 (defmacro define-types-by-introspection (prefix &rest args)
   (expand-type-definitions prefix args))
+
+
+
