@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.7 2002-03-24 12:52:11 espen Exp $
+;; $Id: gcallback.lisp,v 1.8 2002-03-24 15:43:16 espen Exp $
 
 (in-package "GLIB")
 
@@ -159,18 +159,13 @@
   (handler unsigned-int))
 
 
-(defmethod signal-connect ((gobject gobject) signal function &rest args &key after object)
-  (declare (ignore signal args after))
-  (cond
-   ((or (eq object t) (eq object gobject)) function)
-   ((not object)
-    #'(lambda (&rest args) (apply function (cdr args))))
-   (t
-    #'(lambda (&rest args) (apply function object (rest args))))))
-
-
-(defmethod signal-connect :around ((gobject gobject) signal function
-				   &key after object)
-  (declare (ignore object))
-  (let ((callback-id (make-callback-closure (call-next-method))))
+(defmethod signal-connect ((gobject gobject) signal function &key after object)
+  (let ((callback-id
+	 (make-callback-closure
+	  (cond
+	   ((or (eq object t) (eq object gobject)) function)
+	   ((not object)
+	    #'(lambda (&rest args) (apply function (cdr args))))
+	   (t
+	    #'(lambda (&rest args) (apply function object (rest args))))))))
     (signal-connect-closure gobject signal callback-id :after after)))
