@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 2000-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.33 2005-02-27 15:14:38 espen Exp $
+;; $Id: gobject.lisp,v 1.34 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -102,17 +102,16 @@
 
 
 (defmethod initialize-internal-slot-functions ((slotd effective-property-slot-definition))
-  (let* ((type (slot-definition-type slotd))
-	 (pname (slot-definition-pname slotd))
-	 (type-number (find-type-number type)))
+  (let ((type (slot-definition-type slotd))
+	(pname (slot-definition-pname slotd)))
     (when (and (not (slot-boundp slotd 'getter)) (slot-readable-p slotd))
       (setf 
        (slot-value slotd 'getter)
-       (let ((reader nil)) ;(reader-function type)))
+       (let ((reader nil))
 	 #'(lambda (object)
 	     (unless reader
 	       (setq reader (reader-function type)))
-	     (let ((gvalue (gvalue-new type-number)))
+	     (let ((gvalue (gvalue-new type)))
 	       (%object-get-property object pname gvalue)
 	       (unwind-protect
 		 (funcall reader  gvalue +gvalue-value-offset+)
@@ -121,11 +120,11 @@
     (when (and (not (slot-boundp slotd 'setter)) (slot-writable-p slotd))
       (setf 
        (slot-value slotd 'setter)
-       (let ((writer nil)) ;(writer-function type)))
+       (let ((writer nil))
 	 #'(lambda (value object)
 	     (unless writer
 	       (setq writer (writer-function type)))
-	     (let ((gvalue (gvalue-new type-number)))
+	     (let ((gvalue (gvalue-new type)))
 	       (funcall writer value gvalue +gvalue-value-offset+)
 	       (%object-set-property object pname gvalue)
 	       (gvalue-free gvalue t)
@@ -159,7 +158,7 @@
   (defclass gobject (ginstance)
     ()
     (:metaclass gobject-class)
-    (:alien-name "GObject")))
+    (:gtype "GObject")))
 
 
 (defun initial-add (object function initargs key pkey)
@@ -431,7 +430,7 @@
        ,(unless forward-p
 	  (slot-definitions class (query-object-class-properties type) slots))
       (:metaclass ,metaclass)
-      (:alien-name ,(find-type-name type)))))
+      (:gtype ,(find-type-init-function type)))))
 
 (defun gobject-dependencies (type)
   (delete-duplicates 

@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 2000-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,13 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.15 2005-02-03 23:09:04 espen Exp $
+;; $Id: gparam.lisp,v 1.16 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GLIB")
 
 (deftype gvalue () 'pointer)
 
-(register-type 'gvalue "GValue")
+(register-type 'gvalue '|g_value_get_type|)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defbinding (size-of-gvalue "size_of_gvalue") () unsigned-int))
@@ -145,7 +145,8 @@
     :getter "g_param_spec_get_blurb"
     :reader param-documentation
     :type (copy-of string)))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParam"))
 
 
 (defclass param-char (param)
@@ -161,7 +162,8 @@
     :allocation :alien
     :reader param-char-default-value
     :type char))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamChar"))
 
 (defclass param-unsigned-char (param)
   (
@@ -179,14 +181,15 @@
 ;     :type unsigned-char)
    )
   (:metaclass param-spec-class)
-  (:alien-name "GParamUChar"))
+  (:gtype "GParamUChar"))
 
 (defclass param-boolean (param)
   ((default-value
      :allocation :alien
      :reader param-boolean-default-value
      :type boolean))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamBoolean"))
 
 (defclass param-int (param)
   ((minimum
@@ -201,7 +204,8 @@
     :allocation :alien
     :reader param-int-default-value
     :type int))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamInt"))
 
 (defclass param-unsigned-int (param)
   ((minimum
@@ -217,7 +221,7 @@
     :reader param-unsigned-int-default-value
     :type unsigned-int))
   (:metaclass param-spec-class)
-  (:alien-name "GParamUInt"))
+  (:gtype "GParamUInt"))
 
 (defclass param-long (param)
   ((minimum
@@ -232,7 +236,8 @@
     :allocation :alien
     :reader param-long-default-value
     :type long))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParam"))
 
 (defclass param-unsigned-long (param)
   ((minimum
@@ -248,11 +253,12 @@
     :reader param-unsigned-long-default-value
     :type unsigned-long))
   (:metaclass param-spec-class)
-  (:alien-name "GParamULong"))
+  (:gtype "GParamULong"))
 
 (defclass param-unichar (param)
   ()
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamUnichar"))
 
 (defclass param-enum (param)
   ((class
@@ -263,7 +269,8 @@
     :allocation :alien
     :reader param-enum-default-value
     :type long))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamEnum"))
 
 (defclass param-flags (param)
   ((class
@@ -274,7 +281,8 @@
     :allocation :alien
     :reader param-flags-default-value
     :type long))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamFlags"))
 
 (defclass param-single-float (param)
   ((minimum
@@ -294,7 +302,7 @@
     :reader param-single-float-epsilon
     :type single-float))
   (:metaclass param-spec-class)
-  (:alien-name "GParamFloat"))
+  (:gtype "GParamFloat"))
 
 (defclass param-double-float (param)
   ((minimum
@@ -314,26 +322,30 @@
     :reader param-double-float-epsilon
     :type double-float))
   (:metaclass param-spec-class)
-  (:alien-name "GParamDouble"))
+  (:gtype "GParamDouble"))
 
 (defclass param-string (param)
   ((default-value
     :allocation :alien
     :reader param-string-default-value
     :type string))
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamString"))
 
 (defclass param-param (param)
   ()
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamParam"))
 
 (defclass param-boxed (param)
   ()
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamBoxed"))
 
 (defclass param-pointer (param)
   ()
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamPointer"))
 
 (defclass param-value-array (param)
   ((element-spec
@@ -344,12 +356,15 @@
     :allocation :alien
     :reader param-value-array-length
     :type unsigned-int))
-  (:metaclass param-spec-class))
-
-;; (defclass param-closure (param)
-;;   ()
-;;   (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamValueArray"))
 
 (defclass param-object (param)
   ()
-  (:metaclass param-spec-class))
+  (:metaclass param-spec-class)
+  (:gtype "GParamObject"))
+
+(defclass param-overrride (param)
+  ()
+  (:metaclass param-spec-class)
+  (:gtype "GParamOverride"))

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.23 2005-02-03 23:09:09 espen Exp $
+;; $Id: gtkobject.lisp,v 1.24 2005-03-06 17:26:23 espen Exp $
 
 
 (in-package "GTK")
@@ -36,13 +36,12 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library 
    #.(concatenate 'string (pkg-config:pkg-variable "gtk+-2.0" "libdir") 
-		          "/libgtk-x11-2.0.so")
-   :ignore ("gtk_window_get_type_hint"))
+		          "/libgtk-x11-2.0.so"))
 
   (defclass %object (gobject)
     ()
     (:metaclass gobject-class)
-    (:alien-name "GtkObject")))
+    (:gtype |gtk_object_get_type|)))
 
 
 (defmethod initialize-instance ((object %object) &rest initargs &key signal)
@@ -133,14 +132,13 @@
 
 
 (defmethod initialize-internal-slot-functions ((slotd effective-child-slot-definition))
-  (let* ((type (slot-definition-type slotd))
-	 (pname (slot-definition-pname slotd))
-	 (type-number (find-type-number type)))
+  (let ((type (slot-definition-type slotd))
+	(pname (slot-definition-pname slotd)))
     (setf 
      (slot-value slotd 'getter)
      #'(lambda (object)
 	 (with-slots (parent child) object	   
-	   (let ((gvalue (gvalue-new type-number)))
+	   (let ((gvalue (gvalue-new type)))
 	     (%container-child-get-property parent child pname gvalue)
 	     (unwind-protect
 		 (funcall (reader-function type) gvalue +gvalue-value-offset+)
@@ -150,7 +148,7 @@
      (slot-value slotd 'setter)
      #'(lambda (value object)
 	 (with-slots (parent child) object	   
-	   (let ((gvalue (gvalue-new type-number)))
+	   (let ((gvalue (gvalue-new type)))
 	     (funcall (writer-function type) value gvalue +gvalue-value-offset+)
 	     (%container-child-set-property parent child pname gvalue)
 	     (gvalue-free gvalue t)

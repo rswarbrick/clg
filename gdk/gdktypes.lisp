@@ -15,17 +15,14 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.15 2005-02-26 18:53:33 espen Exp $
+;; $Id: gdktypes.lisp,v 1.16 2005-03-06 17:26:22 espen Exp $
 
 (in-package "GDK")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library #.(concatenate 'string
 			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk-x11-2.0.so") :prefix "gdk_")
-  (init-types-in-library #.(concatenate 'string
-			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk-x11-2.0.so") :prefix "_gdk_")
+			    "/libgdk-x11-2.0.so") :prefix ("gdk_" "_gdk_"))
   (init-types-in-library #.(concatenate 'string
 			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
 			    "/libgdk_pixbuf-2.0.so") :prefix "gdk_"))
@@ -47,8 +44,7 @@
     :allocation :alien
     :accessor color-blue
     :type unsigned-short))
-  (:metaclass boxed-class)
-  (:alien-name "GdkColor"))
+  (:metaclass boxed-class))
 
 
 (deftype point () '(vector int 2))
@@ -79,8 +75,7 @@
     :accessor rectangle-height
     :initarg :height
     :type int))
-  (:metaclass boxed-class)
-  (:alien-name "GdkRectangle"))
+  (:metaclass boxed-class))
 
 
 (define-types-by-introspection "Gdk"
@@ -206,8 +201,7 @@
     :getter "gdk_cursor_get_display"
     :reader cursor-display
     :type display))
-  (:metaclass boxed-class)
-  (:alien-name "GdkCursor"))
+  (:metaclass boxed-class))
 
 
 (defclass geometry (struct)

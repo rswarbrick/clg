@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.33 2005-02-27 15:39:52 espen Exp $
+;; $Id: gtktypes.lisp,v 1.34 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GTK")
 
@@ -123,7 +123,7 @@
 ;;   (:metaclass boxed-class))
 
 (deftype tree-path () '(vector integer))
-(register-type 'tree-path "GtkTreePath")
+(register-type 'tree-path '|gtk_tree_path_get_type|)
 
 (deftype position () 
   '(or int (enum (:start 0) (:end -1) (:first 0) (:last -1))))

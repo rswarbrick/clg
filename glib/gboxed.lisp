@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.16 2005-02-14 00:44:26 espen Exp $
+;; $Id: gboxed.lisp,v 1.17 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -42,17 +42,13 @@
     (subtypep (class-name super) 'boxed)))
 
 
-(defmethod shared-initialize ((class boxed-class) names
-			      &rest initargs &key name alien-name)
-  (declare (ignore initargs names))
+(defmethod shared-initialize ((class boxed-class) names &key name gtype)
+  (declare (ignore names))
   (call-next-method)
-  
-  (let* ((class-name (or name (class-name class)))
-	 (type-number
-	  (find-type-number
-	   (or (first alien-name) (default-alien-type-name class-name)))))
-    (register-type class-name type-number)))
-
+  (let ((class-name (or name (class-name class))))
+    (unless (find-type-number class-name)
+      (register-type class-name 
+       (or (first gtype) (default-type-init-name class-name))))))
 
 (defbinding %boxed-copy () pointer
   (type-number type-number)
@@ -76,7 +72,7 @@
      ,(unless forward-p
 	slots)
      (:metaclass boxed-class)
-     (:alien-name ,(find-type-name type-number))))
+     (:gtype ,(find-type-init-function type-number))))
 
 (register-derivable-type 'boxed "GBoxed" 'expand-boxed-type)
 
@@ -115,4 +111,4 @@
 ;;;; NULL terminated vector of strings
 
 (deftype strings () '(null-terminated-vector string))
-(register-type 'strings "GStrv")
+(register-type 'strings '|g_strv_get_type|)

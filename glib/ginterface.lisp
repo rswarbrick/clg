@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.8 2005-02-10 00:20:02 espen Exp $
+;; $Id: ginterface.lisp,v 1.9 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -54,14 +54,12 @@
     (call-next-method)))
 
 
-(defmethod shared-initialize ((class ginterface-class) names
-			      &rest initargs &key name alien-name)
-  (declare (ignore initargs names))
-  (let* ((class-name (or name (class-name class)))
-	 (type-number
-	  (find-type-number
-	   (or (first alien-name) (default-alien-type-name class-name)) t)))
-    (register-type class-name type-number))
+(defmethod shared-initialize ((class ginterface-class) names &key name gtype)
+  (declare (ignore names))
+  (let ((class-name (or name (class-name class))))
+    (unless (find-type-number class-name)
+      (register-type class-name 
+        (or (first gtype) (default-type-init-name class-name)))))
   (call-next-method))
 
 
@@ -144,7 +142,7 @@
        ,(unless forward-p
 	  (slot-definitions class (query-object-interface-properties type) slots))
       (:metaclass ginterface-class)
-      (:alien-name ,(find-type-name type)))))
+      (:gtype ,(find-type-init-function type)))))
 
 (defun ginterface-dependencies (type)
   (delete-duplicates 

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: pango.lisp,v 1.7 2005-02-03 23:09:06 espen Exp $
+;; $Id: pango.lisp,v 1.8 2005-03-06 17:26:23 espen Exp $
 
 (in-package "PANGO")
 
@@ -25,6 +25,9 @@
 		          "/libpango-1.0.so") :prefix "pango_")
   (init-types-in-library #.(concatenate 'string 
 			  (pkg-config:pkg-variable "pango" "libdir")
-		          "/libpangoxft-1.0.so") :prefix "pango_xft"))
+		          "/libpangoxft-1.0.so") :prefix "pango_xft")
+  (init-types-in-library #.(concatenate 'string 
+			  (pkg-config:pkg-variable "pango" "libdir")
+		          "/libpangoft2-1.0.so") :prefix "pango_fc"))
 
 (define-types-by-introspection "Pango")

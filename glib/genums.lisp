@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.11 2005-02-25 17:20:25 espen Exp $
+;; $Id: genums.lisp,v 1.12 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GLIB")
   
@@ -331,7 +331,7 @@
 	   (remove-if
 	    #'(lambda (mapping) (eq (second mapping) nil)) mappings))))
     `(progn
-       (register-type ',type ,(find-type-name type-number))
+       (register-type ',type ',(find-type-init-function type-number))
        ,(ecase super
 	  (enum `(define-enum-type ,type ,@expanded-mappings))
 	  (flags `(define-flags-type ,type ,@expanded-mappings))))))

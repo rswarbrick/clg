@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.26 2005-02-10 00:20:02 espen Exp $
+;; $Id: gtype.lisp,v 1.27 2005-03-06 17:26:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -99,62 +99,85 @@
 
 ;;;; Mapping between lisp types and glib types
 
-(defvar *type-to-number-hash* (make-hash-table))
-(defvar *number-to-type-hash* (make-hash-table))
-
-(defun register-type (type id)
-  (let ((type-number
-	 (etypecase id
-	   (integer id)
-	   (string (find-type-number id t))
-	   (symbol (gethash id *type-to-number-hash*)))))
-    (setf (gethash type *type-to-number-hash*) type-number)
-    (unless (symbolp id)
-      (setf (gethash type-number *number-to-type-hash*) type))
-    type-number))
+(defvar *registered-types* ())
+(defvar *registered-type-aliases* ())
+(defvar *lisp-type-to-type-number* (make-hash-table))
+(defvar *type-number-to-lisp-type* (make-hash-table))
 
 (defbinding %type-from-name () type-number
   (name string))
 
-(defun find-type-number (type &optional error)
+(defun type-number-from-glib-name (name &optional (error-p t))
+  (let ((type-number (%type-from-name name)))
+    (cond
+     ((not (zerop type-number)) type-number)
+     (error-p (error "Invalid gtype name: ~A" name)))))
+
+(defun register-type (type id)
+  (pushnew (cons type id) *registered-types* :key #'car)
+  (let ((type-number 
+	 (typecase id
+	   (string (type-number-from-glib-name id))
+	   (symbol (funcall id)))))
+       (setf (gethash type *lisp-type-to-type-number*) type-number)
+       (setf (gethash type-number *type-number-to-lisp-type*) type)
+       type-number))
+
+(defun register-type-alias (type alias)
+  (pushnew (cons type alias) *registered-type-aliases* :key #'car)
+  (setf 
+   (gethash type *lisp-type-to-type-number*)
+   (find-type-number alias t)))
+
+(defun reinitialize-all-types ()
+  (clrhash *lisp-type-to-type-number*)
+  (clrhash *type-number-to-lisp-type*)
+  (type-init) ; initialize the glib type system
+  (mapc #'(lambda (type) 
+	    (register-type (car type) (cdr type)))
+	*registered-types*)
+  (mapc #'(lambda (type) 
+	    (register-type-alias (car type) (cdr type)))
+	*registered-type-aliases*))
+
+(pushnew 'reinitialize-all-types 
+  #+cmu *after-save-initializations*
+  #+sbcl *init-hooks*)
+
+#+cmu
+(pushnew 'system::reinitialize-global-table ; we shouldn't have to do this?
+ *after-save-initializations*)
+
+
+(defun find-type-number (type &optional error-p)
   (etypecase type
     (integer type)
-    (string
-     (let ((type-number (%type-from-name type)))
-       (cond
-	((and (zerop type-number) error)
-	 (error "Invalid gtype name: ~A" type))
-	((zerop type-number) nil)
-	(t type-number))))
+    (string (type-number-from-glib-name type error-p))
     (symbol
-     (let ((type-number (gethash type *type-to-number-hash*)))
-       (or
-	type-number
-	(and error (error "Type not registered: ~A" type)))))
-    (class (find-type-number (class-name type) error))))
+     (or
+      (gethash type *lisp-type-to-type-number*)
+      (and error-p (error "Type not registered: ~A" type))))
+    (class (find-type-number (class-name type) error-p))))
  
 (defun type-from-number (type-number &optional error)
   (multiple-value-bind (type found)
-      (gethash type-number *number-to-type-hash*)
+      (gethash type-number *type-number-to-lisp-type*)
     (when (and error (not found))
-      (let ((name (find-type-name type-number)))
+      (let ((name (find-foreign-type-name type-number)))
 	(if name
 	    (error "Type number not registered: ~A (~A)" type-number name)
 	  (error "Invalid type number: ~A" type-number))))
     type))
 
-(defun type-from-name (name)
-  (etypecase name
-    (string (type-from-number (find-type-number name t)))))
-
-(defbinding (find-type-name "g_type_name") (type) (copy-of string)
+(defbinding (find-foreign-type-name "g_type_name") (type) (copy-of string)
   ((find-type-number type t) type-number))
 
 (defun type-number-of (object)
   (find-type-number (type-of object) t))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun %find-types-in-library (pathname prefix ignore)
+  (defvar *type-initializers* ())
+  (defun %find-types-in-library (pathname prefixes ignore)
     (let ((process (run-program
 		    "/usr/bin/nm" (list "--defined-only" "-D" (namestring (truename pathname)))
 		    :output :stream :wait nil)))
@@ -164,9 +187,15 @@
 			 (when line (subseq line 11)))			  
 	   while symbol
 	   when (and
-		 (> (length symbol) (length prefix))
-		 (string= prefix symbol :end2 (length prefix))
-		 (search "_get_type" symbol)
+		 (> (length symbol) 9)
+		 (or 
+		  (not prefixes)
+		  (some #'(lambda (prefix)
+			    (and
+			     (> (length symbol) (length prefix))
+			     (string= prefix symbol :end2 (length prefix))))
+			(mklist prefixes)))
+		 (string= "_get_type" symbol :start2 (- (length symbol) 9))
 		 (not (member symbol ignore :test #'string=)))
 	   collect symbol)
 	(process-close process)))))
@@ -178,8 +207,22 @@
        ,@(mapcar #'(lambda (name)
 		     `(progn
 			(defbinding (,(intern name) ,name) () type-number)
-			(,(intern name))))
+			(,(intern name))
+			(pushnew ',(intern name) *type-initializers*)))
 		 names))))
+
+(defun find-type-init-function (type-number)
+  (or
+   (loop
+    for type-init in *type-initializers*
+    when (= type-number (funcall type-init))
+    do (return type-init))
+   (error "Can't find init function for type number ~D" type-number)))
+
+(defun default-type-init-name (type)
+  (find-symbol (format nil "~A_~A_get_type" 
+		(package-prefix *package*)
+		(substitute #\_ #\- (string-downcase type)))))
 
 
 
@@ -190,18 +233,17 @@
     ()))
 
 
-(defmethod shared-initialize ((class ginstance-class) names
-			      &rest initargs &key name alien-name)
+(defmethod shared-initialize ((class ginstance-class) names &key name gtype)
   (declare (ignore names))
   (let* ((class-name (or name (class-name class)))
-	 (type-number
-	  (find-type-number
-	   (or (first alien-name) (default-alien-type-name class-name)) t)))
-    (register-type class-name type-number)
-    (if (getf initargs :size)
-	(call-next-method)
-      (let ((size (type-instance-size type-number)))
-	(apply #'call-next-method class names :size (list size) initargs)))))
+	 (type-number 
+	  (or 
+	   (find-type-number class-name)
+	   (register-type class-name 
+	     (or (first gtype) (default-type-init-name class-name))))))
+    (call-next-method)
+    (when (slot-boundp class 'size)
+      (setf (slot-value class 'size) (type-instance-size type-number)))))
 
 
 (defmethod validate-superclass ((class ginstance-class) (super standard-class))
@@ -248,8 +290,8 @@
 (register-type 'char "gchar")
 (register-type 'unsigned-char "guchar")
 (register-type 'boolean "gboolean")
-(register-type 'fixnum "gint")
 (register-type 'int "gint")
+(register-type-alias 'fixnum 'int)
 (register-type 'unsigned-int "guint")
 (register-type 'long "glong")
 (register-type 'unsigned-long "gulong")
@@ -320,7 +362,7 @@
 	   #'(lambda (type-number)
 	       (when (or
 		      (not prefix)
-		      (string-prefix-p prefix (find-type-name type-number)))
+		      (string-prefix-p prefix (find-foreign-type-name type-number)))
 		 (funcall function type-number))
 	       (map-subtypes function type-number prefix))
 	   array 'type-number length)
@@ -374,14 +416,14 @@
 
 
 (defun expand-type-definitions (prefix &optional args)
- (flet ((type-options (type-number)
-	   (let ((name (find-type-name type-number)))
+  (flet ((type-options (type-number)
+	   (let ((name (find-foreign-type-name type-number)))
 	     (cdr (assoc name args :test #'string=)))))
 
    (let ((type-list
 	  (delete-if
 	   #'(lambda (type-number)
-	       (let ((name (find-type-name type-number)))
+	       (let ((name (find-foreign-type-name type-number)))
 		 (or
 		  (getf (type-options type-number) :ignore)
 		  (find-if
@@ -397,10 +439,10 @@
 	   (find-types prefix))))
 
      (dolist (type-number type-list)
-       (let ((name (find-type-name type-number)))
+       (let ((name (find-foreign-type-name type-number)))
 	 (register-type
 	  (getf (type-options type-number) :type (default-type-name name))
-	  type-number)))
+	  (find-type-init-function type-number))))
 
      (let ((sorted-type-list (%sort-types-topologicaly type-list)))
        `(progn

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.8 2005-02-26 17:55:27 espen Exp $
+;; $Id: gdkevents.lisp,v 1.9 2005-03-06 17:26:22 espen Exp $
 
 (in-package "GDK")
 
@@ -44,7 +44,7 @@
   :scroll
   (:all-events #x3FFFFE))
 
-(register-type 'event-mask "GdkEventMask")
+(register-type 'event-mask '|gdk_event_mask_get_type|)
 
 
 ;;;; Metaclass for event classes
@@ -61,11 +61,12 @@
 
 
 (defmethod shared-initialize ((class event-class) names &key name type)
+  (let ((class-name (or name (class-name class))))
+    (unless (eq class-name 'event)
+      (register-type-alias class-name 'event)))
   (call-next-method)
   (setf (slot-value class 'event-type) (first type))
-  (setf (gethash (first type) *event-classes*) class)
-  (let ((class-name (or name (class-name class))))
-    (register-type class-name 'event)))
+  (setf (gethash (first type) *event-classes*) class))
   
 (let ((reader (reader-function 'event-type)))
   (defun %event-class (location)
