@@ -3,7 +3,8 @@
 (asdf:oos 'asdf:load-op :clg-tools)
 
 (defpackage "GTK-SYSTEM"
-  (:use "COMMON-LISP" "ASDF" "PKG-CONFIG"))
+  (:use "COMMON-LISP" "ASDF" "PKG-CONFIG")
+  (:export "CLG-INIT"))
 
 (in-package "GTK-SYSTEM")
 
@@ -26,4 +27,5 @@
 		 (:file "gtkcontainer" :depends-on ("gtktypes"))
 		 (:file "gtk" :depends-on ("gtktypes"))
 		 (:file "gtkutils" :depends-on ("gtk"))
-		 (:file "export" :depends-on ("gtktypes" "gtk"))))
+		 (:file "export" :depends-on ("gtktypes" "gtk")))
+    :perform (load-op :after (op gtk) (clg-init)))
