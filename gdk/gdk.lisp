@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.8 2004-10-28 09:28:25 espen Exp $
+;; $Id: gdk.lisp,v 1.9 2004-10-28 09:37:27 espen Exp $
 
 
 (in-package "GDK")
@@ -273,7 +273,7 @@
 
 (defbinding %get-default-root-window () window)
 
-(defun get-root-window (%optional display)
+(defun get-root-window (&optional display)
   (if display
       (error "Not implemented")
     (%get-default-root-window)))
