@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.9 2002-03-24 15:40:50 espen Exp $
+;; $Id: gtk.lisp,v 1.10 2002-03-24 21:54:06 espen Exp $
 
 
 (in-package "GTK")
@@ -513,20 +513,10 @@
 
 ;;; Window
 
-(defbinding %window-set-wmclass () nil
+(defbinding window-set-wmclass () nil
   (window window)
   (wmclass-name string)
   (wmclass-class string))
-
-(defun (setf window-wmclass) (wmclass window)
-  (%window-set-wmclass window (svref wmclass 0) (svref wmclass 1))
-  (values (svref wmclass 0) (svref wmclass 1)))
-
-;; gtkglue.c
-(defbinding window-wmclass () nil
-  (window window)
-  (wmclass-name string :out)
-  (wmclass-class string :out))
 
 (defbinding window-add-accel-group () nil
   (window window)
@@ -542,11 +532,128 @@
 (defbinding window-activate-default () int
   (window window))
 
-(defbinding window-set-transient-for () nil
+(defbinding window-set-default-size (window width height) int
   (window window)
-  (parent window))
+  ((or width -1) int)
+  ((or height -1) int))
 
 ;(defbinding window-set-geometry-hints)
+
+(defbinding window-list-toplevels () (glist window))
+
+(defbinding window-add-mnemonic (window key target) nil
+  (window window)
+  ((gdk:keyval-from-name key) unsigned-int)
+  (target widget))
+
+(defbinding window-remove-mnemonic (window key target) nil
+  (window window)
+  ((gdk:keyval-from-name key) unsigned-int)
+  (target widget))
+
+(defbinding window-mnemonic-activate (window key modifier) nil
+  (window window)
+  ((gdk:keyval-from-name key) unsigned-int)
+  (modifier gdk:modifier-type))
+
+(defbinding window-present () nil
+  (window window))
+
+(defbinding window-iconify () nil
+  (window window))
+
+(defbinding window-deiconify () nil
+  (window window))
+
+(defbinding window-stick () nil
+  (window window))
+
+(defbinding window-unstick () nil
+  (window window))
+
+(defbinding window-maximize () nil
+  (window window))
+
+(defbinding window-unmaximize () nil
+  (window window))
+
+(defbinding window-begin-resize-drag () nil
+  (window window)
+  (edge gdk:window-edge)
+  (button int)
+  (root-x int) (root-y int)
+  (timestamp (unsigned-int 32)))
+
+(defbinding window-begin-move-drag () nil
+  (window window)
+  (edge gdk:window-edge)
+  (button int)
+  (root-x int) (root-y int)
+  (timestamp (unsigned-int 32)))
+
+(defbinding window-set-frame-dimensions () nil
+  (window window)
+  (left int) (top int) (rigth int) (bottom int))
+
+(defbinding (window-default-icons "gtk_window_get_default_icon_list")
+    () (glist gdk:pixbuf))
+
+(defbinding %window-get-default-size () nil
+  (window window)
+  (width int :out)
+  (height int :out))
+
+(defun window-get-default-size (window)
+  (multiple-value-bind (width height) (%window-get-default-size window)
+    (values (unless (= width -1) width) (unless (= height -1) height))))
+
+(defbinding window-get-frame-dimensions () nil
+  (window window)
+  (left int :out) (top int :out) (rigth int :out) (bottom int :out))
+
+(defbinding %window-get-icon-list () (glist gdk:pixbuf)
+  (window window))
+
+(defmethod window-icon ((window window))
+  (let ((icon-list (%window-get-icon-list window)))
+    (if (endp (rest icon-list))
+	(first icon-list)
+      icon-list)))
+
+(defbinding window-get-position () nil
+  (window window)
+  (root-x int :out)
+  (root-y int :out))
+
+(defbinding window-get-size () nil
+  (window window)
+  (width int :out)
+  (height int :out))
+
+(defbinding window-move () nil
+  (window window)
+  (x int)
+  (y int))
+
+(defbinding window-parse-geometry () boolean
+  (window window)
+  (geometry string))
+
+(defbinding window-reshow-with-initial-size () nil
+  (window window))
+
+(defbinding window-resize () nil
+  (window window)
+  (width int)
+  (heigth int))
+
+(defbinding %window-set-icon-list () nil
+  (window window)
+  (icon-list (glist gdk:pixbuf)))
+
+(defmethod (setf window-icon) (icon (window window))
+  (%window-set-icon-list window (mklist icon)))
+
 
 
 
