@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.1 2000-08-14 16:44:54 espen Exp $
+;; $Id: gtkobject.lisp,v 1.2 2000-08-15 18:20:07 espen Exp $
 
 
 (in-package "GTK")
@@ -78,7 +78,7 @@
 ;; One should never call this function on an arg whose value is already set
 (defun (setf arg-value)
     (value arg &optional (type (type-from-number (arg-type arg))))
-  (funcall (get-writer-funcation type) value arg +arg-value-offset+)
+  (funcall (get-writer-function type) value arg +arg-value-offset+)
   value)
 
 (defun (setf return-arg-value)
