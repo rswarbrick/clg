@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.21 2005-02-14 00:41:54 espen Exp $
+;; $Id: gcallback.lisp,v 1.22 2005-02-22 17:29:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -252,20 +252,34 @@
       (callback user-data-destroy-func))
      callback-id)))
 
-(defgeneric create-callback-function (gobject function arg1))
+(defgeneric compute-signal-function (gobject signal function object))
 
-(defmethod create-callback-function ((gobject gobject) function arg1)
+(defmethod compute-signal-function ((gobject gobject) signal function object)
+  (declare (ignore signal))
   (cond
-   ((or (eq arg1 t) (eq arg1 gobject)) function)
-   ((not arg1)
+   ((or (eq object t) (eq object gobject)) function)
+   ((not object)
     #'(lambda (&rest args) (apply function (rest args))))
    (t
-    #'(lambda (&rest args) (apply function arg1 (rest args))))))
+    #'(lambda (&rest args) (apply function object (rest args))))))
 
-(defgeneric signal-connect (gobject signal function &key))
+
+(defgeneric compute-signal-id (gobject signal))
+
+(defmethod compute-signal-id ((gobject gobject) signal)
+  (ensure-signal-id signal gobject))
+
+
+(defgeneric signal-connect (gobject signal function &key detail after object remove))
+
+(defmethod signal-connect :around ((gobject gobject) signal function &rest args)
+  (declare (ignore gobject signal args))
+  (when function
+    (call-next-method)))
+
 
 (defmethod signal-connect ((gobject gobject) signal function
-			   &key (detail 0) after object remove)
+			   &key detail after object remove)
 "Connects a callback function to a signal for a particular object. If
 :OBJECT is T, the object connected to is passed as the first argument
 to the callback function, or if :OBJECT is any other non NIL value, it
@@ -273,19 +287,19 @@ is passed as the first argument instead. If :AFTER is non NIL, the
 handler will be called after the default handler for the signal. If
 :REMOVE is non NIL, the handler will be removed after beeing invoked
 once."
-  (when function
-    (let* ((signal-id (ensure-signal-id signal gobject))
-	   (signal-stop-emission
-	    #'(lambda ()
-		(%signal-stop-emission gobject signal-id detail)))
-	   (callback (create-callback-function gobject function object))
-	   (wrapper #'(lambda (&rest args)
-			(let ((*signal-stop-emission* signal-stop-emission))
-			  (apply callback args)))))
+(let* ((signal-id (compute-signal-id gobject signal))
+       (detail-quark (if detail (quark-intern detail) 0))
+       (signal-stop-emission
+	#'(lambda ()
+	    (%signal-stop-emission gobject signal-id detail-quark)))
+       (callback (compute-signal-function gobject signal function object))
+       (wrapper #'(lambda (&rest args)
+		    (let ((*signal-stop-emission* signal-stop-emission))
+		      (apply callback args)))))
       (multiple-value-bind (closure-id callback-id)
 	  (make-callback-closure wrapper)
 	(let ((handler-id (%signal-connect-closure-by-id 
-			   gobject signal-id detail closure-id after)))
+			   gobject signal-id detail-quark closure-id after)))
 	  (when remove
 	    (update-user-data callback-id
 	     #'(lambda (&rest args)
@@ -293,7 +307,7 @@ once."
 		     (let ((*signal-stop-emission* signal-stop-emission))
 		       (apply callback args))
 		   (signal-handler-disconnect gobject handler-id)))))
-	  handler-id)))))
+	  handler-id))))
 
 
 ;;;; Signal emission
