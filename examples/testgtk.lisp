@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.22 2005-02-27 14:24:49 espen Exp $
+;; $Id: testgtk.lisp,v 1.23 2005-02-27 19:15:07 espen Exp $
 
 
 ;(use-package "GTK")
@@ -1775,6 +1775,13 @@ This one is underlined (こんにちは) in quite a funky fashion"
      :child-args '(:expand nil)
      :child (list (make-instance 'label :label (gtk-version)) :fill nil)
      :child (list (make-instance 'label :label "clg CVS version") :fill nil)
+     :child (list (make-instance 'label 			  
+		   :label #-cmu(format nil "~A (~A)" 
+			        (lisp-implementation-type)
+				(lisp-implementation-version))
+		          ;; The version string in CMUCL is far too long
+		          #+cmu(lisp-implementation-type))
+		  :fill nil)
      :child (list scrolled-window :expand t)
      :child (make-instance 'h-separator)
      :child (make-instance 'v-box 
