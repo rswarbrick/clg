@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.3 2004-11-21 17:57:56 espen Exp $
+;; $Id: gtktree.lisp,v 1.4 2004-12-17 00:36:32 espen Exp $
 
 
 (in-package "GTK")
@@ -292,7 +292,7 @@
   (reference tree-row-reference))
 
 
-(defbinding tree-model-get-column-type () type-number
+(defbinding tree-model-get-column-type () gtype ;type-number
   (tree-model tree-model)
   (index int))
 
@@ -312,7 +312,7 @@
   (column int)
   (gvalue gvalue))
 
-(defun tree-model-get-column-value (model iter column)
+(defun tree-model-column-value (model iter column)
   (let ((index (column-index model column)))
     (with-gvalue (gvalue (tree-model-get-column-type model index))
       (%tree-model-get-value model iter index gvalue))))
@@ -418,7 +418,8 @@
       (let ((setter 
 	     (mkbinding (column-setter-name model)
 	      nil (type-of model) 'tree-iter 'int
-	      (type-from-number (tree-model-get-column-type model index))
+;	      (type-from-number (tree-model-get-column-type model index))
+	      (tree-model-get-column-type model index)
 	      'int)))
 	#'(lambda (value iter)
 	    (funcall setter model iter index value -1))))))))
