@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.7 2001-05-20 23:10:36 espen Exp $
+;; $Id: gutils.lisp,v 1.8 2001-05-29 15:40:38 espen Exp $
 
 
 (in-package "KERNEL")
@@ -29,41 +29,6 @@
     (if def
 	(values (funcall def (if (consp form) form (list form))) t)
       (values form nil))))
-
-(in-package "PCL")
-
-;;;; Make PCL's class finalization protocol behave as specified in AMOP
-
-(defmethod finalize-inheritance ((class std-class))
-  (dolist (super (class-direct-superclasses class))
-    (unless (class-finalized-p super) (finalize-inheritance super)))
-  (update-cpl class (compute-class-precedence-list class))
-  (update-slots class (compute-slots class))
-  (update-gfs-of-class class)
-  (update-inits class (compute-default-initargs class))
-  (update-make-instance-function-table class))
-
-(defmethod finalize-inheritance ((class forward-referenced-class))
-  (error "~A can't be finalized" class))
-
-(defun update-class (class &optional finalizep)  
-  (declare (ignore finalizep))
-  (when (and
-	 (class-finalized-p class)
-	 (not (class-has-a-forward-referenced-superclass-p class)))
-    (finalize-inheritance class)
-    (dolist (sub (class-direct-subclasses class))
-      (update-class sub))))
-
-(defmethod add-method :before ((gf standard-generic-function)
-			       (method standard-method))
-  (declare (ignore gf))
-  (dolist (specializer (method-specializers method))
-    (when (and
-	   (typep specializer 'standard-class)
-	   (not (class-finalized-p specializer))
-	   (not (class-has-a-forward-referenced-superclass-p specializer)))
-      (finalize-inheritance specializer))))
 
 
 (in-package "GLIB")
