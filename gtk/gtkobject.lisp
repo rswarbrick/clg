@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.4 2000-08-16 22:16:23 espen Exp $
+;; $Id: gtkobject.lisp,v 1.5 2000-08-23 21:41:10 espen Exp $
 
 
 (in-package "GTK")
@@ -165,34 +165,12 @@
   value)
 
 
-;;;; Callback and user data mechanism
-
-(declaim (fixnum *user-data-count*))
-
-(defvar *user-data* (make-hash-table))
-(defvar *user-data-count* 0)
-
-(defun register-user-data (object &optional destroy-function)
-  (check-type destroy-function (or null symbol function))
-;  (incf *user-data-count*)
-  (setq *user-data-count* (the fixnum (1+ *user-data-count*)))
-  (setf
-   (gethash *user-data-count* *user-data*)
-   (cons object destroy-function))
-  *user-data-count*)
-
-
-(defun find-user-data (id)
-  (check-type id fixnum)
-  (multiple-value-bind (user-data p) (gethash id *user-data*)
-    (values (car user-data) p)))
-
+;;;; Callback mechanism
 
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
   ; We treat callbacks just as ordinary user data
   (register-user-data function))
-
 
 (defun callback-trampoline (callback-id nargs arg-array)
   (declare (fixnum callback-id nargs))
@@ -228,17 +206,8 @@
 		  (invoke-callback)))))
       (invoke-callback))))
 
-
-(defun destroy-user-data (id)
-  (check-type id fixnum)
-  (let ((user-data (gethash id *user-data*)))
-    (when (cdr user-data)
-      (funcall (cdr user-data) (car user-data))))
-  (remhash id *user-data*))
-
-
 (defvar *callback-marshal* (system:foreign-symbol-address "callback_marshal"))
-(defvar *destroy-marshal* (system:foreign-symbol-address "destroy_marshal"))
+(setq *destroy-marshal* (system:foreign-symbol-address "destroy_marshal"))
 
 (defun after-gc-hook ()
   (setf

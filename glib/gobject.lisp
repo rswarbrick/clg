@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.1 2000-08-14 16:44:30 espen Exp $
+;; $Id: gobject.lisp,v 1.2 2000-08-23 21:40:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -29,7 +29,7 @@
   (defclass gobject-class (gtype-class)))
 
 
-;;;; Methods for gobject
+;;;; Reference counting for gobject
 
 ;; Specializing reference-instance and unreference-instance on gobject
 ;; is not really necessary but done for efficiency
@@ -71,6 +71,59 @@
 ; (define-foreign object-queue-param-changed () nil
 ;   (object gobject)
 ;   (name string))
+
+
+;;;; User data mechanism
+
+(declaim (fixnum *user-data-count*))
+
+(defvar *user-data* (make-hash-table))
+(defvar *user-data-count* 0)
+
+;; Until the callback mechanism is moved to glib, the value of
+;; *destroy-marshal* is set in gtkobject.lisp
+(defvar *destroy-marshal* nil)
+
+(defun register-user-data (object &optional destroy-function)
+  (check-type destroy-function (or null symbol function))
+;  (incf *user-data-count*)
+  (setq *user-data-count* (the fixnum (1+ *user-data-count*)))
+  (setf
+   (gethash *user-data-count* *user-data*)
+   (cons object destroy-function))
+  *user-data-count*)
+
+(defun find-user-data (id)
+  (check-type id fixnum)
+  (multiple-value-bind (user-data p) (gethash id *user-data*)
+    (values (car user-data) p)))
+
+(defun destroy-user-data (id)
+  (check-type id fixnum)
+  (let ((user-data (gethash id *user-data*)))
+    (when (cdr user-data)
+      (funcall (cdr user-data) (car user-data))))
+  (remhash id *user-data*))
+
+(define-foreign %object-set-qdata-full () nil
+  (object gobject)
+  (id quark)
+  (data unsigned-long)
+  (destroy-marshal pointer))
+
+(defun (setf object-data) (data object key &key (test #'eq))
+  (%object-set-qdata-full
+   object (quark-from-object key :test test)
+   (register-user-data data) *destroy-marshal*)
+  data)
+
+(define-foreign %object-get-qdata () unsigned-long
+  (object gobject)		 
+  (id quark))
+
+(defun object-data (object key &key (test #'eq))
+  (find-user-data
+   (%object-get-qdata object (quark-from-object key :test test))))
 
 
 
