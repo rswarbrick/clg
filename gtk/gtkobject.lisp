@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2000 Espen S. Johnsen <esj@ostud.cs.uit.no>
+;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,24 +15,19 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.8 2001-01-28 14:23:38 espen Exp $
+;; $Id: gtkobject.lisp,v 1.9 2001-05-29 16:00:52 espen Exp $
 
 
 (in-package "GTK")
 
 
-;;;; Initializing
-
-(setf (alien-type-name 'pointer) "gpointer")
-
-
 ;;;; Misc utils
 
-(defun name-to-string (name)
-  (substitute #\_ #\- (string-downcase (string name))))
+; (defun name-to-string (name)
+;   (substitute #\_ #\- (string-downcase (string name))))
 
-(defun string-to-name (name &optional (package "KEYWORD"))
-  (intern (substitute #\- #\_ (string-upcase name)) package))
+; (defun string-to-name (name &optional (package "KEYWORD"))
+;   (intern (substitute #\- #\_ (string-upcase name)) package))
 
 
 ;;; Argument stuff - to be removed soon
@@ -44,10 +39,10 @@
 (defconstant +arg-value-offset+ 8)
 (defconstant +arg-size+ 16)
 
-(define-foreign arg-new () arg
+(defbinding arg-new () arg
   (type type-number))
 
-(define-foreign %arg-free () nil
+(defbinding %arg-free () nil
   (arg arg)
   (free-contents boolean))
 
@@ -58,18 +53,18 @@
     (unless (null-pointer-p arg)
       (when free-contents
 	(funcall
-	 (get-destroy-function (type-from-number (arg-type arg)))
+	 (intern-destroy-function (type-from-number (arg-type arg)))
 	 arg +arg-value-offset+))
       (deallocate-memory arg)))))
 
-(define-foreign %arg-reset () nil
+(defbinding %arg-reset () nil
   (arg arg))
 
 (defun arg-name (arg)
-  (funcall (get-reader-function '(static string)) arg +arg-name-offset+))
+  (funcall (intern-reader-function 'string) arg +arg-name-offset+))
 
 (defun (setf arg-name) (name arg)
-  (funcall (get-writer-function '(static string)) name arg +arg-name-offset+)
+  (funcall (intern-writer-function 'string) name arg +arg-name-offset+)
   name)
 
 (defun arg-type (arg)
@@ -79,18 +74,18 @@
   (setf (system:sap-ref-32 arg +arg-type-offset+) type))
 
 (defun arg-value (arg &optional (type (type-from-number (arg-type arg))))
-  (funcall (get-reader-function type) arg +arg-value-offset+))
+  (funcall (intern-reader-function type) arg +arg-value-offset+))
 
 ;; One should never call this function on an arg whose value is already set
 (defun (setf arg-value)
     (value arg &optional (type (type-from-number (arg-type arg))))
-  (funcall (get-writer-function type) value arg +arg-value-offset+)
+  (funcall (intern-writer-function type) value arg +arg-value-offset+)
   value)
 
 (defun (setf return-arg-value)
     (value arg &optional (type (type-from-number (arg-type arg))))
   ; this is probably causing a memory leak
-  (funcall (get-writer-function type) value (arg-value arg 'pointer) 0)
+  (funcall (intern-writer-function type) value (arg-value arg 'pointer) 0)
   value)
 
 (defun arg-array-ref (arg0 index)
@@ -100,89 +95,56 @@
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass object (gobject)
+  (init-types-in-library "/opt/gnome/lib/libgtk-x11-1.3.so")
+
+  (defclass %object (gobject)
     ()
-;   ((flags
-;     :allocation :alien
-;     :accessor object-flags
-;     :type object-flags))
     (:metaclass gobject-class)
     (:alien-name "GtkObject")))
 
 
-(defmethod shared-initialize ((object object) names &rest initargs &key signals)
+(defmethod shared-initialize ((object %object) names &rest initargs
+			      &key signals)
   (declare (ignore initargs names))
   (call-next-method)
+  (%object-sink object)
   (dolist (signal signals)
     (apply #'signal-connect object signal)))
 
-
-(defmethod initialize-instance :after ((object object) &rest initargs &key)
-  (declare (ignore initargs))
-;  (object-default-construct object)
-  (reference-instance object)
-  (object-sink object))
-
-
-(defmethod from-alien-initialzie-instance ((object object) &rest initargs)
+(defmethod initialize-proxy ((object %object) &rest initargs &key location)
   (declare (ignore initargs))
   (call-next-method)
-  (object-sink object))
+  (%object-sink location))
 
-
-(define-foreign object-sink () nil
-  (object object))
+(defbinding %object-sink () nil
+  (object %object))
 
 
 ;;;; Main loop, timeouts and idle functions
 
 (declaim (inline events-pending-p main-iteration))
 
-(define-foreign ("gtk_events_pending" events-pending-p) () boolean)
+(defbinding (events-pending-p "gtk_events_pending") () boolean)
 
-(define-foreign get-current-event () gdk:event)
+(defbinding get-current-event () gdk:event)
 
-(define-foreign main-do-event () nil
+(defbinding main-do-event () nil
   (event gdk:event))
 
-(define-foreign main () nil)
+(defbinding main () nil)
 
-(define-foreign main-level () int)
+(defbinding main-level () int)
 
-(define-foreign main-quit () nil)
+(defbinding main-quit () nil)
 
-(define-foreign
-    ("gtk_main_iteration_do" main-iteration) (&optional (blocking t)) boolean
+(defbinding main-iteration-do (&optional (blocking t)) boolean
   (blocking boolean))
 
 (defun main-iterate-all (&rest args)
   (declare (ignore args))
   (when (events-pending-p)
-    (main-iteration nil)
+    (main-iteration-do nil)
     (main-iterate-all)))
-
-; (define-foreign ("gtk_timeout_add_full" timeout-add)
-;     (interval function) unsigned-int
-;   (interval (unsigned 32))
-;   (0 unsigned-long)
-;   (*callback-marshal* pointer)
-;   ((register-callback-function function) unsigned-long)
-;   (*destroy-marshal* pointer))
-
-; (define-foreign timeout-remove () nil
-;   (timeout-handler-id unsigned-int))
-  
-; (define-foreign ("gtk_idle_add_full" idle-add)
-;     (function &optional (priority 200)) unsigned-int
-;   (priority int)
-;   (0 unsigned-long)
-;   (*callback-marshal* pointer)
-;   ((register-callback-function function) unsigned-long)
-;   (*destroy-marshal* pointer))
-
-; (define-foreign idle-remove () nil
-;   (idle-handler-id unsigned-int))
-
 
 (system:add-fd-handler (gdk:event-poll-fd) :input #'main-iterate-all)
 (setq lisp::*periodic-polling-function* #'main-iterate-all)
@@ -191,115 +153,79 @@
 
 
 
-;;;; Metaclass used for subclasses of object
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass object-class (gobject-class)))
-
-
-(defmethod validate-superclass ((class object-class)
-				(super pcl::standard-class))
-  (subtypep (class-name super) 'object))
-
-
-;;;; Metaclasses used for widgets and containers
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass widget-class (object-class))
-
-  (defclass container-class (widget-class)
-    (child-class)))
-
-
-(defvar *child-to-container-class-mappings* (make-hash-table))
-
-(defmethod shared-initialize ((class container-class) names
-			      &rest initargs &key name child-class)
-  (declare (ignore initargs))
-  (call-next-method)
-  (with-slots ((child-class-slot child-class)) class
-    (setf
-     child-class-slot
-     (or
-      (first child-class)
-      (intern (format nil "~A-CHILD" (or name (class-name class)))))
-     (gethash child-class-slot *child-to-container-class-mappings*)
-     class)))
-
-
-(defmethod validate-superclass ((class widget-class)
-				(super pcl::standard-class))
-  (subtypep (class-name super) 'widget))
-
-(defmethod validate-superclass ((class container-class)
-				(super pcl::standard-class))
-  (subtypep (class-name super) 'container))
-
-
-
 ;;;; Metaclass for child classes
+ 
+(defvar *container-to-child-class-mappings* (make-hash-table))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass child-class (virtual-class))
+  (defclass child-class (virtual-slot-class))
 
-  (defclass direct-child-slot-definition (direct-virtual-slot-definition))
+  (defclass direct-child-slot-definition (direct-virtual-slot-definition)
+    ((arg-name :reader slot-definition-arg-name)))
 
   (defclass effective-child-slot-definition
     (effective-virtual-slot-definition)))
 
 
-(defmethod initialize-instance  ((slotd direct-child-slot-definition)
-				 &rest initargs &key)
+(defmethod shared-initialize ((class child-class) names &rest initargs
+			      &key container)
   (declare (ignore initargs))
   (call-next-method)
-  (unless (slot-boundp slotd 'location)
-    (with-slots (pcl::name location pcl::class) slotd
-      (setf
-       location 
-       (format nil "~A::~A"
-        (alien-type-name
-	 (gethash (class-name pcl::class) *child-to-container-class-mappings*))
-	(name-to-string pcl::name))))))
+  (setf
+   (gethash (find-class (first container)) *container-to-child-class-mappings*)
+    class))
 
+(defmethod initialize-instance  ((slotd direct-child-slot-definition)
+				 &rest initargs &key arg-name)
+  (declare (ignore initargs))
+  (call-next-method)
+  (if arg-name
+      (setf (slot-value slotd 'arg-name) arg-name)
+    (error "Need argument name for slot with allocation :arg")))
 
 (defmethod direct-slot-definition-class ((class child-class) initargs)
   (case (getf initargs :allocation)
     (:arg (find-class 'direct-child-slot-definition))
     (t (call-next-method))))
 
-
 (defmethod effective-slot-definition-class ((class child-class) initargs)
   (case (getf initargs :allocation)
     (:arg (find-class 'effective-child-slot-definition))
     (t (call-next-method))))
-  
 
-(defmethod compute-virtual-slot-location
+(defmethod compute-virtual-slot-accessor
     ((class child-class) (slotd effective-child-slot-definition) direct-slotds)
   (with-slots (type) slotd
-    (let ((location (slot-definition-location (first direct-slotds)))
+    (let ((arg-name (slot-definition-arg-name (first direct-slotds)))
 	  (type-number (find-type-number type))
-	  (reader (get-reader-function type))
-	  (writer (get-writer-function type))
-	  (destroy (get-destroy-function type)))
+; 	  (reader (intern-reader-function type))
+; 	  (writer (intern-writer-function type))
+; 	  (destroy (intern-destroy-function type))
+	  )
       (list
        #'(lambda (object)
 	   (with-slots (parent child) object	   
 	     (with-gc-disabled
 	       (let ((arg (arg-new type-number)))
-		 (setf (arg-name arg) location)
-		 (container-child-get-arg parent child arg)
+		 (setf (arg-name arg) arg-name)
+		 (%container-child-getv parent child arg)
 		 (prog1
-		     (funcall reader arg +arg-value-offset+)
+		     (funcall
+		      (intern-reader-function type)
+		      arg +arg-value-offset+)
 		   (arg-free arg t t))))))
        #'(lambda (value object)
 	   (with-slots (parent child) object	   
 	     (with-gc-disabled
   	       (let ((arg (arg-new type-number)))
-		 (setf (arg-name arg) location)
-		 (funcall writer value arg +arg-value-offset+)
-		 (container-child-set-arg parent child arg)
-		 (funcall destroy arg +arg-value-offset+)
+		 (setf (arg-name arg) arg-name)
+		 (funcall
+		  (intern-writer-function type)
+		  value arg +arg-value-offset+)
+		 (%container-child-setv parent child arg)
+		 (funcall
+		  (intern-destroy-function type)
+		  arg +arg-value-offset+)
 		 (arg-free arg nil)
 		 value))))))))
 
@@ -333,3 +259,60 @@
   (subtypep (class-name super) 'container-child))
 
 
+(defclass container-child ()
+  ((parent :initarg :parent :type container)
+   (child :initarg :child :type widget)))
+
+
+;;;;
+
+(defbinding %container-query-child-args () arg
+  (type-number type-number)
+  (nil null)
+  (n-args unsigned-int :out))
+
+(defun query-container-type-dependencies (type-number)
+  (let ((child-slot-types ()))
+    (multiple-value-bind (args n-args)
+	(%container-query-child-args type-number)
+      (dotimes (i n-args)
+	(push (arg-type (arg-array-ref args i)) child-slot-types)))
+    (delete-duplicates
+     (append (query-object-type-dependencies type-number) child-slot-types))))
+
+(defun default-container-child-name (container-class)
+  (intern (format nil "~A-CHILD" container-class)))
+
+(defun expand-container-type (type-number &optional slots)
+  (let* ((class (type-from-number type-number))
+	 (super (supertype type-number))
+	 (child-class (default-container-child-name class))
+	 (child-slots ()))
+    (multiple-value-bind (args n-args)
+	(%container-query-child-args type-number)
+      (dotimes (i n-args)
+	(let* ((arg (arg-array-ref args i))
+	       (arg-name (arg-name arg))
+	       (slot-name (default-slot-name
+			    (subseq arg-name (+ (position #\: arg-name) 2))))
+	       (type (type-from-number (arg-type arg) #|t|#)))
+	  (push
+	   `(,slot-name
+	     :allocation :arg
+	     :arg-name ,arg-name
+	     :accessor ,(default-slot-accessor child-class slot-name type)
+	     :initarg ,(intern (string slot-name) "KEYWORD")
+	     :type ,type)
+	   child-slots)))
+      `(progn
+	 ,(expand-gobject-type type-number slots)
+	 (defclass ,child-class
+	   (,(default-container-child-name super))
+	   ,child-slots
+	   (:metaclass child-class)
+	   (:container ,class))))))
+
+(register-derivable-type
+ 'container "GtkContainer"
+ :query 'query-container-type-dependencies
+ :expand 'expand-container-type)
