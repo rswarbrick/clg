@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkutils.lisp,v 1.5 2004-12-17 00:34:01 espen Exp $
+;; $Id: gtkutils.lisp,v 1.6 2005-01-06 21:06:54 espen Exp $
 
 
 (in-package "GTK")
@@ -52,44 +52,34 @@
 (defun create-check-button (label callback &optional initstate &rest initargs)
   (%create-toggleable-button 'check-button label callback initstate initargs))
 
-(defun create-radio-button-group (specs active &optional callback &rest args)
-  (let ((group nil)
-	(i 0))
-    (mapcar
-     #'(lambda (spec)
-	 (destructuring-bind
-	     (label &optional object &rest initargs) (mklist spec)
-	   (let ((button
-		  (apply
-		   #'make-instance 'radio-button
-		   :label label :visible t initargs)))
-	     (when group (%radio-button-set-group button group))
-	     (setq group (%radio-button-get-group button))
-	     (cond
-	      (callback
-	       (signal-connect
-		button 'toggled
-		#'(lambda ()
-		    (when (toggle-button-active-p button)
-		      (apply (funcallable callback) object args)))))
-	      (object
-	       (signal-connect
-		button 'toggled
-		#'(lambda ()
-		    (apply
-		     (funcallable object)
-		     (toggle-button-active-p button) args)))))
-	     (when (= i active)
-	       (setf (toggle-button-active-p button) t))
-	     (incf i)
-	     button)))
-     specs)))
-
-
 (defun adjustment-new (value lower upper step-increment page-increment page-size)
   (make-instance 'adjustment 
    :value value :lower lower :upper upper :step-increment step-increment
    :page-increment page-increment :page-size page-size))
+
+(defun make-radio-group (type specs callback &rest initargs)
+  (let* ((active ())
+	 (widgets
+	  (loop
+	   for spec in specs
+	   as widget = (apply #'make-instance type (append spec initargs))
+	   do (when callback
+	       (apply #'add-activate-callback widget (mklist callback)))
+	      (when (and (not active) (getf spec :active))
+		(setq active widget))
+	  collect widget)))
+
+    (let ((active (or active (first widgets))))
+      (loop
+       for widget in widgets
+       unless (eq widget active)
+       do (add-to-radio-group widget active))
+      (signal-emit active 'clicked))
+
+    widgets))
+
+
+;;;; The follwing code will probably be removed soon
 
 (defun create-action (name &optional stock-id label accelerator tooltip 
 		      callback &rest initargs)
