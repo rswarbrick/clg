@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.6 2001-05-11 15:57:13 espen Exp $
+;; $Id: gutils.lisp,v 1.7 2001-05-20 23:10:36 espen Exp $
 
 
 (in-package "KERNEL")
@@ -35,18 +35,35 @@
 ;;;; Make PCL's class finalization protocol behave as specified in AMOP
 
 (defmethod finalize-inheritance ((class std-class))
+  (dolist (super (class-direct-superclasses class))
+    (unless (class-finalized-p super) (finalize-inheritance super)))
   (update-cpl class (compute-class-precedence-list class))
   (update-slots class (compute-slots class))
   (update-gfs-of-class class)
   (update-inits class (compute-default-initargs class))
   (update-make-instance-function-table class))
 
+(defmethod finalize-inheritance ((class forward-referenced-class))
+  (error "~A can't be finalized" class))
+
 (defun update-class (class &optional finalizep)  
   (declare (ignore finalizep))
-  (unless (class-has-a-forward-referenced-superclass-p class)
+  (when (and
+	 (class-finalized-p class)
+	 (not (class-has-a-forward-referenced-superclass-p class)))
     (finalize-inheritance class)
     (dolist (sub (class-direct-subclasses class))
       (update-class sub))))
+
+(defmethod add-method :before ((gf standard-generic-function)
+			       (method standard-method))
+  (declare (ignore gf))
+  (dolist (specializer (method-specializers method))
+    (when (and
+	   (typep specializer 'standard-class)
+	   (not (class-finalized-p specializer))
+	   (not (class-has-a-forward-referenced-superclass-p specializer)))
+      (finalize-inheritance specializer))))
 
 
 (in-package "GLIB")
@@ -164,7 +181,9 @@
      'string
      (first strings)
      (if delimiter (string delimiter) "")
-     (concatenate-strings (rest strings)))))
+     (concatenate-strings (rest strings) delimiter))))
 
-(defun string-prefix-p (string1 string2)
-  (string= string1 string2 :end2 (length string1)))
+(defun string-prefix-p (prefix string)
+  (and
+   (>= (length string) (length prefix))
+   (string= prefix string :end2 (length prefix))))
