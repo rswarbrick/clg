@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.27 2004-12-29 21:17:37 espen Exp $
+;; $Id: gtktypes.lisp,v 1.28 2005-01-06 21:05:46 espen Exp $
 
 
 (in-package "GTK")
@@ -126,7 +126,7 @@
 (deftype tree-path () '(vector integer))
 (register-type 'tree-path "GtkTreePath")
 
-(deftype editable-position () '(or int (enum (:start 0) (:end -1))))
+(deftype position () '(or int (enum (:start 0) (:end -1))))
 
 ;; Forward definitions
 (defclass widget (%object)
@@ -223,7 +223,7 @@
      )
     (child-type
      :allocation :virtual
-     :getter "gtk_containerchild_type"
+     :getter "gtk_container_child_type"
      :reader container-child-type
      :type gtype)
     (focus-child
@@ -452,36 +452,54 @@
 
   ("GtkToolbar"
    :slots
-   ((tooltips
+   ((show-tooltips
      :allocation :virtual
      :getter "gtk_toolbar_get_tooltips"
      :setter "gtk_toolbar_set_tooltips"
-     :accessor toolbar-tooltips-p
-     :initarg :tooltips
+     :accessor toolbar-show-tooltips-p
+     :initarg :show-tooltips
      :type boolean)
-    (icon-size
+    (tooltips
      :allocation :virtual
-     :getter "gtk_toolbar_get_icon_size"
-     :setter "gtk_toolbar_set_icon_size"
-     :accessor toolbar-icon-size
-     :initarg :icon-size
-     :type icon-size)
+     :getter "gtk_toolbar_get_tooltips_object"
+     :reader toolbar-tooltips
+     :type tooltips)
     (toolbar-style
      :allocation :property
      :pname "toolbar-style"
      :initarg :toolbar-style
      :accessor toolbar-style
-     :type toolbar-style)))
+     :type toolbar-style)
+    (n-items
+     :allocation :virtual
+     :getter "gtk_toolbar_get_n_items"
+     :reader toolbar-n-items
+     :type int)))
 
   ("GtkToolItem"
    :slots
-   ((drag-window
+   ((use-drag-window
      :allocation :virtual
-     :getter "gtk_tool_item_get_drag_window"
-     :setter "gtk_tool_item_set_drag_window"
-     :accessor tool-item-drag-window
+     :getter "gtk_tool_item_get_use_drag_window"
+     :setter "gtk_tool_item_set_use_drag_window"
+     :accessor tool-item-use-drag-window-p
      :initarg :drag-window
-     :type boolean)))
+     :type boolean)
+    (tip-text 
+     :allocation :user-data
+     :setter (setf tool-item-tip-text)
+     :initarg :tip-text
+     :reader tool-item-tip-text)
+    (tip-private
+     :allocation :user-data
+     :setter (setf tool-item-tip-private)
+     :initarg :tip-private
+     :reader tool-item-tip-private)))
+
+  ("GtkToolButton"
+   :slots
+   ((stock-id :merge t :initarg :stock)
+    (icon-widget :merge t :initarg :icon)))
 
   ("GtkToggleToolButton"
    :slots
@@ -499,7 +517,12 @@
      :allocation :virtual
      :getter "gtk_radio_tool_button_get_group"
      :reader radio-tool-button-group
-     :type (copy-of (gslist widget)))))
+     :type (copy-of (gslist widget)))
+    (value 
+     :allocation :user-data
+     :initarg :value
+     :accessor radio-tool-button-value
+     :documentation "Value passed as argument to the activate callback")))
 
   ("GtkNotebook"
    :slots
@@ -601,7 +624,12 @@
      :allocation :virtual
      :getter "gtk_radio_button_get_group"
      :reader radio-button-group
-     :type (copy-of (gslist widget)))))
+     :type (copy-of (gslist widget)))
+    (value 
+     :allocation :user-data
+     :initarg :value
+     :accessor radio-button-value
+     :documentation "Value passed as argument to the activate callback")))
 
   ("GtkRadioMenuItem"
    :slots
@@ -609,7 +637,12 @@
      :allocation :virtual
      :getter "gtk_radio_menu_item_get_group"
      :reader radio-menu-item-group
-     :type (copy-of (gslist widget)))))
+     :type (copy-of (gslist widget)))
+    (value 
+     :allocation :user-data
+     :initarg :value
+     :accessor radio-menu-item-value
+     :documentation "Value passed as argument to the activate callback")))
 
   ("GtkFileSelection"
    :slots
@@ -706,7 +739,7 @@
      :setter "gtk_editable_set_position"
      :reader editable-position
      :initarg :position
-     :type editable-position)
+     :type position)
     (text
      :allocation :virtual
      :getter editable-text

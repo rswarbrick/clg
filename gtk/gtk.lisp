@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.28 2004-12-29 21:17:36 espen Exp $
+;; $Id: gtk.lisp,v 1.29 2005-01-06 21:05:46 espen Exp $
 
 
 (in-package "GTK")
@@ -113,9 +113,11 @@
   (container-add bin child)
   child)
 
-
-;;; Binding
-
+(defmethod create-callback-function ((bin bin) function arg1)
+  (if (eq arg1 :child)
+      #'(lambda (&rest args) 
+	  (apply function (bin-child bin) (rest args)))
+    (call-next-method)))
 
 
 ;;; Box
@@ -517,7 +519,7 @@
       (image-set-from-file image file)))
    ((call-next-method))))
 
-(defun create-image (source &optional mask)
+(defun create-image-widget (source &optional mask)
   (etypecase source
     (gdk:pixbuf (make-instance 'image :pixbuf source))
     (string (make-instance 'image :stock source))
@@ -530,7 +532,7 @@
 
 (defmethod initialize-instance ((item image-menu-item) &rest initargs &key image)
   (if (and image (not (typep image 'widget)))
-      (apply #'call-next-method item :image (create-image image) initargs) 
+      (apply #'call-next-method item :image (create-image-widget image) initargs) 
     (call-next-method)))
 
 
@@ -538,7 +540,7 @@
   (setf (slot-value item 'image) widget))
 
 (defmethod (setf image-menu-item-image) (image (item image-menu-item))
-  (setf (image-menu-item-image item) (create-image image)))
+  (setf (image-menu-item-image item) (create-image-widget image)))
 
 
 ;;; Label
@@ -569,16 +571,15 @@
   (radio-button radio-button)
   (group pointer))
 
-(defun radio-button-add-to-group (button1 button2)
+(defmethod add-to-radio-group ((button1 radio-button) (button2 radio-button))
   "Add BUTTON1 to the group which BUTTON2 belongs to."
   (%radio-button-set-group button1 (%radio-button-get-group button2)))
-
 
 (defmethod initialize-instance ((button radio-button) &key group)
   (prog1
       (call-next-method)
     (when group
-      (radio-button-add-to-group button group))))
+      (add-to-radio-group button group))))
 
 
 ;;; Item
@@ -702,7 +703,7 @@
   (radio-menu-item radio-menu-item)
   (group pointer))
 
-(defun radio-menu-item-add-to-group (item1 item2)
+(defmethod add-to-radio-group ((item1 radio-menu-item) (item2 radio-menu-item))
   "Add ITEM1 to the group which ITEM2 belongs to."
   (%radio-menu-item-set-group item1 (%radio-menu-item-get-group item2)))
 
@@ -710,7 +711,8 @@
   (prog1
       (call-next-method)
     (when group
-      (radio-menu-item-add-to-group item group))))
+      (add-to-radio-group item group))))
+
   
 
 ;;; Radio tool button
@@ -722,16 +724,29 @@
   (radio-tool-button radio-tool-button)
   (group pointer))
 
-(defun radio-tool-button-add-to-group (button1 button2)
+(defmethod add-to-radio-group ((button1 radio-tool-button) (button2 radio-tool-button))
   "Add BUTTON1 to the group which BUTTON2 belongs to."
   (%radio-tool-button-set-group button1 (%radio-tool-button-get-group button2)))
 
+(defmethod add-activate-callback ((widget widget) function &key object after)
+  (if object
+      (signal-connect widget 'clicked
+       #'(lambda (object)
+	   (when (slot-value widget 'active)
+	     (funcall function object (slot-value widget 'value))))
+       :object object :after after)
+    (signal-connect widget 'clicked 
+     #'(lambda ()
+	 (when (slot-value widget 'active)
+	   (funcall function (slot-value widget 'value))))
+     :after after)))
 
 (defmethod initialize-instance ((button radio-tool-button) &key group)
   (prog1
       (call-next-method)
     (when group
-      (radio-tool-button-add-to-group button group))))
+      (add-to-radio-group button group))))
+
 
 
 ;;; Toggle button
@@ -1475,119 +1490,83 @@
 
 ;;; Toolbar
 
-(defbinding %toolbar-insert-element () widget
+(defmethod initialize-instance ((toolbar toolbar) &rest initargs &key tooltips)
+  (if (eq tooltips t)
+      (apply #'call-next-method toolbar
+       :tooltips (make-instance 'tooltips) initargs)
+    (call-next-method)))
+
+(defbinding %toolbar-insert () nil
   (toolbar toolbar)
-  (type toolbar-child-type)
-  (widget (or null widget))
-  (text string)
-  (tooltip-text string)
-  (tooltip-private-text string)
-  (icon (or null widget))
-  (nil null)
-  (nil null)
-  (position int))
+  (tool-item tool-item)
+  (position position))
 
-(defbinding %toolbar-insert-stock () widget
+(defun toolbar-insert (toolbar tool-item &optional (position :end))
+  (%toolbar-insert toolbar tool-item position)
+  (%tool-item-update-tooltips tool-item))
+
+(defbinding toolbar-get-item-index () int
   (toolbar toolbar)
-  (stock-id string)
-  (tooltip-text string)
-  (tooltip-private-text string)
-  (nil null)
-  (nil null)
-  (position int))
+  (item tool-item))
 
-(defun toolbar-insert (toolbar position element
-		       &key tooltip-text tooltip-private-text
-		       type icon group callback object)
-  (let* ((numpos (case position
-		   (:first -1)
-		   (:last 0)
-		   (t position)))
-	 (widget
-	  (cond
-	   ((or
-	     (eq type :space)
-	     (and (not type) (eq element :space)))
-	    (%toolbar-insert-element
-	     toolbar :space nil nil
-	     tooltip-text tooltip-private-text nil numpos))
-	   ((or
-	     (eq type :widget)
-	     (and (not type) (typep element 'widget)))
-	    (%toolbar-insert-element
-	     toolbar :widget element nil
-	     tooltip-text tooltip-private-text nil numpos))
-	   ((or
-	     (eq type :stock)
-	     (and
-	      (not type)
-	      (typep element 'string)
-	      (stock-lookup element)))
-	    (%toolbar-insert-stock
-	     toolbar element tooltip-text tooltip-private-text numpos))
-	   ((typep element 'string)
-	    (%toolbar-insert-element
-	     toolbar (or type :button) (when (eq type :radio-button) group)
-	     element tooltip-text tooltip-private-text 
-	     (etypecase icon
-	       (null nil)
-	       (widget icon)
-	       (string (make-instance 'image :stock icon))
-	       (pathname (make-instance 'image :file icon))
-	       ((or list vector)
-		(make-instance 'image 
-		 :pixmap icon ; :icon-size (toolbar-icon-size toolbar)
-		 )))
-	     numpos))
-	   ((error "Invalid element type: ~A" element)))))
-    (when callback
-      (signal-connect widget 'clicked callback :object object))
-    widget))
-
-(defun toolbar-append (toolbar element &key tooltip-text tooltip-private-text
-		       type icon group callback object)
-  (toolbar-insert
-   toolbar :first element :type type :icon icon :group group
-   :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text
-   :callback callback :object object))
-
-(defun toolbar-prepend (toolbar element &key tooltip-text tooltip-private-text
-			type icon group callback object)
-  (toolbar-insert
-   toolbar :last element :type type :icon icon :group group
-   :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text
-   :callback callback :object object))
-
-
-(defun toolbar-insert-space (toolbar position)
-  (toolbar-insert toolbar position :space))
-
-(defun toolbar-append-space (toolbar)
-  (toolbar-append toolbar :space))
-
-(defun toolbar-prepend-space (toolbar)
-  (toolbar-prepend toolbar :space))
-
-
-(defun toolbar-enable-tooltips (toolbar)
-  (setf (toolbar-tooltips-p toolbar) t))
-
-(defun toolbar-disable-tooltips (toolbar)
-  (setf (toolbar-tooltips-p toolbar) nil))
-
-
-(defbinding toolbar-remove-space () nil
+(defbinding toolbar-get-nth-item () tool-item
   (toolbar toolbar)
-  (position int))
+  (n int))
 
-(defbinding toolbar-unset-icon-size () nil
-  (toolbar toolbar))
+(defbinding toolbar-get-drop-index () int
+  (toolbar toolbar)
+  (x int) (y int))
 
-(defbinding toolbar-unset-style () nil
-  (toolbar toolbar))
+(defbinding toolbar-set-drop-highlight-item () nil
+  (toolbar toolbar)
+  (tool-item tool-item)
+  (index int))
+
+
+;;; Tool button
+
+(defmethod initialize-instance ((button tool-button) &rest initargs &key icon)
+  (if (and icon (not (typep icon 'widget)))
+      (apply #'call-next-method button :icon (create-image-widget icon) initargs)
+    (call-next-method)))
 
 
 ;;; Tool item
+
+(defbinding tool-item-set-tooltip () nil
+  (tool-item tool-item)
+  (tooltips tooltips)
+  (tip-text string)
+  (tip-private string))
+
+
+(defun %tool-item-update-tooltips (tool-item)
+  (when (and 
+	 (slot-boundp tool-item 'parent)
+	 (or 
+	  (user-data-p tool-item 'tip-text)
+	  (user-data-p tool-item 'tip-private)))
+    (tool-item-set-tooltip
+     tool-item (toolbar-tooltips (widget-parent tool-item))
+     (or (user-data tool-item 'tip-text) "")
+     (or (user-data tool-item 'tip-private) ""))))
+
+(defmethod (setf tool-item-tip-text) ((tip-text string) (tool-item tool-item))
+  (setf (user-data tool-item 'tip-text) tip-text)
+  (%tool-item-update-tooltips tool-item)
+  tip-text)
+
+(defmethod (setf tool-item-tip-private) ((tip-private string) (tool-item tool-item))
+  (setf (user-data tool-item 'tip-private) tip-private)
+  (%tool-item-update-tooltips tool-item)
+  tip-private)
+
+(defmethod container-add ((toolbar toolbar) (tool-item tool-item) &rest args)
+  (declare (ignore args))
+  (prog1
+      (call-next-method)
+    (%tool-item-update-tooltips tool-item)))
+
 
 (defbinding tool-item-retrieve-proxy-menu-item () widget
   (tool-item tool-item))
@@ -1627,7 +1606,7 @@
   (editable editable)
   (text string)
   ((length text) int)
-  (position editable-position :in-out))
+  (position position-type :in-out))
 
 (defun editable-append-text (editable text)
   (editable-insert-text editable text nil))
