@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.2 2000-08-15 19:55:08 espen Exp $
+;; $Id: gtktypes.lisp,v 1.3 2000-09-04 22:17:07 espen Exp $
 
 
 
@@ -174,8 +174,8 @@
   ((widget
     :allocation :arg
     :location "GtkAccelLabel::accel_widget"
-    :accessor accel-widget
-    :initarg :widget
+    :accessor accel-label-accel-widget
+    :initarg :accel-widget
     :type widget)
    (width
     :allocation :virtual
@@ -233,7 +233,13 @@
 
 
 (defclass pixmap (misc)
-  ()
+  ((source
+    :allocation :virtual
+    :location pixmap-source)
+   (mask
+    :allocation :virtual
+    :location pixmap-mask
+    :type gdk:bitmap))
   (:metaclass widget-class)
   (:alien-name "GtkPixmap"))
 
@@ -349,8 +355,8 @@
 
 (defclass button (bin)
   ((label
-    :allocation :arg
-    :accessor button-label
+    :allocation :virtual
+    :location button-label
     :initarg :label
     :type string)
    (relief
@@ -361,8 +367,10 @@
   (:metaclass container-class)
   (:alien-name "GtkButton"))
 
-(defclass button-child (bin-child))
-  
+(defclass button-child (bin-child)
+  ()
+  (:metaclass child-class))
+
 
 (defclass toggle-button (button)
   ((active
@@ -378,7 +386,9 @@
   (:metaclass container-class)
   (:alien-name "GtkToggleButton"))
 
-(defclass toggle-button-child (button-child))
+(defclass toggle-button-child (button-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass check-button (toggle-button)
@@ -386,19 +396,29 @@
   (:metaclass container-class)
   (:alien-name "GtkCheckButton"))
 
-(defclass check-button-child (toggle-button-child))
+(defclass check-button-child (toggle-button-child)
+  ()
+  (:metaclass child-class))
 
+
+;; Forward declaration
+(defclass radio-button (check-button)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkRadioButton"))
 
 (defclass radio-button (check-button)
   ((group
     :allocation :arg
+;    :accessor radio-button-group
     :initarg :group
-;    :access :write-only
-    :type radio-button-group))
+    :type radio-button))
   (:metaclass container-class)
   (:alien-name "GtkRadioButton"))
 
-(defclass radio-button-child (check-button-child))
+(defclass radio-button-child (check-button-child)
+  ()
+  (:metaclass child-class))
   
 
 (defclass option-menu (button)
@@ -417,16 +437,25 @@
   (:metaclass container-class)
   (:alien-name "GtkOptionMenu"))
 
-(defclass option-menu-child (button-child))
+(defclass option-menu-child (button-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass item (bin)
   ()
   (:metaclass container-class)
-  (:alien-name "GtkOptionMenu"))
+  (:alien-name "GtkItem"))
 
-(defclass item-child (bin-child))
+(defclass item-child (bin-child)
+  ()
+  (:metaclass child-class))
 
+;; Forward declaration
+(defclass menu-item (item)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkMenuItem"))
 
 (defclass menu-item (item)
   ((label
@@ -463,7 +492,9 @@
   (:metaclass container-class)
   (:alien-name "GtkMenuItem"))
   
-(defclass menu-item-child (item-child))
+(defclass menu-item-child (item-child)
+  ()
+  (:metaclass child-class))
 
   
 (defclass check-menu-item (menu-item)
@@ -484,19 +515,23 @@
   (:metaclass container-class)
   (:alien-name "GtkCheckMenuItem"))
 
-(defclass check-menu-item-child (menu-item-child))
+(defclass check-menu-item-child (menu-item-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass radio-menu-item (check-menu-item)
   ((group
     :allocation :virtual
-    :location "gtk_radio_menu_item_group"
-    :reader radio-menu-item-group
+    :location ("gtk_radio_menu_item_group" "gtk_radio_menu_item_set_group")
+    :accessor radio-menu-item-group
     :type radio-menu-item-group))
   (:metaclass container-class)
   (:alien-name "GtkRadioMenuItem"))
 
-(defclass radio-menu-item-child (check-menu-item-child))
+(defclass radio-menu-item-child (check-menu-item-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass tearoff-menu-item (menu-item)
@@ -504,7 +539,9 @@
   (:metaclass container-class)
   (:alien-name "GtkTearoffMenuItem"))
 
-(defclass tearoff-menu-item-child (menu-item-child))
+(defclass tearoff-menu-item-child (menu-item-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass list-item (item)
@@ -512,7 +549,9 @@
   (:metaclass container-class)
   (:alien-name "GtkListItem"))
 
-(defclass list-item-child (item-child))
+(defclass list-item-child (item-child)
+  ()
+  (:metaclass child-class))
   
 
 ;; deprecated
@@ -524,7 +563,9 @@
   (:metaclass container-class)
   (:alien-name "GtkTreeItem"))
 
-(defclass tree-item-child (item-child))
+(defclass tree-item-child (item-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass window (bin)
@@ -577,7 +618,9 @@
   (:metaclass container-class)
   (:alien-name "GtkWindow"))
 
-(defclass window-child (bin-child))
+(defclass window-child (bin-child)
+  ()
+  (:metaclass child-class))
 
 
 ; (defclass color-selection-dialog window
@@ -590,13 +633,34 @@
 ;    (cancel-button          :read-only t :type widget)
 ;    (help-button            :read-only t :type widget)))
 
-; (defclass dialog window
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((action-area            :read-only t :type widget)
-;    (vbox                   :read-only t :type widget)))
+(defclass dialog (window)
+  ((action-area
+    :allocation :virtual
+    :location "gtk_dialog_get_action_area"
+    :reader dialog-action-area
+    :type widget)
+   (box
+    :allocation :virtual
+    :location "gtk_dialog_get_vbox"
+    :reader dialog-box
+    :type widget))  
+  (:metaclass container-class)
+  (:alien-name "GtkDialog"))
 
-; (defclass input-dialog dialog)
+(defclass dialog-child (window-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass input-dialog (dialog)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkInputDialog"))
+
+(defclass input-dialog-child (dialog-child)
+  ()
+  (:metaclass child-class))
+
 
 ; (defclass file-selection window
 ;   :slots
@@ -1218,12 +1282,12 @@
     :type unsigned-int)
    (row-spacing
     :allocation :arg
-    :accessor table-row-spacing
+    :accessor table-default-row-spacing
     :initarg :row-spacing
     :type unsigned-int)
    (column-spacing
     :allocation :arg
-    :accessor table-column-spacing
+    :accessor table-default-column-spacing
     :initarg :column-spacing
     :type unsigned-int)
    (homogeneous
@@ -1390,13 +1454,13 @@
     :type int)
    (editable
     :allocation :arg
-    :accessor ediatable-editable-p
-    :initarg :editabe
+    :accessor editable-editable-p
+    :initarg :editable
     :type boolean)
    (text
     :allocation :virtual
     :location editable-text
-    :initarg text
+    :initarg :text
     :type string))
   (:metaclass widget-class)
   (:alien-name "GtkEditable"))
@@ -1572,7 +1636,7 @@
     :allocation :arg
     :accessor scale-digits
     :initarg :digits
-    :type unsigned-int)
+    :type int)
    (draw-value
     :allocation :arg
     :accessor scale-draw-value-p
