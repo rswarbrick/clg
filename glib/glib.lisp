@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.22 2004-12-26 11:40:58 espen Exp $
+;; $Id: glib.lisp,v 1.23 2005-01-03 16:38:57 espen Exp $
 
 
 (in-package "GLIB")
@@ -63,6 +63,16 @@
   (check-type id fixnum)
   (multiple-value-bind (user-data p) (gethash id *user-data*)
     (values (car user-data) p)))
+
+(defun update-user-data (id object)
+  (check-type id fixnum)
+  (multiple-value-bind (user-data exists-p) (gethash id *user-data*)
+    (cond
+     ((not exists-p) (error "User data id ~A does not exist" id))
+     (t 
+      (when (cdr user-data)
+	(funcall (cdr user-data) (car user-data)))
+      (setf (car user-data) object)))))
 
 (defun destroy-user-data (id)
   (check-type id fixnum)
@@ -450,7 +460,7 @@
 	(error "Can't use vector of variable size as return type")
       `(let ((c-vector ,c-vector))
 	(prog1
-	    (map-c-vector 'vector #'identity ',element-type ,length c-vector)
+	    (map-c-vector 'vector #'identity c-vector ',element-type ,length)
 	  (destroy-c-vector c-vector ',element-type ,length))))))
 
 (defmethod copy-from-alien-form (c-vector (type (eql 'vector)) &rest args)
@@ -458,7 +468,7 @@
   (destructuring-bind (element-type &optional (length '*)) args
     (if (eq length '*)
 	(error "Can't use vector of variable size as return type")
-      `(map-c-vector 'vector #'identity ',element-type ',length ,c-vector))))
+      `(map-c-vector 'vector #'identity ,c-vector ',element-type ',length))))
 
 (defmethod cleanup-form (location (type (eql 'vector)) &rest args)
   (declare (ignore type))
