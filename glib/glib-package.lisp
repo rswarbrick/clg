@@ -15,13 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-package.lisp,v 1.5 2001-04-30 11:25:25 espen Exp $
+;; $Id: glib-package.lisp,v 1.6 2002-01-14 01:14:20 espen Exp $
 
 (export 'kernel::type-expand-1 "KERNEL")
 
 (defpackage "GLIB"
-  (:use "ALIEN" "C-CALL" "SYSTEM" "COMMON-LISP" "PCL" "AUTOEXPORT")
-;  (:shadow "DEFTYPE")
+  (:use "ALIEN" "C-CALL" "SYSTEM" "COMMON-LISP" "PCL" "AUTOEXPORT"
+	"CLG-SYSTEM")
   (:shadowing-import-from "PCL"
 	   "CLASS-NAME" "BUILT-IN-CLASS" "CLASS-OF" "FIND-CLASS" "LOCATION"
 	   "ALLOCATION" "DIRECT-SLOTS")
