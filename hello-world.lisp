@@ -6,7 +6,7 @@
 ; :type :toplevel
  :title "Test"
  :border-width 5
- :visible :show-children t
+ :visible t :show-children t
  :child (make-instance 'button
 	 :label "Hello World!"
 	 :signal (list 'clicked
