@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.20 2005-02-04 00:15:24 espen Exp $
+;; $Id: gcallback.lisp,v 1.21 2005-02-14 00:41:54 espen Exp $
 
 (in-package "GLIB")
 
@@ -252,6 +252,8 @@
       (callback user-data-destroy-func))
      callback-id)))
 
+(defgeneric create-callback-function (gobject function arg1))
+
 (defmethod create-callback-function ((gobject gobject) function arg1)
   (cond
    ((or (eq arg1 t) (eq arg1 gobject)) function)
@@ -259,6 +261,8 @@
     #'(lambda (&rest args) (apply function (rest args))))
    (t
     #'(lambda (&rest args) (apply function arg1 (rest args))))))
+
+(defgeneric signal-connect (gobject signal function &key))
 
 (defmethod signal-connect ((gobject gobject) signal function
 			   &key (detail 0) after object remove)
@@ -341,18 +345,6 @@ once."
 
 (defun signal-emit (object signal &rest args)
   (apply #'signal-emit-with-detail object signal 0 args))
-
-
-;;; Message logging
-
-;; TODO: define and signal conditions based on log-level
-
-;; (defcallback log-handler (nil (domain (copy-of string))
-;; 			  (log-level int)
-;; 			  (message (copy-of string)))
-;;   (error "~A: ~A" domain message))
-
-;; (setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))
 
 
 ;;;; Convenient macros
