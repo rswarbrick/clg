@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.8 2001-05-29 15:40:38 espen Exp $
+;; $Id: gutils.lisp,v 1.9 2001-10-21 16:53:13 espen Exp $
 
 
 (in-package "KERNEL")
@@ -152,3 +152,16 @@
   (and
    (>= (length string) (length prefix))
    (string= prefix string :end2 (length prefix))))
+
+(defun get-all (plist property)
+  (multiple-value-bind (property value tail)
+      (get-properties plist (list property))
+    (when tail
+      (cons value (get-all (cddr tail) property)))))
+
+(defun plist-remove (plist property)
+  (when plist
+    (if (eq (first plist) property)
+	(plist-remove (cddr plist) property)
+      (list*
+       (first plist) (second plist) (plist-remove (cddr plist) property)))))
