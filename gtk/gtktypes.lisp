@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.34 2005-03-06 17:26:23 espen Exp $
+;; $Id: gtktypes.lisp,v 1.35 2005-03-13 18:10:14 espen Exp $
 
 (in-package "GTK")
 
@@ -993,6 +993,12 @@
      :reader clipboard-display
      :type gdk:display)))
 
+  #+gtk2.6
+  ("GtkIconView"
+   :slots
+   ((text-column :merge t :setter %icon-view-set-text-column)
+    (markup-column :merge t :setter %icon-view-set-markup-column)
+    (pixbuf-column :merge t :setter %icon-view-set-pixbuf-column)))
 
   ;; Not needed
   ("GtkFundamentalType" :ignore t)
