@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.7 2004-10-27 14:59:00 espen Exp $
+;; $Id: gparam.lisp,v 1.8 2004-10-28 09:33:56 espen Exp $
 
 (in-package "GLIB")
 
@@ -33,6 +33,10 @@
   (value gvalue)
   (type type-number))
 
+(defbinding (gvalue-unset "g_value_unset") () nil
+  (value gvalue))
+
+
 (defun gvalue-new (type &optional (value nil value-p))
   (let ((gvalue (allocate-memory +gvalue-size+)))
     (gvalue-init gvalue (find-type-number type))
@@ -40,12 +44,10 @@
       (gvalue-set gvalue value))
     gvalue))
 
-(defun gvalue-free (gvalue free-content)
+(defun gvalue-free (gvalue &optional unset-p)
   (unless (null-pointer-p gvalue)
-    (when free-content
-      (funcall
-       (intern-destroy-function (gvalue-type gvalue))
-       gvalue +gvalue-value-offset+))
+    (when unset-p
+      (gvalue-unset gvalue))
     (deallocate-memory gvalue)))
 
 (defun gvalue-type (gvalue)
