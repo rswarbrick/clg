@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.3 2000-08-16 17:30:36 espen Exp $
+;; $Id: gtkobject.lisp,v 1.4 2000-08-16 22:16:23 espen Exp $
 
 
 (in-package "GTK")
@@ -252,11 +252,13 @@
 
 
 
-;;;; Main loop
+;;;; Main loop, timeouts and idle functions
 
 (declaim (inline events-pending-p main-iteration))
 
 (define-foreign ("gtk_events_pending" events-pending-p) () boolean)
+
+(define-foreign get-current-event () gdk:event)
 
 (define-foreign main-do-event () nil
   (event gdk:event))
@@ -276,6 +278,29 @@
   (when (events-pending-p)
     (main-iteration nil)
     (main-iterate-all)))
+
+(define-foreign ("gtk_timeout_add_full" timeout-add)
+    (interval function) unsigned-int
+  (interval (unsigned 32))
+  (0 unsigned-long)
+  (*callback-marshal* pointer)
+  ((register-callback-function function) unsigned-long)
+  (*destroy-marshal* pointer))
+
+(define-foreign timeout-remove () nil
+  (timeout-handler-id unsigned-int))
+  
+(define-foreign ("gtk_idle_add_full" idle-add)
+    (function &optional (priority 200)) unsigned-int
+  (priority int)
+  (0 unsigned-long)
+  (*callback-marshal* pointer)
+  ((register-callback-function function) unsigned-long)
+  (*destroy-marshal* pointer))
+
+(define-foreign idle-remove () nil
+  (idle-handler-id unsigned-int))
+
 
 (system:add-fd-handler (gdk:event-poll-fd) :input #'main-iterate-all)
 (setq lisp::*periodic-polling-function* #'main-iterate-all)

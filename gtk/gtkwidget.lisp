@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.1 2000-08-14 16:45:02 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.2 2000-08-16 22:16:44 espen Exp $
 
 (in-package "GTK")
 
@@ -253,6 +253,9 @@
   (widget widget)
   (event gdk:event))
 
+(define-foreign get-event-widget () widget
+  (event gdk:event))
+
 (define-foreign widget-activate () boolean
   (widget widget))
 
@@ -276,7 +279,14 @@
 (define-foreign widget-grab-default () nil
   (widget widget))
 
-;; cl-gtk.c
+(define-foreign grab-add () nil
+  (widget widget))
+
+(define-foreign grab-get-current () widget)
+
+(define-foreign grab-remove () nil
+  (widget widget))
+
 (define-foreign widget-allocation () nil
   (widget widget)
   (width int :out)
@@ -387,7 +397,7 @@
   (x-offset int)
   (y-offset int))
 
-;; cl-gtk.c
+;; defined in gtkglue.c
 (define-foreign widget-mapped-p () boolean
   (widget widget))
 
