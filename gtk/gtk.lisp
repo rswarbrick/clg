@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.30 2005-01-12 13:38:18 espen Exp $
+;; $Id: gtk.lisp,v 1.31 2005-01-13 00:17:55 espen Exp $
 
 
 (in-package "GTK")
@@ -65,12 +65,137 @@
 
 ;;; Acccel group
 
+(defbinding %accel-group-connect () nil
+  (accel-group accel-group)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type)
+  (flags accel-flags)
+  (gclosure gclosure))
+
+(defun accel-group-connect (group accelerator function &optional flags)
+  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+    (let ((gclosure (make-callback-closure function)))
+      (%accel-group-connect group key modifiers flags gclosure)
+      gclosure)))
+
+(defbinding accel-group-connect-by-path (group path function) nil
+  (group accel-group)
+  (path string)
+  ((make-callback-closure function) gclosure :return))
+
+(defbinding %accel-group-disconnect (group gclosure) boolean
+  (group accel-group)
+  (gclosure gclosure))
+
+(defbinding %accel-group-disconnect-key () boolean
+  (group accel-group)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+(defun accel-group-disconnect (group accelerator)
+  (etypecase accelerator
+    (gclosure (%accel-group-disconnect group accelerator))
+    (string 
+     (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+       (%accel-group-disconnect-key group key modifiers)))))
+
+(defbinding accel-group-lock () nil
+  (accel-group accel-group))
+
+(defbinding accel-group-unlock () nil
+  (accel-group accel-group))
+
+(defbinding %accel-groups-activate () boolean
+  (object gobject)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+(defun accel-groups-activate (object accelerator)
+  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+    (%accel-groups-activate object key modifiers)))
+
+(defbinding accel-groups-from-object () (gslist accel-groups)
+  (object gobject))
+
+(defbinding accelerator-valid-p (key &optional mask) boolean
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+(defbinding %accelerator-parse () nil
+  (accelerator string)
+  (key unsigned-int :out)
+  (modifiers gdk:modifier-type :out))
+
+(defun accelerator-parse (accelerator)
+  (multiple-value-bind (key modifiers) (%accelerator-parse accelerator)
+    (if (zerop key)
+	(error "Invalid accelerator: ~A" accelerator)
+      (values key modifiers))))
+
+(defbinding accelerator-name () string
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+#+gtk2.6
+(defbinding accelerator-get-label () string
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+(defbinding %accelerator-set-default-mod-mask () nil
+  (default-modifiers gdk:modifier-type))
+
+(defun (setf accelerator-default-modifier-mask) (default-modifiers)
+  (%accelerator-set-default-mod-mask default-modifiers))
+
+(defbinding (accelerator-default-modifier-mask "gtk_accelerator_get_default_mod_mask") () gdk:modifier-type)
 
 
 ;;; Acccel label
 
 (defbinding accel-label-refetch () boolean
   (accel-label accel-label))
+
+
+
+;;; Accel map
+
+(defbinding %accel-map-add-entry () nil
+  (path string)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+(defun accel-map-add-entry (path accelerator)
+  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+    (%accel-map-add-entry path key modifiers)))
+
+(defbinding accel-map-lookup-entry () boolean
+  (path string)
+  (key pointer)) ;accel-key))
+
+(defbinding %accel-map-change-entry () boolean
+  (path string)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type)
+  (replace boolean))
+
+(defun accel-map-change-entry (path accelerator &optional replace)
+  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+    (%accel-map-change-entry path key modifiers replace)))
+
+(defbinding accel-map-load () nil
+  (filename pathname))
+
+(defbinding accel-map-save () nil
+  (filename pathname))
+
+(defbinding accel-map-get () accel-map)
+
+(defbinding accel-map-lock-path () nil
+  (path string))
+
+(defbinding accel-map-unlock-path () nil
+  (path string))
+
 
 
 ;;; Accessible
@@ -1986,84 +2111,3 @@
 
 (defbinding rc-get-style () style
   (widget widget))
-
-
-
-;;; Accelerator Groups
-#|
-(defbinding accel-group-activate (accel-group key modifiers) boolean
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type))
-
-(defbinding accel-groups-activate (object key modifiers) boolean
-  (object object)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type))
-
-(defbinding accel-group-attach () nil
-  (accel-group accel-group)
-  (object object))
-
-(defbinding accel-group-detach () nil
-  (accel-group accel-group)
-  (object object))
-
-(defbinding accel-group-lock () nil
-  (accel-group accel-group))
-
-(defbinding accel-group-unlock () nil
-  (accel-group accel-group))
-
-
-;;; Accelerator Groups Entries
-
-(defbinding accel-group-get-entry (accel-group key modifiers) accel-entry
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type))
-
-(defbinding accel-group-lock-entry (accel-group key modifiers) nil
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type))
-
-(defbinding accel-group-unlock-entry (accel-group key modifiers) nil
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type))
-
-(defbinding accel-group-add
-    (accel-group key modifiers flags object signal) nil
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type)
-  (flags accel-flags)
-  (object object)
-  ((name-to-string signal) string))
-
-(defbinding accel-group-add (accel-group key modifiers object) nil
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type)
-  (object object))
-
-
-;;; Accelerator Signals
-
-(defbinding accel-group-handle-add
-    (object signal-id accel-group key modifiers flags) nil
-  (object object)
-  (signal-id unsigned-int)
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type)
-  (flags accel-flags))
-
-(defbinding accel-group-handle-remove
-    (object accel-group key modifiers) nil
-  (object object)
-  (accel-group accel-group)
-  ((gdk:keyval-from-name key) unsigned-int)
-  (modifiers gdk:modifier-type))
-|#
