@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.12 2001-10-21 21:33:57 espen Exp $
+;; $Id: gforeign.lisp,v 1.13 2002-03-19 17:03:42 espen Exp $
 
 (in-package "GLIB")
 
@@ -346,6 +346,7 @@
     (let ((alien-funcall `(alien-funcall ,lisp-name ,@(alien-parameters))))
       `(defun ,lisp-name ,lambda-list
 	 ,@docs
+	 (declare (optimize (ext:inhibit-warnings 3)))
 	 (with-alien ((,lisp-name
 		       (function
 			,(translate-type-spec return-type-spec)
