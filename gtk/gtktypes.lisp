@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.21 2004-12-04 18:18:21 espen Exp $
+;; $Id: gtktypes.lisp,v 1.22 2004-12-17 00:42:55 espen Exp $
 
 
 (in-package "GTK")
@@ -127,14 +127,6 @@
 (register-type 'tree-path "GtkTreePath")
 
 
-(defclass text-iter (boxed)
-  ((dummy14
-    :allocation :alien :offset #.(* 13 (size-of 'pointer))
-    :type pointer))
-  (:metaclass boxed-class))
-	      
-
-
 (define-types-by-introspection "Gtk"
   ;; Manually defined
   ("GtkObject" :ignore t)
@@ -142,6 +134,7 @@
   ("GtkBorder" :ignore t)
   ("GtkTreeIter" :ignore t)
   ("GtkTreePath" :ignore t)
+;  ("GtkStyle" :ignore t)
 
   ;; Manual override
   ("GtkWidget"
@@ -150,15 +143,10 @@
      :allocation :instance
      :accessor widget-child-slots
      :type container-child)
-    (parent-window
-     :allocation :virtual
-     :getter "gtk_widget_get_parent_window"
-     :setter "gtk_widget_set_parent_window"
-     :accessor widget-parent-window
-     :type gdk:window)
     (window
      :allocation :virtual
      :getter "gtk_widget_get_window"
+     :unbound nil
      :reader widget-window
      :type gdk:window)
     (state
@@ -172,12 +160,14 @@
      :allocation :virtual
      :getter "gtk_widget_get_colormap"
      :setter "gtk_widget_set_colormap"
+     :unbound nil
      :initarg :colormap
      :accessor widget-colormap
      :type gdk:colormap)
     (visual
      :allocation :virtual
      :getter "gtk_widget_get_visual"
+     :unbound nil
      :reader widget-visual
      :type gdk:visual)
     (direction
@@ -197,6 +187,7 @@
     (settings
      :allocation :virtual
      :getter "gtk_widget_get_settings"
+     :unbound nil
      :accessor widget-settings
      :type settings)
     (child-visible
@@ -205,7 +196,11 @@
      :setter "gtk_widget_set_child_visible"
      :accessor widget-child-visible-p
      :initarg :child-visible
-     :type boolean)))
+     :type boolean)
+    (width-request
+     :merge t :unbound -1)
+    (height-request
+     :merge t :unbound -1)))
      
   ("GtkContainer"
    :slots
@@ -724,6 +719,25 @@
      :accessor combo-box-active-iter 
      :type tree-iter)))
 
+  ("GtkTextBuffer"
+   :slots
+   ((line-count
+     :allocation :virtual
+     :getter "gtk_text_buffer_get_line_count"
+     :reader text-buffer-line-count
+     :type int)
+    (char-count
+     :allocation :virtual
+     :getter "gtk_text_buffer_get_char_count"
+     :reader text-buffer-char-count
+     :type int)
+    (modified
+     :allocation :virtual
+     :getter "gtk_text_buffer_get_modified"
+     :setter "gtk_text_buffer_set_modified"
+     :accessor text-buffer-modifed-p
+     :type boolean)))
+
   ("GtkTextView"
    :slots
    ((default-attributes
@@ -731,6 +745,25 @@
      :getter "gtk_text_view_get_default_attributes"
      :reader text-view-default-attributes
      :type text-attributes)))
+
+  ("GtkTextTagTable"
+   :slots
+   ((size
+     :allocation :virtual
+     :getter "gtk_text_tag_table_get_size"
+     :reader text-tag-table-size
+     :type int)))
+
+  ("GtkTextTag"
+   :slots
+   ((priority
+     :allocation :virtual
+     :getter "gtk_text_tag_get_priority"
+     :setter "gtk_text_tag_set_priority"
+     :accessor text-tag-priority
+     :type int)
+    (weight
+     :merge t :type pango:weight)))
 
   ("GtkUIManager"
    :type ui-manager
@@ -779,7 +812,7 @@
      :allocation :virtual
      :getter radio-action-value)))
 
-     
+
   ;; Not needed
   ("GtkFundamentalType" :ignore t)
   ("GtkArgFlags" :ignore t)
@@ -809,3 +842,54 @@
   ("GtkThemeEngine" :ignore t)
 
   )
+
+
+(defclass text-iter (boxed)
+  ((buffer
+    :allocation :virtual
+    :getter "gtk_text_iter_get_buffer"
+    :reader text-iter-buffer
+    :type text-buffer)
+   (offset
+    :allocation :virtual
+    :getter "gtk_text_iter_get_offset"
+    :setter "gtk_text_iter_set_offset"
+    :accessor text-iter-offset
+    :type int)
+   (line
+    :allocation :virtual
+    :getter "gtk_text_iter_get_line"
+    :setter "gtk_text_iter_set_line"
+    :accessor text-iter-line
+    :type int)
+   (line-offset
+    :allocation :virtual
+    :getter "gtk_text_iter_get_line_offset"
+    :setter "gtk_text_iter_set_line_offset"
+    :accessor text-iter-line-offset
+    :type int)
+   (line-index
+    :allocation :virtual
+    :getter "gtk_text_iter_get_line_index"
+    :setter "gtk_text_iter_set_line_index"
+    :accessor text-iter-line-index
+    :type int)
+   (visible-line-index
+    :allocation :virtual
+    :getter "gtk_text_iter_get_visible_line_index"
+    :setter "gtk_text_iter_set_visible_line_index"
+    :accessor text-iter-visible-line-index
+    :type int)
+   (visible-line-offset
+    :allocation :virtual
+    :getter "gtk_text_iter_get_visible_line_offset"
+    :setter "gtk_text_iter_set_visible_line_offset"
+    :accessor text-iter-visible-line-offset
+    :type int)
+   ;; Workaround to get correct size 
+   (dummy14
+     :allocation :alien :offset #.(* 13 (size-of 'pointer))
+     :type pointer))
+  (:metaclass boxed-class 
+   ;; I am pretty sure this was working in older versons on CMUCL
+   :size #.(* 14 (size-of 'pointer))))
