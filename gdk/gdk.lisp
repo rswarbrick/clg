@@ -15,15 +15,45 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.9 2004-10-28 09:37:27 espen Exp $
+;; $Id: gdk.lisp,v 1.10 2004-10-31 11:51:08 espen Exp $
 
 
 (in-package "GDK")
 
+;;; Initialization
+ 
+(defbinding (gdk-init "gdk_parse_args") () nil
+  "Initializes the library without opening the display."
+  (nil null)
+  (nil null))
+
+
+;;; Display
+
+(defbinding %display-manager-get () display-manager)
+
+(defbinding (display-set-default "gdk_display_manager_set_default_display")
+    (display) nil
+  ((%display-manager-get) display-manager)
+  (display display))
+
+(defbinding display-get-default () display)
+
+(defbinding %display-open () display
+  (display-name (or null string)))
+
+(defun display-open (&optional display-name)
+  (let ((display (%display-open display-name)))
+    (unless (display-get-default)
+      (display-set-default display))
+    display))
+
+(defbinding (display-connection-number "clg_gdk_connection_number")
+    (&optional (display (display-get-default))) int
+  (display display))
+
 
 ;;; Events
-
-(defbinding connection-number () int)
 
 (defbinding (events-pending-p "gdk_events_pending") () boolean)
 
