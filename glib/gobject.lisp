@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.17 2004-11-06 21:39:58 espen Exp $
+;; $Id: gobject.lisp,v 1.18 2004-11-07 01:23:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -63,7 +63,7 @@
 	   for (pname type value) in args
 	   as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
 	   do (funcall string-writer pname tmp)
-	      (gvalue-init (sap+ tmp string-size) type value))
+	   (gvalue-init (sap+ tmp string-size) type value))
 	  (unwind-protect
 	       (setf  
 		(slot-value object 'location) 
@@ -72,12 +72,12 @@
 	     repeat (length args)
 	     as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
 	     do (funcall string-destroy tmp)
-	        (gvalue-unset (sap+ tmp string-size)))
+	     (gvalue-unset (sap+ tmp string-size)))
 	    (deallocate-memory params)))
-      (setf  
-       (slot-value object 'location) 
-       (%gobject-new (type-number-of object)))))
-  
+	(setf  
+	 (slot-value object 'location) 
+	 (%gobject-new (type-number-of object)))))
+
   (%object-weak-ref object)
   (apply #'call-next-method object initargs))
 
@@ -88,7 +88,7 @@
   (%object-weak-ref object))
 
 
-(def-callback weak-notify (c-call:void (data c-call:int) (location system-area-pointer))
+(defcallback weak-notify (nil (data int) (location pointer))
   (let ((object (find-cached-instance location)))
     (when object
 ;;       (warn "~A being finalized by the GObject system while still in existence in lisp" object)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.15 2004-11-06 21:39:58 espen Exp $
+;; $Id: gtk.lisp,v 1.16 2004-11-07 01:23:38 espen Exp $
 
 
 (in-package "GTK")
@@ -1096,10 +1096,7 @@
   (menu-item menu-item)
   ((%menu-position menu position) int))
 
-(def-callback menu-position-callback-marshal 
-    (c-call:void (x c-call:int) (y c-call:int) (push-in c-call:int) 
-		 (callback-id c-call:unsigned-int))
-  (invoke-callback callback-id nil x y (not (zerop push-in))))
+(def-callback-marshal %menu-popup-callback (nil (x int) (y int) (push-in boolean)))
 
 (defbinding %menu-popup () nil
   (menu menu)
@@ -1117,7 +1114,7 @@
 	(unwind-protect
 	    (%menu-popup
 	     menu parent-menu-shell parent-menu-item
-	     (callback menu-position-callback-marshal)
+	     (callback %menu-popup-callback)
 	     callback-id button activate-time)
 	  (destroy-user-data callback-id)))
     (%menu-popup

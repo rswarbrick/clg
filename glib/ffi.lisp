@@ -15,27 +15,9 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.2 2004-11-06 21:39:58 espen Exp $
+;; $Id: ffi.lisp,v 1.3 2004-11-07 01:23:38 espen Exp $
 
 (in-package "GLIB")
-
-;;;;
-
-;; Sizes of fundamental C types in bytes (8 bits)
-(defconstant +size-of-short+ 2)
-(defconstant +size-of-int+ 4)
-(defconstant +size-of-long+ 4)
-(defconstant +size-of-pointer+ 4)
-(defconstant +size-of-float+ 4)
-(defconstant +size-of-double+ 8)
-
-;; Sizes of fundamental C types in bits
-(defconstant +bits-of-byte+ 8)
-(defconstant +bits-of-short+ 16)
-(defconstant +bits-of-int+ 32)
-(defconstant +bits-of-long+ 32)
-
-
 
 
 ;;;; Foreign function call interface
@@ -197,7 +179,23 @@
 	     (apply #'alien:alien-funcall alien args))
 	  (mapc #'funcall cleanup-arguments args)))))
 
-  
+
+(defmacro defcallback (name (return-type &rest args) &body body)
+  `(def-callback ,name 
+       (,(alien-type return-type) 
+	,@(mapcar #'(lambda (arg)
+		      (destructuring-bind (name type) arg
+			`(,name ,(alien-type type))))
+		  args))
+    ,(to-alien-form 
+      `(let (,@(mapcar #'(lambda (arg)
+			   (destructuring-bind (name type) arg
+			     `(,name ,(from-alien-form name type))))
+		       args))
+	,@body)
+      return-type)))
+
+
 
 ;;;; Definitons and translations of fundamental types
 
@@ -233,6 +231,21 @@
 (def-type-method writer-function ())
 (def-type-method reader-function ())
 (def-type-method destroy-function ())
+
+
+;; Sizes of fundamental C types in bytes (8 bits)
+(defconstant +size-of-short+ 2)
+(defconstant +size-of-int+ 4)
+(defconstant +size-of-long+ 4)
+(defconstant +size-of-pointer+ 4)
+(defconstant +size-of-float+ 4)
+(defconstant +size-of-double+ 8)
+
+;; Sizes of fundamental C types in bits
+(defconstant +bits-of-byte+ 8)
+(defconstant +bits-of-short+ 16)
+(defconstant +bits-of-int+ 32)
+(defconstant +bits-of-long+ 32)
 
 
 (deftype int () '(signed-byte #.+bits-of-int+))
@@ -394,7 +407,7 @@
 (defmethod writer-function ((type (eql 'single-float)) &rest args)
   (declare (ignore type args))
   #'(lambda (value location &optional (offset 0))
-      (setf (sap-ref-single location offset) (coerce value 'single-float)))))
+      (setf (sap-ref-single location offset) (coerce value 'single-float))))
 
 (defmethod reader-function ((type (eql 'single-float)) &rest args)
   (declare (ignore type args))
@@ -482,6 +495,7 @@
       (deallocate-memory string))))
 
 (defmethod cleanup-function ((type (eql 'string)) &rest args)
+  (declare (ignore args))
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(deallocate-memory string))))

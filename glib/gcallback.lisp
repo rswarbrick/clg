@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.12 2004-11-06 21:39:58 espen Exp $
+;; $Id: gcallback.lisp,v 1.13 2004-11-07 01:23:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -35,17 +35,17 @@
   (check-type function (or null symbol function))
   (register-user-data function))
 
-(def-callback closure-callback-marshal (c-call:void 
-					(gclosure system-area-pointer) 
-					(return-value system-area-pointer)
-					(n-params c-call:unsigned-int) 
-					(param-values system-area-pointer)
-					(invocation-hint system-area-pointer) 
-					(callback-id c-call:unsigned-int))
+(defcallback closure-callback-marshal (nil
+				       (gclosure pointer)
+				       (return-value gvalue)
+				       (n-params unsigned-int) 
+				       (param-values pointer)
+				       (invocation-hint pointer) 
+				       (callback-id unsigned-int))
   (callback-trampoline callback-id n-params param-values return-value))
 
-(def-callback %destroy-user-data (c-call:void (id c-call:unsigned-int))
-  (destroy-user-data id)) 
+(defcallback %destroy-user-data (nil (id unsigned-int))
+  (destroy-user-data id))
  
 (defun make-callback-closure (function)
   (callback-closure-new 
@@ -64,21 +64,21 @@
 	(gvalue-set return-value result)))))
 
 
-(defun invoke-callback (callback-id type &rest args)
+(defun invoke-callback (callback-id return-type &rest args)
   (restart-case
       (apply (find-user-data callback-id) args)
     (continue nil :report "Return from callback function"
-	      (when type
-		(format *query-io* "Enter return value of type ~S: " type)
+	      (when return-type
+		(format *query-io* "Enter return value of type ~S: " return-type)
 		(force-output *query-io*)
 		(eval (read *query-io*))))
     (re-invoke nil :report "Re-invoke callback function"
-	       (apply #'invoke-callback callback-id type args))))
+	       (apply #'invoke-callback callback-id return-type args))))
 
 
 ;;;; Timeouts and idle functions
 
-(def-callback source-callback-marshal (c-call:void (callback-id c-call:unsigned-int))
+(defcallback source-callback-marshal (nil (callback-id unsigned-int))
   (callback-trampoline callback-id 0 nil (make-pointer 0)))
 
 (defbinding (timeout-add "g_timeout_add_full")
