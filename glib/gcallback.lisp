@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.19 2005-02-03 23:09:04 espen Exp $
+;; $Id: gcallback.lisp,v 1.20 2005-02-04 00:15:24 espen Exp $
 
 (in-package "GLIB")
 
@@ -345,14 +345,14 @@ once."
 
 ;;; Message logging
 
-TODO: define and signal conditions based on log-level
+;; TODO: define and signal conditions based on log-level
 
-(defcallback log-handler (nil (domain (copy-of string))
-			  (log-level int)
-			  (message (copy-of string)))
-  (error "~A: ~A" domain message))
+;; (defcallback log-handler (nil (domain (copy-of string))
+;; 			  (log-level int)
+;; 			  (message (copy-of string)))
+;;   (error "~A: ~A" domain message))
 
-(setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))
+;; (setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))
 
 
 ;;;; Convenient macros
