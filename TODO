@@ -1,5 +1,3 @@
-* Add support for interfaces
-
 * Use .defs files to generate class definitions and function
   bindings (to enable building without initialization of gtk)
 
