@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.12 2004-12-20 00:56:11 espen Exp $
+;; $Id: testgtk.lisp,v 1.13 2004-12-26 12:01:10 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -466,7 +466,9 @@
   (dialog-add-button dialog "gtk-cancel" #'widget-destroy :object t)
   (dialog-add-button dialog "gtk-ok" 
    #'(lambda ()
-       (format t "Selected file: ~A~%" (file-chooser-filename dialog))
+       (if (slot-boundp dialog 'filename)
+	   (format t "Selected file: ~A~%" (file-chooser-filename dialog))
+	 (write-line "No files selected"))
        (widget-destroy dialog))))
 
 
@@ -1018,64 +1020,40 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;;; Panes
 
 (defun toggle-resize (child)
-  (let* ((paned (widget-parent child))
-	 (is-child1-p (eq child (paned-child1 paned))))
-    (multiple-value-bind (child resize shrink)
-	(if is-child1-p
-	    (paned-child1 paned)
-	  (paned-child2 paned))
-      (container-remove paned child)
-      (if is-child1-p
-	  (paned-pack1 paned child (not resize) shrink)
-	(paned-pack2 paned child (not resize) shrink)))))
+  (setf (paned-child-resize-p child) (not (paned-child-resize-p child))))
 
 (defun toggle-shrink (child)
-  (let* ((paned (widget-parent child))
-	 (is-child1-p (eq child (paned-child1 paned))))
-    (multiple-value-bind (child resize shrink)
-	(if is-child1-p
-	    (paned-child1 paned)
-	  (paned-child2 paned))
-      (container-remove paned child)
-      (if is-child1-p
-	  (paned-pack1 paned child resize (not shrink))
-	(paned-pack2 paned child resize (not shrink))))))
+  (setf (paned-child-shrink-p child) (not (paned-child-shrink-p child))))
 
 (defun create-pane-options (paned frame-label label1 label2)
-  (let* ((frame (make-instance 'frame :label frame-label :border-width 4))
-	 (table (make-instance 'table :n-rows 3 :n-columns 2 :homogeneous t 
-			              :parent frame)))
-
+  (let* ((table (make-instance 'table :n-rows 3 :n-columns 2 :homogeneous t)))
     (table-attach table (create-label label1) 0 1 0 1 :options '(:expand :fill))
     (let ((check-button (make-instance 'check-button :label "Resize")))
       (table-attach table check-button 0 1 1 2 :options '(:expand :fill))
-      (signal-connect
-       check-button 'toggled #'toggle-resize :object (paned-child1 paned)))
-    (let ((check-button (make-instance 'check-button :label "Shrink")))
+      (signal-connect check-button 'toggled 
+       #'toggle-resize :object (paned-child1 paned)))
+    (let ((check-button (make-instance 'check-button :label "Shrink" :active t)))
       (table-attach table check-button 0 1 2 3 :options '(:expand :fill))
-      (setf (toggle-button-active-p check-button) t)
-      (signal-connect
-       check-button 'toggled #'toggle-shrink :object (paned-child1 paned)))
+      (signal-connect check-button 'toggled 
+       #'toggle-shrink :object (paned-child1 paned)))
 
     (table-attach table (create-label label2) 1 2 0 1 :options '(:expand :fill))
-    (let ((check-button (make-instance 'check-button :label "Resize")))
+    (let ((check-button (make-instance 'check-button :label "Resize" :active t)))
       (table-attach table check-button 1 2 1 2 :options '(:expand :fill))
-      (setf (toggle-button-active-p check-button) t)
-      (signal-connect
-       check-button 'toggled #'toggle-resize :object (paned-child2 paned)))
-    (let ((check-button (make-instance 'check-button :label "Shrink")))
+      (signal-connect check-button 'toggled 
+       #'toggle-resize :object (paned-child2 paned)))
+    (let ((check-button (make-instance 'check-button :label "Shrink" :active t)))
       (table-attach table check-button 1 2 2 3 :options '(:expand :fill))
-      (setf (toggle-button-active-p check-button) t)
-      (signal-connect
-       check-button 'toggled #'toggle-shrink :object (paned-child2 paned)))
-    frame))
+      (signal-connect check-button 'toggled
+       #'toggle-shrink :object (paned-child2 paned)))
+    (make-instance 'frame :label frame-label :border-width 4 :child table)))
 
 (define-toplevel create-panes (window "Panes")
   (let* ((hpaned (make-instance 'h-paned
 		  :child1 (make-instance 'frame
 			   :width-request 60 :height-request 60
 			   :shadow-type :in 
-			   :child (make-instance 'buttun :label "Hi there"))
+			   :child (make-instance 'button :label "Hi there"))
 		  :child2 (make-instance 'frame			    
 			   :width-request 80 :height-request 60
 			   :shadow-type :in)))
@@ -1096,7 +1074,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Progress bar
 
-     
+ 
 
 
 ;;; Radio buttons
@@ -1623,10 +1601,8 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Toolbar test
 
-;; TODO: style properties
 (define-toplevel create-toolbar (window "Toolbar test" :resizable nil)
   (let ((toolbar (make-instance 'toolbar :parent window)))
-;    (setf (toolbar-relief toolbar) :none)
 
     ;; Insert a stock item
     (toolbar-append toolbar "gtk-quit"
@@ -1741,7 +1717,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
       (make-instance 'v-box
        :parent dialog :border-width 10 :spacing 10 :show-all t
        :child (create-button "button1" "This is button 1" "ContextHelp/button/1")
-       :child (create-button "button2" "This is button 2. This is also a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")))))
+       :child (create-button "button2" "This is button 2. This is also has a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")))))
 
 
 ;;; UI Manager
@@ -1843,7 +1819,6 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("font selection")
 ;; 	    ("handle box" create-handle-box)
  	    ("image" create-image)
-;; 	    ("item factory")
  	    ("labels" create-labels)
  	    ("layout" create-layout)
  	    ("list" create-list)
@@ -1887,6 +1862,8 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		       :label "close" :can-default t
 		       :signal (list 'clicked #'widget-destroy 
 				     :object main-window)))) 
+
+    (setf (window-icon main-window) #p"clg:examples;gtk.png")
 
     ;; Main box
     (make-instance 'v-box
