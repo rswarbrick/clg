@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: export.lisp,v 1.2 2004-10-27 15:24:10 espen Exp $
+;; $Id: export.lisp,v 1.3 2005-02-10 20:24:25 espen Exp $
 
 
 ;;; Autogenerating exported symbols
@@ -29,8 +29,16 @@
 	name
       (first name)))
 
-  (defexport define-type-method-fun (name lambda-list)
-    (declare (ignore lambda-list))
+  (defexport def-type-method (name &rest args)
+    (declare (ignore args))
+    name)
+
+  (defexport define-enum-type (name &rest args)
+    (declare (ignore args))
+    name)
+
+  (defexport define-flags-type (name &rest args)
+    (declare (ignore args))
     name)
 
   (defexport define-types-by-introspection (prefix &rest args)
