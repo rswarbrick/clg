@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.11 2002-03-24 12:50:30 espen Exp $
+;; $Id: gobject.lisp,v 1.12 2002-04-02 14:57:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -156,17 +156,17 @@
 	       (%object-get-property object pname gvalue)
 	       (unwind-protect
 		   (funcall
-		    (intern-reader-function type) gvalue +gvalue-value-offset+)
+		    (intern-reader-function (type-from-number type-number)) gvalue +gvalue-value-offset+) ; temporary workaround for wrong topological sorting of types
 		 (gvalue-free gvalue t)))))
        #'(lambda (value object)
 	   (with-gc-disabled
   	     (let ((gvalue (gvalue-new type-number)))
 	       (funcall
-		(intern-writer-function type)
+		(intern-writer-function (type-from-number type-number)) ; temporary
 		value gvalue +gvalue-value-offset+)
 	       (%object-set-property object pname gvalue)
 	       (funcall
-		(intern-destroy-function type)
+		(intern-destroy-function (type-from-number type-number)) ; temporary
 		gvalue +gvalue-value-offset+)
 	       (gvalue-free gvalue nil)
 	       value)))))))
@@ -220,9 +220,9 @@
 	   #'(lambda (param)
 	       (with-slots (name flags value-type documentation) param
 	         (let* ((slot-name (default-slot-name name))
-			(slot-type (type-from-number value-type #|t|#))
+			(slot-type value-type) ;(type-from-number value-type t))
 			(accessor
-			 (default-slot-accessor class slot-name slot-type)))
+			 (default-slot-accessor class slot-name (type-from-number slot-type)))) ; temporary workaround for wrong topological sorting of types
 		   `(,slot-name
 		     :allocation :property
 		     :pname ,name
