@@ -15,36 +15,12 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.5 2004-11-06 21:39:58 espen Exp $
+;; $Id: gdkevents.lisp,v 1.6 2004-12-20 00:09:57 espen Exp $
 
 (in-package "GDK")
 
 
 (defvar *event-classes* (make-hash-table))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass event (boxed)
-    ((%type
-      :allocation :alien
-      :type event-type)
-     (window
-      :allocation :alien
-      :accessor event-window
-      :initarg :window
-      :type window)
-     (send-event
-      :allocation :alien
-      :accessor event-send-event
-      :initarg :send-event
-      :type (boolean 8))
-     (%align :allocation :alien :offset 2 :type (unsigned 8)))
-    (:metaclass boxed-class)))
-
-
-(defmethod initialize-instance ((event event) &rest initargs)
-  (declare (ignore initargs))
-  (call-next-method)
-  (setf (slot-value event '%type) (event-class-type (class-of event))))
 
 
 ;;;; Metaclass for event classes
@@ -54,7 +30,8 @@
     ((event-type :reader event-class-type)))
 
   (defmethod validate-superclass ((class event-class) (super standard-class))
-    (subtypep (class-name super) 'event)))
+    ;(subtypep (class-name super) 'event)
+    t))
 
 
 (defmethod shared-initialize ((class event-class) names &key name type)
@@ -75,6 +52,30 @@
 
 
 ;;;;
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass event (boxed)
+    ((%type
+      :allocation :alien
+      :type event-type)
+     (window
+      :allocation :alien
+      :accessor event-window
+      :initarg :window
+      :type window)
+     (send-event
+      :allocation :alien
+      :accessor event-send-event
+      :initarg :send-event
+      :type (boolean 8)))
+    (:metaclass event-class)))
+
+
+(defmethod initialize-instance ((event event) &rest initargs)
+  (declare (ignore initargs))
+  (call-next-method)
+  (setf (slot-value event '%type) (event-class-type (class-of event))))
+
 
 (defclass timed-event (event)
   ((time
@@ -116,6 +117,11 @@
     :accessor event-height
     :initarg :height
     :type int)
+   (region
+    :allocation :alien
+    :accessor event-region
+    :initarg :region
+    :type pointer)
    (count
     :allocation :alien
     :accessor event-count
@@ -124,7 +130,7 @@
   (:metaclass event-class)
   (:type :expose))
 
-(defclass motion-notify-event (timed-event)
+(defclass input-event (timed-event)
   ((x
     :allocation :alien
     :accessor event-x
@@ -135,13 +141,21 @@
     :accessor event-y
     :initarg :y
     :type double-float)
+   (axes
+    :allocation :alien
+    :accessor event-axes
+    :initarg :axes
+    :type pointer) ;double-float)
    (state
     :allocation :alien
-    :offset #.(size-of 'pointer)
     :accessor event-state
     :initarg :state
-    :type unsigned-int)
-   (is-hint
+    :type modifier-type))
+  (:metaclass event-class))
+
+
+(defclass motion-notify-event (input-event)
+  ((is-hint
     :allocation :alien
     :accessor event-is-hint
     :initarg :is-hint
@@ -166,24 +180,8 @@
   (:metaclass event-class)
   (:type :motion-notify))
   
-(defclass button-press-event (timed-event)
-  ((x
-    :allocation :alien
-    :accessor event-x
-    :initarg :x
-    :type double-float)
-   (y
-    :allocation :alien
-    :accessor event-y
-    :initarg :y
-    :type double-float)
-   (state
-    :allocation :alien
-    :offset #.(size-of 'pointer)
-    :accessor event-state
-    :initarg :state
-    :type modifier-type)
-   (button
+(defclass button-event (input-event)
+  ((button
     :allocation :alien
     :accessor event-button
     :initarg :button
@@ -203,6 +201,10 @@
     :accessor event-root-y
     :initarg :root-y
     :type double-float))
+  (:metaclass event-class))
+
+(defclass button-press-event (button-event)
+  ()
   (:metaclass event-class)
   (:type :button-press))
 
@@ -216,33 +218,126 @@
   (:metaclass event-class)
   (:type :3button-press))
 
-(defclass button-release-event (button-press-event)
+(defclass button-release-event (button-event)
   ()
   (:metaclass event-class)
   (:type :button-release))
 
-(defclass key-press-event (event)
+
+(defclass key-event (timed-event)
+  ((state
+    :allocation :alien
+    :accessor event-state
+    :initarg :state
+    :type modifier-type)
+   (keyval 
+    :allocation :alien
+    :accessor event-keyval
+    :initarg :keyval
+    :type unsigned-int)
+   (length
+    :allocation :alien
+    :accessor event-length
+    :initarg :length
+    :type unsigned-int)
+   (string
+    :allocation :alien
+    :accessor event-string
+    :initarg :string
+    :type string)
+   (hardware-keycode
+    :allocation :alien
+    :accessor event-hardware-keycode
+    :initarg :hardware-keycode
+    :type (unsigned 16))
+   (group
+    :allocation :alien
+    :accessor event-group
+    :initarg :group
+    :type (unsigned 8)))
+  (:metaclass event-class))
+
+(defclass key-press-event (key-event)
   ()
   (:metaclass event-class)
   (:type :key-press))
 
-(defclass key-release-event (event)
+(defclass key-release-event (key-event)
   ()
   (:metaclass event-class)
   (:type :key-release))
 
-(defclass enter-notify-event (event)
+
+(defclass crossing-event (event)
+  ((subwindow
+    :allocation :alien
+    :accessor event-subwindow
+    :initarg :subwindow
+    :type window)
+   (time
+    :allocation :alien
+    :accessor event-time
+    :initarg :time
+    :type (unsigned 32))
+   (x
+    :allocation :alien
+    :accessor event-x
+    :initarg :x
+    :type double-float)
+   (y
+    :allocation :alien
+    :accessor event-y
+    :initarg :y
+    :type double-float)
+   (root-x
+    :allocation :alien
+    :accessor event-root-x
+    :initarg :root-x
+    :type double-float)
+   (root-y
+    :allocation :alien
+    :accessor event-root-y
+    :initarg :root-y
+    :type double-float)
+   (mode
+    :allocation :alien
+    :accessor event-mode
+    :initarg :mode
+    :type crossing-mode)
+   (detail
+    :allocation :alien
+    :accessor event-detail
+    :initarg :detail
+    :type notify-type)
+   (focus
+    :allocation :alien
+    :accessor event-focus
+    :initarg :focus
+    :type boolean)
+   (state
+    :allocation :alien
+    :accessor event-state
+    :initarg :state
+    :type unsigned-int))
+  (:metaclass event-class))
+
+
+(defclass enter-notify-event (crossing-event)
   ()
   (:metaclass event-class)
   (:type :enter-notify))
 
-(defclass leave-notify-event (event)
+(defclass leave-notify-event (crossing-event)
   ()
   (:metaclass event-class)
   (:type :leave-notify))
 
 (defclass focus-change-event (event)
-  ()
+  ((in
+    :allocation :alien
+    :accessor event-in
+    :initarg :in
+    :type (boolean 16)))
   (:metaclass event-class)
   (:type :focus-change))
 
@@ -300,41 +395,63 @@
   (:metaclass event-class)
   (:type :selection-notify))
 
-(defclass drag-enter-event (event)
+(defclass dnd-event (event)
+  ((context
+    :allocation :alien
+    :accessor event-contex
+    :initarg :context
+    :type drag-context)
+   (time
+    :allocation :alien
+    :accessor event-time
+    :initarg :time
+    :type (unsigned 32))
+   (x-root
+    :allocation :alien
+    :accessor event-x-root
+    :initarg :x-root
+    :type short)
+   (y-root
+    :allocation :alien
+    :accessor event-y-root
+    :initarg :y-root
+    :type short))
+  (:metaclass event-class))
+
+(defclass drag-enter-event (dnd-event)
   ()
   (:metaclass event-class)
   (:type :drag-enter))
 
-(defclass drag-leave-event (event)
+(defclass drag-leave-event (dnd-event)
   ()
   (:metaclass event-class)
   (:type :drag-leave))
 
-(defclass drag-motion-event (event)
+(defclass drag-motion-event (dnd-event)
   ()
   (:metaclass event-class)
   (:type :drag-motion))
 
-(defclass drag-status-event (event)
+(defclass drag-status-event (dnd-event)
   ()
   (:metaclass event-class)
   (:type :drag-status))
 
-(defclass drag-start-event (event)
+(defclass drot-start-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drag-start))
+  (:type :drop-start))
 
-(defclass drag-finished-event (event)
+(defclass drop-finished-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drag-finished))
+  (:type :drop-finished))
 
 (defclass client-event (event)
   ()
   (:metaclass event-class)
-  ;(:type :client-event)
-  )
+  (:type :client-event))
 
 (defclass visibility-notify-event (event)
   ((state
@@ -351,11 +468,87 @@
   (:type :no-expose))
   
 (defclass scroll-event (timed-event)
-  ()
+  ((x
+    :allocation :alien
+    :accessor event-x
+    :initarg :x
+    :type double-float)
+   (y
+    :allocation :alien
+    :accessor event-y
+    :initarg :y
+    :type double-float)
+   (state
+    :allocation :alien
+    :accessor event-state
+    :initarg :state
+    :type modifier-type)
+   (direction
+    :allocation :alien
+    :accessor event-direction
+    :initarg :direction
+    :type scroll-direction)
+   (root-x
+    :allocation :alien
+    :accessor event-root-x
+    :initarg :root-x
+    :type double-float)
+   (root-y
+    :allocation :alien
+    :accessor event-root-y
+    :initarg :root-y
+    :type double-float))
   (:metaclass event-class)
   (:type :scroll))
 
-(defclass setting-event (timed-event)
-  ()
+(defclass setting-event (event)
+  ((action
+    :allocation :alien
+    :accessor event-action
+    :initarg :action
+    :type setting-action)
+   (name
+    :allocation :alien
+    :accessor event-name
+    :initarg :name
+    :type string))
   (:metaclass event-class)
   (:type :setting))
+
+(defclass proximity-event (timed-event)
+  ((device
+    :allocation :alien
+    :accessor event-device
+    :initarg :device
+    :type device))
+  (:metaclass event-class))
+
+(defclass proximity-in-event (proximity-event)
+  ()
+  (:metaclass event-class)
+  (:type :proximity-in))
+
+(defclass proximity-out-event (proximity-event)
+  ()
+  (:metaclass event-class)
+  (:type :proximity-out))
+
+(defclass window-state-event (event)
+  ((change-mask
+    :allocation :alien
+    :accessor event-change-mask
+    :initarg :change-mask
+    :type window-state)
+   (new-window-state
+    :allocation :alien
+    :accessor event-new-window-state
+    :initarg :new-window-state
+    :type window-state))
+  (:metaclass event-class)
+  (:type :window-state))
+  
+(defclass owner-change-event (event)
+  ()
+  (:metaclass event-class)
+  (:type :owner-change))
+
