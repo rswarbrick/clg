@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.8 2004-10-27 14:59:00 espen Exp $
+;; $Id: proxy.lisp,v 1.9 2004-10-28 19:29:00 espen Exp $
 
 (in-package "GLIB")
 
@@ -75,7 +75,12 @@
 		   (declare (ignore object))
 		   (error "Can't read slot: ~A" (slot-definition-name slotd))))
 	 (symbol #'(lambda (object)
-		     (funcall getter object))))))
+		     (funcall getter object)))
+	 (string (let ((reader (mkbinding-late getter 
+				(slot-definition-type slotd) 'pointer)))
+		   (setf (slot-value slotd 'reader-function)
+			 #'(lambda (object)
+			     (funcall reader (proxy-location object)))))))))
 
     (unless (slot-boundp slotd 'writer-function)
       (setf 
@@ -86,7 +91,13 @@
 		   (declare (ignore object))
 		   (error "Can't set slot: ~A" (slot-definition-name slotd))))
 	 ((or symbol cons) #'(lambda (value object)
-			       (funcall (fdefinition setter) value object))))))
+			       (funcall (fdefinition setter) value object)))
+	 (string
+	  (let ((writer (mkbinding-late setter 'nil 'pointer 
+			 (slot-definition-type slotd))))
+	    (setf (slot-value slotd 'writer-function)
+		  #'(lambda (value object)
+		      (funcall writer (proxy-location object) value))))))))
 
     (unless (slot-boundp slotd 'boundp-function)
       (setf 
@@ -228,8 +239,6 @@
 	`(,free ',type-spec ,location)
     `(funcall ',free ',type-spec ,location))))
 
-;; (defun proxy-instance-size (proxy)
-;;   (proxy-class-size (class-of proxy)))
 
 ;;;; Metaclass used for subclasses of proxy
 
@@ -245,9 +254,6 @@
   
   (defclass effective-alien-slot-definition (effective-virtual-slot-definition)
     ((offset :reader slot-definition-offset :initarg :offset)))
-  
-  (defclass effective-virtual-alien-slot-definition (effective-virtual-slot-definition)
-    ())
 
 
   (defmethod most-specific-proxy-superclass ((class proxy-class))
@@ -276,8 +282,6 @@
       (free (setf (slot-value class 'free) (first free)))
       ((slot-boundp class 'free) (slot-makunbound class 'free))))
   
-;;   (defmethod finalize-inheritance ((class proxy-class))
-;;     (call-next-method)
   (defmethod shared-initialize :after ((class proxy-class) names &rest initargs)
     (let ((super (most-specific-proxy-superclass class)))
       (unless (or (not super) (eq super (find-class 'proxy)))
@@ -294,7 +298,6 @@
   (defmethod effective-slot-definition-class ((class proxy-class) &rest initargs)
     (case (getf initargs :allocation)
       (:alien (find-class 'effective-alien-slot-definition))
-      (:virtual (find-class 'effective-virtual-alien-slot-definition))
       (t (call-next-method))))
   
   
@@ -334,21 +337,6 @@
 	       t)))))
     (call-next-method))
   
-
-  (defmethod initialize-internal-slot-functions ((slotd effective-virtual-alien-slot-definition))
-    (with-slots (getter setter type) slotd
-      (when (and (not (slot-boundp slotd 'reader-function)) (stringp getter))
-	(let ((reader (mkbinding-late getter type 'pointer)))
-	  (setf (slot-value slotd 'reader-function)
-		#'(lambda (object)
-		    (funcall reader (proxy-location object))))))
-      
-      (when (and (not (slot-boundp slotd 'writer-function)) (stringp setter))
-	(let ((writer (mkbinding-late setter 'nil 'pointer type)))
-	  (setf (slot-value slotd 'writer-function)
-		#'(lambda (value object)
-		    (funcall writer (proxy-location object) value))))))
-    (call-next-method))
 
   ;; TODO: call some C code to detect this a compile time
   (defconstant +struct-alignmen+ 4)
