@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.3 2000-08-23 14:27:41 espen Exp $
+;; $Id: gtype.lisp,v 1.4 2000-09-04 22:04:24 espen Exp $
 
 (in-package "GLIB")
 
@@ -234,7 +234,11 @@
 
 (deftype-method translate-type-spec alien-instance (type-spec)
   (declare (ignore type-spec))
-  'system-area-pointer)
+  (translate-type-spec 'pointer))
+
+(deftype-method size-of alien-instance (type-spec)
+  (declare (ignore type-spec))
+  (size-of 'pointer))
 
 
 
@@ -360,7 +364,7 @@
 			    (alien::make-heap-alien-info
 			     :type (alien::parse-alien-type
 				    `(function
-				      void ,alien-type system-area-pointer))
+				      void system-area-pointer ,alien-type))
 			     :sap-form (system:foreign-symbol-address writer))))
 			  (to-alien (get-to-alien-function type))
 			  (cleanup  (get-cleanup-function type)))
