@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.7 2001-11-12 22:34:28 espen Exp $
+;; $Id: gtk.lisp,v 1.8 2002-03-24 13:28:22 espen Exp $
 
 
 (in-package "GTK")
@@ -75,6 +75,12 @@
 
 
 ;;; Bin
+
+(progn
+  (declaim (optimize (ext:inhibit-warnings 3)))
+  (defun container-remove (container child))
+  (defun container-add (container child)))
+
 
 (defun (setf bin-child) (child bin)
   (when-bind (current-child (bin-child bin))
