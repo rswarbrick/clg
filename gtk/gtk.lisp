@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.8 2002-03-24 13:28:22 espen Exp $
+;; $Id: gtk.lisp,v 1.9 2002-03-24 15:40:50 espen Exp $
 
 
 (in-package "GTK")
@@ -75,12 +75,6 @@
 
 
 ;;; Bin
-
-(progn
-  (declaim (optimize (ext:inhibit-warnings 3)))
-  (defun container-remove (container child))
-  (defun container-add (container child)))
-
 
 (defun (setf bin-child) (child bin)
   (when-bind (current-child (bin-child bin))
@@ -267,19 +261,17 @@
 
 
 
-;;; Dialog
+;;;; Dialog
 
-(defmethod initialize-instance ((dialog dialog) &rest initargs)
-  (apply #'call-next-method dialog (plist-remove initargs :child))
+(defmethod shared-initialize ((dialog dialog) names &rest initargs)
+  (call-next-method)
   (dolist (button-definition (get-all initargs :button))
-    (apply #'dialog-add-button dialog button-definition))
-  (dolist (child (get-all initargs :child))
-    (apply #'dialog-add-child dialog (mklist child))))
-
+    (apply #'dialog-add-button dialog button-definition)))
+  
 
 (defvar %*response-id-key* (gensym))
 
-(defun %dialog-find-response-id-num (dialog response-id create-p)
+(defun %dialog-find-response-id-num (dialog response-id &optional create-p error-p)
   (or
    (cadr (assoc response-id (rest (type-expand-1 'response-type))))
    (let* ((response-ids (object-data dialog %*response-id-key*))
@@ -294,8 +286,8 @@
        (t
 	(setf (object-data dialog %*response-id-key*) (list response-id))
 	0)))
-     (t
-      (error "Invalid response id: ~A" response-id))))))
+     (error-p
+      (error "Invalid response: ~A" response-id))))))
 
 (defun %dialog-find-response-id (dialog response-id-num)
   (if (< response-id-num 0)
@@ -306,35 +298,29 @@
     (nth response-id-num (object-data dialog %*response-id-key*))))
 
 
-(defmethod signal-connect ((dialog dialog) signal function &key object)
-  (case signal
-    (response
-     #'(lambda (dialog response-id-num)
-	 (let ((response-id (%dialog-find-response-id dialog response-id-num)))
-	   (cond
-	    ((eq object t)  (funcall function dialog response-id))
-	    (object (funcall function object response-id))
-	    (t (funcall function response-id))))))
+(defmethod signal-connect ((dialog dialog) signal function &key object after)
+  (let ((response-id-num (%dialog-find-response-id-num dialog signal)))
+    (cond
+     (response-id-num
+      (call-next-method
+       dialog 'response
+       #'(lambda (dialog id)
+	   (when (= id response-id-num)
+	     (cond
+	      ((eq object t) (funcall function dialog))
+	      (object (funcall function object))
+	      (t (funcall function)))))
+       :object t :after after))
     (t
-     (call-next-method))))
+     (call-next-method)))))
 
+
+(defbinding dialog-run () nil
+  (dialog dialog))
 
 (defbinding dialog-response (dialog response-id) nil
   (dialog dialog)
-  ((%dialog-find-response-id-num dialog response-id nil) int))
-  
-(defbinding %dialog-set-default-response () nil
-  (dialog dialog)
-  (response-id-num int))
-
-(defun dialog-set-default-response (dialog response-id)
-  (%dialog-set-default-response
-   dialog (%dialog-find-response-id-num dialog response-id nil)))
-
-(defbinding dialog-set-response-sensitive (dialog response-id sensitive) nil
-  (dialog dialog)
-  ((%dialog-find-response-id-num dialog response-id nil) int)
-  (sensitive boolean))
+  ((%dialog-find-response-id-num dialog response-id nil t) int))
 
 
 (defbinding %dialog-add-button () button
@@ -367,24 +353,39 @@
     (when default-p
       (%dialog-set-default-response dialog response-id-num))
     widget))
-  
 
-(defun dialog-add-child (dialog child &rest args)
-  (apply #'container-add (slot-value dialog 'vbox) child args))
+
+(defbinding %dialog-set-default-response () nil
+  (dialog dialog)
+  (response-id-num int))
+
+(defun dialog-set-default-response (dialog response-id)
+  (%dialog-set-default-response
+   dialog (%dialog-find-response-id-num dialog response-id nil t)))
+
+(defbinding dialog-set-response-sensitive (dialog response-id sensitive) nil
+  (dialog dialog)
+  ((%dialog-find-response-id-num dialog response-id nil t) int)
+  (sensitive boolean))
+
+
+;; Addition dialog functions
+
+(defmethod container-add ((dialog dialog) (child widget) &rest args)
+  (apply #'container-add (slot-value dialog 'main-area) child args))
+
+(defmethod container-remove ((dialog dialog) (child widget))
+  (container-remove (slot-value dialog 'main-area) child))
 
 (defmethod container-children ((dialog dialog))
-  (container-children (dialog-vbox dialog)))
+  (container-children (dialog-main-area dialog)))
 
 (defmethod (setf container-children) (children (dialog dialog))
-  (setf (container-children (dialog-vbox dialog)) children))
+  (setf (container-children (dialog-main-area dialog)) children))
 
 
 
 ;;; Drawing area -- no functions
-
-
-
-
 
 
 
