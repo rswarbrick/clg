@@ -22,5 +22,6 @@
 						"libgdk_pixbuf-2.0" 
 						"libgdk-x11-2.0"))
 		 (:file "gdkevents" :depends-on ("gdktypes"))
+		 (:file "pixbuf" :depends-on ("gdktypes"))
 		 (:file "gdk" :depends-on ("gdkevents"))
 		 (:file "export" :depends-on ("gdkevents" "gdktypes" "gdk"))))
