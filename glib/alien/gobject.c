@@ -1,4 +1,4 @@
-/* $Id: gobject.c,v 1.1 2004-10-27 15:07:46 espen Exp $ */
+/* $Id: gobject.c,v 1.2 2004-10-31 11:35:59 espen Exp $ */
 
 #include <glib-object.h>
 
@@ -21,5 +21,20 @@ gpointer g_object_newvv (GType object_type, guint n_parameters,
 guint size_of_gvalue ()
 {
   return sizeof (GValue);
+}
+
+
+GEnumValue*
+g_enum_class_values (GEnumClass *class, guint *n_values)
+{
+  *n_values = class->n_values;
+  return class->values;
+}
+
+GFlagsValue*
+g_flags_class_values (GFlagsClass *class, guint *n_values)
+{
+  *n_values = class->n_values;
+  return class->values;
 }
 
