@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.13 2004-11-07 01:23:38 espen Exp $
+;; $Id: gcallback.lisp,v 1.14 2004-11-07 16:04:21 espen Exp $
 
 (in-package "GLIB")
 
@@ -181,3 +181,25 @@
   (error "~A: ~A" domain message))
 
 (setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))
+
+
+;;;; Convenient macros
+
+(defmacro def-callback-marshal (name (return-type &rest args))
+  (let ((names (loop 
+		for arg in args 
+		collect (if (atom arg) (gensym) (first arg))))
+	(types (loop 
+		for arg in args 
+		collect (if (atom arg) arg (second arg)))))
+    `(defcallback ,name (,return-type ,@(mapcar #'list names types)
+			 (callback-id unsigned-int))
+      (invoke-callback callback-id ',return-type ,@names))))
+
+(defmacro with-callback-function ((id function) &body body)
+  `(let ((,id (register-callback-function ,function)))
+    (unwind-protect
+	 (progn ,@body)
+      (destroy-user-data ,id))))
+
+
