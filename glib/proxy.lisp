@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.5 2001-05-29 15:43:44 espen Exp $
+;; $Id: proxy.lisp,v 1.6 2001-10-21 16:55:39 espen Exp $
 
 (in-package "GLIB")
 
@@ -289,12 +289,14 @@
 	(with-slots (type) slotd
 	  (list
 	   (if (stringp getter)
-	       (mkbinding getter type class-name)
+	       (let ((getter (mkbinding-late getter type 'pointer)))
+		 #'(lambda (object)
+		     (funcall getter (proxy-location object))))
 	     getter)
 	   (if (stringp setter)
-	       (let ((setter (mkbinding setter 'nil class-name type)))
+	       (let ((setter (mkbinding-late setter 'nil 'pointer type)))
 		 #'(lambda (value object)
-		     (funcall setter object value)))
+		     (funcall setter (proxy-location object) value)))
 	     setter))))))
 
   (defmethod compute-slots ((class proxy-class))
