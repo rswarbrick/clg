@@ -15,48 +15,39 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.3 2001-05-29 16:03:04 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.4 2001-10-21 23:20:13 espen Exp $
 
 (in-package "GTK")
 
-
-(defmethod initialize-instance ((container container) &rest initargs
-				&key children)
-  (declare (ignore initargs))
+(defmethod initialize-instance ((container container) &rest initargs)
   (call-next-method)
-  (dolist (child children)
-    (cond
-     ((consp child)
-      (container-add container (first child))
-      (setf
-       (slot-value (first child) 'child-slots)
-       (apply
-	#'make-instance
-	(slot-value (class-of container) 'child-class)
-	:parent container :child (first child) (cdr child))))
-     (t
-      (container-add container child)))))
+  (dolist (child (get-all initargs :child))
+    (apply #'container-add container (mklist child))))
 
-(defbinding %container-child-getv () nil
-  (container container)
-  (child widget)
-  (1 unsigned-int)
-  (arg arg))
 
-(defbinding %container-child-setv () nil
-  (container container)
-  (child widget)
-  (1 unsigned-int)
-  (arg arg))
-  
-
-(defbinding container-add () nil
+(defbinding %container-add () nil
   (container container)
   (widget widget))
 
-(defbinding container-remove () nil
+(defun container-add (container widget &rest args)
+  (%container-add container widget)
+  (when args
+    (setf
+     (slot-value widget 'child-slots)
+     (apply
+      #'make-instance
+      (gethash (class-of container) *container-to-child-class-mappings*)
+      :parent container :child widget args))))
+
+
+(defbinding %container-remove () nil
   (container container)
   (widget widget))
+
+(defun container-remove (container widget)
+  (%container-remove container widget)
+  (slot-makunbound widget 'child-slots))
+
 
 (defbinding container-check-resize () nil
   (container container))
@@ -66,7 +57,7 @@
   (container container)
   (0 unsigned-long)
   (*callback-marshal* pointer)
-  ((register-callback-function function) unsigned-long)
+  ((register-callback-function function) pointer)
   (*destroy-marshal* pointer))
 
 (defun map-container (seqtype func container)
@@ -104,10 +95,13 @@
 		(setq ,continue t)))))
        ,result)))
 
-(defbinding container-children () (glist widget)
+(defbinding %container-get-children () (glist widget)
   (container container))
 
-(defun (setf container-children) (children container)
+(defmethod container-children ((container container))
+  (%container-get-children container))
+
+(defmethod (setf container-children) (children (container container))
   (dolist (child (container-children container))
     (container-remove container child))
   (dolist (child children)

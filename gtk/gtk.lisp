@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.5 2001-05-31 21:52:57 espen Exp $
+;; $Id: gtk.lisp,v 1.6 2001-10-21 23:22:04 espen Exp $
 
 
 (in-package "GTK")
@@ -59,8 +59,8 @@
 
 ;;; Bin
 
-(defun bin-child (bin)
-  (first (container-children bin)))
+(defbinding (bin-child "gtk_bin_get_child") () widget
+  (bin bin))
 
 (defun (setf bin-child) (child bin)
   (let ((old-child (bin-child bin)))
@@ -68,21 +68,6 @@
       (container-remove bin old-child)))
   (container-add bin child)
   child)
-
-(defmethod initialize-instance ((bin bin) &rest initargs &key child)
-  (declare (ignore initargs))
-  (call-next-method)
-  (cond
-   ((consp child)
-    (container-add bin (first child))
-    (setf
-     (slot-value (first child) 'child-slots)
-     (apply
-      #'make-instance
-      (slot-value (class-of bin) 'child-class)
-      :parent bin :child (first child) (cdr child))))
-   (child
-    (container-add bin child))))
 
 
 ;;; Button
@@ -122,7 +107,7 @@
 
 ;;; Radio button
 
-(defbinding (%radio-button-get-group "gtk_radio_button_group") () pointer
+(defbinding %radio-button-get-group () pointer
   (radio-button radio-button))
 
 (defbinding %radio-button-set-group () nil
@@ -133,11 +118,13 @@
   "Add BUTTON1 to the group which BUTTON2 belongs to."
   (%radio-button-set-group button1 (%radio-button-get-group button2)))
 
+
 (defmethod initialize-instance ((button radio-button)
-				&rest initargs &key group)
+				&rest initargs &key group-with)
+  (declare (ignore initargs))
   (call-next-method)
-  (when group
-    (radio-button-add-to-group item group)))
+  (when group-with
+    (radio-button-add-to-group item group-with)))
 
 
 ;;; Option menu
@@ -191,24 +178,6 @@
     (%menu-item-set-submenu menu-item submenu))
   submenu)
 
-(defbinding %menu-item-configure () nil
-  (menu-item menu-item)
-  (show-toggle-indicator boolean)
-  (show-submenu-indicator boolean))
-
-(defun (setf menu-item-toggle-indicator-p) (show menu-item)
-  (%menu-item-configure
-   menu-item
-   show
-   (menu-item-submenu-indicator-p menu-item))
-  show)
-
-(defun (setf menu-item-submenu-indicator-p) (show menu-item)
-  (%menu-item-configure
-   menu-item
-   (menu-item-toggle-indicator-p menu-item)
-   show))
-
 (defbinding menu-item-select () nil
   (menu-item menu-item))
 
@@ -216,9 +185,6 @@
   (menu-item menu-item))
 
 (defbinding menu-item-activate () nil
-  (menu-item menu-item))
-
-(defbinding menu-item-right-justify () nil
   (menu-item menu-item))
 
 
@@ -232,8 +198,7 @@
 
 ;;; Radio menu item
 
-(defbinding (%radio-menu-item-get-group
-	     "gtk_radio_menu_item_group") () pointer
+(defbinding %radio-menu-item-get-group () pointer
   (radio-menu-item radio-menu-item))
 
 (defbinding %radio-menu-item-set-group () nil
@@ -245,10 +210,11 @@
   (%radio-menu-item-set-group item1 (%radio-menu-item-get-group item2)))
 
 (defmethod initialize-instance ((item radio-menu-item)
-				&rest initargs &key group)
+				&rest initargs &key group-with)
+  (declare (ignore initargs))
   (call-next-method)
-  (when group
-    (radio-menu-item-add-to-group item group)))
+  (when group-with
+    (radio-menu-item-add-to-group item group-with)))
   
 
 
@@ -296,12 +262,6 @@
 (defbinding file-selection-complete () nil
   (file-selection file-selection)
   (pattern string))
-
-(defbinding file-selection-show-fileop-buttons () nil
-  (file-selection file-selection))
-
-(defbinding file-selection-hide-fileop-buttons () nil
-  (file-selection file-selection))
 
 
 
@@ -533,55 +493,55 @@
 (defbinding notebook-popup-disable () nil
   (notebook notebook))
 
-(defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
-    (notebook ref) widget
-  (notebook notebook)
-  ((if (typep ref 'widget)
-       ref
-     (notebook-nth-page-child notebook ref))
-   widget))
+; (defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
+;     (notebook ref) widget
+;   (notebook notebook)
+;   ((if (typep ref 'widget)
+;        ref
+;      (notebook-nth-page-child notebook ref))
+;    widget))
 
-(defbinding %notebook-set-tab-label () nil
-  (notebook notebook)
-  (reference widget)
-  (tab-label widget))
+; (defbinding %notebook-set-tab-label () nil
+;   (notebook notebook)
+;   (reference widget)
+;   (tab-label widget))
 
-(defun (setf notebook-tab-label) (tab-label notebook reference)
-  (let ((tab-label-widget (if (stringp tab-label)
-			      (label-new tab-label)
-			    tab-label)))
-    (%notebook-set-tab-label
-     notebook
-     (if (typep reference 'widget)
-	 reference
-       (notebook-nth-page-child notebook reference))
-     tab-label-widget)
-    tab-label-widget))
+; (defun (setf notebook-tab-label) (tab-label notebook reference)
+;   (let ((tab-label-widget (if (stringp tab-label)
+; 			      (label-new tab-label)
+; 			    tab-label)))
+;     (%notebook-set-tab-label
+;      notebook
+;      (if (typep reference 'widget)
+; 	 reference
+;        (notebook-nth-page-child notebook reference))
+;      tab-label-widget)
+;     tab-label-widget))
    
-(defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
-    (notebook ref) widget
-  (notebook notebook)
-  ((if (typep ref 'widget)
-       ref
-     (notebook-nth-page-child notebook ref))
-   widget))
+; (defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
+;     (notebook ref) widget
+;   (notebook notebook)
+;   ((if (typep ref 'widget)
+;        ref
+;      (notebook-nth-page-child notebook ref))
+;    widget))
 
-(defbinding %notebook-set-menu-label () nil
-  (notebook notebook)
-  (reference widget)
-  (menu-label widget))
+; (defbinding %notebook-set-menu-label () nil
+;   (notebook notebook)
+;   (reference widget)
+;   (menu-label widget))
 
-(defun (setf notebook-menu-label) (menu-label notebook reference)
-  (let ((menu-label-widget (if (stringp menu-label)
-			      (label-new menu-label)
-			    menu-label)))
-    (%notebook-set-menu-label
-     notebook
-     (if (typep reference 'widget)
-	 reference
-       (notebook-nth-page-child notebook reference))
-     menu-label-widget)
-    menu-label-widget))
+; (defun (setf notebook-menu-label) (menu-label notebook reference)
+;   (let ((menu-label-widget (if (stringp menu-label)
+; 			      (label-new menu-label)
+; 			    menu-label)))
+;     (%notebook-set-menu-label
+;      notebook
+;      (if (typep reference 'widget)
+; 	 reference
+;        (notebook-nth-page-child notebook reference))
+;      menu-label-widget)
+;     menu-label-widget))
 
 (defbinding notebook-query-tab-label-packing (notebook ref) nil
   (notebook notebook)
@@ -664,29 +624,10 @@
   (width int)
   (height int))
 
-;; gtkglue.c
 (defbinding layout-get-size () nil
   (layout layout)
   (width int :out)
   (height int :out))
-
-(defun layout-x-size (layout)
-  (nth-value 0 (layout-get-size layout)))
-
-(defun layout-y-size (layout)
-  (nth-value 1 (layout-get-size layout)))
-
-(defun (setf layout-x-size) (x layout)
-  (layout-set-size layout x (layout-y-size layout)))
-
-(defun (setf layout-y-size) (y layout)
-  (layout-set-size layout (layout-x-size layout) y))
-
-(defbinding layout-freeze () nil
-  (layout layout))
-
-(defbinding layout-thaw () nil
-  (layout layout))
 
 
 
@@ -737,24 +678,12 @@
 
 ; ;;; Menu
 
-; (defun menu-insert (menu menu-item position)
-;   (menu-shell-insert menu menu-item position))
-
-; (defun menu-append (menu menu-item)
-;   (menu-shell-append menu menu-item))
-
-; (defun menu-prepend (menu menu-item)
-;   (menu-shell-prepend menu menu-item))
-
 ;(defun menu-popup ...)
 
 (defbinding menu-reposition () nil
   (menu menu))
 
 (defbinding menu-popdown () nil
-  (menu menu))
-
-(defbinding (menu-active "gtk_menu_get_active") () widget
   (menu menu))
 
 (defbinding %menu-set-active () nil
@@ -764,14 +693,6 @@
 (defun (setf menu-active) (menu index)
   (%menu-set-active menu index))
   
-;(defun menu-attach-to-widget ...)
-
-(defbinding menu-detach () nil
-  (menu menu))
-
-(defbinding (menu-attach-widget "gtk_menu_get_attach_widget") () widget
-  (menu menu))
-
 (defbinding menu-reorder-child () nil
   (menu menu)
   (menu-item menu-item)
@@ -800,59 +721,173 @@
   (x-padding unsigned-int)
   (y-padding unsigned-int))
 
+
 (defbinding %table-set-row-spacing () nil
   (table table)
   (row unsigned-int)
   (spacing unsigned-int))
 
-(defun (setf table-row-spacing) (spacing table row)
-  (%table-set-row-spacing table row spacing)
+(defbinding %table-set-row-spacings () nil
+  (table table)
+  (spacing unsigned-int))
+
+(defun (setf table-row-spacing) (spacing table &optional row)
+  (if row
+      (%table-set-row-spacing table row spacing)
+    (%table-set-row-spacings table spacing))
   spacing)
 
-;; gtkglue.c
-(defbinding table-row-spacing (table row) unsigned-int
+(defbinding %table-get-row-spacing () unsigned-int
   (table table)
-  ((progn
-     (assert (and (>= row 0) (< row (table-rows table))))
-     row) unsigned-int))
+  (row unsigned-int))
+
+(defbinding %table-get-default-row-spacing () unsigned-int
+  (table table))
+
+(defun table-row-spacing (table &optional row)
+  (if row
+      (%table-get-row-spacing table row)
+    (%table-get-default-row-spacing table)))
+
 
 (defbinding %table-set-col-spacing () nil
   (table table)
   (col unsigned-int)
   (spacing unsigned-int))
 
-(defun (setf table-column-spacing) (spacing table column)
-  (%table-set-col-spacing table column spacing)
+(defbinding %table-set-col-spacings () nil
+  (table table)
+  (spacing unsigned-int))
+
+(defun (setf table-col-spacing) (spacing table &optional col)
+  (if col
+      (%table-set-col-spacing table col spacing)
+    (%table-set-col-spacings table spacing))
   spacing)
 
-;; gtkglue.c
-(defbinding table-column-spacing (table col) unsigned-int
+(defbinding %table-get-col-spacing () unsigned-int
   (table table)
-  ((progn
-     (assert (and (>= col 0) (< col (table-columns table))))
-     col) unsigned-int))
+  (col unsigned-int))
+
+(defbinding %table-get-default-col-spacing () unsigned-int
+  (table table))
+
+(defun table-col-spacing (table &optional col)
+  (if col
+      (%table-get-col-spacing table col)
+    (%table-get-default-col-spacing table)))
+  
+
+;;; Dialog
+
+(defmethod initialize-instance ((dialog dialog) &rest initargs)
+  (apply #'call-next-method dialog (plist-remove initargs :child))
+  (dolist (button-definition (get-all initargs :button))
+    (apply #'dialog-add-button dialog button-definition))
+  (dolist (child (get-all initargs :child))
+    (apply #'dialog-add-child dialog (mklist child))))
 
 
-(defun %set-table-child-option (object slot flag value)
-  (let ((options (child-slot-value object slot)))
+(defvar %*response-id-key* (gensym))
+
+(defun %dialog-find-response-id-num (dialog response-id create-p)
+  (or
+   (cadr (assoc response-id (rest (type-expand-1 'response-type))))
+   (let* ((response-ids (object-data dialog %*response-id-key*))
+	  (response-id-num (position response-id response-ids)))
     (cond
-     ((and value (not (member flag options)))
-      (setf (child-slot-value object slot) (cons flag options)))
-     ((and (not value) (member flag options))
-      (setf (child-slot-value object slot) (delete flag options))))))
+     (response-id-num)
+     (create-p
+      (cond
+       (response-ids
+	(setf (cdr (last response-ids)) (list response-id))
+	(1- (length response-ids)))
+       (t
+	(setf (object-data dialog %*response-id-key*) (list response-id))
+	0)))
+     (t
+      (error "Invalid response id: ~A" response-id))))))
 
-(macrolet ((define-option-accessor (name slot flag)
-	     `(progn
-		(defun ,name (object)
-		  (member ,flag (child-slot-value object ,slot)))
-		(defun (setf ,name) (value object)
-		  (%set-table-child-option object ,slot ,flag value)))))
-  (define-option-accessor table-child-x-expand-p :x-options :expand)
-  (define-option-accessor table-child-y-expand-p :y-options :expand)
-  (define-option-accessor table-child-x-shrink-p :x-options :shrink)
-  (define-option-accessor table-child-y-shrink-p :y-options :shrink)
-  (define-option-accessor table-child-x-fill-p :x-options :fill)
-  (define-option-accessor table-child-y-fill-p :y-options :fill))
+(defun %dialog-find-response-id (dialog response-id-num)
+  (if (< response-id-num 0)
+      (car
+       (rassoc
+	(list response-id-num)
+	(rest (type-expand-1 'response-type)) :test #'equalp))
+    (nth response-id-num (object-data dialog %*response-id-key*))))
+
+
+(defmethod signal-connect ((dialog dialog) signal function &key object)
+  (case signal
+    (response
+     #'(lambda (dialog response-id-num)
+	 (let ((response-id (%dialog-find-response-id dialog response-id-num)))
+	   (cond
+	    ((eq object t)  (funcall function dialog response-id))
+	    (object (funcall function object response-id))
+	    (t (funcall function response-id))))))
+    (t
+     (call-next-method))))
+
+
+(defbinding dialog-response (dialog response-id) nil
+  (dialog dialog)
+  ((%dialog-find-response-id-num dialog response-id nil) int))
+  
+(defbinding %dialog-set-default-response () nil
+  (dialog dialog)
+  (response-id-num int))
+
+(defun dialog-set-default-response (dialog response-id)
+  (%dialog-set-default-response
+   dialog (%dialog-find-response-id-num dialog response-id nil)))
+
+(defbinding dialog-set-response-sensitive (dialog response-id sensitive) nil
+  (dialog dialog)
+  ((%dialog-find-response-id-num dialog response-id nil) int)
+  (sensitive boolean))
+
+
+(defbinding %dialog-add-button () button
+  (dialog dialog)
+  (text string)
+  (response-id-num int))
+
+(defun dialog-add-button (dialog label &optional response-id default-p)
+  (let* ((response-id-num
+	  (if response-id
+	      (%dialog-find-response-id-num dialog response-id t)
+	    (length (object-data dialog %*response-id-key*))))
+	 (button (%dialog-add-button dialog label response-id-num)))
+    (unless response-id
+      (%dialog-find-response-id-num dialog button t))
+    (when default-p
+      (%dialog-set-default-response dialog response-id-num))
+    button))
+
+
+(defbinding %dialog-add-action-widget () button
+  (dialog dialog)
+  (action-widget widget)
+  (response-id-num int))
+
+(defun dialog-add-action-widget (dialog widget &optional (response-id widget)
+				 default-p)
+  (let ((response-id-num (%dialog-find-response-id-num dialog response-id t)))
+    (%dialog-add-action-widget dialog widget response-id-num)
+    (when default-p
+      (%dialog-set-default-response dialog response-id-num))
+    widget))
+  
+
+(defun dialog-add-child (dialog child &rest args)
+  (apply #'container-add (slot-value dialog 'vbox) child args))
+
+(defmethod container-children ((dialog dialog))
+  (container-children (dialog-vbox dialog)))
+
+(defmethod (setf container-children) (children (dialog dialog))
+  (setf (container-children (dialog-vbox dialog)) children))
 
 
 
@@ -1176,26 +1211,8 @@
 
 ;;; Scale
 
-(defbinding scale-draw-value () nil
-  (scale scale))
-
-
-
-;;; Progress
-
-(defbinding progress-configure () adjustment
-  (progress progress)
-  (value single-float)
-  (min single-float)
-  (max single-float))
-
-(defbinding (progress-text-from-value
-	     "gtk_progress_get_text_from_value") () string
-  (progress progress))
-
-(defbinding (progress-percentage-from-value
-	     "gtk_progress_get_percentage_from_value") () single-float
-  (progress progress))
+; (defbinding scale-draw-value () nil
+;   (scale scale))
 
 
 
@@ -1229,16 +1246,16 @@
 (defbinding tooltips-disable () nil
   (tooltips tooltips))
 
+(defun (setf tooltips-enabled-p) (enable tooltips)
+  (if enable
+      (tooltips-enable tooltips)
+    (tooltips-disable tooltips)))
+
 (defbinding tooltips-set-tip () nil
   (tooltips tooltips)
   (widget widget)
   (tip-text string)
   (tip-private string))
-
-(defbinding tooltips-set-colors (tooltips background foreground) nil
-  (tooltips tooltips)
-  ((gdk:ensure-color background) gdk:color)
-  ((gdk:ensure-color foreground) gdk:color))
 
 (defbinding tooltips-force-window () nil
   (tooltips tooltips))
@@ -1357,291 +1374,3 @@
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 |#
-
-
-;;; Style
-
-; (defbinding style-new () style)
-
-; (defbinding style-copy () style
-;   (style style))
-#|
-(defbinding %style-get-color () gdk:color
-  (style style)
-  (color-type color-type)
-  (state-type state-type))
-
-(defbinding %style-set-color () gdk:color
-  (style style)
-  (color-type color-type)
-  (state-type state-type)
-  (color gdk:color))
-
-(defun style-fg (style state)
-  (%style-get-color style :foreground state))
-
-(defun (setf style-fg) (color style state)
-  (%style-set-color style :foreground state color))
-
-(defun style-bg (style state)
-  (%style-get-color style :background state))
-
-(defun (setf style-bg) (color style state)
-  (%style-set-color style :background state color))
-
-(defun style-text (style state)
-  (%style-get-color style :text state))
-
-(defun (setf style-text) (color style state)
-  (%style-set-color style :text state color))
-
-(defun style-base (style state)
-  (%style-get-color style :base state))
-
-(defun (setf style-base) (color style state)
-  (%style-set-color style :base state color))
-
-(defun style-white (style)
-  (%style-get-color style :white :normal))
-
-(defun (setf style-white) (color style)
-  (%style-set-color style :white :normal color))
-
-(defun style-black (style)
-  (%style-get-color style :black :normal))
-
-(defun (setf style-black) (color style)
-  (%style-set-color style :black :normal color))
-
-(defbinding style-get-gc () gdk:gc
-  (style style)
-  (color-type color-type)
-  (state-type state-type))
-
-|#
-(defbinding draw-hline () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x1 int)
-  (x2 int)
-  (y int))
-
-(defbinding draw-vline () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (y1 int)
-  (y2 int)
-  (x int))
-
-(defbinding draw-shadow () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-; (defbinding draw-polygon () nil
-;   (style style)
-;   (window gdk:window)
-;   (state state-type)
-;   (shadow shadow-type)
-;   (points (vector gdk:point))
-;   ((length points) int)
-;   (fill boolean))
-
-(defbinding draw-arrow () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (arrow arrow-type)
-  (fill boolean)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-  
-(defbinding draw-diamond () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-; (defbinding draw-oval () nil
-;   (style style)
-;   (window gdk:window)
-;   (state state-type)
-;   (shadow shadow-type)
-;   (x int)
-;   (y int)
-;   (width int)
-;   (height int))
-
-(defbinding draw-string () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x int)
-  (y int)
-  (string string))
-
-(defbinding draw-box () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-(defbinding draw-flat-box () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-(defbinding draw-check () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-(defbinding draw-option () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-; (defbinding draw-cross () nil
-;   (style style)
-;   (window gdk:window)
-;   (state state-type)
-;   (shadow shadow-type)
-;   (x int)
-;   (y int)
-;   (width int)
-;   (height int))
-
-; (defbinding draw-ramp () nil
-;   (style style)
-;   (window gdk:window)
-;   (state state-type)
-;   (shadow shadow-type)
-;   (arrow arrow-type)
-;   (x int)
-;   (y int)
-;   (width int)
-;   (height int))
-
-(defbinding draw-tab () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-(defbinding draw-shadow-gap () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int)
-  (gap-side position-type)
-  (gap-x int)
-  (gap-width int))
-
-(defbinding draw-box-gap () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int)
-  (gap-side position-type)
-  (gap-x int)
-  (gap-width int))
-
-(defbinding draw-extension () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-(defbinding draw-focus () nil
-  (style style)
-  (window gdk:window)
-  (x int)
-  (y int)
-  (width int)
-  (height int))
-
-(defbinding draw-slider () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int)
-  (orientation orientation))
-
-(defbinding draw-handle () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int)
-  (orientation orientation))
-
-(defbinding draw-handle () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (shadow shadow-type)
-  (x int)
-  (y int)
-  (width int)
-  (height int)
-  (orientation orientation))
-
-(defbinding paint-hline () nil
-  (style style)
-  (window gdk:window)
-  (state state-type)
-  (x1 int)
-  (x2 int)
-  (y int))

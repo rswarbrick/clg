@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 2000-2001 Espen S. Johnsen <espen@users.sourceforge.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.4 2001-05-29 15:58:24 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.5 2001-10-21 23:22:04 espen Exp $
 
 (in-package "GTK")
 
@@ -23,21 +23,19 @@
 (defmethod initialize-instance ((widget widget) &rest initargs &key parent)
   (declare (ignore initargs))
   (call-next-method)
-  (cond
-   ((consp parent)
-    (with-slots ((container parent) child-slots) widget
-      (setf
-       container (car parent)
-       child-slots
-       (apply
-	#'make-instance
-	(slot-value (class-of container) 'child-class)
-	:parent container :child widget (cdr parent)))))
-   (parent
-    (setf (slot-value widget 'parent) parent))))
+  (when parent
+    (let ((parent-widget (first (mklist parent)))
+	  (args (rest (mklist parent))))
+      (apply #'container-add parent-widget widget args))))
+
+(defmethod initialize-instance :after ((widget widget) &rest initargs
+				       &key show-all)
+  (declare (ignore initargs))
+  (when show-all
+    (widget-show-all widget)))
 
 
-(defmethod slot-unbound ((class gobject) (object widget) slot)
+(defmethod slot-unbound ((class gobject-class) (object widget) slot)
   (cond
    ((and (eq slot 'child-slots) (slot-value object 'parent))
     (with-slots (parent child-slots) object
@@ -171,18 +169,6 @@
   (width int :out)
   (height int :out))
 
-
-(defbinding widget-set-uposition (widget &key (x t) (y t)) nil
-  (widget widget)
-  ((case x
-     ((t) -2)
-     ((nil) -1)
-     (otherwise x)) int)
-  ((case y
-     ((t) -2)
-     ((nil) -1)
-     (otherwise y)) int))
-
 (defbinding widget-add-events () nil
   (widget widget)
   (events gdk:event-mask))
@@ -194,12 +180,6 @@
   (widget widget)
   ((find-type-number type) type-number))
 
-; (defbinding ("gtk_widget_get_colormap" widget-colormap) () gdk:colormap
-;   (widget widget))
-
-; (defbinding ("gtk_widget_get_visual" widget-visual) () gdk:visual
-;   (widget widget))
-
 (defbinding (widget-pointer "gtk_widget_get_pointer") () nil
   (widget widget)
   (x int :out)
@@ -209,13 +189,7 @@
   (widget widget)
   (ancestor widget))
 
-(defbinding widget-set-rc-style () nil
-  (widget widget))
-
 (defbinding widget-ensure-style () nil
-  (widget widget))
-
-(defbinding widget-restore-default-style () nil
   (widget widget))
 
 (defbinding widget-reset-rc-styles () nil
@@ -232,42 +206,24 @@
 ;; This will override the values that got set by the
 ;; widget-set-default-* functions.
 
-(defbinding widget-push-style () nil
-  (style style))
-
 (defbinding widget-push-colormap () nil
   (colormap gdk:colormap))
 
-; (defbinding widget-push-visual () nil
-;   (visual gdk:visual))
-
 (defbinding widget-push-composite-child () nil)
 
-(defbinding widget-pop-style () nil)
-
 (defbinding widget-pop-colormap () nil)
-
-;(defbinding widget-pop-visual () nil)
 
 (defbinding widget-pop-composite-child () nil)
 
 
 ;; Set certain default values to be used at widget creation time.
 
-(defbinding widget-set-default-style () nil
-  (style style))
-
 (defbinding widget-set-default-colormap () nil
   (colormap gdk:colormap))
-
-; (defbinding widget-set-default-visual () nil
-;   (visual gdk:visual))
 
 (defbinding widget-get-default-style () style)
 
 (defbinding widget-get-default-colormap () gdk:colormap)
-
-(defbinding widget-get-default-visual () gdk:visual)
 
 (defbinding widget-shape-combine-mask () nil
   (widget widget)
