@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.14 2005-02-14 17:49:17 espen Exp $
+;; $Id: ffi.lisp,v 1.15 2005-02-15 15:28:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -128,9 +128,10 @@
 	     (alien-parameters `(addr ,var))
 	     (alien-bindings
 	      `(,var ,declaration
-		,(if (eq style :in-out)
-		     (to-alien-form expr type)
-		   (make-pointer 0))))
+		,@(cond 
+		   ((eq style :in-out) (list (to-alien-form expr type)))
+		   ((eq declaration 'system-area-pointer) 
+		    (list '(make-pointer 0))))))
 	     (return-values (from-alien-form var type)))
 	    ((eq style :return)
 	     (alien-types declaration)
