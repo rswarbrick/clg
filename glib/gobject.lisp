@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.25 2004-12-28 20:29:05 espen Exp $
+;; $Id: gobject.lisp,v 1.26 2004-12-29 21:07:46 espen Exp $
 
 (in-package "GLIB")
 
@@ -41,7 +41,14 @@
   ((pname :reader slot-definition-pname :initarg :pname)
    (readable :reader slot-readable-p :initarg :readable)
    (writable :reader slot-writable-p :initarg :writable)
-   (construct :initarg :construct)));)
+   (construct :initarg :construct)))
+
+(defclass direct-user-data-slot-definition (direct-virtual-slot-definition)
+  ())
+
+(defclass effective-user-data-slot-definition (effective-virtual-slot-definition)
+  ())
+
 
 (defbinding %object-ref () pointer
   (location pointer))
@@ -74,11 +81,13 @@
 (defmethod direct-slot-definition-class ((class gobject-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'direct-property-slot-definition))
+    (:user-data (find-class 'direct-user-data-slot-definition))
     (t (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class gobject-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'effective-property-slot-definition))
+    (:user-data (find-class 'effective-user-data-slot-definition))
     (t (call-next-method))))
 
 (defmethod compute-effective-slot-definition-initargs ((class gobject-class) direct-slotds)
@@ -123,6 +132,22 @@
 	       (gvalue-free gvalue t)
 	       value))))))
 
+  (call-next-method))
+
+(defmethod initialize-internal-slot-functions ((slotd effective-user-data-slot-definition))
+  (let ((slot-name (slot-definition-name slotd)))
+    (setf 
+     (slot-value slotd 'getter)
+     #'(lambda (object)
+	 (prog1 (user-data object slot-name))))
+    (setf 
+     (slot-value slotd 'setter)
+     #'(lambda (value object)
+	 (setf (user-data object slot-name) value)))
+    (setf 
+     (slot-value slotd 'boundp)
+     #'(lambda (object)
+	 (user-data-p object slot-name))))
   (call-next-method))
 
 
@@ -249,19 +274,31 @@
 
 ;;;; User data
 
-(defun (setf object-data) (data object key &key (test #'eq))
+(defun (setf user-data) (data object key)
   (%object-set-qdata-full
-   object (quark-from-object key :test test)
+   object (quark-from-object key)
    (register-user-data data) (callback %destroy-user-data))
   data)
+
+;; depecated
+(defun (setf object-data) (data object key &key (test #'eq))
+  (assert (eq test #'eq))
+  (setf (user-data object key) data))
 
 (defbinding %object-get-qdata () unsigned-long
   (object gobject)		 
   (id quark))
 
+(defun user-data (object key)
+  (find-user-data (%object-get-qdata object (quark-from-object key))))
+
+;; depecated
 (defun object-data (object key &key (test #'eq))
-  (find-user-data
-   (%object-get-qdata object (quark-from-object key :test test))))
+  (assert (eq test #'eq))
+  (user-data object key))
+
+(defun user-data-p (object key)
+  (nth-value 1 (find-user-data (%object-get-qdata object (quark-from-object key)))))
 
 
 ;;;;
