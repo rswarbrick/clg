@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.32 2005-02-10 00:20:02 espen Exp $
+;; $Id: gobject.lisp,v 1.33 2005-02-27 15:14:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -390,12 +390,15 @@
 	    '(:construct t))
 	
 	;; initargs
-	,@(when (or (member :construct flags)
-		    (member :construct-only flags)
-		    (member :writable flags))
-	    (list :initarg (intern (string slot-name) "KEYWORD")))
-	,@(cond
-	   ((find :initarg args) (list :initarg (getf args :initarg))))
+	,@(if (find :initarg args)
+	      (let ((initarg (getf args :initarg)))
+		(etypecase initarg
+		  (null ())
+		  (symbol `(:initarg ,initarg))))
+	    (when (or (member :construct flags)
+		      (member :construct-only flags)
+		      (member :writable flags))
+	      (list :initarg (intern (string slot-name) "KEYWORD"))))
 	
 	:type ,slot-type
 	:documentation ,documentation))))
