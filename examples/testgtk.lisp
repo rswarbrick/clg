@@ -15,11 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.15 2005-01-06 21:59:51 espen Exp $
-
-
-;;; Some of the code in this file are really outdatet, but it is
-;;; still the most complete example of how to use the library
+;; $Id: testgtk.lisp,v 1.16 2005-01-12 14:03:04 espen Exp $
 
 
 ;(use-package "GTK")
@@ -465,7 +461,7 @@
   (dialog-add-button dialog "gtk-cancel" #'widget-destroy :object t)
   (dialog-add-button dialog "gtk-ok" 
    #'(lambda ()
-       (if (slot-boundp dialog 'filename)
+       (if (slot-boundp dialog 'filename)	   
 	   (format t "Selected file: ~A~%" (file-chooser-filename dialog))
 	 (write-line "No files selected"))
        (widget-destroy dialog))))
@@ -474,129 +470,25 @@
 
 ;;; Handle box
 
-;; (defun create-handle-box-toolbar ()
-;;   (let ((toolbar (toolbar-new :horizontal :both)))
-;;     (toolbar-append-item
-;;      toolbar "Horizontal" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Horizontal toolbar layout"
-;;      :callback #'(lambda () (setf (toolbar-orientation toolbar) :horizontal)))
-
-;;     (toolbar-append-item
-;;      toolbar "Vertical" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Vertical toolbar layout"
-;;      :callback #'(lambda () (setf (toolbar-orientation toolbar) :vertical)))
-
-;;     (toolbar-append-space toolbar)
-    
-;;     (toolbar-append-item
-;;      toolbar "Icons" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Only show toolbar icons"
-;;      :callback #'(lambda () (setf (toolbar-style toolbar) :icons)))
-    
-;;     (toolbar-append-item
-;;      toolbar "Text" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Only show toolbar text"
-;;      :callback #'(lambda () (setf (toolbar-style toolbar) :text)))
-  
-;;     (toolbar-append-item
-;;      toolbar "Both" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Show toolbar icons and text"
-;;      :callback #'(lambda () (setf (toolbar-style toolbar) :both)))
-
-;;     (toolbar-append-space toolbar)
-
-;;     (toolbar-append-item
-;;      toolbar "Small" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Use small spaces"
-;;      :callback #'(lambda () (setf (toolbar-space-size toolbar) 5)))
-    
-;;     (toolbar-append-item
-;;      toolbar "Big" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Use big spaces"
-;;      :callback #'(lambda () (setf (toolbar-space-size toolbar) 10)))
-    
-;;     (toolbar-append-space toolbar)
-
-;;     (toolbar-append-item
-;;      toolbar "Enable" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Enable tooltips"
-;;      :callback #'(lambda () (toolbar-enable-tooltips toolbar)))
-
-;;     (toolbar-append-item
-;;      toolbar "Disable" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Disable tooltips"
-;;      :callback #'(lambda () (toolbar-disable-tooltips toolbar)))
-
-;;     (toolbar-append-space toolbar)
-
-;;     (toolbar-append-item
-;;      toolbar "Borders" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Show borders"
-;;      :callback #'(lambda () (setf (toolbar-relief toolbar) :normal)))
-    
-;;     (toolbar-append-item
-;;      toolbar "Borderless" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Hide borders"
-;;      :callback #'(lambda () (setf (toolbar-relief toolbar) :none)))
-
-;;     toolbar))
-
-
-;; (defun handle-box-child-signal (handle-box child action)
-;;   (format t "~S: child ~S ~A~%" handle-box child action))
-
-
-;; (define-test-window create-handle-box "Handle Box Test"
-;;   (setf (window-allow-grow-p window) t)
-;;   (setf (window-allow-shrink-p window) t)
-;;   (setf (window-auto-shrink-p window) nil)
-;;   (setf (container-border-width window) 20)
-;;   (let ((v-box (v-box-new nil 0)))
-;;     (container-add window v-box)
-
-;;     (container-add v-box (create-label "Above"))
-;;     (container-add v-box (hseparator-new))
-
-;;     (let ((hbox (hbox-new nil 10)))
-;;       (container-add v-box hbox)
-      
-;;       (let ((handle-box (handle-box-new)))
-;; 	(box-pack-start hbox handle-box nil nil 0)
-;; 	(signal-connect
-;; 	 handle-box 'child-attached
-;; 	 #'(lambda (child)
-;; 	     (handle-box-child-signal handle-box child "attached")))
-;; 	(signal-connect
-;; 	 handle-box 'child-detached
-;; 	 #'(lambda (child)
-;; 	     (handle-box-child-signal handle-box child "detached")))
-;; 	(container-add handle-box (create-handle-box-toolbar)))
-
-;;       (let ((handle-box (handle-box-new)))
-;; 	(box-pack-start hbox handle-box nil nil 0)
-;; 	(signal-connect
-;; 	 handle-box 'child-attached
-;; 	 #'(lambda (child)
-;; 	     (handle-box-child-signal handle-box child "attached")))
-;; 	(signal-connect
-;; 	 handle-box 'child-detached
-;; 	 #'(lambda (child)
-;; 	     (handle-box-child-signal handle-box child "detached")))
-
-;; 	(let ((handle-box2 (handle-box-new)))
-;; 	  (container-add handle-box handle-box2)
-;; 	  (signal-connect
-;; 	   handle-box2 'child-attached
-;; 	   #'(lambda (child)
-;; 	       (handle-box-child-signal handle-box child "attached")))
-;; 	  (signal-connect
-;; 	   handle-box2 'child-detached
-;; 	   #'(lambda (child)
-;; 	       (handle-box-child-signal handle-box child "detached")))
-;; 	  (container-add handle-box2 (create-label "Foo!")))))
-    
-;;     (container-add v-box (hseparator-new))
-;;     (container-add v-box (create-label "Below"))))
+(define-toplevel create-handle-box (window "Handle Box Test" :border-width 20)
+  (make-instance 'v-box 
+   :parent window
+   :child (create-label "Above")
+   :child (make-instance 'h-separator)
+   :child (make-instance 'h-box 
+	   :spacing 10
+	   :child (list
+		   (make-instance 'handle-box
+		    :child (create-toolbar window)
+		    :signal (list 'child-attached
+			     #'(lambda (child)
+				 (format t "~A attached~%" child)))
+		    :signal (list 'child-detached
+			     #'(lambda (child)
+				 (format t "~A detached~%" child))))
+		   :expand nil :fill :nil))
+   :child (make-instance 'h-separator)
+   :child (create-label "Below")))
 
 ;;; Image
 
@@ -813,7 +705,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		 (make-instance 'radio-menu-item
 		  :label (format nil "item ~2D - ~D" depth (1+ i)))))
  	    (if group
- 		(radio-menu-item-add-to-group menu-item group)
+ 		(add-to-radio-group menu-item group)
  	      (setq group menu-item))
 	    (unless (zerop (mod depth 2))
 	      (setf (check-menu-item-active-p menu-item) t))
@@ -830,7 +722,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
   (let* ((main (make-instance 'v-box :parent dialog))
 ;	 (accel-group (make-instance 'accel-group))
 	 (menubar (make-instance 'menu-bar :parent (list main :expand nil))))
-;    (accel-group-attach accel-group window)
+;    (window-add-accel-group dialog accel-group)
 
     (let ((menu-item (make-instance 'menu-item 
 		      :label (format nil "test~%line2"))))
@@ -927,13 +819,12 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	(signal-connect notebook 'switch-page
 	 #'(lambda (pointer page)
 	     (declare (ignore pointer))
-	     (unless (eq page (notebook-current-page-num notebook))
-	       (set-image page #'notebook-menu-label book-open)
-	       (set-image page #'notebook-tab-label book-open)
+	     (set-image page #'notebook-menu-label book-open)
+	     (set-image page #'notebook-tab-label book-open)
+	     (when (slot-boundp notebook 'current-page)
 	       (let ((curpage (notebook-current-page notebook)))
- 		 (when curpage
- 		   (set-image curpage #'notebook-menu-label book-closed)
- 		   (set-image curpage #'notebook-tab-label book-closed)))))))
+		 (set-image curpage #'notebook-menu-label book-closed)
+		 (set-image curpage #'notebook-tab-label book-closed))))))
       (loop for i from 1 to 5 do (create-notebook-page notebook i book-closed))
 
       (make-instance 'h-separator :parent (list main :expand nil :padding 10))
@@ -1549,8 +1440,8 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		     (if active 
 			 (push tag active-tags)
 		       (setq active-tags (delete tag active-tags)))
-		     (multiple-value-bind (start end)
-			 (text-buffer-get-selection-bounds buffer)
+ 		     (multiple-value-bind (non-zero-p start end)
+ 			 (text-buffer-get-selection-bounds buffer)
 		       (if active 
 			   (text-buffer-apply-tag buffer tag start end)
 			 (text-buffer-remove-tag buffer tag start end))))))))
@@ -1626,9 +1517,9 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Toolbar test
 
-(define-toplevel create-toolbar (window "Toolbar test" :resizable nil)
+(defun create-toolbar (window)
   (make-instance 'toolbar 
-   :show-tooltips t :show-arrow nil :parent window
+   :show-tooltips t :show-arrow nil
 
    ;; Insert a stock item
    :child (make-instance 'tool-button 
@@ -1711,6 +1602,9 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	   :tip-text "GTK+ Logo"
 ;; 	   :tip-private "Toolbar/GTK+")
    ))
+
+(define-toplevel create-toolbar-window (window "Toolbar test" :resizable nil)
+  (container-add window (create-toolbar window)))
 
 
 
@@ -1825,7 +1719,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("enxpander" create-expander)
  	    ("file chooser" create-file-chooser)
 ;; 	    ("font selection")
-;; 	    ("handle box" create-handle-box)
+ 	    ("handle box" create-handle-box)
  	    ("image" create-image)
  	    ("labels" create-labels)
  	    ("layout" create-layout)
@@ -1853,7 +1747,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("test timeout" create-timeout-test)
  	    ("text" create-text)
  	    ("toggle buttons" create-toggle-buttons)
- 	    ("toolbar" create-toolbar)
+ 	    ("toolbar" create-toolbar-window)
  	    ("tooltips" create-tooltips)
 ;; 	    ("tree" #|create-tree|#)
 	    ("UI manager" create-ui-manager)
