@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.21 2004-11-09 12:47:44 espen Exp $
+;; $Id: gobject.lisp,v 1.22 2004-11-12 14:24:17 espen Exp $
 
 (in-package "GLIB")
 
@@ -148,22 +148,22 @@
   ;; Extract initargs which we should pass directly to the GObeject
   ;; constructor
   (let* ((slotds (class-slots (class-of object)))
-	 (args (loop 
-		as tmp = initargs then (cddr tmp) while tmp
-		as key = (first tmp)
-		as value = (second tmp)
-		as slotd = (find-if
-			    #'(lambda (slotd)
-				(member key (slot-definition-initargs slotd)))
-			    slotds)
-		when (and (typep slotd 'effective-property-slot-definition)
-			  (slot-value slotd 'construct))
-		collect (progn 
-			  (remf initargs key)
-			  (list 
-			   (slot-definition-pname slotd)
-			   (slot-definition-type slotd)
-			   value)))))
+	 (args (when initargs
+		 (loop 
+		  as (key value . rest) = initargs then rest
+		  as slotd = (find-if
+			      #'(lambda (slotd)
+				  (member key (slot-definition-initargs slotd)))
+			      slotds)
+		  when (and (typep slotd 'effective-property-slot-definition)
+			    (slot-value slotd 'construct))
+		  collect (progn 
+			    (remf initargs key)
+			    (list 
+			     (slot-definition-pname slotd)
+			     (slot-definition-type slotd)
+			     value))
+		  while rest))))
     (if args
 	(let* ((string-size (size-of 'string))
 	       (string-writer (writer-function 'string))
