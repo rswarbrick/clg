@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.10 2001-05-11 16:00:33 espen Exp $
+;; $Id: glib.lisp,v 1.11 2001-11-12 22:20:40 espen Exp $
 
 
 (in-package "GLIB")
@@ -32,10 +32,10 @@
   (address pointer)
   (size unsigned-long))
 
-;(defbinding (deallocate-memory "g_free") () nil
-;  (address pointer))
-(defun deallocate-memory (address)
-  (declare (ignore address)))
+(defbinding (deallocate-memory "g_free") () nil
+  (address pointer))
+;(defun deallocate-memory (address)
+;  (declare (ignore address)))
 
 (defun copy-memory (from length &optional (to (allocate-memory length)))
   (kernel:system-area-copy from 0 to 0 (* 8 length))
