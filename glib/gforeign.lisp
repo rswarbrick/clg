@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.10 2001-05-31 21:52:15 espen Exp $
+;; $Id: gforeign.lisp,v 1.11 2001-10-21 16:50:43 espen Exp $
 
 (in-package "GLIB")
 
@@ -53,9 +53,9 @@
 
 (defun find-applicable-type-method (type-spec fname &optional (error t))
   (flet ((find-superclass-method (class)
-	   (when class
-  	     (unless (class-finalized-p class)		   
-	       (finalize-inheritance class))
+	   (when (and class (class-finalized-p class))
+;  	     (unless (class-finalized-p class)
+;	       (finalize-inheritance class))
 	     (dolist (super (cdr (pcl::class-precedence-list class)))
 	       (return-if (find-type-method super fname)))))
 	 (find-expanded-type-method (type-spec)
@@ -363,18 +363,20 @@
 		 (values ,@(alien-values)))))))))
 
 
-(defun mkbinding (name rettype &rest types)
-  (declare (optimize (ext:inhibit-warnings 3)))
-  (let* ((ftype
-	  `(function ,@(mapcar #'translate-type-spec (cons rettype types))))
+(defun mkbinding (name return-type &rest arg-types)
+   (declare (optimize (ext:inhibit-warnings 3)))
+   (let* ((ftype
+	   `(function
+	     ,@(mapcar #'translate-type-spec (cons return-type arg-types))))
 	 (alien
 	  (alien::%heap-alien
 	   (alien::make-heap-alien-info
 	    :type (alien::parse-alien-type ftype)
 	    :sap-form (system:foreign-symbol-address name))))
-	 (translate-arguments (mapcar #'intern-return-value-translator types))
-	 (translate-return-value (intern-return-value-translator rettype))
-	 (cleanup-arguments (mapcar #'intern-cleanup-function types)))
+	 (translate-arguments
+	  (mapcar #'intern-return-value-translator arg-types))
+	 (translate-return-value (intern-return-value-translator return-type))
+	 (cleanup-arguments (mapcar #'intern-cleanup-function arg-types)))
 	 
     #'(lambda (&rest args)
 	(map-into args #'funcall translate-arguments args)
@@ -383,6 +385,31 @@
 	     translate-return-value (apply #'alien:alien-funcall alien args))
 	  (mapc #'funcall cleanup-arguments args)))))
 
+
+(defun type-translateable-p (type-spec)
+  (find-applicable-type-method type-spec 'translate-type-spec nil))
+
+(defun every-type-translateable-p (type-specs)
+  (every #'type-translateable-p type-specs))
+
+(defun mkbinding-late (name return-type &rest arg-types)
+  (if (every-type-translateable-p (cons return-type arg-types))
+      (apply #'mkbinding name return-type arg-types)
+    (let* ((binding
+	    #'(lambda (&rest args)
+		(cond
+		 ((every-type-translateable-p (cons return-type arg-types))
+		  (setq binding (apply #'mkbinding name return-type arg-types))
+		  (apply binding args))
+		 (t
+		  (dolist (type-spec (cons return-type arg-types))
+		    (unless (type-translateable-p type-spec)
+		      (error "Can't translate type ~A" type-spec))))))))
+      #'(lambda (&rest args)
+	  (apply binding args)))))
+       
+
+  
 
 ;;;; Definitons and translations of fundamental types
 
