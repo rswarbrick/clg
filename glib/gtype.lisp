@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.12 2001-10-21 21:50:18 espen Exp $
+;; $Id: gtype.lisp,v 1.13 2001-11-12 22:24:29 espen Exp $
 
 (in-package "GLIB")
 
@@ -121,7 +121,7 @@
 
 (defun %init-types-in-library (pathname ignore)
   (let ((process (ext:run-program
-		  "nm" (list (namestring (truename pathname)))
+		  "nm" (list "-D" (namestring (truename pathname)))
 		  :output :stream :wait nil))
 	(fnames ()))
     (labels ((read-symbols ()
@@ -137,8 +137,9 @@
       (ext:process-close process)
       `(init-type ',fnames))))
 
-(defmacro init-types-in-library (pathname &key ignore)
-  (%init-types-in-library pathname ignore))
+(defmacro init-types-in-library (filename &key ignore)
+  (%init-types-in-library
+   (format nil "~A/~A" user::gtk-library-path filename) ignore))
 
 
 
