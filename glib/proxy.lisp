@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.6 2001-10-21 16:55:39 espen Exp $
+;; $Id: proxy.lisp,v 1.7 2002-01-20 14:52:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -285,19 +285,18 @@
        (slotd effective-virtual-alien-slot-definition)
        direct-slotds)
     (destructuring-bind (getter setter) (call-next-method)
-      (let ((class-name (class-name class)))
-	(with-slots (type) slotd
-	  (list
-	   (if (stringp getter)
-	       (let ((getter (mkbinding-late getter type 'pointer)))
-		 #'(lambda (object)
-		     (funcall getter (proxy-location object))))
-	     getter)
-	   (if (stringp setter)
-	       (let ((setter (mkbinding-late setter 'nil 'pointer type)))
-		 #'(lambda (value object)
-		     (funcall setter (proxy-location object) value)))
-	     setter))))))
+      (with-slots (type) slotd
+	(list
+	 (if (stringp getter)
+	     (let ((getter (mkbinding-late getter type 'pointer)))
+	       #'(lambda (object)
+		   (funcall getter (proxy-location object))))
+	   getter)
+	 (if (stringp setter)
+	     (let ((setter (mkbinding-late setter 'nil 'pointer type)))
+	       #'(lambda (value object)
+		   (funcall setter (proxy-location object) value)))
+	   setter)))))
 
   (defmethod compute-slots ((class proxy-class))
     (with-slots (direct-slots size) class

@@ -86,6 +86,7 @@
 (defmethod change-class ((instance standard-object)
 			 (new-class funcallable-standard-class)
 			 &rest initargs)
+  (declare (ignore initargs))
   (error "Can't change the class of ~S to ~S~@
           because it isn't already an instance with metaclass ~S."
 	 instance new-class 'standard-class))
@@ -93,6 +94,7 @@
 (defmethod change-class ((instance funcallable-standard-object)
 			 (new-class standard-class)
 			 &rest initargs)
+  (declare (ignore initargs))
   (error "Can't change the class of ~S to ~S~@
           because it isn't already an instance with metaclass ~S."
 	 instance new-class 'funcallable-standard-class))
