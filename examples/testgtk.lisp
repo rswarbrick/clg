@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.7 2004-11-21 17:58:28 espen Exp $
+;; $Id: testgtk.lisp,v 1.8 2004-12-04 18:41:31 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -184,9 +184,9 @@
    :child (make-instance class
 	   :border-width 5 :layout-style layout :spacing spacing
 ;	   :child-min-width width :child-min-height height
-	   :child (make-instance 'button :label "OK")
-	   :child (make-instance 'button :label "Cancel")
-	   :child (make-instance 'button :label "Help"))))
+	   :child (make-instance 'button :label "gtk-ok" :use-stock t)
+	   :child (make-instance 'button :label "gtk-cancel" :use-stock t)
+	   :child (make-instance 'button :label "gtk-help" :use-stock t))))
 
 (define-toplevel create-button-box (window "Button Boxes")
   (make-instance 'v-box
@@ -1514,7 +1514,13 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	   (when timer
 ;; 	     (timeout-remove timer)
 ;; 	     (setq timer nil))))))))
-  
+
+
+;;; Text
+
+(define-simple-dialog create-text (dialog "Text" :default-width 400
+					         :default-height 400)
+  (make-instance 'text-view :border-width 10  :parent dialog :visible t))  
 
 ;;; Toggle buttons
 
@@ -1699,6 +1705,82 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	(tooltips-set-tip
 ;; 	 tooltips close-button "Push this button to close window"
 ;; 	 "ContextHelp/buttons/Close")))))
+
+
+;;; UI Manager
+
+(defvar *ui-description*
+  '((:menubar "MenuBar"
+     (:menu "FileMenu"
+      (:menuitem "New")
+      (:menuitem "Open")
+      (:menuitem "Save")
+      (:menuitem "SaveAs")
+      :separator
+      (:menuitem "Quit"))
+     (:menu "PreferencesMenu"
+       (:menu "ColorMenu"
+	(:menuitem "Red")
+ 	(:menuitem "Green")
+ 	(:menuitem "Blue"))
+       (:menu "ShapeMenu"
+        (:menuitem "Square")
+        (:menuitem "Rectangle")
+        (:menuitem "Oval"))
+       (:menuitem "Bold"))
+     (:menu "HelpMenu"
+      (:menuitem "About")))
+    (:toolbar "ToolBar"
+     (:toolitem "Open")
+     (:toolitem "Quit")
+     (:separator "Sep1")
+     (:toolitem "Logo"))))
+
+(define-simple-dialog create-ui-manager (dialog "UI Manager")
+  (let ((actions 
+	 (make-instance 'action-group 
+	  :name "Actions"
+	  :action (create-action "FileMenu" nil "_File")
+	  :action (create-action "PreferencesMenu" nil "_Preferences")
+	  :action (create-action "ColorMenu" nil "_Color")
+	  :action (create-action "ShapeMenu" nil "_Shape")
+	  :action (create-action "HelpMenu" nil "_Help")
+	  :action (create-action "New" "gtk-new" "_New" "<control>N" "Create a new file")
+	  :action (create-action "Open" "gtk-open" "_Open" "<control>O" "Open a file")
+	  :action (create-action "Save" "gtk-save" "_Save" "<control>S" "Save current file")
+	  :action (create-action "SaveAs" "gtk-save" "Save _As..." "" "Save to a file")
+	  :action (create-action "Quit" "gtk-quit" "_Quit" "<control>Q" "Quit")
+	  :action (create-action "About" nil "_About" "<control>A" "About")
+	  :action (create-action "Logo" "demo-gtk-logo" "" nil "GTK+")
+	  :action (create-toggle-action "Bold" "gtk-bold" "_Bold" "<control>B" "Bold" t)
+	  :actions (create-radio-actions
+		    '(("Red" nil "_Red" "<control>R" "Blood")
+		      ("Green" nil "_Green" "<control>G" "Grass")
+		      ("Blue" nil "_Blue" "<control>B" "Sky"))
+		    "Green")
+	  :actions (create-radio-actions
+		    '(("Square" nil "_Square" "<control>S" "Square")
+		      ("Rectangle" nil "_Rectangle" "<control>R" "Rectangle")
+		      ("Oval" nil "_Oval" "<control>O" "Egg")))))
+	(ui (make-instance 'ui-manager)))
+  
+    (ui-manager-insert-action-group ui actions)
+    (ui-manager-add-ui ui *ui-description*)
+
+    (window-add-accel-group dialog (ui-manager-accel-group ui))
+    
+    (make-instance 'v-box 
+     :parent dialog :show-all t
+     :child (list 
+	     (ui-manager-get-widget ui "/MenuBar")
+	     :expand nil :fill nil)
+     :child (list 
+	     (ui-manager-get-widget ui "/ToolBar")
+	     :expand nil :fill nil)
+     :child (make-instance 'label
+	     :label "Type <alt> to start" 
+	     :xalign 0.5 :yalign 0.5
+	     :width-request 200 :height-request 200))))
 		  
 
 
@@ -1747,11 +1829,12 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("test scrolling")
 ;; 	    ("test selection")
 ;; 	    ("test timeout" create-timeout-test)
-;; 	    ("text" #|create-text|#)
+ 	    ("text" create-text)
  	    ("toggle buttons" create-toggle-buttons)
  	    ("toolbar" create-toolbar)
 ;; 	    ("tooltips" create-tooltips)
 ;; 	    ("tree" #|create-tree|#)
+	    ("UI manager" create-ui-manager)
 ))
 	(main-window (make-instance 'window
 		      :title "testgtk.lisp" :name "main_window"
