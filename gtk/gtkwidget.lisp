@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.14 2005-01-06 21:00:51 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.15 2005-01-12 13:51:02 espen Exp $
 
 (in-package "GTK")
 
@@ -37,23 +37,30 @@
   (when (or all-visible show-all)
     (widget-show-all widget)))
 
-
-(defmethod slot-unbound ((class gobject-class) (object widget) slot)
+(defmethod slot-unbound ((class gobject-class) (object widget) 
+			 (slot (eql 'child-properties)))
   (cond
-   ((and (eq slot 'child-properties) (slot-value object 'parent))
+   ((slot-boundp object 'parent)
     (with-slots (parent child-properties) object
-      (setf
-       child-properties
-       (make-instance
-	(gethash (class-of parent) *container-to-child-class-mappings*)
+      (setf child-properties
+       (make-instance 
+        (gethash (class-of parent) *container-to-child-class-mappings*)
 	:parent parent :child object))))
-   (t (call-next-method))))
+   ((call-next-method))))
+
+(defmethod slot-boundp-using-class ((class gobject-class) (object widget) slot)
+  (or
+   (and 
+    (eq (slot-definition-name slot) 'child-properties) 
+    (slot-boundp object 'parent))
+   (call-next-method)))
 
 (defmethod create-callback-function ((widget widget) function arg1)
   (if (eq arg1 :parent)
       #'(lambda (&rest args)
 	  (if (slot-boundp widget 'parent)
 	      (apply function (widget-parent widget) (rest args))
+	    ;; Delay until parent is set
 	    (signal-connect widget 'parent-set
 	     #'(lambda (old-parent)
 		 (declare (ignore old-parent))
@@ -75,10 +82,6 @@
 (defmacro with-child-properties (slots widget &body body)
   `(with-slots ,slots (widget-child-properties ,widget)
      ,@body))
-
-
-(defmacro widget-destroyed (place)
-  `(setf ,place nil))
 
 
 ;;; Bindings
@@ -122,18 +125,22 @@
 (defbinding widget-queue-resize () nil
   (widget widget))
 
-(defbinding widget-size-request () nil
-  (widget widget)
-  (requisition requisition))
+(defbinding widget-queue-resize-no-redraw () nil
+  (widget widget))
 
-(defbinding widget-get-child-requisition () nil
+(defbinding widget-size-request
+    (widget &optional (requisition (make-instance 'requisition))) nil
   (widget widget)
-  (requisition requisition))
+  (requisition requisition :return))
+
+(defbinding widget-get-child-requisition 
+    (widget &optional (requisition (make-instance 'requisition))) nil
+  (widget widget)
+  (requisition requisition :return))
 
 (defbinding widget-size-allocate () nil
   (widget widget)
   (allocation allocation))
-
 
 (defbinding widget-add-accelerator
     (widget signal accel-group key modifiers flags) nil
@@ -151,13 +158,19 @@
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(defbinding (widget-set-accelerator-path "gtk_widget_set_accel_path") () nil
+(defbinding widget-set-accel-path () nil
   (widget widget)
   (accel-path string)
   (accel-group accel-group))
-  
 
-(defbinding widget-event () int
+(defbinding widget-list-accel-closures () (glist pointer)
+  (widget widget))
+
+(defbinding widget-can-activate-accel-p () boolean
+  (widget widget)
+  (signal-id unsigned-int))
+
+(defbinding widget-event () boolean
   (widget widget)
   (event gdk:event))
 
@@ -181,9 +194,6 @@
 (defun widget-intersect-p (widget area)
   (%widget-intersect widget area nil))
 
-;; (defbinding (widget-is-focus-p "gtk_widget_is_focus") () boolean
-;;   (widget widget))
-
 (defbinding widget-grab-focus () nil
   (widget widget))
 
@@ -206,7 +216,7 @@
   (x int :out)
   (y int :out))
 
-(defbinding (widget-is-ancestor-p "gtk_widget_is_ancestor") () boolean
+(defbinding widget-is-ancestor-p () boolean
   (widget widget)
   (ancestor widget))
 
@@ -218,7 +228,7 @@
 
 (defun widget-hide-on-delete (widget)
   "Utility function; intended to be connected to the DELETE-EVENT
-signal on a GtkWindow. The function calls WIDGET-HIDE on its
+signal on a WINDOW. The function calls WIDGET-HIDE on its
 argument, then returns T. If connected to DELETE-EVENT, the
 result is that clicking the close button for a window (on the window
 frame, top right corner usually) will hide but not destroy the
@@ -238,23 +248,34 @@ received."
 
 (defbinding widget-pop-colormap () nil)
 
-(defbinding widget-set-default-colormap () nil
+(defbinding %widget-set-default-colormap () nil
   (colormap gdk:colormap))
 
-(defbinding widget-get-default-style () style)
+(defun (setf widget-default-colormap) (colormap)
+  (%widget-set-default-colormap colormap)
+  colormap)
 
-(defbinding widget-get-default-colormap () gdk:colormap)
+(defbinding (widget-default-style "gtk_widget_get_default_style") () style)
 
-(defbinding widget-get-default-visual () gdk:visual)
+(defbinding (widget-default-colromap "gtk_widget_get_default_colormap") 
+    () gdk:colormap)
 
-(defbinding widget-get-default-direction () text-direction)
+(defbinding (widget-default-visual "gtk_widget_get_default_visual") 
+    () gdk:visual)
 
-(defbinding widget-set-default-direction () nil
-  (direction  text-direction))
+(defbinding (widget-default-direction "gtk_widget_get_default_direction")
+    () text-direction)
+
+(defbinding %widget-set-default-direction () nil
+  (direction text-direction))
+
+(defun (setf widget-default-direction) (direction)
+  (%widget-set-default-direction direction)
+  direction)
 
 (defbinding widget-shape-combine-mask () nil
   (widget widget)
-  (shape-mask gdk:bitmap)
+  (shape-mask (or null gdk:bitmap))
   (x-offset int)
   (y-offset int))
 
@@ -274,15 +295,15 @@ received."
   (widget widget)
   (style rc-style))
 
-(defbinding widget-modify-style () rc-style
+(defbinding widget-get-modifier-style () rc-style
   (widget widget))
 
-(defbinding (widget-modify-foreground "gtk_widget_modify_fg") () nil
+(defbinding widget-modify-fg () nil
   (widget widget)
   (state state-type)
   (color gdk:color))
 
-(defbinding (widget-modify-background "gtk_widget_modify_bg") () nil
+(defbinding widget-modify-bg () nil
   (widget widget)
   (state state-type)
   (color gdk:color))
@@ -312,11 +333,12 @@ received."
   (widget widget)
   (text (or string null)))
 
-(defbinding widget-render-icon () gdk:pixbuf
+(defbinding widget-render-icon (widget stock-id &optional size detail) 
+    gdk:pixbuf
   (widget widget)
   (stock-id string)
-  (size icon-size)
-  (detail string))
+  ((or size -1) (or icon-size int))
+  (detail (or null string)))
 
 (defbinding widget-push-composite-child () nil)
 
@@ -329,30 +351,52 @@ received."
 (defbinding widget-reset-shapes () nil
   (widget widget))
 
-(defbinding widget-set-double-buffered () nil
-  (widget widget)
-  (double-buffered boolean))
+;; (defbinding widget-set-double-buffered () nil
+;;   (widget widget)
+;;   (double-buffered boolean))
 
-(defbinding widget-set-redraw-on-allocate () nil
-  (widget widget)
-  (redraw-on-allocate boolean))
+;; (defbinding widget-set-redraw-on-allocate () nil
+;;   (widget widget)
+;;   (redraw-on-allocate boolean))
 
 (defbinding widget-set-scroll-adjustments () boolean
   (widget widget)
-  (hadjustment adjustment)
-  (vadjustment adjustment))
+  (hadjustment (or null adjustment))
+  (vadjustment (or null adjustment)))
 
 (defbinding widget-mnemonic-activate () boolean
   (widget widget)
   (group-cycling boolean))
 
+(defbinding widget-class-find-style-property (class name) param
+  ((type-class-peek class) pointer)
+  (name string))
+
+(defbinding widget-class-list-style-properties (class)
+    (vector (copy-of param) n-properties)
+  ((type-class-peek class) pointer)
+  (n-properties unsigned-int :out))
+
 (defbinding widget-region-intersect () pointer ;gdk:region
   (widget widget)
   (region pointer)) ;gdk:region))
 
-(defbinding widget-send-expose () int
+(defbinding widget-send-expose () boolean
   (widget widget)
   (event gdk:event))
+
+(defbinding %widget-style-get-property () nil
+  (widget widget)
+  (name string)
+  (value gvalue))
+
+(defun style-property-value (widget style)
+  (let* ((name (string-downcase style))
+	 (param (widget-class-find-style-property (class-of widget) name)))
+    (if (not param)
+	(error "~A has no such style property: ~A" widget style)
+      (with-gvalue (gvalue (param-value-type param))
+        (%widget-style-get-property widget (string-downcase style) gvalue)))))
 
 (defbinding widget-get-accessible () atk:object
   (widget widget))
@@ -366,6 +410,22 @@ received."
   (child-property string))
 
 (defbinding widget-freeze-child-notify () nil
+  (widget widget))
+
+(defbinding widget-get-clipboard () clipboard
+  (widget widget)
+  (selection int #|gdk:atom|#))
+
+(defbinding widget-get-display () gdk:display
+  (widget widget))
+
+(defbinding widget-get-root-window () gdk:window
+  (widget widget))
+
+(defbinding widget-get-screen () gdk:screen
+  (widget widget))
+
+(defbinding widget-has-screen-p () boolean
   (widget widget))
 
 (defbinding %widget-get-size-request () nil
@@ -385,6 +445,17 @@ received."
 (defbinding widget-thaw-child-notify () nil
   (widget widget))
 
+(defbinding widget-list-mnemonic-labels () (glist widget)
+  (widget widget))
+
+(defbinding widget-add-mnemonic-label () nil
+  (widget widget)
+  (label widget))
+
+(defbinding widget-remove-mnemonic-label () nil
+  (widget widget)
+  (label widget))
+
 
 ;;; Additional bindings and functions
 
@@ -402,3 +473,10 @@ received."
 (defun (setf widget-cursor) (cursor-type widget)
   (let ((cursor (make-instance 'gdk:cursor :type cursor-type)))
     (gdk:window-set-cursor (widget-window widget) cursor)))
+
+(defbinding %widget-get-parent-window () gdk:window
+  (widget widget))
+
+(defun %widget-parent-window (widget)
+  (when (slot-boundp widget 'parent)
+    (%widget-get-parent-window widget)))
