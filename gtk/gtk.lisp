@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.10 2002-03-24 21:54:06 espen Exp $
+;; $Id: gtk.lisp,v 1.11 2002-03-25 09:24:55 espen Exp $
 
 
 (in-package "GTK")
@@ -388,20 +388,40 @@
 ;;; Drawing area -- no functions
 
 
+;;; Entry
 
-;;; Toggle button
+(defbinding  entry-get-layout () pango:layout
+  (entry entry))
 
-(defbinding toggle-button-toggled () nil
-  (toggle-button toggle-button))
+(defbinding entry-get-layout-offsets () nil
+  (entry entry)
+  (x int :out)
+  (y int :out))
+
 
 
 ;;; Label
+
+(defbinding label-get-layout-offsets () nil
+  (labe label)
+  (x int :out)
+  (y int :out))
 
 (defbinding label-select-region () nil
   (label label)
   (start int)
   (end int))
 
+(defbinding  label-get-text () string
+  (label label))
+
+(defbinding label-get-layout () pango:layout
+  (label label))
+
+(defbinding  label-get-selection-bounds () boolean
+  (label label)
+  (start int :out)
+  (end int :out))
 
 
 
@@ -509,6 +529,13 @@
   (when group-with
     (radio-menu-item-add-to-group item group-with)))
   
+
+
+;;; Toggle button
+
+(defbinding toggle-button-toggled () nil
+  (toggle-button toggle-button))
+
 
 
 ;;; Window
