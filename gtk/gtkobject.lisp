@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.7 2000-11-09 20:30:16 espen Exp $
+;; $Id: gtkobject.lisp,v 1.8 2001-01-28 14:23:38 espen Exp $
 
 
 (in-package "GTK")
@@ -35,7 +35,7 @@
   (intern (substitute #\- #\_ (string-upcase name)) package))
 
 
-;;;; Argument stuff
+;;; Argument stuff - to be removed soon
 
 (deftype arg () 'pointer)
 
@@ -119,7 +119,7 @@
 
 (defmethod initialize-instance :after ((object object) &rest initargs &key)
   (declare (ignore initargs))
-  (object-default-construct object)
+;  (object-default-construct object)
   (reference-instance object)
   (object-sink object))
 
@@ -130,46 +130,8 @@
   (object-sink object))
 
 
-(define-foreign object-default-construct () nil
-  (object object))
-
 (define-foreign object-sink () nil
   (object object))
-
-(define-foreign ("gtk_object_getv" object-get-arg) () nil
-  (object object)
-  (1 unsigned-int)
-  (arg arg))
-
-(define-foreign ("gtk_object_setv" object-set-arg) () nil
-  (object object)
-  (1 unsigned-int)
-  (arg arg))
-
-(defun object-arg (object name)
-  (with-gc-disabled
-    (let ((arg (arg-new 0)))
-      (setf (arg-name arg) name)
-      (object-get-arg object arg)
-      (let ((type (type-from-number (arg-type arg))))
-	(prog1
-	    (arg-value arg type)
-	  (arg-free arg t))))))
-
-(defun (setf object-arg) (value object name)
-  (with-gc-disabled
-    (let ((arg (arg-new 0)))
-      (setf (arg-name arg) name)
-      (object-get-arg object arg)
-      (let* ((type-number (arg-type arg))
-	     (type (type-from-number type-number)))
-	(%arg-reset arg)
-	(setf (arg-type arg) type-number)
-	(setf (arg-value arg type) value)
-	(object-set-arg object arg)
-	(arg-free arg t))))
-  value)
-
 
 
 ;;;; Main loop, timeouts and idle functions
@@ -199,27 +161,27 @@
     (main-iteration nil)
     (main-iterate-all)))
 
-(define-foreign ("gtk_timeout_add_full" timeout-add)
-    (interval function) unsigned-int
-  (interval (unsigned 32))
-  (0 unsigned-long)
-  (*callback-marshal* pointer)
-  ((register-callback-function function) unsigned-long)
-  (*destroy-marshal* pointer))
+; (define-foreign ("gtk_timeout_add_full" timeout-add)
+;     (interval function) unsigned-int
+;   (interval (unsigned 32))
+;   (0 unsigned-long)
+;   (*callback-marshal* pointer)
+;   ((register-callback-function function) unsigned-long)
+;   (*destroy-marshal* pointer))
 
-(define-foreign timeout-remove () nil
-  (timeout-handler-id unsigned-int))
+; (define-foreign timeout-remove () nil
+;   (timeout-handler-id unsigned-int))
   
-(define-foreign ("gtk_idle_add_full" idle-add)
-    (function &optional (priority 200)) unsigned-int
-  (priority int)
-  (0 unsigned-long)
-  (*callback-marshal* pointer)
-  ((register-callback-function function) unsigned-long)
-  (*destroy-marshal* pointer))
+; (define-foreign ("gtk_idle_add_full" idle-add)
+;     (function &optional (priority 200)) unsigned-int
+;   (priority int)
+;   (0 unsigned-long)
+;   (*callback-marshal* pointer)
+;   ((register-callback-function function) unsigned-long)
+;   (*destroy-marshal* pointer))
 
-(define-foreign idle-remove () nil
-  (idle-handler-id unsigned-int))
+; (define-foreign idle-remove () nil
+;   (idle-handler-id unsigned-int))
 
 
 (system:add-fd-handler (gdk:event-poll-fd) :input #'main-iterate-all)
@@ -232,71 +194,13 @@
 ;;;; Metaclass used for subclasses of object
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass object-class (gobject-class))
-
-  (defclass direct-object-slot-definition (direct-virtual-slot-definition))
-
-  (defclass effective-object-slot-definition
-    (effective-virtual-slot-definition)))
-
-
-(defmethod initialize-instance :after ((slotd direct-object-slot-definition)
-				   &rest initargs &key)
-  (declare (ignore initargs))
-  (unless (slot-boundp slotd 'location)
-    (with-slots (pcl::name location pcl::class) slotd
-      (setf
-       location 
-       (format nil "~A::~A"
-        (alien-type-name (class-name pcl::class))
-	(name-to-string pcl::name))))))
-
-
-(defmethod direct-slot-definition-class ((class object-class) initargs)
-  (case (getf initargs :allocation)
-    (:arg (find-class 'direct-object-slot-definition))
-    (t (call-next-method))))
-
-
-(defmethod effective-slot-definition-class ((class object-class) initargs)
-  (case (getf initargs :allocation)
-    (:arg (find-class 'effective-object-slot-definition))
-    (t (call-next-method))))
-  
-
-(defmethod compute-virtual-slot-location
-    ((class object-class) (slotd effective-object-slot-definition)
-     direct-slotds)
-  (with-slots (type) slotd
-    (let ((location (slot-definition-location (first direct-slotds)))
-	  (type-number (find-type-number type))
-	  (reader (get-reader-function type))
-	  (writer (get-writer-function type))
-	  (destroy (get-destroy-function type)))
-      (list
-       #'(lambda (object)
-	   (with-gc-disabled
-	     (let ((arg (arg-new type-number)))
-	       (setf (arg-name arg) location)
-	       (object-get-arg object arg)
-	       (prog1
-		   (funcall reader arg +arg-value-offset+)
-		 (arg-free arg t t)))))
-       #'(lambda (value object)
-	   (with-gc-disabled
-  	     (let ((arg (arg-new type-number)))
-	       (setf (arg-name arg) location)
-	       (funcall writer value arg +arg-value-offset+)
-	       (object-set-arg object arg)
-	       (funcall destroy arg +arg-value-offset+)
-	       (arg-free arg nil)
-	       value)))))))
+  (defclass object-class (gobject-class)))
 
 
 (defmethod validate-superclass ((class object-class)
 				(super pcl::standard-class))
   (subtypep (class-name super) 'object))
-  
+
 
 ;;;; Metaclasses used for widgets and containers
 
