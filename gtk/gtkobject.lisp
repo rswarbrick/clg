@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.9 2001-05-29 16:00:52 espen Exp $
+;; $Id: gtkobject.lisp,v 1.10 2001-10-21 23:18:11 espen Exp $
 
 
 (in-package "GTK")
@@ -30,72 +30,13 @@
 ;   (intern (substitute #\- #\_ (string-upcase name)) package))
 
 
-;;; Argument stuff - to be removed soon
-
-(deftype arg () 'pointer)
-
-(defconstant +arg-type-offset+ 0)
-(defconstant +arg-name-offset+ 4)
-(defconstant +arg-value-offset+ 8)
-(defconstant +arg-size+ 16)
-
-(defbinding arg-new () arg
-  (type type-number))
-
-(defbinding %arg-free () nil
-  (arg arg)
-  (free-contents boolean))
-
-(defun arg-free (arg free-contents &optional alien)
-  (cond
-   (alien (%arg-free arg free-contents))
-   (t
-    (unless (null-pointer-p arg)
-      (when free-contents
-	(funcall
-	 (intern-destroy-function (type-from-number (arg-type arg)))
-	 arg +arg-value-offset+))
-      (deallocate-memory arg)))))
-
-(defbinding %arg-reset () nil
-  (arg arg))
-
-(defun arg-name (arg)
-  (funcall (intern-reader-function 'string) arg +arg-name-offset+))
-
-(defun (setf arg-name) (name arg)
-  (funcall (intern-writer-function 'string) name arg +arg-name-offset+)
-  name)
-
-(defun arg-type (arg)
-  (system:sap-ref-32 arg +arg-type-offset+))
-
-(defun (setf arg-type) (type arg)
-  (setf (system:sap-ref-32 arg +arg-type-offset+) type))
-
-(defun arg-value (arg &optional (type (type-from-number (arg-type arg))))
-  (funcall (intern-reader-function type) arg +arg-value-offset+))
-
-;; One should never call this function on an arg whose value is already set
-(defun (setf arg-value)
-    (value arg &optional (type (type-from-number (arg-type arg))))
-  (funcall (intern-writer-function type) value arg +arg-value-offset+)
-  value)
-
-(defun (setf return-arg-value)
-    (value arg &optional (type (type-from-number (arg-type arg))))
-  ; this is probably causing a memory leak
-  (funcall (intern-writer-function type) value (arg-value arg 'pointer) 0)
-  value)
-
-(defun arg-array-ref (arg0 index)
-  (system:sap+ arg0 (* index +arg-size+)))
-
 
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "/opt/gnome/lib/libgtk-x11-1.3.so")
+  (init-types-in-library
+   "/opt/gnome/lib/libgtk-x11-1.3.so"
+   :ignore ("gtk_window_get_type_hint"))
 
   (defclass %object (gobject)
     ()
@@ -104,17 +45,18 @@
 
 
 (defmethod shared-initialize ((object %object) names &rest initargs
-			      &key signals)
-  (declare (ignore initargs names))
+			      &allow-other-keys)
+  (declare (ignore names))
   (call-next-method)
+  (funcall (proxy-class-copy (class-of object)) nil (proxy-location object)) ; inc ref count before sinking
   (%object-sink object)
-  (dolist (signal signals)
-    (apply #'signal-connect object signal)))
+  (dolist (signal-definition (get-all initargs :signal))
+    (apply #'signal-connect object signal-definition)))
 
-(defmethod initialize-proxy ((object %object) &rest initargs &key location)
+(defmethod initialize-proxy ((object %object) &rest initargs)
   (declare (ignore initargs))
   (call-next-method)
-  (%object-sink location))
+  (%object-sink object))
 
 (defbinding %object-sink () nil
   (object %object))
@@ -146,7 +88,7 @@
     (main-iteration-do nil)
     (main-iterate-all)))
 
-(system:add-fd-handler (gdk:event-poll-fd) :input #'main-iterate-all)
+(system:add-fd-handler (gdk:connection-number) :input #'main-iterate-all)
 (setq lisp::*periodic-polling-function* #'main-iterate-all)
 (setq lisp::*max-event-to-sec* 0)
 (setq lisp::*max-event-to-usec* 1000)
@@ -161,7 +103,7 @@
   (defclass child-class (virtual-slot-class))
 
   (defclass direct-child-slot-definition (direct-virtual-slot-definition)
-    ((arg-name :reader slot-definition-arg-name)))
+    ((pname :reader slot-definition-pname)))
 
   (defclass effective-child-slot-definition
     (effective-virtual-slot-definition)))
@@ -176,58 +118,65 @@
     class))
 
 (defmethod initialize-instance  ((slotd direct-child-slot-definition)
-				 &rest initargs &key arg-name)
+				 &rest initargs &key pname)
   (declare (ignore initargs))
   (call-next-method)
-  (if arg-name
-      (setf (slot-value slotd 'arg-name) arg-name)
-    (error "Need argument name for slot with allocation :arg")))
+  (if pname
+      (setf (slot-value slotd 'pname) pname)
+    ; ???
+    (error "Need pname for slot with allocation :property")))
 
 (defmethod direct-slot-definition-class ((class child-class) initargs)
   (case (getf initargs :allocation)
-    (:arg (find-class 'direct-child-slot-definition))
+    (:property (find-class 'direct-child-slot-definition))
     (t (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class child-class) initargs)
   (case (getf initargs :allocation)
-    (:arg (find-class 'effective-child-slot-definition))
+    (:property (find-class 'effective-child-slot-definition))
     (t (call-next-method))))
 
-(defmethod compute-virtual-slot-accessor
+(defbinding %container-child-get-property () nil
+  (container container)
+  (child widget)
+  (property-name string)
+  (value gvalue))
+
+(defbinding %container-child-set-property () nil
+  (container container)
+  (child widget)
+  (property-name string)
+  (value gvalue))
+  
+(defmethod compute-virtual-slot-accessors
     ((class child-class) (slotd effective-child-slot-definition) direct-slotds)
   (with-slots (type) slotd
-    (let ((arg-name (slot-definition-arg-name (first direct-slotds)))
-	  (type-number (find-type-number type))
-; 	  (reader (intern-reader-function type))
-; 	  (writer (intern-writer-function type))
-; 	  (destroy (intern-destroy-function type))
-	  )
+    (let ((pname (slot-definition-pname (first direct-slotds)))
+	  (type-number (find-type-number type)))
       (list
        #'(lambda (object)
 	   (with-slots (parent child) object	   
 	     (with-gc-disabled
-	       (let ((arg (arg-new type-number)))
-		 (setf (arg-name arg) arg-name)
-		 (%container-child-getv parent child arg)
-		 (prog1
+	       (let ((gvalue (gvalue-new type-number)))
+		 (%container-child-get-property parent child pname gvalue)
+		 (unwind-protect
 		     (funcall
 		      (intern-reader-function type)
-		      arg +arg-value-offset+)
-		   (arg-free arg t t))))))
+		      gvalue +gvalue-value-offset+)
+		   (gvalue-free gvalue t))))))
        #'(lambda (value object)
 	   (with-slots (parent child) object	   
 	     (with-gc-disabled
-  	       (let ((arg (arg-new type-number)))
-		 (setf (arg-name arg) arg-name)
-		 (funcall
-		  (intern-writer-function type)
-		  value arg +arg-value-offset+)
-		 (%container-child-setv parent child arg)
-		 (funcall
-		  (intern-destroy-function type)
-		  arg +arg-value-offset+)
-		 (arg-free arg nil)
-		 value))))))))
+	      (let ((gvalue (gvalue-new type-number)))
+		(funcall
+		 (intern-writer-function type)
+		 value gvalue +gvalue-value-offset+)
+		(%container-child-set-property parent child pname gvalue)
+		(funcall
+		 (intern-destroy-function type)
+		 gvalue +gvalue-value-offset+)
+		(gvalue-free gvalue nil)
+		value))))))))
 
 
 (defmethod pcl::add-reader-method ((class child-class) generic-function slot-name)
@@ -256,7 +205,8 @@
 
 
 (defmethod validate-superclass ((class child-class) (super pcl::standard-class))
-  (subtypep (class-name super) 'container-child))
+  ;(subtypep (class-name super) 'container-child)
+  t)
 
 
 (defclass container-child ()
@@ -266,19 +216,17 @@
 
 ;;;;
 
-(defbinding %container-query-child-args () arg
-  (type-number type-number)
-  (nil null)
-  (n-args unsigned-int :out))
+(defbinding %container-class-list-child-properties () pointer
+  (class pointer)
+  (n-properties unsigned-int :out))
 
-(defun query-container-type-dependencies (type-number)
-  (let ((child-slot-types ()))
-    (multiple-value-bind (args n-args)
-	(%container-query-child-args type-number)
-      (dotimes (i n-args)
-	(push (arg-type (arg-array-ref args i)) child-slot-types)))
-    (delete-duplicates
-     (append (query-object-type-dependencies type-number) child-slot-types))))
+(defun query-container-class-child-properties (type-number)
+  (let ((class (type-class-ref type-number)))
+    (multiple-value-bind (array length)
+	(%container-class-list-child-properties class)
+      (unwind-protect
+	  (map-c-array 'list #'identity array 'param length)
+	(deallocate-memory array)))))
 
 (defun default-container-child-name (container-class)
   (intern (format nil "~A-CHILD" container-class)))
@@ -287,32 +235,40 @@
   (let* ((class (type-from-number type-number))
 	 (super (supertype type-number))
 	 (child-class (default-container-child-name class))
-	 (child-slots ()))
-    (multiple-value-bind (args n-args)
-	(%container-query-child-args type-number)
-      (dotimes (i n-args)
-	(let* ((arg (arg-array-ref args i))
-	       (arg-name (arg-name arg))
-	       (slot-name (default-slot-name
-			    (subseq arg-name (+ (position #\: arg-name) 2))))
-	       (type (type-from-number (arg-type arg) #|t|#)))
-	  (push
-	   `(,slot-name
-	     :allocation :arg
-	     :arg-name ,arg-name
-	     :accessor ,(default-slot-accessor child-class slot-name type)
-	     :initarg ,(intern (string slot-name) "KEYWORD")
-	     :type ,type)
-	   child-slots)))
-      `(progn
-	 ,(expand-gobject-type type-number slots)
-	 (defclass ,child-class
-	   (,(default-container-child-name super))
-	   ,child-slots
-	   (:metaclass child-class)
-	   (:container ,class))))))
+	 (expanded-child-slots
+	  (mapcar
+	   #'(lambda (param)
+	       (with-slots (name flags value-type documentation) param
+	         (let* ((slot-name (default-slot-name name))
+			(slot-type (type-from-number value-type #|t|#))
+			(accessor
+			 (default-slot-accessor class slot-name slot-type)))
+		   `(,slot-name
+		     :allocation :property
+		     :pname ,name
+		     ,@(cond
+			((and
+			  (member :writable flags)
+			  (member :readable flags))
+			 (list :accessor accessor))
+			((member :writable flags)
+			 (list :writer `(setf ,accessor)))
+			((member :readable flags)
+			 (list :reader accessor)))
+		     ,@(when (or
+			      (member :construct flags)
+			      (member :writable flags))
+			 (list :initarg (intern (string slot-name) "KEYWORD")))
+		     :type ,slot-type
+		     ,@(when documentation
+			 (list :documentation documentation))))))
+	   (query-container-class-child-properties type-number))))
+    `(progn
+       ,(expand-gobject-type type-number slots)
+       (defclass ,child-class
+	 (,(default-container-child-name super))
+	 ,expanded-child-slots
+	 (:metaclass child-class)
+	 (:container ,class)))))
 
-(register-derivable-type
- 'container "GtkContainer"
- :query 'query-container-type-dependencies
- :expand 'expand-container-type)
+(register-derivable-type 'container "GtkContainer" 'expand-container-type)
