@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.5 2001-11-12 22:29:17 espen Exp $
+;; $Id: gdktypes.lisp,v 1.6 2002-01-20 14:14:38 espen Exp $
 
 (in-package "GDK")
 
@@ -33,7 +33,7 @@
     :type unsigned-short)
    (green
     :allocation :alien
-    :accessor color-grenn
+    :accessor color-green
     :type unsigned-short)
    (blue
     :allocation :alien
