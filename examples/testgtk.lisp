@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.19 2005-02-26 10:44:11 espen Exp $
+;; $Id: testgtk.lisp,v 1.20 2005-02-27 12:44:07 espen Exp $
 
 
 ;(use-package "GTK")
@@ -1119,86 +1119,78 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Shapes
 
-;; (defun shape-create-icon (xpm-file x y px py type root-window destroy)
-;;   (let* ((window
-;; 	  (make-instance 'window
-;; 	   :type type :x x :y y
-;; 	   :events '(:button-motion :pointer-motion-hint :button-press)))
-;; 	 (fixed
-;; 	  (make-instance 'fixed
-;; 	   :parent window :width 100 :height 100)))
+(defun create-shape-icon (xpm-file x y px py type root-window destroy)
+  (let ((window
+	 (make-instance 'window
+	  :type type :default-width 100 :default-height 100
+	  :events '(:button-motion :pointer-motion-hint :button-press)
+	  :signal (list 'destroy destroy))))
       
-;;     (widget-realize window)
-;;     (multiple-value-bind (source mask) nil ;(gdk:pixmap-create xpm-file)
-;;       (let ((pixmap (pixmap-new source mask))
-;; 	    (x-offset 0)
-;; 	    (y-offset 0))
-;; 	(declare (fixnum x-offset y-offset))
-;; 	(fixed-put fixed pixmap px py)
-;; 	(widget-shape-combine-mask window mask px py)
+    (widget-realize window)
+    (multiple-value-bind (source mask) (gdk:pixmap-create xpm-file)
+      (let ((fixed (make-instance 'fixed :parent window)))
+	(fixed-put fixed (create-image-widget source mask) px py))
+      (widget-shape-combine-mask window mask px py))
 	
-;; 	(signal-connect window 'button-press-event
-;; 	 #'(lambda (event)
-;; 	     (when (typep event 'gdk:button-press-event)
-;; 	       (setq x-offset (truncate (gdk:event-x event)))
-;; 	       (setq y-offset (truncate (gdk:event-y event)))
-;; 	       (grab-add window)
-;; 	       (gdk:pointer-grab
-;; 		(widget-window window) t
-;; 		'(:button-release :button-motion :pointer-motion-hint)
-;; 		nil nil 0))
-;; 	     t))
+    (let ((x-offset 0)
+	  (y-offset 0))
+      (declare (fixnum x-offset y-offset))
+      (signal-connect window 'button-press-event
+       #'(lambda (event)
+	   (when (typep event 'gdk:button-press-event)
+	     (setq x-offset (truncate (gdk:event-x event)))
+	     (setq y-offset (truncate (gdk:event-y event)))
+	     (grab-add window)
+	     (gdk:pointer-grab (widget-window window) 
+	      :events '(:button-release :button-motion :pointer-motion-hint)
+	      :owner-events t :time event))))
 
-;; 	(signal-connect window 'button-release-event
-;; 	 #'(lambda (event)
-;; 	     (declare (ignore event))
-;; 	     (grab-remove window)
-;; 	     (gdk:pointer-ungrab 0)
-;; 	     t))
+      (signal-connect window 'button-release-event
+       #'(lambda (event)
+	   (grab-remove window)
+	   (gdk:pointer-ungrab event)))
 	
-;; 	(signal-connect window 'motion-notify-event
-;; 	 #'(lambda (event)
-;; 	     (declare (ignore event))
-;; 	     (multiple-value-bind (win xp yp mask)
-;; 		 (gdk:window-get-pointer root-window)
-;; 	       (declare (ignore mask win) (fixnum xp yp))
-;; 	       (widget-set-uposition
-;; 		window :x (- xp x-offset) :y (- yp y-offset)))
-;; 	     t))
-;; 	(signal-connect window 'destroy destroy)))
+      (signal-connect window 'motion-notify-event
+       #'(lambda (event)
+	   (declare (ignore event))
+	   (multiple-value-bind (win xp yp mask) 
+	       (gdk:window-get-pointer root-window)
+	     (declare (ignore mask win) (fixnum xp yp))
+	     (window-move window (- xp x-offset) (- yp y-offset))))))
     
-;;     (widget-show-all window)
-;;     window))
+    (window-move window x y)
+    (widget-show-all window)
+    window))
 
 
-;; (let ((modeller nil)
-;;       (sheets nil)
-;;       (rings nil))
-;;   (defun create-shapes ()
-;;     (let ((root-window (gdk:get-root-window)))
-;;       (if (not modeller)
-;; 	  (setq
-;; 	   modeller
-;; 	   (shape-create-icon
-;; 	    "clg:examples;Modeller.xpm" 440 140 0 0 :popup root-window
-;; 	    #'(lambda () (widget-destroyed modeller))))
-;; 	(widget-destroy modeller))
+(let ((modeller nil)
+      (sheets nil)
+      (rings nil))
+  (defun create-shapes ()
+    (let ((root-window (gdk:get-root-window)))
+      (if (not modeller)
+	  (setq
+	   modeller
+	   (create-shape-icon
+	    "clg:examples;Modeller.xpm" 440 140 0 0 :popup root-window
+	    #'(lambda () (setq modeller nil))))
+	(widget-destroy modeller))
 
-;;       (if (not sheets)
-;; 	  (setq
-;; 	   sheets
-;; 	   (shape-create-icon
-;; 	    "clg:examples;FilesQueue.xpm" 580 170 0 0 :popup root-window
-;; 	    #'(lambda () (widget-destroyed sheets))))
-;; 	(widget-destroy sheets))
+      (if (not sheets)
+	  (setq
+	   sheets
+	   (create-shape-icon
+	    "clg:examples;FilesQueue.xpm" 580 170 0 0 :popup root-window
+	    #'(lambda () (setq sheets nil))))
+	(widget-destroy sheets))
 
-;;       (if (not rings)
-;; 	  (setq
-;; 	   rings
-;; 	   (shape-create-icon
-;; 	    "clg:examples;3DRings.xpm" 460 270 25 25 :toplevel root-window
-;; 	    #'(lambda () (widget-destroyed rings))))
-;; 	(widget-destroy rings)))))
+      (if (not rings)
+	  (setq
+	   rings
+	   (create-shape-icon
+	    "clg:examples;3DRings.xpm" 460 270 25 25 :toplevel root-window
+	    #'(lambda () (setq rings nil))))
+	(widget-destroy rings)))))
 
 
 
@@ -1729,7 +1721,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("saved position")
  	    ("scrolled windows" create-scrolled-windows)
 	    ("size group" create-size-group)
-;; 	    ("shapes" create-shapes)
+ 	    ("shapes" create-shapes)
  	    ("spinbutton" create-spins)
  	    ("statusbar" create-statusbar)
  	    ("test idle" create-idle-test)
