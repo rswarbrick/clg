@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.20 2005-02-27 12:44:07 espen Exp $
+;; $Id: testgtk.lisp,v 1.21 2005-02-27 13:28:19 espen Exp $
 
 
 ;(use-package "GTK")
@@ -460,6 +460,15 @@
 	 (write-line "No files selected"))
        (widget-destroy dialog))))
 
+
+;; Font selection dialog
+
+(define-toplevel create-font-selection (window "Font Button" :resizable nil)
+  (make-instance 'h-box 
+   :parent window :spacing 8 :border-width 8
+   :child (make-instance 'label :label "Pick a font")
+   :child (make-instance 'font-button 
+           :use-font t :title "Font Selection Dialog")))
 
 
 ;;; Handle box
@@ -1702,7 +1711,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("event watcher")
  	    ("enxpander" create-expander)
  	    ("file chooser" create-file-chooser)
-;; 	    ("font selection")
+ 	    ("font selection" create-font-selection)
  	    ("handle box" create-handle-box)
  	    ("image" create-image)
  	    ("labels" create-labels)
