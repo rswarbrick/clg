@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.3 2000-10-05 17:30:07 espen Exp $
+;; $Id: gtk.lisp,v 1.4 2001-01-28 14:25:48 espen Exp $
 
 
 (in-package "GTK")
@@ -190,16 +190,6 @@
   (if label
       (%button-new-with-label label)
     (%button-new)))
-
-(defgeneric button-label (button))
-(defgeneric (setf button-label) (label button))
-
-(defmethod button-label ((button button))
-  (object-arg button "GtkButton::label"))
-
-(defmethod (setf button-label) ((label string) (button button))
-  (setf (object-arg button "GtkButton::label") label))
-
 
 (define-foreign button-pressed () nil
   (button button))
@@ -460,46 +450,6 @@
 
 (define-foreign list-item-deselect () nil
   (list-item list-item))
-
-
-
-;;; Tree item
-
-(define-foreign %tree-item-new () tree-item)
-
-(define-foreign %tree-item-new-with-label () tree-item
-  (label string))
-
-(defun tree-item-new (&optional label)
-  (if label
-      (%tree-item-new-with-label label)
-    (%tree-item-new)))
-
-(define-foreign %tree-item-set-subtree () nil
-  (tree-item tree-item)
-  (subtree tree))
-
-(define-foreign %tree-item-remove-subtree () nil
-  (tree-item tree-item))
-
-(defun (setf tree-item-subtree) (subtree tree-item)
-  (if subtree
-      (%tree-item-set-subtree tree-item subtree)
-    (%tree-item-remove-subtree tree-item))
-  subtree)
-
-(define-foreign tree-item-select () nil
-  (tree-item tree-item))
-
-(define-foreign tree-item-deselect () nil
-  (tree-item tree-item))
-
-(define-foreign tree-item-expand () nil
-  (tree-item tree-item))
-
-(define-foreign tree-item-collapse () nil
-  (tree-item tree-item))
-
 
 
 ;;; Window
@@ -1559,61 +1509,6 @@
 
 
 
-;;; Tree
-
-; (define-foreign tree-new () tree)
-
-; (define-foreign tree-append () nil
-;   (tree tree)
-;   (tree-item tree-item))
-
-; (define-foreign tree-prepend () nil
-;   (tree tree)
-;   (tree-item tree-item))
-
-; (define-foreign tree-insert () nil
-;   (tree tree)
-;   (tree-item tree-item)
-;   (position int))
-
-; (define-foreign tree-remove-items () nil
-;   (tree tree)
-;   (items (glist tree-item)))
-
-; (define-foreign tree-clear-items () nil
-;   (tree tree)
-;   (start int)
-;   (end int))
-
-; (define-foreign tree-select-item () nil
-;   (tree tree)
-;   (item int))
-
-; (define-foreign tree-unselect-item () nil
-;   (tree tree)
-;   (item int))
-
-; (define-foreign tree-select-child () nil
-;   (tree tree)
-;   (tree-item tree-item))
-
-; (define-foreign tree-unselect-child () nil
-;   (tree tree)
-;   (tree-item tree-item))
-
-; (define-foreign tree-child-position () int
-;   (tree tree)
-;   (tree-item tree-item))
-
-; (defun root-tree-p (tree)
-;   (eq (tree-root-tree tree) tree))
-
-; ;; gtkglue.c
-; (define-foreign tree-selection () (glist tree-item)
-;   (tree tree))
-
-
-
 ;;; Calendar
 
 (define-foreign calendar-new () calendar)
@@ -1729,16 +1624,16 @@
 (define-foreign editable-paste-clipboard () nil
   (editable editable))
 
-(define-foreign editable-claim-selection () nil
-  (editable editable)
-  (claim boolean)
-  (time unsigned-int))
+; (define-foreign editable-claim-selection () nil
+;   (editable editable)
+;   (claim boolean)
+;   (time unsigned-int))
 
 (define-foreign editable-delete-selection () nil
   (editable editable))
 
-(define-foreign editable-changed () nil
-  (editable editable))
+; (define-foreign editable-changed () nil
+;   (editable editable))
 
 
 
@@ -2136,3 +2031,231 @@
   (style style)
   (color-type color-type)
   (state-type state-type))
+
+
+(define-foreign draw-hline () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x1 int)
+  (x2 int)
+  (y int))
+
+(define-foreign draw-vline () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (y1 int)
+  (y2 int)
+  (x int))
+
+(define-foreign draw-shadow () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+; (define-foreign draw-polygon () nil
+;   (style style)
+;   (window gdk:window)
+;   (state state-type)
+;   (shadow shadow-type)
+;   (points (vector gdk:point))
+;   ((length points) int)
+;   (fill boolean))
+
+(define-foreign draw-arrow () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (arrow arrow-type)
+  (fill boolean)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+  
+(define-foreign draw-diamond () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+; (define-foreign draw-oval () nil
+;   (style style)
+;   (window gdk:window)
+;   (state state-type)
+;   (shadow shadow-type)
+;   (x int)
+;   (y int)
+;   (width int)
+;   (height int))
+
+(define-foreign draw-string () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x int)
+  (y int)
+  (string string))
+
+(define-foreign draw-box () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+(define-foreign draw-flat-box () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+(define-foreign draw-check () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+(define-foreign draw-option () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+; (define-foreign draw-cross () nil
+;   (style style)
+;   (window gdk:window)
+;   (state state-type)
+;   (shadow shadow-type)
+;   (x int)
+;   (y int)
+;   (width int)
+;   (height int))
+
+; (define-foreign draw-ramp () nil
+;   (style style)
+;   (window gdk:window)
+;   (state state-type)
+;   (shadow shadow-type)
+;   (arrow arrow-type)
+;   (x int)
+;   (y int)
+;   (width int)
+;   (height int))
+
+(define-foreign draw-tab () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+(define-foreign draw-shadow-gap () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int)
+  (gap-side position-type)
+  (gap-x int)
+  (gap-width int))
+
+(define-foreign draw-box-gap () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int)
+  (gap-side position-type)
+  (gap-x int)
+  (gap-width int))
+
+(define-foreign draw-extension () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+(define-foreign draw-focus () nil
+  (style style)
+  (window gdk:window)
+  (x int)
+  (y int)
+  (width int)
+  (height int))
+
+(define-foreign draw-slider () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int)
+  (orientation orientation))
+
+(define-foreign draw-handle () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int)
+  (orientation orientation))
+
+(define-foreign draw-handle () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (shadow shadow-type)
+  (x int)
+  (y int)
+  (width int)
+  (height int)
+  (orientation orientation))
+
+(define-foreign paint-hline () nil
+  (style style)
+  (window gdk:window)
+  (state state-type)
+  (x1 int)
+  (x2 int)
+  (y int))

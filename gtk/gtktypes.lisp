@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.5 2001-01-28 14:21:04 espen Exp $
+;; $Id: gtktypes.lisp,v 1.6 2001-01-28 14:27:17 espen Exp $
 
 
 
@@ -709,20 +709,6 @@
   ()
   (:metaclass child-class))
   
-
-;; deprecated
-(defclass tree-item (item)
-  ()
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((subtree                :write-method :lisp :type tree-item)))
-  (:metaclass container-class)
-  (:alien-name "GtkTreeItem"))
-
-(defclass tree-item-child (item-child)
-  ()
-  (:metaclass child-class))
-
 
 (defclass window (bin)
   ((type
@@ -1640,19 +1626,6 @@
 (defclass toolbar-child (container-child)
   ()
   (:metaclass child-class))
-
-
-;; Deprecated
-(defclass tree (container)
-  ()
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((selection-mode         :type selection-mode)
-;    (view-mode              :type tree-view-mode)
-;    (view-lines             :type boolean)
-;    (root-tree              :read-only t :type tree)))
-  (:metaclass container-class)
-  (:alien-name "GtkTree"))
 
 
 (defclass calendar (widget)
