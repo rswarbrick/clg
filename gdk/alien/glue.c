@@ -16,23 +16,19 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.1 2004-10-27 18:50:25 espen Exp $ */
+/* $Id: glue.c,v 1.2 2004-10-31 11:48:53 espen Exp $ */
 
 
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
 
-
-extern Display *gdk_display;
-
-gint gdk_connection_number ()
+struct _GdkDisplayX11
 {
-  return ConnectionNumber (gdk_display); 
-}
+  GdkDisplay parent_instance;
+  Display *xdisplay;
+};
 
-
-GdkWindow*
-gdk_get_root_window ()
+gint clg_gdk_connection_number (GdkDisplay *display)
 {
-  return gdk_window_foreign_new (GDK_ROOT_WINDOW ());
+  return ConnectionNumber (((struct _GdkDisplayX11 *)display)->xdisplay);
 }
