@@ -1,12 +1,12 @@
 This package contains Common Lisp bindings to GTK+ v2.0. It currently
-only works with CMUCL, but ports to other CL implementations may be
-added later.
+only works with CMUCL 19a, but ports to other CL implementations may
+be added later.
 
 
 New versions
 ------------
 
-The most recent version of this package can be found at:
+The most recent version of this package can be found: in CVS 
 
 
 
@@ -14,33 +14,47 @@ Build instructions
 ------------------
 
 1. When building for CMUCL, first obtain a matching binary and source
-   tree (the only source file you will actually need is lisp.h, which
-   have to be copied or linked to your CMUCL_LIB directory).  On ELF
-   systems you may also have to rebuild lisp with -rdynamic added to
-   OS_LINK_FLAGS.
+   tree (the only source file you will actually need is lisp.h and a
+   couple of other header files). On ELF systems you may also have to
+   rebuild lisp with -rdynamic added to OS_LINK_FLAGS.
 
-2. Edit clg.system to reflect the paths on your system:
 
-   - Edit the logical-pathname-translations to point to the
-     place where the sources actually are, or set the translations
-     somewhere else, like ~/.cmucl-init.lisp.
+2. Set up paths to reflect your system:
 
-   - Edit the pkg-config search path if your gtk+ installation is in 
-     an unusual place.
+   - Add a logical-pathname-translation to clg in ~/.cmucl-init.lisp
+     or some other startup file. Example:
 
-   - Edit *cmucl-include-path* to point to the directory where the
-     lisp.h file resides, if it is not auto detected.  Try "locate 
-     '*/lisp.h'" if you don't know the location.
+       (setf
+         (logical-pathname-translations "clg")
+         '(("**;*.*.*" "/home/espen/src/clg/**/")))
 
-3. Compile and load clg:
-   (load "clg.system")
-   (mk:oos :clg :compile)
-   (mk:oos :clg :load)
+   - Set the correct pkg-config search path if your gtk+ installation
+     is in an unusual place, by adding it to the PKG_CONFIG_PATH
+     environment variable before starting lisp.
+
+   - Set *cmucl-include-path* to point to the directory where the
+     lisp.h file resides, if it is not in the default place.  Try "locate 
+     'lisp/lisp.h'" if you don't know the location.
+
+
+3. Compile and load the system:
+   
+     (asdf:oos 'asdf:load-op :gtk)
+
+   Currently it will fail with:
+
+   Error in function KERNEL::%REDEFINE-DEFSTRUCT:
+     Redefining class PCL::SLOT-INFO incompatibly with the current definition.
+
+   Just accept the redefinition (restart 1) to continue building or loading.
+
 
 4. If everything worked, try (load "hello-world") to see a small
-   window pop up.
+   window pop up, and then run testgtk.lisp in the example directory.
 
-Send comments and patches to clg-devel@lists.sourceforge.net
+
+Send comments and patches to clg-devel@lists.sourceforge.net or
+espen@users.sourceforge.net.
 
 
 
