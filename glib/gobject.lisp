@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.14 2004-10-28 09:34:35 espen Exp $
+;; $Id: gobject.lisp,v 1.15 2004-10-31 00:56:29 espen Exp $
 
 (in-package "GLIB")
 
@@ -42,7 +42,7 @@
 		 #'(lambda (slotd)
 		     (member key (slot-definition-initargs slotd)))
 		 slotds)
-     when (and (typep slotd 'effective-gobject-slot-definition)
+     when (and (typep slotd 'effective-property-slot-definition)
 	       (slot-value slotd 'construct))
      do (let ((type (find-type-number (slot-definition-type slotd))))
 	  (vector-push-extend (slot-definition-pname slotd) names)
@@ -55,7 +55,8 @@
 	 (%gobject-new (type-number-of object))
        (%gobject-newvv (type-number-of object) (length names) names values)))
     
-    (mapc #'gvalue-free values))
+;    (map 'nil #'gvalue-free values)
+    )
   
   (apply #'call-next-method object initargs))
 
@@ -139,13 +140,13 @@
   (defclass gobject-class (ginstance-class)
     ())
 
-  (defclass direct-gobject-slot-definition (direct-virtual-slot-definition)
+  (defclass direct-property-slot-definition (direct-virtual-slot-definition)
     ((pname :reader slot-definition-pname :initarg :pname)
      (readable :initform t :reader slot-readable-p :initarg :readable)
      (writable :initform t :reader slot-writable-p :initarg :writable)
      (construct :initform nil :initarg :construct)))
 
-  (defclass effective-gobject-slot-definition (effective-virtual-slot-definition)
+  (defclass effective-property-slot-definition (effective-virtual-slot-definition)
     ((pname :reader slot-definition-pname :initarg :pname)
      (readable :reader slot-readable-p :initarg :readable)
      (writable :reader slot-writable-p :initarg :writable)
@@ -168,12 +169,12 @@
 
 (defmethod direct-slot-definition-class ((class gobject-class) &rest initargs)
   (case (getf initargs :allocation)
-    (:property (find-class 'direct-gobject-slot-definition))
+    (:property (find-class 'direct-property-slot-definition))
     (t (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class gobject-class) &rest initargs)
   (case (getf initargs :allocation)
-    (:property (find-class 'effective-gobject-slot-definition))
+    (:property (find-class 'effective-property-slot-definition))
     (t (call-next-method))))
 
 (defmethod compute-effective-slot-definition-initargs ((class gobject-class) direct-slotds)
@@ -188,7 +189,7 @@
     (call-next-method)))
 
 
-(defmethod initialize-internal-slot-functions ((slotd effective-gobject-slot-definition))
+(defmethod initialize-internal-slot-functions ((slotd effective-property-slot-definition))
   (let* ((type (slot-definition-type slotd))
 	 (pname (slot-definition-pname slotd))
 	 (type-number (find-type-number type)))
@@ -248,21 +249,29 @@
   (class pointer)
   (n-properties unsigned-int :out))
 
-(defun query-object-class-properties (type-number &optional
-				      inherited-properties)
-  (let ((class (type-class-ref type-number)))
-    (multiple-value-bind (array length)
-	(%object-class-list-properties class)
-      (unwind-protect
-	  (let ((all-properties
-		 (map-c-array 'list #'identity array 'param length)))
-	    (if (not inherited-properties)
-		(delete-if
-		 #'(lambda (param)
-		     (not (eql type-number (param-owner-type param))))
-		 all-properties)
-	      all-properties))
-	(deallocate-memory array)))))
+
+(defun %map-params (params length type inherited-p)
+  (if inherited-p
+      (map-c-array 'list #'identity params 'param length)
+    (let ((properties ()))
+      (map-c-array 'list 
+       #'(lambda (param)
+	   (when (eql (param-owner-type param) type)
+	     (push param properties)))
+       params 'param length)
+      (nreverse properties))))
+
+(defun query-object-class-properties (type &optional inherited-p)
+  (let* ((type-number (find-type-number type))
+	 (class (type-class-ref type-number)))
+    (unwind-protect
+	 (multiple-value-bind (array length)
+	     (%object-class-list-properties class)
+	   (unwind-protect
+		(%map-params array length type-number inherited-p)
+	     (deallocate-memory array)))
+;      (type-class-unref type-number)
+      )))
 
 
 (defun default-slot-name (name)
@@ -274,78 +283,70 @@
     nil "~A-~A~A" class-name slot-name
     (if (eq type 'boolean) "-P" ""))))
 
-(defun expand-gobject-type (type-number &optional options
-			    (metaclass 'gobject-class))
-  (let* ((supers (cons (supertype type-number) (implements type-number)))
-	 (class  (type-from-number type-number))
-	 (manual-slots (getf options :slots))
-	 (expanded-slots
-	  (mapcar
-	   #'(lambda (param)
-	       (with-slots (name flags value-type documentation) param
-	         (let* ((slot-name (default-slot-name name))
-;			(slot-type value-type) ;(type-from-number value-type t))
-			(slot-type (or (type-from-number value-type) value-type))
-			(accessor
-			 (default-slot-accessor class slot-name slot-type)));(type-from-number slot-type)))) ; temporary workaround for wrong topological sorting of types
 
-		   `(,slot-name
-		     :allocation :property
-		     :pname ,name
-		     ,@(cond
-			((and
-			  (member :writable flags)
-			  (member :readable flags)
-			  (not (member :construct-only flags)))
-			 (list :accessor accessor))
-			((and (member :writable flags)
-			      (not (member :construct-only flags)))
-			 (list :writer `(setf ,accessor)))
-			((member :readable flags)
-			 (list :reader accessor)))
-		     ,@(when (or
-			      (not (member :writable flags))
-			      (member :construct-only flags))
-		         (list :writable nil))
-		     ,@(when (not (member :readable flags))
-		         (list :readable nil))
-		     ,@(when (or 
-			      (member :construct flags)
-			      (member :construct-only flags))
-		         (list :construct t))
-		     ,@(when (or
-			      (member :construct flags)
-			      (member :construct-only flags)
-			      (member :writable flags))
-			 (list :initarg (intern (string slot-name) "KEYWORD")))
-		     :type ,slot-type
-		     ,@(when documentation
-			 (list :documentation documentation))))))
-	   (query-object-class-properties type-number))))
+(defun slot-definition-from-property (class property)
+  (with-slots (name flags value-type documentation) property
+    (let* ((slot-name (default-slot-name name))
+	   (slot-type (or (type-from-number value-type) value-type))
+	   (accessor (default-slot-accessor class slot-name slot-type)))
+      
+      `(,slot-name
+	:allocation :property :pname ,name
+	
+	;; accessors
+	,@(cond
+	   ((and
+	     (member :writable flags) (member :readable flags)
+	     (not (member :construct-only flags)))
+	    (list :accessor accessor))
+	   ((and (member :writable flags) (not (member :construct-only flags)))
+	    (list :writer `(setf ,accessor)))
+	   ((member :readable flags)
+	    (list :reader accessor)))
 
-    (dolist (slot-def (reverse manual-slots))
-      (let ((name (car slot-def))
-	    (pname (getf (cdr slot-def) :pname)))
-	(setq
-	 expanded-slots
-	 (delete-if
-	  #'(lambda (expanded-slot-def)
-	      (or
-	       (eq name (car expanded-slot-def))
-	       (and
-		pname
-		(string= pname (getf (cdr expanded-slot-def) :pname)))))
-	  expanded-slots))
+	;; readable/writable/construct
+	,@(when (or (not (member :writable flags))
+		    (member :construct-only flags))
+	    '(:writable nil))
+	,@(when (not (member :readable flags))
+	    '(:readable nil))
+	,@(when (or (member :construct flags) 
+		    (member :construct-only flags))
+	    '(:construct t))
+	
+	;; initargs
+	,@(when (or (member :construct flags)
+		    (member :construct-only flags)
+		    (member :writable flags))
+	    (list :initarg (intern (string slot-name) "KEYWORD")))
+	
+	:type ,slot-type
+	:documentation ,documentation))))
 
-	(unless (getf (cdr slot-def) :ignore)
-	  (push slot-def expanded-slots))))
-    
-    `(progn
-       (defclass ,class ,supers
-	 ,expanded-slots
-	 (:metaclass ,metaclass)
-	 (:alien-name ,(find-type-name type-number))))))
+
+(defun slot-definitions (class properties slots)
+  (loop 
+   with manual-slots = slots
+   for property in properties
+   unless (find-if 
+	   #'(lambda (slot)
+	       (destructuring-bind (name &rest args) slot
+		 (or 
+		  (equal (param-name property) (getf args :pname))
+		  (eq (default-slot-name (param-name property)) name))))
+	   manual-slots)
+   do (push (slot-definition-from-property class property) slots))
+  (delete-if #'(lambda (slot) (getf (rest slot) :ignore)) slots))
+
+
+(defun expand-gobject-type (type &optional options (metaclass 'gobject-class))
+  (let ((supers (cons (supertype type) (implements type)))
+	(class  (type-from-number type))
+	(slots (getf options :slots)))    
+    `(defclass ,class ,supers
+      ,(slot-definitions class (query-object-class-properties type) slots)
+      (:metaclass ,metaclass)
+      (:alien-name ,(find-type-name type)))))
 
 
 (register-derivable-type 'gobject "GObject" 'expand-gobject-type)
-
