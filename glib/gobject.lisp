@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.15 2004-10-31 00:56:29 espen Exp $
+;; $Id: gobject.lisp,v 1.16 2004-11-03 16:18:16 espen Exp $
 
 (in-package "GLIB")
 
@@ -58,8 +58,26 @@
 ;    (map 'nil #'gvalue-free values)
     )
   
+  (%object-weak-ref object)
   (apply #'call-next-method object initargs))
 
+
+(defmethod initialize-proxy ((object gobject) &rest initargs &key weak-ref)
+  (declare (ignore initargs))
+  (call-next-method)
+  (%object-weak-ref object)
+  (unless weak-ref
+    (object-ref object)))
+
+(def-callback weak-notify (void (data int) (location system-area-pointer))
+  (when (instance-cached-p location)
+    (warn "~A being finalized by the GObject system while still in existence in lisp" (find-cached-instance location))
+    (remove-cached-instance location)))
+
+(defbinding %object-weak-ref (object) nil
+  (object gobject)
+  ((callback weak-notify) pointer)
+  (0 unsigned-int))
 
 
 (defbinding (%gobject-new "g_object_new") () pointer
@@ -121,7 +139,7 @@
 (defun (setf object-data) (data object key &key (test #'eq))
   (%object-set-qdata-full
    object (quark-from-object key :test test)
-   (register-user-data data) *destroy-notify*)
+   (register-user-data data) (callback %destroy-user-data))
   data)
 
 (defbinding %object-get-qdata () unsigned-long

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.9 2004-10-28 19:29:00 espen Exp $
+;; $Id: proxy.lisp,v 1.10 2004-11-03 16:18:16 espen Exp $
 
 (in-package "GLIB")
 
@@ -165,6 +165,9 @@
     (when ref
       (ext:weak-pointer-value ref))))
 
+(defun instance-cached-p (location)
+  (gethash (system:sap-int location) *instance-cache*))
+
 (defun remove-cached-instance (location)
   (remhash (system:sap-int location) *instance-cache*))
 
@@ -178,6 +181,10 @@
 
   (defgeneric initialize-proxy (object &rest initargs))
   (defgeneric instance-finalizer (object)))
+
+(defmethod print-object ((instance proxy) stream)
+  (print-unreadable-object (instance stream :type t :identity nil)
+    (format stream "at 0x~X" (sap-int (proxy-location instance)))))
 
 
 (defmethod initialize-instance :after ((instance proxy)
@@ -206,8 +213,9 @@
     (declare (type symbol type) (type system-area-pointer location))
     (let ((free (proxy-class-free class)))
       #'(lambda ()
-	  (funcall free type location)
-	  (remove-cached-instance location)))))
+	  (when (instance-cached-p location)
+	     (remove-cached-instance location)
+	     (funcall free type location))))))
 
 
 (deftype-method translate-type-spec proxy (type-spec)
