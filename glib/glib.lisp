@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.9 2001-04-29 20:07:17 espen Exp $
+;; $Id: glib.lisp,v 1.10 2001-05-11 16:00:33 espen Exp $
 
 
 (in-package "GLIB")
@@ -25,15 +25,17 @@
 
 ;;;; Memory management
 
-(defbinding ("g_malloc0" allocate-memory) () pointer
+(defbinding (allocate-memory "g_malloc0") () pointer
   (size unsigned-long))
 
-(defbinding ("g_realloc" reallocate-memory) () pointer
+(defbinding (reallocate-memory "g_realloc") () pointer
   (address pointer)
   (size unsigned-long))
 
-(defbinding ("g_free" deallocate-memory) () nil
-  (address pointer))
+;(defbinding (deallocate-memory "g_free") () nil
+;  (address pointer))
+(defun deallocate-memory (address)
+  (declare (ignore address)))
 
 (defun copy-memory (from length &optional (to (allocate-memory length)))
   (kernel:system-area-copy from 0 to 0 (* 8 length))
@@ -123,15 +125,15 @@
 
 (deftype glist (type) `(or (null (cons ,type list))))
 
-(defbinding ("g_list_append" %glist-append-unsigned) () pointer
+(defbinding (%glist-append-unsigned "g_list_append") () pointer
   (glist pointer)
   (data unsigned))
 
-(defbinding ("g_list_append" %glist-append-signed) () pointer
+(defbinding (%glist-append-signed "g_list_append") () pointer
   (glist pointer)
   (data signed))
 
-(defbinding ("g_list_append" %glist-append-sap) () pointer
+(defbinding (%glist-append-sap "g_list_append") () pointer
   (glist pointer)
   (data pointer))
 
@@ -151,7 +153,7 @@
   (unless (null-pointer-p glist)
     (sap-ref-sap glist +size-of-sap+)))
   
-(defbinding ("g_list_free" glist-free) () nil
+(defbinding (glist-free "g_list_free") () nil
   (glist pointer))
 
 (deftype-method translate-type-spec glist (type-spec)
@@ -205,15 +207,15 @@
 
 (deftype gslist (type) `(or (null (cons ,type list))))
 
-(defbinding ("g_slist_prepend" %gslist-prepend-unsigned) () pointer
+(defbinding (%gslist-prepend-unsigned "g_slist_prepend") () pointer
   (gslist pointer)
   (data unsigned))
 
-(defbinding ("g_slist_prepend" %gslist-prepend-signed) () pointer
+(defbinding (%gslist-prepend-signed "g_slist_prepend") () pointer
   (gslist pointer)
   (data signed))
 
-(defbinding ("g_slist_prepend" %gslist-prepend-sap) () pointer
+(defbinding (%gslist-prepend-sap "g_slist_prepend") () pointer
   (gslist pointer)
   (data pointer))
 
@@ -223,7 +225,7 @@
     (signed `(%gslist-prepend-signed ,gslist ,value))
     (system-area-pointer `(%gslist-prepend-sap ,gslist ,value))))
   
-(defbinding ("g_slist_free" gslist-free) () nil
+(defbinding (gslist-free "g_slist_free") () nil
   (gslist pointer))
 
 (deftype-method translate-type-spec gslist (type-spec)
@@ -356,3 +358,25 @@
 		     ,(unreference-alien
 		       element-type '(sap-ref-sap c-vector offset))))))
 	 (deallocate-memory c-vector)))))
+
+
+(defun map-c-array (seqtype function location element-type length)
+  (let ((reader (intern-reader-function element-type))
+	(size (size-of element-type)))
+    (case seqtype 
+     ((nil)
+      (dotimes (i length)
+	(funcall function (funcall reader location (* i size)))))
+     (list
+      (let ((list nil))
+	(dotimes (i length)
+	  (push (funcall function (funcall reader location (* i size))) list))
+	(nreverse list)))
+     (t
+      (let ((sequence (make-sequence seqtype length)))
+	(dotimes (i length)
+	  (setf
+	   (elt sequence i)
+	   (funcall function (funcall reader location (* i size)))))
+	sequence)))))
+     
