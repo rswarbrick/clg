@@ -8,6 +8,7 @@
 
 (pkg-exists-p "atk" :atleast-version "1.6.0")
 
+(sharedlib:load-shared-library "libatk-1.0")
 
 (defsystem atk
     :depends-on (glib)
