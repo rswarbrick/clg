@@ -82,14 +82,11 @@
   (declare (ignore rest))
   name)
 
-(defexport defclass (class superclasses &optional slotdefs &rest options)
-  (declare (ignore superclasses options))
+(defun export-defclass-form (class slotdefs)
   (cons
    class
-   (apply
-    #'nconc
-    (map
-     'list
+   (apply #'nconc
+    (map 'list
      #'(lambda (slotdef)
 	 (if (symbolp slotdef)
 	     (list slotdef)
@@ -97,6 +94,14 @@
 	       (name &key reader writer accessor &allow-other-keys) slotdef
 	     (delete nil (list name reader (export-fname writer) accessor)))))
      slotdefs))))
+
+(defexport defclass (class superclasses &optional slotdefs &rest options)
+  (declare (ignore superclasses options))
+  (export-defclass-form class slotdefs))
+
+(defexport define-condition (class superclasses &optional slotdefs &rest options)
+  (declare (ignore superclasses options))
+  (export-defclass-form class slotdefs))
 
 (defexport defgeneric (fname &rest args)
   (declare (ignore args))
