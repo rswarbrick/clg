@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.6 2001-10-21 23:22:04 espen Exp $
+;; $Id: gtk.lisp,v 1.7 2001-11-12 22:34:28 espen Exp $
 
 
 (in-package "GTK")
@@ -39,15 +39,10 @@
 	(format nil "Gtk+ v~A.~A" major minor) 
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
+(defbinding get-default-language () string)
 
 
-;;; Label
-
-(defbinding label-select-region () nil
-  (label label)
-  (start int)
-  (end int))
-
+;;; Acccel group
 
 
 ;;; Acccel label
@@ -56,18 +51,88 @@
   (accel-label accel-label))
 
 
+;;; Adjustment
+
+(defbinding adjustment-changed () nil
+  (adjustment adjustment))
+
+(defbinding adjustment-value-changed () nil
+  (adjustment adjustment))
+
+(defbinding adjustment-clamp-page () nil
+  (adjustment adjustment)
+  (lower single-float)
+  (upper single-float))
+
+
+
+;;; Alignment -- no functions
+;;; Arrow -- no functions
+
+
+
+;;; Aspect frame
+
 
 ;;; Bin
 
-(defbinding (bin-child "gtk_bin_get_child") () widget
-  (bin bin))
-
 (defun (setf bin-child) (child bin)
-  (let ((old-child (bin-child bin)))
-    (when old-child
-      (container-remove bin old-child)))
+  (when-bind (current-child (bin-child bin))
+    (container-remove bin current-child))
   (container-add bin child)
   child)
+
+
+
+;;; Button box -- no functions
+
+
+;;; Binding
+
+
+
+;;; Box
+
+(defbinding box-pack-start () nil
+  (box box)
+  (child widget)
+  (expand boolean)
+  (fill boolean)
+  (padding unsigned-int))
+
+(defbinding box-pack-end () nil
+  (box box)
+  (child widget)
+  (expand boolean)
+  (fill boolean)
+  (padding unsigned-int))
+
+(defun box-pack (box child &key (pack :start) (expand t) (fill t) (padding 0))
+  (if (eq pack :start)
+      (box-pack-start box child expand fill padding)
+    (box-pack-end box child expand fill padding)))
+
+(defbinding box-reorder-child () nil
+  (box box)
+  (child widget)
+  (position int))
+
+(defbinding box-query-child-packing () nil
+  (box box)
+  (child widget)
+  (expand boolean :out)
+  (fill boolean :out)
+  (padding unsigned-int :out)
+  (pack-type pack-type :out))
+
+(defbinding box-set-child-packing () nil
+  (box box)
+  (child widget)
+  (expand boolean)
+  (fill boolean)
+  (padding unsigned-int)
+  (pack-type pack-type))
+
 
 
 ;;; Button
@@ -89,19 +154,247 @@
 
 
 
+;;; Calendar
+
+(defbinding calendar-select-month () int
+  (calendar calendar)
+  (month unsigned-int)
+  (year unsigned-int))
+
+(defbinding calendar-select-day () nil
+  (calendar calendar)
+  (day unsigned-int))
+
+(defbinding calendar-mark-day () int
+  (calendar calendar)
+  (day unsigned-int))
+
+(defbinding calendar-unmark-day () int
+  (calendar calendar)
+  (day unsigned-int))
+
+(defbinding calendar-clear-marks () nil
+  (calendar calendar))
+
+(defbinding calendar-display-options () nil
+  (calendar calendar)
+  (options calendar-display-options))
+
+(defbinding (calendar-date "gtk_calendar_get_date") () nil
+  (calendar calendar)
+  (year unsigned-int :out)
+  (month unsigned-int :out)
+  (day unsigned-int :out))
+
+(defbinding calendar-freeze () nil
+  (calendar calendar))
+
+(defbinding calendar-thaw () nil
+  (calendar calendar))
+
+
+
+;;; Cell editable
+
+
+
+;;; Cell renderer
+
+
+
+;;; Cell renderer pixbuf -- no functions
+
+
+
+;;; Cell renderer text
+
+
+
+;;; Cell renderer toggle -- no functions
+
+
+
+;;; Check button -- no functions
+
+
+
+;;; Check menu item
+
+(defbinding check-menu-item-toggled () nil
+  (check-menu-item check-menu-item))
+
+
+
+;;; Clipboard
+
+
+;;; Color selection
+
+(defbinding (color-selection-is-adjusting-p
+	     "gtk_color_selection_is_adjusting") () boolean
+  (colorsel color-selection))
+
+
+
+;;; Color selection dialog -- no functions
+
+
+
+;;; Combo
+
+(defbinding combo-set-value-in-list () nil
+  (combo combo)
+  (value boolean)
+  (ok-if-empty boolean))
+
+(defbinding combo-set-item-string () nil
+  (combo combo)
+  (item item)
+  (item-value string))
+
+(defbinding combo-set-popdown-strings () nil
+  (combo combo)
+  (strings (glist string)))
+
+(defbinding combo-disable-activate () nil
+  (combo combo))
+
+
+
+;;; Dialog
+
+(defmethod initialize-instance ((dialog dialog) &rest initargs)
+  (apply #'call-next-method dialog (plist-remove initargs :child))
+  (dolist (button-definition (get-all initargs :button))
+    (apply #'dialog-add-button dialog button-definition))
+  (dolist (child (get-all initargs :child))
+    (apply #'dialog-add-child dialog (mklist child))))
+
+
+(defvar %*response-id-key* (gensym))
+
+(defun %dialog-find-response-id-num (dialog response-id create-p)
+  (or
+   (cadr (assoc response-id (rest (type-expand-1 'response-type))))
+   (let* ((response-ids (object-data dialog %*response-id-key*))
+	  (response-id-num (position response-id response-ids)))
+    (cond
+     (response-id-num)
+     (create-p
+      (cond
+       (response-ids
+	(setf (cdr (last response-ids)) (list response-id))
+	(1- (length response-ids)))
+       (t
+	(setf (object-data dialog %*response-id-key*) (list response-id))
+	0)))
+     (t
+      (error "Invalid response id: ~A" response-id))))))
+
+(defun %dialog-find-response-id (dialog response-id-num)
+  (if (< response-id-num 0)
+      (car
+       (rassoc
+	(list response-id-num)
+	(rest (type-expand-1 'response-type)) :test #'equalp))
+    (nth response-id-num (object-data dialog %*response-id-key*))))
+
+
+(defmethod signal-connect ((dialog dialog) signal function &key object)
+  (case signal
+    (response
+     #'(lambda (dialog response-id-num)
+	 (let ((response-id (%dialog-find-response-id dialog response-id-num)))
+	   (cond
+	    ((eq object t)  (funcall function dialog response-id))
+	    (object (funcall function object response-id))
+	    (t (funcall function response-id))))))
+    (t
+     (call-next-method))))
+
+
+(defbinding dialog-response (dialog response-id) nil
+  (dialog dialog)
+  ((%dialog-find-response-id-num dialog response-id nil) int))
+  
+(defbinding %dialog-set-default-response () nil
+  (dialog dialog)
+  (response-id-num int))
+
+(defun dialog-set-default-response (dialog response-id)
+  (%dialog-set-default-response
+   dialog (%dialog-find-response-id-num dialog response-id nil)))
+
+(defbinding dialog-set-response-sensitive (dialog response-id sensitive) nil
+  (dialog dialog)
+  ((%dialog-find-response-id-num dialog response-id nil) int)
+  (sensitive boolean))
+
+
+(defbinding %dialog-add-button () button
+  (dialog dialog)
+  (text string)
+  (response-id-num int))
+
+(defun dialog-add-button (dialog label &optional response-id default-p)
+  (let* ((response-id-num
+	  (if response-id
+	      (%dialog-find-response-id-num dialog response-id t)
+	    (length (object-data dialog %*response-id-key*))))
+	 (button (%dialog-add-button dialog label response-id-num)))
+    (unless response-id
+      (%dialog-find-response-id-num dialog button t))
+    (when default-p
+      (%dialog-set-default-response dialog response-id-num))
+    button))
+
+
+(defbinding %dialog-add-action-widget () button
+  (dialog dialog)
+  (action-widget widget)
+  (response-id-num int))
+
+(defun dialog-add-action-widget (dialog widget &optional (response-id widget)
+				 default-p)
+  (let ((response-id-num (%dialog-find-response-id-num dialog response-id t)))
+    (%dialog-add-action-widget dialog widget response-id-num)
+    (when default-p
+      (%dialog-set-default-response dialog response-id-num))
+    widget))
+  
+
+(defun dialog-add-child (dialog child &rest args)
+  (apply #'container-add (slot-value dialog 'vbox) child args))
+
+(defmethod container-children ((dialog dialog))
+  (container-children (dialog-vbox dialog)))
+
+(defmethod (setf container-children) (children (dialog dialog))
+  (setf (container-children (dialog-vbox dialog)) children))
+
+
+
+;;; Drawing area -- no functions
+
+
+
+
+
+
+
 ;;; Toggle button
 
 (defbinding toggle-button-toggled () nil
   (toggle-button toggle-button))
 
 
+;;; Label
 
-;;; Check button
+(defbinding label-select-region () nil
+  (label label)
+  (start int)
+  (end int))
 
-(defmethod (setf button-label) ((label string) (button check-button))
-  (call-next-method)
-  (setf (misc-xalign (bin-child button)) 0.0)
-  label)
 
 
 
@@ -189,13 +482,6 @@
 
 
 
-;;; Check menu item
-
-(defbinding check-menu-item-toggled () nil
-  (check-menu-item check-menu-item))
-
-
-
 ;;; Radio menu item
 
 (defbinding %radio-menu-item-get-group () pointer
@@ -277,121 +563,14 @@
 
 
 
-;;; Box
-
-(defbinding box-pack-start () nil
-  (box box)
-  (child widget)
-  (expand boolean)
-  (fill boolean)
-  (padding unsigned-int))
-
-(defbinding box-pack-end () nil
-  (box box)
-  (child widget)
-  (expand boolean)
-  (fill boolean)
-  (padding unsigned-int))
-
-(defun box-pack (box child &key (pack :start) (expand t) (fill t) (padding 0))
-  (if (eq pack :start)
-      (box-pack-start box child expand fill padding)
-    (box-pack-end box child expand fill padding)))
-
-(defbinding box-reorder-child () nil
-  (box box)
-  (child widget)
-  (position int))
-
-(defbinding box-query-child-packing () nil
-  (box box)
-  (child widget :out)
-  (expand boolean :out)
-  (fill boolean :out)
-  (padding unsigned-int :out)
-  (pack-type pack-type :out))
-
-(defbinding box-set-child-packing () nil
-  (box box)
-  (child widget)
-  (expand boolean)
-  (fill boolean)
-  (padding unsigned-int)
-  (pack-type pack-type))
 
 
 
-;;; Button box
-
-(defbinding button-box-get-child-size () nil
-  (button-box button-box)
-  (min-width int :out)
-  (min-height int :out))
-
-(defbinding button-box-set-child-size () nil
-  (button-box button-box)
-  (min-width int)
-  (min-height int))
-
-(defbinding button-box-get-child-ipadding () nil
-  (button-box button-box)
-  (ipad-x int :out)
-  (ipad-y int :out))
-
-(defbinding button-box-set-child-ipadding () nil
-  (button-box button-box)
-  (ipad-x int)
-  (ipad-y int))
 
 
 
-;;; Color selection
-
-; (defbinding %color-selection-get-previous-color () nil
-;   (colorsel color-selection)
-;   (color pointer))
-
-; (defun color-selection-previous-color (colorsel)
-;   (let ((color (allocate-memory (* (size-of 'double-float) 4))))
-;     (%color-selection-get-previous-color colorsel color)
-;     (funcall (get-from-alien-function '(vector double-float 4)) color)))
-
-; (defbinding %color-selection-set-previous-color () nil
-;   (colorsel color-selection)
-;   (color (vector double-float 4)))
-
-; (defun (setf color-selection-previous-color) (color colorsel)
-;   (%color-selection-set-previous-color colorsel color)
-;   color)
-
-(defbinding (color-selection-is-adjusting-p
-	     "gtk_color_selection_is_adjusting") () boolean
-  (colorsel color-selection))
 
 
-
-;;; Combo
-
-(defbinding combo-set-value-in-list () nil
-  (combo combo)
-  (val boolean)
-  (ok-if-empty boolean))
-
-; (defbinding ("gtk_combo_set_item_string" (setf combo-item-string)) () nil
-;   (combo combo)
-;   (item item)
-;   (item-value string))
-
-(defbinding %combo-set-popdown-strings () nil
-  (combo combo)
-  (strings (glist string)))
-
-(defun (setf combo-popdown-strings) (strings combo)
-  (%combo-set-popdown-strings combo strings)
-  strings)
-
-(defbinding combo-disable-activate () nil
-  (combo combo))
 
 
 
@@ -778,118 +957,6 @@
     (%table-get-default-col-spacing table)))
   
 
-;;; Dialog
-
-(defmethod initialize-instance ((dialog dialog) &rest initargs)
-  (apply #'call-next-method dialog (plist-remove initargs :child))
-  (dolist (button-definition (get-all initargs :button))
-    (apply #'dialog-add-button dialog button-definition))
-  (dolist (child (get-all initargs :child))
-    (apply #'dialog-add-child dialog (mklist child))))
-
-
-(defvar %*response-id-key* (gensym))
-
-(defun %dialog-find-response-id-num (dialog response-id create-p)
-  (or
-   (cadr (assoc response-id (rest (type-expand-1 'response-type))))
-   (let* ((response-ids (object-data dialog %*response-id-key*))
-	  (response-id-num (position response-id response-ids)))
-    (cond
-     (response-id-num)
-     (create-p
-      (cond
-       (response-ids
-	(setf (cdr (last response-ids)) (list response-id))
-	(1- (length response-ids)))
-       (t
-	(setf (object-data dialog %*response-id-key*) (list response-id))
-	0)))
-     (t
-      (error "Invalid response id: ~A" response-id))))))
-
-(defun %dialog-find-response-id (dialog response-id-num)
-  (if (< response-id-num 0)
-      (car
-       (rassoc
-	(list response-id-num)
-	(rest (type-expand-1 'response-type)) :test #'equalp))
-    (nth response-id-num (object-data dialog %*response-id-key*))))
-
-
-(defmethod signal-connect ((dialog dialog) signal function &key object)
-  (case signal
-    (response
-     #'(lambda (dialog response-id-num)
-	 (let ((response-id (%dialog-find-response-id dialog response-id-num)))
-	   (cond
-	    ((eq object t)  (funcall function dialog response-id))
-	    (object (funcall function object response-id))
-	    (t (funcall function response-id))))))
-    (t
-     (call-next-method))))
-
-
-(defbinding dialog-response (dialog response-id) nil
-  (dialog dialog)
-  ((%dialog-find-response-id-num dialog response-id nil) int))
-  
-(defbinding %dialog-set-default-response () nil
-  (dialog dialog)
-  (response-id-num int))
-
-(defun dialog-set-default-response (dialog response-id)
-  (%dialog-set-default-response
-   dialog (%dialog-find-response-id-num dialog response-id nil)))
-
-(defbinding dialog-set-response-sensitive (dialog response-id sensitive) nil
-  (dialog dialog)
-  ((%dialog-find-response-id-num dialog response-id nil) int)
-  (sensitive boolean))
-
-
-(defbinding %dialog-add-button () button
-  (dialog dialog)
-  (text string)
-  (response-id-num int))
-
-(defun dialog-add-button (dialog label &optional response-id default-p)
-  (let* ((response-id-num
-	  (if response-id
-	      (%dialog-find-response-id-num dialog response-id t)
-	    (length (object-data dialog %*response-id-key*))))
-	 (button (%dialog-add-button dialog label response-id-num)))
-    (unless response-id
-      (%dialog-find-response-id-num dialog button t))
-    (when default-p
-      (%dialog-set-default-response dialog response-id-num))
-    button))
-
-
-(defbinding %dialog-add-action-widget () button
-  (dialog dialog)
-  (action-widget widget)
-  (response-id-num int))
-
-(defun dialog-add-action-widget (dialog widget &optional (response-id widget)
-				 default-p)
-  (let ((response-id-num (%dialog-find-response-id-num dialog response-id t)))
-    (%dialog-add-action-widget dialog widget response-id-num)
-    (when default-p
-      (%dialog-set-default-response dialog response-id-num))
-    widget))
-  
-
-(defun dialog-add-child (dialog child &rest args)
-  (apply #'container-add (slot-value dialog 'vbox) child args))
-
-(defmethod container-children ((dialog dialog))
-  (container-children (dialog-vbox dialog)))
-
-(defmethod (setf container-children) (children (dialog dialog))
-  (setf (container-children (dialog-vbox dialog)) children))
-
-
 
 ;;; Toolbar
 
@@ -1000,63 +1067,8 @@
 
 
 
-;;; Calendar
-
-(defbinding calendar-select-month () int
-  (calendar calendar)
-  (month unsigned-int)
-  (year unsigned-int))
-
-(defbinding calendar-select-day () nil
-  (calendar calendar)
-  (day unsigned-int))
-
-(defbinding calendar-mark-day () int
-  (calendar calendar)
-  (day unsigned-int))
-
-(defbinding calendar-unmark-day () int
-  (calendar calendar)
-  (day unsigned-int))
-
-(defbinding calendar-clear-marks () nil
-  (calendar calendar))
-
-(defbinding calendar-display-options () nil
-  (calendar calendar)
-  (options calendar-display-options))
-
-(defbinding (calendar-date "gtk_calendar_get_date") () nil
-  (calendar calendar)
-  (year unsigned-int :out)
-  (month unsigned-int :out)
-  (day unsigned-int :out))
-
-(defbinding calendar-freeze () nil
-  (calendar calendar))
-
-(defbinding calendar-thaw () nil
-  (calendar calendar))
 
 
-
-;;; Drawing area
-
-
-; (defbinding ("gtk_drawing_area_size" %drawing-area-set-size) () nil
-;   (drawing-area drawing-area)
-;   (width int)
-;   (height int))
-
-; (defun (setf drawing-area-size) (size drawing-area)
-;   (%drawing-area-set-size drawing-area (svref size 0) (svref size 1))
-;   (values (svref size 0) (svref size 1)))
-
-; ;; gtkglue.c
-; (defbinding ("gtk_drawing_area_get_size" drawing-area-size) () nil
-;   (drawing-area drawing-area)
-;   (width int :out)
-;   (height int :out))
 
 
 
@@ -1222,19 +1234,6 @@
   (progress-bar progress-bar))
 
 
-
-;;; Adjustment
-
-(defbinding adjustment-changed () nil
-  (adjustment adjustment))
-
-(defbinding adjustment-value-changed () nil
-  (adjustment adjustment))
-
-(defbinding adjustment-clamp-page () nil
-  (adjustment adjustment)
-  (lower single-float)
-  (upper single-float))
 
 
 
