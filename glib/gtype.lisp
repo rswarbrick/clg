@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.19 2004-11-07 01:21:04 espen Exp $
+;; $Id: gtype.lisp,v 1.20 2004-11-13 16:37:09 espen Exp $
 
 (in-package "GLIB")
 
@@ -27,6 +27,47 @@
 
 (deftype type-number () '(unsigned 32))
 
+(deftype gtype () 'symbol)
+
+(defmethod alien-type ((type (eql 'gtype)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'type-number))
+
+(defmethod size-of ((type (eql 'gtype)) &rest args)
+  (declare (ignore type args))
+  (size-of 'type-number))
+
+(defmethod to-alien-form (gtype (type (eql 'gtype)) &rest args)
+  (declare (ignore type args))
+  `(find-type-number ,gtype t)) 
+
+(defmethod to-alien-function ((type (eql 'gtype)) &rest args)
+  (declare (ignore type args))
+  #'(lambda (gtype)
+      (find-type-number gtype t)))
+
+(defmethod from-alien-form (type-number (type (eql 'gtype)) &rest args)
+  (declare (ignore type args))
+  `(type-from-number ,type-number t)) 
+
+(defmethod from-alien-function ((type (eql 'gtype)) &rest args)
+  (declare (ignore type args))
+  #'(lambda (type-number)
+      (type-from-number type-number t)))
+
+(defmethod writer-function ((type (eql 'gtype)) &rest args)
+  (declare (ignore type))
+  (let ((writer (writer-function 'type-number)))
+    #'(lambda (gtype location &optional (offset 0))
+	(funcall writer (find-type-number gtype t) location offset))))
+
+(defmethod reader-function ((type (eql 'gtype)) &rest args)
+  (declare (ignore type))
+  (let ((reader (reader-function 'type-number)))
+    #'(lambda (location &optional (offset 0))
+	(type-from-number (funcall reader location offset) t))))
+
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass type-query (struct)
     ((type-number :allocation :alien :type type-number)
@@ -36,14 +77,9 @@
     (:metaclass struct-class)))
 
 
-(defbinding %type-query () nil
-  (type type-number)
-  (query type-query))
-
-(defun type-query (type)
-  (let ((query (make-instance 'type-query)))
-    (%type-query (find-type-number type t) query)
-    query))
+(defbinding type-query (type) nil
+  ((find-type-number type t) type-number)
+  ((make-instance 'type-query) type-query :return))
 
 (defun type-instance-size (type)
   (slot-value (type-query type) 'instance-size))
