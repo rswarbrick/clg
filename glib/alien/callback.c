@@ -16,15 +16,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.3 2004-11-01 00:08:50 espen Exp $ */
+/* $Id: callback.c,v 1.4 2005-02-14 00:38:47 espen Exp $ */
 
 #include <glib-object.h>
 
-#ifdef CMUCL
-#include "lisp.h"
+/* #ifdef CMUCL */
+/* #include "lisp.h" */
 
-void (*log_handler) (gchar*, guint, gchar*);
-#endif
+/* void (*log_handler) (gchar*, guint, gchar*); */
+/* #endif */
 
 
 
@@ -42,15 +42,15 @@ clg_callback_closure_new (gpointer callback_id, gpointer callback,
 }
 
 
-void
-g_logv (const gchar   *log_domain,
-	GLogLevelFlags log_level,
-	const gchar   *format,
-	va_list	       args1)
-{
-  gchar *msg = g_strdup_vprintf (format, args1);
-  log_handler (log_domain, log_level, msg);
+/* void */
+/* g_logv (const gchar   *log_domain, */
+/* 	GLogLevelFlags log_level, */
+/* 	const gchar   *format, */
+/* 	va_list	       args1) */
+/* { */
+/*   gchar *msg = g_strdup_vprintf (format, args1); */
+/*   log_handler (log_domain, log_level, msg); */
 
-  /* Normally log_handler won't return, so we will be leaking this memory */
-  g_free (msg);
-}
+/*   /\* Normally log_handler won't return, so we will be leaking this memory *\/ */
+/*   g_free (msg); */
+/* } */
