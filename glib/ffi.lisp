@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.9 2004-12-19 15:31:26 espen Exp $
+;; $Id: ffi.lisp,v 1.10 2004-12-26 11:40:14 espen Exp $
 
 (in-package "GLIB")
 
@@ -250,6 +250,9 @@
 (def-type-method reader-function ())
 (def-type-method destroy-function ())
 
+(def-type-method unbound-value ()
+  "First return value is true if the type has an unbound value, second return value is the actual unbound value")
+
 
 ;; Sizes of fundamental C types in bytes (8 bits)
 (defconstant +size-of-short+ 2)
@@ -339,6 +342,10 @@
       (#.+bits-of-short+ +size-of-short+)
       ((* #.+bits-of-int+) +size-of-int+)
       (#.+bits-of-long+ +size-of-long+))))
+
+(defmethod unbound-value ((type t) &rest args)
+  (declare (ignore type args))
+  nil)
 
 (defmethod writer-function ((type (eql 'signed-byte)) &rest args)
   (declare (ignore type))
@@ -576,6 +583,9 @@
 	(deallocate-memory (sap-ref-sap location offset))
 	(setf (sap-ref-sap location offset) (make-pointer 0)))))
 
+(defmethod unbound-value ((type (eql 'string)) &rest args)
+  (declare (ignore type args))
+  (values t nil))
 
 (defmethod alien-type ((type (eql 'pathname)) &rest args)
   (declare (ignore type args))
@@ -630,6 +640,10 @@
 (defmethod destroy-function ((type (eql 'pathname)) &rest args)
   (declare (ignore type args))
   (destroy-function 'string))
+
+(defmethod unbound-value ((type (eql 'pathname)) &rest args)
+  (declare (ignore type args))
+  (unbound-value 'string))
 
 
 (defmethod alien-type ((type (eql 'boolean)) &rest args)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.16 2004-12-19 23:33:57 espen Exp $
+;; $Id: proxy.lisp,v 1.17 2004-12-26 11:40:14 espen Exp $
 
 (in-package "GLIB")
 
@@ -84,23 +84,20 @@
 		  (setf (slot-value slotd 'reader-function)
 			#'(lambda (object)
 			    (unless reader
-			    (setq reader
-			     (mkbinding getter 
-			      (slot-definition-type slotd) 'pointer)))
+			      (setq reader
+			       (mkbinding getter 
+				(slot-definition-type slotd) 'pointer)))
 			    (funcall reader (proxy-location object))))))))))
 
       (setf 
        (slot-value slotd 'boundp-function)
        (cond
-	((and 
-	  (not (slot-boundp slotd 'unbound))
-	  (not (slot-boundp slotd 'boundp)))
-	 #'(lambda (object) (declare (ignore object)) t))  
 	((slot-boundp slotd 'unbound)
 	 (let ((unbound-value (slot-value slotd 'unbound)))
-	   (lambda (object)
-	     (not (eq (funcall getter-function object) unbound-value)))))
-	((let ((boundp (slot-value slotd 'boundp)))
+	   #'(lambda (object)
+	       (not (eq (funcall getter-function object) unbound-value)))))
+	((slot-boundp slotd 'boundp)
+	 (let ((boundp (slot-value slotd 'boundp)))
 	   (etypecase boundp
 	     (function boundp)
 	     (symbol #'(lambda (object)
@@ -111,7 +108,13 @@
 			     (setq reader
 			      (mkbinding boundp
 			       (slot-definition-type slotd) 'pointer)))
-			   (funcall reader (proxy-location object))))))))))
+			   (funcall reader (proxy-location object))))))))
+	((multiple-value-bind (unbound-p unbound-value)
+	     (unbound-value (slot-definition-type slotd))
+	   (when unbound-p
+	     #'(lambda (object)
+		 (not (eq (funcall getter-function object) unbound-value))))))
+	(#'(lambda (object) (declare (ignore object)) t))))
 
       (setf
        (slot-value slotd 'reader-function)
@@ -119,17 +122,26 @@
 	((slot-boundp slotd 'unbound)
 	 (let ((unbound (slot-value slotd 'unbound))
 	       (slot-name (slot-definition-name slotd)))
-	   (lambda (object)
-	     (let ((value (funcall getter-function object)))
-	       (if (eq value unbound)
-		   (slot-unbound (class-of object) object slot-name)
-		 value)))))
+	   #'(lambda (object)
+	       (let ((value (funcall getter-function object)))
+		 (if (eq value unbound)
+		     (slot-unbound (class-of object) object slot-name)
+		   value)))))
 	((slot-boundp slotd 'boundp)
 	 (let ((boundp-function (slot-value slotd 'boundp-function)))
-	   (lambda (object)
-	     (and
-	      (funcall boundp-function object)
-	      (funcall getter-function object)))))
+	   #'(lambda (object)
+	       (and
+		(funcall boundp-function object)
+		(funcall getter-function object)))))
+	((multiple-value-bind (unbound-p unbound-value)
+	     (unbound-value (slot-definition-type slotd))
+	   (let ((slot-name (slot-definition-name slotd)))
+	     (when unbound-p
+	       #'(lambda (object)
+		   (let ((value (funcall getter-function object)))
+		     (if (eq value unbound-value)
+			 (slot-unbound (class-of object) object slot-name)
+			 value)))))))
 	(getter-function)))))
 
   (setf 
@@ -457,6 +469,9 @@
   #'(lambda (location &optional (offset 0))
       (unreference-foreign class (sap-ref-sap location offset))))
 
+(defmethod unbound-value ((class proxy-class) &rest args)
+  (declare (ignore type args))
+  (values t nil))
 
 (defgeneric ensure-proxy-instance (class location)
   (:documentation "Returns a proxy object representing the foreign object at the give location."))
