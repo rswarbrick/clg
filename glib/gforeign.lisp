@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.11 2001-10-21 16:50:43 espen Exp $
+;; $Id: gforeign.lisp,v 1.12 2001-10-21 21:33:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -395,19 +395,17 @@
 (defun mkbinding-late (name return-type &rest arg-types)
   (if (every-type-translateable-p (cons return-type arg-types))
       (apply #'mkbinding name return-type arg-types)
-    (let* ((binding
-	    #'(lambda (&rest args)
-		(cond
-		 ((every-type-translateable-p (cons return-type arg-types))
-		  (setq binding (apply #'mkbinding name return-type arg-types))
-		  (apply binding args))
-		 (t
-		  (dolist (type-spec (cons return-type arg-types))
-		    (unless (type-translateable-p type-spec)
-		      (error "Can't translate type ~A" type-spec))))))))
+    (let ((binding nil))
       #'(lambda (&rest args)
-	  (apply binding args)))))
-       
+	  (cond
+	   (binding (apply binding args))
+	   ((every-type-translateable-p (cons return-type arg-types))
+	    (setq binding (apply #'mkbinding name return-type arg-types))
+	    (apply binding args))
+	   (t
+	    (dolist (type-spec (cons return-type arg-types))
+	      (unless (type-translateable-p type-spec)
+		(error "Can't translate type ~A" type-spec)))))))))
 
   
 
