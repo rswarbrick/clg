@@ -15,15 +15,10 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.14 2005-02-01 15:24:52 espen Exp $
+;; $Id: gboxed.lisp,v 1.15 2005-02-09 22:59:03 espen Exp $
 
 (in-package "GLIB")
 
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library #.(concatenate 'string
-			  (pkg-config:pkg-variable "glib-2.0" "libdir")
-			  "/libgobject-2.0.so")))
 
 (defclass boxed (struct)
   ()
@@ -115,3 +110,9 @@
 ;;   (when weak-ref
 ;;     (unreference-alien type-spec c-string)))
 
+
+
+;;;; Zero terminated vector of strings
+
+(deftype strings () '(vector-null string))
+(register-type 'strings "GStrv")
