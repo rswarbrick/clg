@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.19 2004-11-12 13:27:41 espen Exp $
+;; $Id: glib.lisp,v 1.20 2004-11-21 17:37:24 espen Exp $
 
 
 (in-package "GLIB")
@@ -121,36 +121,20 @@
 
 ;;;; Linked list (GList)
 
-(deftype glist (type &key copy) 
-  (declare (ignore copy))
+(deftype glist (type) 
   `(or (null (cons ,type list))))
 
-(defbinding (%glist-append-unsigned "g_list_append") () pointer
+(defbinding (%glist-append "g_list_append") () pointer
   (glist pointer)
-  (data unsigned))
-
-(defbinding (%glist-append-signed "g_list_append") () pointer
-  (glist pointer)
-  (data signed))
-
-(defbinding (%glist-append-sap "g_list_append") () pointer
-  (glist pointer)
-  (data pointer))
+  (nil null))
 
 (defun make-glist (type list)
-  (let ((new-element (ecase (alien-type type)
-		       (system-area-pointer #'%glist-append-sap)
-		       ((signed-byte c-call:short c-call:int c-call:long)
-			#'%glist-append-signed)
-		       ((unsigned-byte c-call:unsigned-short 
-			 c-call:unsigned-int c-call:unsigned-long)
-			#'%glist-append-unsigned)))
-	(to-alien (to-alien-function type)))
-    (loop
-     for element in list
-     as glist = (funcall new-element (or glist (make-pointer 0)) 
-		 (funcall to-alien element))
-     finally (return glist))))
+  (loop
+   with writer = (writer-function type)
+   for element in list
+   as glist = (%glist-append (or glist (make-pointer 0)))
+   do (funcall writer element glist)
+   finally (return glist)))
 
 (defun glist-next (glist)
   (unless (null-pointer-p glist)
@@ -181,6 +165,13 @@
 (defbinding (glist-free "g_list_free") () nil
   (glist pointer))
 
+(defun destroy-glist (glist element-type)
+  (loop
+   with destroy = (destroy-function element-type)
+   as tmp = glist then (glist-next tmp)
+   until (null-pointer-p tmp)
+   do (funcall destroy tmp 0))
+  (glist-free glist))
 
 (defmethod alien-type ((type (eql 'glist)) &rest args)
   (declare (ignore type args))
@@ -207,7 +198,7 @@
     `(let ((glist ,glist))
       (unwind-protect
 	   (map-glist 'list #'identity glist ',element-type)
-	(glist-free glist)))))
+	(destroy-glist glist ',element-type)))))
 
 (defmethod from-alien-function ((type (eql 'glist)) &rest args)
   (declare (ignore type))
@@ -215,52 +206,57 @@
     #'(lambda (glist)
 	(unwind-protect
 	     (map-glist 'list #'identity glist element-type)
-	  (glist-free glist)))))
+	  (destroy-glist glist element-type)))))
+
+(defmethod copy-from-alien-form (glist (type (eql 'glist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(map-glist 'list #'identity ,glist ',element-type)))
+
+(defmethod copy-from-alien-function ((type (eql 'glist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (glist)
+	(map-glist 'list #'identity glist element-type))))
 
 (defmethod cleanup-form (glist (type (eql 'glist)) &rest args)
-  (declare (ignore type args))
-  `(glist-free ,glist))
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(destroy-glist ,glist ',element-type)))
 
 (defmethod cleanup-function ((type (eql 'glist)) &rest args)
   (declare (ignore type args))
-  #'glist-free)
-
+  (destructuring-bind (element-type) args
+    #'(lambda (glist)
+	(destroy-glist glist element-type))))
 
 
 ;;;; Single linked list (GSList)
 
 (deftype gslist (type) `(or (null (cons ,type list))))
 
-(defbinding (%gslist-prepend-unsigned "g_slist_prepend") () pointer
+(defbinding (%gslist-prepend "g_slist_prepend") () pointer
   (gslist pointer)
-  (data unsigned))
-
-(defbinding (%gslist-prepend-signed "g_slist_prepend") () pointer
-  (gslist pointer)
-  (data signed))
-
-(defbinding (%gslist-prepend-sap "g_slist_prepend") () pointer
-  (gslist pointer)
-  (data pointer))
+  (nil null))
 
 (defun make-gslist (type list)
-  (let ((new-element (ecase (alien-type type)
-		       (system-area-pointer #'%gslist-prepend-sap)
-		       ((signed-byte c-call:short c-call:int c-call:long)
-			#'%gslist-prepend-signed)
-		       ((unsigned-byte c-call:unsigned-short 
-			 c-call:unsigned-int c-call:unsigned-long)
-			#'%gslist-prepend-unsigned)))
-	(to-alien (to-alien-function type)))
-    (loop
-     for element in (reverse list)
-     as gslist = (funcall new-element (or gslist (make-pointer 0)) 
-		  (funcall to-alien element))
-     finally (return gslist))))
+  (loop
+   with writer = (writer-function type)
+   for element in (reverse list)
+   as gslist = (%gslist-prepend (or gslist (make-pointer 0)))
+   do (funcall writer element gslist)
+   finally (return gslist)))
 
 (defbinding (gslist-free "g_slist_free") () nil
   (gslist pointer))
 
+(defun destroy-gslist (gslist element-type)
+  (loop
+   with destroy = (destroy-function element-type)
+   as tmp = gslist then (glist-next tmp)
+   until (null-pointer-p tmp)
+   do (funcall destroy tmp 0))
+  (gslist-free gslist))
 
 (defmethod alien-type ((type (eql 'gslist)) &rest args)
   (declare (ignore type args))
@@ -287,7 +283,7 @@
     `(let ((gslist ,gslist))
       (unwind-protect
 	   (map-glist 'list #'identity gslist ',element-type)
-	(gslist-free gslist)))))
+	(destroy-gslist gslist ',element-type)))))
 
 (defmethod from-alien-function ((type (eql 'gslist)) &rest args)
   (declare (ignore type))
@@ -295,15 +291,29 @@
     #'(lambda (gslist)
 	(unwind-protect
 	     (map-glist 'list #'identity gslist element-type)
-	  (gslist-free gslist)))))
+	  (destroy-gslist gslist element-type)))))
 
-(defmethod cleanup-form (list (type (eql 'gslist)) &rest args)
+(defmethod copy-from-alien-form (gslist (type (eql 'gslist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(map-glist 'list #'identity ,gslist ',element-type)))
+
+(defmethod from-alien-function ((type (eql 'gslist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (gslist)
+	(map-glist 'list #'identity gslist element-type))))
+
+(defmethod cleanup-form (gslist (type (eql 'gslist)) &rest args)
   (declare (ignore type args))
-  `(gslist-free ,list))
+  (destructuring-bind (element-type) args
+    `(destroy-gslist ,gslist ',element-type)))
 
 (defmethod cleanup-function ((type (eql 'gslist)) &rest args)
   (declare (ignore type args))
-  #'gslist-free)
+  (destructuring-bind (element-type) args
+    #'(lambda (gslist)
+	(destroy-gslist gslist element-type))))
 
 
 
@@ -354,6 +364,16 @@
        finally (return sequence))))))
 
 
+(defun destroy-c-vector (location element-type length)
+  (loop
+   with destroy = (destroy-function element-type)
+   with element-size = (size-of element-type)
+   for i from 0 below length
+   as offset = 0 then (+ offset element-size)
+   do (funcall destroy location offset))
+  (deallocate-memory location))
+
+
 (defmethod alien-type ((type (eql 'vector)) &rest args)
   (declare (ignore type args))
   (alien-type 'pointer))
@@ -377,12 +397,22 @@
 	  location)	  
       `(make-c-vector ',element-type ,length ,vector))))
 
-(defmethod from-alien-form (location (type (eql 'vector)) &rest args)
+(defmethod from-alien-form (c-vector (type (eql 'vector)) &rest args)
   (declare (ignore type))
   (destructuring-bind (element-type &optional (length '*)) args
     (if (eq length '*)
 	(error "Can't use vector of variable size as return type")
-      `(map-c-vector 'vector #'identity ',element-type ',length ,location))))
+      `(let ((c-vector ,c-vector))
+	(prog1
+	    (map-c-vector 'vector #'identity ',element-type ,length c-vector)
+	  (destroy-c-vector c-vector ',element-type ,length))))))
+
+(defmethod copy-from-alien-form (c-vector (type (eql 'vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (if (eq length '*)
+	(error "Can't use vector of variable size as return type")
+      `(map-c-vector 'vector #'identity ',element-type ',length ,c-vector))))
 
 (defmethod cleanup-form (location (type (eql 'vector)) &rest args)
   (declare (ignore type))
