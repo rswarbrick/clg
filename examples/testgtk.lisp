@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.9 2004-12-05 00:06:41 espen Exp $
+;; $Id: testgtk.lisp,v 1.10 2004-12-05 13:57:10 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -55,8 +55,8 @@
 
 (defmacro define-simple-dialog (name (dialog title &rest initargs) &body body)
   `(define-dialog ,name (,dialog ,title 'dialog ,@initargs)
-    (dialog-add-button ,dialog "gtk-close" #'widget-destroy :object t)
-    ,@body))
+    ,@body
+    (dialog-add-button ,dialog "gtk-close" #'widget-destroy :object t)))
 
 
 
@@ -1435,95 +1435,72 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Idle test
 
-;; (define-standard-dialog create-idle-test "Idle Test"
-;;   (let* ((container (make-instance 'hbox :parent main-box))
-;; 	 (label (make-instance 'label
-;; 		 :label "count: 0" :xpad 10 :ypad 10 :parent container))
-;; 	 (idle nil)
-;; 	 (count 0))
-;;     (declare (fixnum count))
-;;     (signal-connect
-;;      window 'destroy #'(lambda () (when idle (idle-remove idle))))
+(define-simple-dialog create-idle-test (dialog "Idle Test")
+  (let ((label (make-instance 'label
+		:label "count: 0" :xpad 10 :ypad 10))
+	(idle nil)
+	(count 0))
+    (signal-connect dialog 'destroy 
+     #'(lambda () (when idle (idle-remove idle))))
  
-;;     (make-instance 'frame
-;;      :label "Label Container" :border-width 5 :parent main-box
-;;      :child
-;;      (make-instance 'v-box
-;;       :children
-;;       (create-radio-button-group
-;;        '(("Resize-Parent" :parent)
-;; 	 ("Resize-Queue" :queue)
-;; 	 ("Resize-Immediate" :immediate))
-;;        0
-;;        '(setf container-resize-mode) container)))
+    (make-instance 'v-box
+     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :child label
+     :child (make-instance 'frame
+	     :label "Label Container" :border-width 5
+	     :child(make-instance 'v-box
+		   :children (create-radio-button-group
+			      '(("Resize-Parent" :parent)
+				("Resize-Queue" :queue)
+				("Resize-Immediate" :immediate))
+			      0
+			      #'(lambda (mode)
+ 				  (setf 
+ 				   (container-resize-mode (dialog-action-area dialog)) mode))))))
 
-;;     (make-instance 'button
-;;      :label "start" :can-default t :parent action-area
-;;      :signals
-;;      (list
-;;       (list
-;;        'clicked
-;;        #'(lambda ()
-;; 	   (unless idle
-;; 	     (setq
-;; 	      idle
-;; 	      (idle-add
-;; 	       #'(lambda ()
-;; 		   (incf count)
-;; 		   (setf (label-label label) (format nil "count: ~D" count))
-;; 		   t))))))))
+    (dialog-add-button dialog "Start"
+     #'(lambda ()
+	 (unless idle
+	   (setq idle
+	    (idle-add
+	     #'(lambda ()
+		 (incf count)
+		 (setf (label-label label) (format nil "count: ~D" count))
+		 t))))))
       
-;;     (make-instance 'button
-;;      :label "stop" :can-default t :parent action-area
-;;      :signals
-;;      (list
-;;       (list
-;;        'clicked
-;;        #'(lambda ()
-;; 	   (when idle
-;; 	     (idle-remove idle)
-;; 	     (setq idle nil))))))))
+    (dialog-add-button dialog "Stop"
+     #'(lambda ()
+	 (when idle
+	   (idle-remove idle)
+	   (setq idle nil))))))
     
 
 
 ;;; Timeout test
 
-;; (define-standard-dialog create-timeout-test "Timeout Test"
-;;   (let ((label (make-instance 'label
-;; 		:label "count: 0" :xpad 10 :ypad 10 :parent main-box))
-;; 	(timer nil)
-;; 	(count 0))
-;;     (declare (fixnum count))
-;;     (signal-connect
-;;      window 'destroy #'(lambda () (when timer (timeout-remove timer))))
-          
-;;     (make-instance 'button
-;;      :label "start" :can-default t :parent action-area
-;;      :signals
-;;      (list
-;;       (list
-;;        'clicked
-;;        #'(lambda ()
-;; 	   (unless timer
-;; 	     (setq
-;; 	      timer
-;; 	      (timeout-add
-;; 	       100
-;; 	       #'(lambda ()
-;; 		   (incf count)
-;; 		   (setf (label-label label) (format nil "count: ~D" count))
-;; 		   t))))))))
+(define-simple-dialog create-timeout-test (dialog "Timeout Test")
+  (let ((label (make-instance 'label
+		:label "count: 0" :xpad 10 :ypad 10 :parent dialog :visible t))
+	(timer nil)
+	(count 0))
+    (signal-connect dialog 'destroy 
+     #'(lambda () (when timer (timeout-remove timer))))
 
-;;     (make-instance 'button
-;;      :label "stop" :can-default t :parent action-area
-;;      :signals
-;;      (list
-;;       (list
-;;        'clicked
-;;        #'(lambda ()
-;; 	   (when timer
-;; 	     (timeout-remove timer)
-;; 	     (setq timer nil))))))))
+    (dialog-add-button dialog "Start"
+     #'(lambda ()
+	 (unless timer
+	   (setq timer
+	    (timeout-add 100
+	     #'(lambda ()
+		 (incf count)
+		 (setf (label-label label) (format nil "count: ~D" count))
+		 t))))))
+
+    (dialog-add-button dialog "Stop"
+     #'(lambda ()
+	 (when timer
+	   (timeout-remove timer)
+	   (setq timer nil))))))
 
 
 ;;; Text
@@ -1655,66 +1632,20 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Tooltips test
 
-;; (define-standard-dialog create-tooltips "Tooltips"
-;;   (setf
-;;    (window-allow-grow-p window) t
-;;    (window-allow-shrink-p window) nil
-;;    (window-auto-shrink-p window) t
-;;    (widget-width window) 200
-;;    (container-border-width main-box) 10
-;;    (box-spacing main-box) 10)
+(define-simple-dialog create-tooltips (dialog "Tooltips" :default-width 200)
+  (let ((tooltips (make-instance 'tooltips)))
+    (flet ((create-button (label tip-text tip-private)
+	     (let ((button (make-instance 'toggle-button :label label)))
+	       (tooltips-set-tip tooltips button tip-text tip-private)
+	       button)))
+      (make-instance 'v-box
+       :parent dialog :border-width 10 :spacing 10 :show-all t
+       :child (create-button "button1" "This is button 1" "ContextHelp/button/1")
+       :child (create-button "button2" "This is button 2. This is also a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")))
 
-;;   (let ((tooltips (tooltips-new)))
-;;     (flet ((create-button (label tip-text tip-private)
-;; 	     (let ((button (make-instance 'toggle-button
-;; 		    :label label :parent main-box)))
-;; 	       (tooltips-set-tip tooltips button tip-text tip-private)
-;; 	       button)))
-;;       (create-button "button1" "This is button 1" "ContextHelp/button/1")
-;;       (create-button "button2" "This is button 2. This is also a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")
-
-;;       (let* ((toggle (create-button "Override TipSQuery Label"
-;; 				    "Toggle TipsQuery view" "Hi msw! ;)"))
-;; 	     (box (make-instance 'v-box
-;; 		   :homogeneous nil :spacing 5 :border-width 5
-;; 		   :parent (make-instance 'frame
-;; 	                    :label "ToolTips Inspector"
-;; 			    :label-xalign 0.5 :border-width 0
-;; 			    :parent main-box)))
-;; 	     (button (make-instance 'button :label "[?]" :parent box))
-;; 	     (tips-query (make-instance 'tips-query
-;; 			  :caller button :parent box)))
-
-;; 	(signal-connect
-;; 	 button 'clicked #'tips-query-start-query :object tips-query)
-	
-;; 	(signal-connect
-;; 	 tips-query 'widget-entered
-;; 	 #'(lambda (widget tip-text tip-private)
-;; 	     (declare (ignore widget tip-private))
-;; 	     (when (toggle-button-active-p toggle)
-;; 	       (setf
-;; 		(label-label tips-query)
-;; 		(if tip-text
-;; 		    "There is a Tip!"
-;; 		  "There is no Tip!"))
-;; 	       (signal-emit-stop tips-query 'widget-entered))))
-	
-;; 	(signal-connect
-;; 	 tips-query 'widget-selected
-;; 	 #'(lambda (widget tip-text tip-private event)
-;; 	     (declare (ignore tip-text event))
-;; 	     (when widget
-;; 	       (format
-;; 		t "Help ~S requested for ~S~%"
-;; 		(or tip-private "None") (type-of widget)))
-;; 	     t))
-
-;; 	(tooltips-set-tip
-;; 	 tooltips button "Start the Tooltip Inspector" "ContextHelp/buttons/?")
-;; 	(tooltips-set-tip
-;; 	 tooltips close-button "Push this button to close window"
-;; 	 "ContextHelp/buttons/Close")))))
+    (let ((close-button (first (container-children (dialog-action-area dialog)))))
+    (tooltips-set-tip tooltips close-button "Push this button to close window"
+ 	 "ContextHelp/buttons/Close"))))
 
 
 ;;; UI Manager
@@ -1835,15 +1766,15 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("shapes" create-shapes)
  	    ("spinbutton" create-spins)
  	    ("statusbar" create-statusbar)
-;; 	    ("test idle" create-idle-test)
+ 	    ("test idle" create-idle-test)
 ;; 	    ("test mainloop")
 ;; 	    ("test scrolling")
 ;; 	    ("test selection")
-;; 	    ("test timeout" create-timeout-test)
+ 	    ("test timeout" create-timeout-test)
  	    ("text" create-text)
  	    ("toggle buttons" create-toggle-buttons)
  	    ("toolbar" create-toolbar)
-;; 	    ("tooltips" create-tooltips)
+ 	    ("tooltips" create-tooltips)
 ;; 	    ("tree" #|create-tree|#)
 	    ("UI manager" create-ui-manager)
 ))
