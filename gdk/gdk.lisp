@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.1 2000-08-14 16:44:39 espen Exp $
+;; $Id: gdk.lisp,v 1.2 2000-08-23 17:32:30 espen Exp $
 
 
 (in-package "GDK")
@@ -43,17 +43,17 @@
   '%event-free)
 
 (deftype-method translate-from-alien
-    event (type-spec location &optional (alloc :dynamic))
+    event (type-spec location &optional (alloc :reference))
   `(let ((location ,location))
      (unless (null-pointer-p location)
        (let ((event-class
 	      (find-event-class
 	       (funcall (get-reader-function 'event-type) location 0))))
 	 ,(ecase alloc
-	    (:dynamic '(ensure-alien-instance event-class location))
+	    (:copy '(ensure-alien-instance event-class location))
 	    (:static '(ensure-alien-instance event-class location :static t))
-	    (:copy '(ensure-alien-instance
-		     event-class (%event-copy location))))))))
+	    (:reference '(ensure-alien-instance
+			  event-class (%event-copy location))))))))
 
 
 (define-foreign event-poll-fd () int)
@@ -367,13 +367,28 @@
 
 ;;; Pixmaps
 
+;; See the class definition for an explanation of this
+(deftype-method alien-ref bitmap (type-spec)
+  (declare (ignore type-spec))
+  '%drawable-ref)
+
+(deftype-method alien-unref bitmap (type-spec)
+  (declare (ignore type-spec))
+  '%drawable-unref)
+
+(define-foreign %drawable-ref () pointer
+  (object (or bitmap pointer)))
+
+(define-foreign %drawable-unref () nil
+  (object (or bitmap pointer)))
+
+
 (define-foreign pixmap-new (width height depth &key window) pixmap
   (width int)
   (height int)
   (depth int)
   (window (or null window)))
 					
-
 (define-foreign %pixmap-colormap-create-from-xpm () pixmap
   (window (or null window))
   (colormap (or null colormap))
@@ -388,24 +403,23 @@
   (color (or null color))
   (data pointer))
 
-; (defun pixmap-create (source &key color window colormap)
-;   (let ((window
-; 	 (if (not (or window colormap))
-; 	     (get-root-window)
-; 	   window)))
-;     (multiple-value-bind (pixmap bitmap)
-;         (typecase source
-; 	  ((or string pathname)
-; 	   (pixmap-colormap-create-from-xpm
-; 	    window colormap color (namestring (truename source))))
+(defun pixmap-create (source &key color window colormap)
+  (let ((window
+	 (if (not (or window colormap))
+	     (get-root-window)
+	   window)))
+    (multiple-value-bind (pixmap mask)
+        (typecase source
+	  ((or string pathname)
+	   (%pixmap-colormap-create-from-xpm
+	    window colormap color (namestring (truename source))))
 ; 	  (t
 ; 	   (with-array (data :initial-contents source :free-contents t)
-; 	     (pixmap-colormap-create-from-xpm-d window colormap color data))))
-;       (if color
-; 	  (progn
-; 	    (bitmap-unref bitmap)
-; 	    pixmap)
-; 	(values pixmap bitmap)))))
+; 	     (pixmap-colormap-create-from-xpm-d window colormap color data)))
+	  )
+      (unreference-instance pixmap)
+      (unreference-instance mask)
+      (values pixmap mask))))
     
 
 
