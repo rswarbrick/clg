@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.22 2004-12-28 20:30:06 espen Exp $
+;; $Id: gtype.lisp,v 1.23 2005-01-12 13:33:06 espen Exp $
 
 (in-package "GLIB")
 
@@ -48,12 +48,12 @@
 
 (defmethod from-alien-form (type-number (type (eql 'gtype)) &rest args)
   (declare (ignore type args))
-  `(type-from-number ,type-number t)) 
+  `(type-from-number ,type-number)) 
 
 (defmethod from-alien-function ((type (eql 'gtype)) &rest args)
   (declare (ignore type args))
   #'(lambda (type-number)
-      (type-from-number type-number t)))
+      (type-from-number type-number)))
 
 (defmethod writer-function ((type (eql 'gtype)) &rest args)
   (declare (ignore type))
@@ -65,7 +65,7 @@
   (declare (ignore type))
   (let ((reader (reader-function 'type-number)))
     #'(lambda (location &optional (offset 0))
-	(type-from-number (funcall reader location offset) t))))
+	(type-from-number (funcall reader location offset)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -244,6 +244,7 @@
 
 ;;;; Registering fundamental types
 
+(register-type 'nil "void")
 (register-type 'pointer "gpointer")
 (register-type 'char "gchar")
 (register-type 'unsigned-char "guchar")
