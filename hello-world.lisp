@@ -1,4 +1,4 @@
-(in-package "GTK")
+(use-package "GTK")
 
 (make-instance 'window
  :type :toplevel
