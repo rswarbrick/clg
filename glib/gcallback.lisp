@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.22 2005-02-22 17:29:38 espen Exp $
+;; $Id: gcallback.lisp,v 1.23 2005-03-06 17:18:00 espen Exp $
 
 (in-package "GLIB")
 
@@ -36,6 +36,7 @@
 			      (param-values pointer)
 			      (invocation-hint pointer) 
 			      (callback-id unsigned-int))
+  (declare (ignore gclosure invocation-hint))
   (callback-trampoline callback-id n-params param-values return-value))
 
 ;; Callback function for emission hooks
