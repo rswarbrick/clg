@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.2 2000-08-15 19:41:26 espen Exp $ */
+/* $Id: gtkglue.c,v 1.3 2000-10-05 17:32:34 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -205,61 +205,6 @@ gtk_window_wmclass (GtkWindow* window, gchar* name, gchar* class)
 }
 
 
-/* Color selection dialog */
-
-GtkWidget*
-gtk_color_selection_dialog_get_colorsel (GtkColorSelectionDialog* dialog)
-{
-  return dialog->colorsel;
-}
-
-/*  GtkWidget* */
-/*  gtk_color_selection_dialog_get_main_vbox (GtkColorSelectionDialog* dialog) */
-/*  { */
-/*    return dialog->main_vbox; */
-/*  } */
-
-GtkWidget*
-gtk_color_selection_dialog_get_ok_button (GtkColorSelectionDialog* dialog)
-{
-  return dialog->ok_button;
-}
-
-/*  GtkWidget* */
-/*  gtk_color_selection_dialog_get_reset_button (GtkColorSelectionDialog* dialog) */
-/*  { */
-/*    return dialog->reset_button; */
-/*  } */
-
-GtkWidget*
-gtk_color_selection_dialog_get_cancel_button (GtkColorSelectionDialog* dialog)
-{
-  return dialog->cancel_button;
-}
-
-GtkWidget*
-gtk_color_selection_dialog_get_help_button (GtkColorSelectionDialog* dialog)
-{
-  return dialog->help_button;
-}
-
-
-/* Dialog */
-
-GtkWidget*
-gtk_dialog_get_action_area (GtkDialog *dialog)
-{
-  return dialog->action_area;
-}
-
-
-GtkWidget*
-gtk_dialog_get_vbox (GtkDialog *dialog)
-{
-  return dialog->vbox;
-}
-
-
 /* File selection */
 
 GtkWidget*
@@ -283,7 +228,6 @@ gtk_file_selection_get_cancel_button (GtkFileSelection *filesel)
 
 /* Color selection */
 
-void
 gtk_color_selection_set_color_by_values (GtkColorSelection *colorsel,
 					 gdouble red,
 					 gdouble green,
@@ -488,20 +432,12 @@ gtk_paned_get_position (GtkPaned *paned)
 /* Layout */
 
 gint
-gtk_layout_size (GtkLayout *layout, gint *width, gint *height)
+gtk_layout_get_size (GtkLayout *layout, gint *width, gint *height)
 		 
 {
   *width =  layout->width;
   *height = layout->height;
 }
-
-void
-gtk_layout_offset (GtkLayout *layout, gint *x, gint *y)
-{
-  *x = layout->xoffset;
-  *y = layout->yoffset;  
-}
-
 
 GdkWindow*
 gtk_layout_get_bin_window (GtkLayout *layout)
