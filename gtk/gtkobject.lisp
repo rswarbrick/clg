@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.19 2004-11-06 21:39:58 espen Exp $
+;; $Id: gtkobject.lisp,v 1.20 2004-12-17 00:21:34 espen Exp $
 
 
 (in-package "GTK")
@@ -135,37 +135,26 @@
   (let* ((type (slot-definition-type slotd))
 	 (pname (slot-definition-pname slotd))
 	 (type-number (find-type-number type)))
-    (unless (slot-boundp slotd 'reader-function)
-      (setf 
-       (slot-value slotd 'reader-function)
-       #'(lambda (object)
-	   (with-slots (parent child) object	   
-	     (let ((gvalue (gvalue-new type-number)))
-	       (%container-child-get-property parent child pname gvalue)
-	       (unwind-protect
-		    (funcall (reader-function type) gvalue +gvalue-value-offset+)
-		 (gvalue-free gvalue t)))))))
+    (setf 
+     (slot-value slotd 'getter)
+     #'(lambda (object)
+	 (with-slots (parent child) object	   
+	   (let ((gvalue (gvalue-new type-number)))
+	     (%container-child-get-property parent child pname gvalue)
+	     (unwind-protect
+		 (funcall (reader-function type) gvalue +gvalue-value-offset+)
+	       (gvalue-free gvalue t))))))
     
-    (unless (slot-boundp slotd 'writer-function)
-      (setf 
-       (slot-value slotd 'writer-function)
-       #'(lambda (value object)
-	   (with-slots (parent child) object	   
-	     (let ((gvalue (gvalue-new type-number)))
-	       (funcall (writer-function type) value gvalue +gvalue-value-offset+)
-	       (%container-child-set-property parent child pname gvalue)
-;; 		   (funcall
-;; 		    (destroy-function type)
-;; 		    gvalue +gvalue-value-offset+)
-		   (gvalue-free gvalue t)
-		   value)))))
-    
-    (unless (slot-boundp slotd 'boundp-function)
-      (setf 
-       (slot-value slotd 'boundp-function)
-       #'(lambda (object)
-	   (declare (ignore object))
-	   t))))
+    (setf 
+     (slot-value slotd 'setter)
+     #'(lambda (value object)
+	 (with-slots (parent child) object	   
+	   (let ((gvalue (gvalue-new type-number)))
+	     (funcall (writer-function type) value gvalue +gvalue-value-offset+)
+	     (%container-child-set-property parent child pname gvalue)
+	     (gvalue-free gvalue t)
+	     value)))))
+ 
   (call-next-method)))
 
 
