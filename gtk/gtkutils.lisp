@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkutils.lisp,v 1.4 2004-12-04 18:24:01 espen Exp $
+;; $Id: gtkutils.lisp,v 1.5 2004-12-17 00:34:01 espen Exp $
 
 
 (in-package "GTK")
@@ -97,7 +97,7 @@
 		 :name (string name) :stock-id stock-id  :label label
 		 :tooltip tooltip :accelerator accelerator initargs)))
     (when callback
-      (signal-connect action 'activate callback))
+      (apply #'signal-connect action 'activate (mklist callback)))
     action))
 
 (defun create-toggle-action (name &optional stock-id label accelerator 
@@ -107,10 +107,17 @@
 		 :tooltip tooltip :active active :accelerator accelerator
 		 initargs)))
     (when callback
-      (signal-connect action 'activate
-       #'(lambda ()
-	   (funcall callback (toggle-action-active-p action))))
-      (funcall callback active))
+      (destructuring-bind (function &key object after) (mklist callback)
+	(signal-connect action 'activate
+	 (if object 
+	     #'(lambda (object)
+		 (funcall function object (toggle-action-active-p action)))
+	   #'(lambda ()
+	       (funcall function (toggle-action-active-p action))))
+	 :object object :after after)
+	;(funcall callback active)
+	(when active
+	  (action-activate action))))
     action))
 
 (defun create-radio-actions (specs &optional active callback &rest initargs)
