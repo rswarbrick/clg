@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.1 2000-08-14 16:44:31 espen Exp $
+;; $Id: glib.lisp,v 1.2 2000-08-15 23:25:18 espen Exp $
 
 
 (in-package "GLIB")
@@ -83,7 +83,7 @@
 	 (to-alien (translate-to-alien element-type-spec 'element t)))
     `(let ((glist (make-pointer 0))) 
        (dolist (element ,list glist)
-	 (setq glist (glist-append glist ,to-alien element-type-spec))))))
+	 (setq glist (glist-append glist ,to-alien ,element-type-spec))))))
 
 (deftype-method
     translate-from-alien
@@ -110,7 +110,8 @@
 	 ,(when (eq alien-type-spec 'system-area-pointer)
 	    `(do ((tmp glist (glist-next tmp)))
 		 ((null-pointer-p tmp))
-	       ,(cleanup-alien element-type-spec '(glist-data tmp) t)))
+	       ,(cleanup-alien
+		 element-type-spec `(glist-data tmp ,element-type-spec) t)))
 	 (glist-free glist)))))
 
 
