@@ -25,6 +25,8 @@
 		 (:file "gtkwidget" :depends-on ("gtktypes"))
 		 (:file "gtkcontainer" :depends-on ("gtktypes"))
 		 (:file "gtktree" :depends-on ("gtktypes"))
+		 (:file "gtktext" :depends-on ("gtktypes"))
+		 (:file "gtkaction" :depends-on ("gtktypes"))
 		 (:file "gtk" :depends-on ("gtktypes"))
 		 (:file "gtkutils" :depends-on ("gtk"))
 		 (:file "export" :depends-on ("gtktypes" "gtk"))))
