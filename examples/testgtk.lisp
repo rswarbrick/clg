@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.6 2004-11-15 19:33:21 espen Exp $
+;; $Id: testgtk.lisp,v 1.7 2004-11-21 17:58:28 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -714,39 +714,94 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;;; List    
     
 (define-simple-dialog create-list (dialog "List" :default-height 400)
-  (let ((store (make-instance 'list-store 
-		:column-types '(string int boolean)
-		:column-names '(:foo :bar :baz)
-		:initial-content '(#("First" 12321 nil)
-				   (:foo "Yeah" :baz t)))))
+  (let* ((store (make-instance 'list-store 
+		 :column-types '(string int boolean)
+		 :column-names '(:foo :bar :baz)
+		 :initial-content '(#("First" 12321 nil)
+				    (:foo "Yeah" :baz t))))
+	 (tree (make-instance 'tree-view :model store)))
 
     (loop
      with iter = (make-instance 'tree-iter)
      for i from 1 to 1000
      do (list-store-append store (vector "Test" i (zerop (mod i 3))) iter))
+    
+    (let ((column (make-instance 'tree-view-column :title "Column 1"))
+	  (cell (make-instance 'cell-renderer-text)))
+      (cell-layout-pack column cell :expand t)
+      (cell-layout-add-attribute column cell 'text (column-index store :foo))
+      (tree-view-append-column tree column))
+    
+    (let ((column (make-instance 'tree-view-column :title "Column 2"))
+	  (cell (make-instance 'cell-renderer-text :background "orange")))
+      (cell-layout-pack column cell :expand t)
+      (cell-layout-add-attribute column cell 'text (column-index store :bar))
+      (tree-view-append-column tree column))      
+    
+    (let ((column (make-instance 'tree-view-column :title "Column 3"))
+	  (cell (make-instance 'cell-renderer-text)))
+      (cell-layout-pack column cell :expand t)
+      (cell-layout-add-attribute column cell 'text (column-index store :baz))
+      (tree-view-append-column tree column))      
 
-    (let ((tree (make-instance 'tree-view :model store)))
-      (let ((column (make-instance 'tree-view-column :title "Column 1"))
-	    (cell (make-instance 'cell-renderer-text)))
-	(cell-layout-pack column cell)
-	(cell-layout-add-attribute column cell 'text (column-index store :foo))
-	(tree-view-append-column tree column))
-
-      (let ((column (make-instance 'tree-view-column :title "Column 2"))
-	    (cell (make-instance 'cell-renderer-text :background "orange")))
-	(cell-layout-pack column cell)
-	(cell-layout-add-attribute column cell 'text (column-index store :bar))
-	(tree-view-append-column tree column))      
-
-      (let ((column (make-instance 'tree-view-column :title "Column 3"))
-	    (cell (make-instance 'cell-renderer-text)))
-	(cell-layout-pack column cell)
-	(cell-layout-add-attribute column cell 'text (column-index store :baz))
-	(tree-view-append-column tree column))      
-
-      (make-instance 'scrolled-window 
-       :parent dialog :child tree :show-all t :border-width 10 
-       :hscrollbar-policy :automatic))))
+    (make-instance 'v-box
+     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :child (list
+	     (make-instance 'h-box
+              :spacing 10
+	      :child (make-instance 'button
+		      :label "Remove Selection"
+		      :signal (list 'clicked
+			       #'(lambda ()
+				   (let ((references
+					  (mapcar
+					   #'(lambda (path)
+					       (make-instance 'tree-row-reference :model store :path path))					  
+					   (tree-selection-get-selected-rows
+					    (tree-view-selection tree)))))
+				     (mapc
+				      #'(lambda (reference)
+					  (list-store-remove store reference))
+				      references))))))
+	     :expand nil)
+     :child (list
+	     (make-instance 'h-box
+              :spacing 10
+	      :child (make-instance 'check-button 
+		      :label "Show Headers" :active t
+		      :signal (list 'toggled
+			       #'(lambda (button)
+				   (setf
+				    (tree-view-headers-visible-p tree)
+				    (toggle-button-active-p button)))
+			       :object t))
+	      :child (make-instance 'check-button 
+		      :label "Reorderable" :active nil
+		      :signal (list 'toggled
+			       #'(lambda (button)
+				   (setf
+				    (tree-view-reorderable-p tree)
+				    (toggle-button-active-p button)))
+			       :object t))
+	      :child (list 
+		      (make-instance 'h-box
+                       :child (make-instance 'label :label "Selection Mode: ")
+		       :child (make-instance 'combo-box
+			       :content '("Single" "Browse" "Multiple") 
+			       :active 0
+			       :signal (list 'changed
+				        #'(lambda (combo-box)
+					    (setf 
+					     (tree-selection-mode 
+					      (tree-view-selection tree))
+					     (svref 
+					      #(:single :browse :multiple)
+					      (combo-box-active combo-box))))
+					:object t)))
+		      :expand nil))
+	     :expand nil)
+     :child (make-instance 'scrolled-window 
+	    :child tree :hscrollbar-policy :automatic))))
 
 
 ;; Menus
