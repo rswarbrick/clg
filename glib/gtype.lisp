@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.28 2005-03-11 10:56:58 espen Exp $
+;; $Id: gtype.lisp,v 1.29 2005-03-11 20:16:07 espen Exp $
 
 (in-package "GLIB")
 
@@ -261,17 +261,22 @@
     ((class :allocation :alien :type pointer))
     (:metaclass proxy-class)))
 
-(defun %type-of-ginstance (location)
+(defun %type-number-of-ginstance (location)
   (let ((class (sap-ref-sap location 0)))
-    (type-from-number (sap-ref-32 class 0))))
+    (sap-ref-32 class 0)))
 
 (defmethod ensure-proxy-instance ((class ginstance-class) location)
   (declare (ignore class))
-  (let ((class (find-class (%type-of-ginstance location))))
+  (let ((class (labels ((find-known-class (type-number)
+		          (or
+			   (find-class (type-from-number type-number) nil)
+			   (unless (zerop type-number)
+			     (find-known-class (type-parent type-number))))))
+		 (find-known-class (%type-number-of-ginstance location)))))
     (if class
 	(make-instance class :location (reference-foreign class location))
-      ;; TODO: (make-instance 'ginstance ...)
-      location)))
+      (error "Object at ~A has an unkown type number: ~A" 
+        location (%type-number-of-ginstance location)))))
 
 (defmethod copy-from-alien-form (location (class ginstance-class) &rest args)
   (declare (ignore location class args))
