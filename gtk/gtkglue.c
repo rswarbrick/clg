@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.10 2002-03-24 13:01:12 espen Exp $ */
+/* $Id: gtkglue.c,v 1.11 2002-03-24 21:55:49 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -137,13 +137,13 @@ gtk_check_menu_item_get_show_toggle (GtkCheckMenuItem* check_menu_item)
 }
 
 
+
 /* Window */
 
-void
-gtk_window_wmclass (GtkWindow* window, gchar* name, gchar* class)
+GtkWidget*
+gtk_window_get_default (GtkWindow *window)
 {
-  name = window->wmclass_name;
-  class = window->wmclass_class;
+  return window->default_widget;
 }
 
 
