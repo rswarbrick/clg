@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.11 2001-11-12 22:20:40 espen Exp $
+;; $Id: glib.lisp,v 1.12 2002-01-20 14:06:50 espen Exp $
 
 
 (in-package "GLIB")
@@ -327,7 +327,7 @@
 	 (dotimes (i ,length)
 	   (setf
 	    (aref vector i)
-	    ,(translate-to-alien
+	    ,(translate-from-alien
 	      element-type
 	      `(,(sap-ref-fname element-type) c-array (* i ,element-size))
 	      weak-ref)))
@@ -379,4 +379,3 @@
 	   (elt sequence i)
 	   (funcall function (funcall reader location (* i size)))))
 	sequence)))))
-     
