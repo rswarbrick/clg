@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.38 2005-02-27 12:37:01 espen Exp $
+;; $Id: gtk.lisp,v 1.39 2005-03-13 18:08:44 espen Exp $
 
 
 (in-package "GTK")
@@ -960,15 +960,19 @@
 
 ;;; Message dialog
 
-(defmethod initialize-instance ((dialog message-dialog) &rest initargs 
-				&key (type :info) (buttons :close) ; or :ok? 
-				flags message parent)
-  (remf initargs :parent)
+(defmethod initialize-instance ((dialog message-dialog)
+				&key (message-type :info) (buttons :close)
+				flags text #+gtk 2.6 secondary-text 
+				transient-parent)
   (setf 
    (slot-value dialog 'location)
-   (%message-dialog-new parent flags type buttons nil))
-  (message-dialog-set-markup dialog message)
-  (apply #'call-next-method dialog initargs))
+   (%message-dialog-new transient-parent flags message-type buttons))
+  (when text
+    (message-dialog-set-markup dialog text))
+  #+gtk2.6
+  (when secondary-text
+    (message-dialog-format-secondary-markup dialog secondary-text))
+  (call-next-method))
 
 
 (defbinding %message-dialog-new () pointer
@@ -976,14 +980,7 @@
   (flags dialog-flags)
   (type message-type)
   (buttons buttons-type)
-  (message (or null string)))
-
-(defbinding %message-dialog-new-with-markup () pointer
-  (parent (or null window))
-  (flags dialog-flags)
-  (type message-type)
-  (buttons buttons-type)
-  (message string))
+  (nil null))
 
 (defbinding message-dialog-set-markup () nil
   (message-dialog message-dialog)
@@ -1347,12 +1344,12 @@
    (scrolled-window scrolled-window)
    (child widget))
 
-(defmethod initialize-instance ((window scrolled-window) &rest initargs 
-				&key policy)
-  (if policy
-      (apply #'call-next-method window 
-       :vscrollbar-policy policy :hscrollbar-policy policy initargs)
-    (call-next-method)))
+(defmethod shared-initialize ((window scrolled-window) names &key policy)
+  (declare (ignore names))
+  (when policy 
+    (setf (slot-value window 'hscrollbar-policy) policy)
+    (setf (slot-value window 'vscrollbar-policy) policy))
+  (call-next-method))
 
 
 ;;; Statusbar
