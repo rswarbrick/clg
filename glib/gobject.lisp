@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.20 2004-11-09 10:10:59 espen Exp $
+;; $Id: gobject.lisp,v 1.21 2004-11-09 12:47:44 espen Exp $
 
 (in-package "GLIB")
 
@@ -144,13 +144,6 @@
     (:metaclass gobject-class)
     (:alien-name "GObject")))
 
-(defmethod print-object ((instance gobject) stream)
-  (print-unreadable-object (instance stream :type t :identity nil)
-    (if (slot-boundp instance 'location)
-	(format stream "at 0x~X" (sap-int (proxy-location instance)))
-      (write-string "(destroyed)" stream))))
-
-
 (defmethod initialize-instance ((object gobject) &rest initargs)
   ;; Extract initargs which we should pass directly to the GObeject
   ;; constructor
@@ -196,40 +189,15 @@
 	 (slot-value object 'location) 
 	 (%gobject-new (type-number-of object)))))
 
-  (%object-weak-ref object)
   (apply #'call-next-method object initargs))
 
-
-(defmethod initialize-instance :around ((object gobject) &rest initargs)
-  (declare (ignore initargs))
-  (call-next-method)
-  (%object-weak-ref object))
 
 (defmethod instance-finalizer ((instance gobject))
   (let ((location (proxy-location instance)))
     #'(lambda ()
 	(remove-cached-instance location)
-	(%weak-object-unref location)
 	(%object-unref location))))
 
-
-(defcallback weak-notify (nil (data int) (location pointer))
-  (let ((object (find-cached-instance location)))
-    (when object
-;;       (warn "~A being finalized by the GObject system while still in existence in lisp" object)
-      (slot-makunbound object 'location)
-      (remove-cached-instance location))))
-
-(defbinding %object-weak-ref (object) nil
-  (object gobject)
-  ((callback weak-notify) pointer)
-  (0 unsigned-int))
-
-(defbinding %object-weak-unref () nil
-  (location pointer)
-  ((callback weak-notify) pointer)
-  (0 unsigned-int))
-	    
 
 (defbinding (%gobject-new "g_object_new") () pointer
   (type type-number)
