@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.1 2004-11-07 17:22:06 espen Exp $
+;; $Id: gtktree.lisp,v 1.2 2004-11-15 19:24:03 espen Exp $
 
 
 (in-package "GTK")
@@ -37,6 +37,7 @@
   (if end
       (cell-layout-pack-end layout cell expand)
     (cell-layout-pack-start layout cell expand)))
+
 
 (defbinding cell-layout-reorder () nil
   (cell-layout cell-layout)
@@ -70,55 +71,85 @@
 
 ;;;; List Store
 
-(defmethod initialize-instance ((list-store list-store) &key columns)
+(defmethod initialize-instance ((list-store list-store) &key column-types
+				column-names initial-content)
   (call-next-method)
-  (%list-store-set-column-types list-store (length columns)
-   (map 'vector #'find-type-number columns)))
+  (%list-store-set-column-types list-store column-types)
+  (when column-names
+    (setf (object-data list-store 'column-names) column-names))
+  (when initial-content
+    (loop
+     with iter = (make-instance 'tree-iter)
+     for row in initial-content
+     do (list-store-append list-store row iter))))
 
+
+(defmethod column-setter-name ((list-store list-store))
+  (declare (ignore list-store))
+  "gtk_list_store_set")
 
 (defbinding %list-store-set-column-types () nil
   (list-store list-store)
-  (n-columns unsigned-int)
-  (columns (vector type-number)))
-
-(defbinding %list-store-set-value () nil
-  (list-store list-store)
-  (tree-iter tree-iter)
-  (column int)
-  (value gvalue))
-
-(defun list-store-set-value (list-store tree-iter column type value)
-  (let ((gvalue (gvalue-new type value)))
-    (unwind-protect
-	 (%list-store-set-value list-store tree-iter column gvalue)
-      (gvalue-free gvalue))))
+  ((length columns) unsigned-int)
+  (columns (vector gtype)))
 
 (defbinding list-store-remove () boolean
   (list-store list-store)
   (tree-iter tree-iter))
 
-(defbinding list-store-insert () nil
+(defbinding %list-store-insert () nil
   (list-store list-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (position int))
 
-(defbinding list-store-insert-before (list-store &optional sibling) nil
+(defun list-store-insert
+    (store position &optional data (iter (make-instance 'tree-iter)))
+  (%list-store-insert store iter position)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %list-store-insert-before () nil
   (list-store list-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (sibling (or null tree-iter)))
 
-(defbinding list-store-insert-after (list-store &optional sibling) nil
+(defun list-store-insert-before
+    (store sibling &optional data (iter (make-instance 'tree-iter)))
+  (%list-store-insert-before store iter sibling)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %list-store-insert-after 
+    (list-store &optional sibling (tree-iter (make-instance 'tree-iter))) nil
   (list-store list-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (sibling (or null tree-iter)))
 
-(defbinding list-store-prepend () nil
-  (list-store list-store)
-  ((make-instance 'tree-iter) tree-iter :in-out))
+(defun list-store-insert-after
+    (store sibling &optional data (iter (make-instance 'tree-iter)))
+  (%list-store-insert-after store iter sibling)
+  (when data (%tree-model-set store iter data))
+  iter)
 
-(defbinding list-store-append () nil
+(defbinding %list-store-prepend () nil
   (list-store list-store)
-  ((make-instance 'tree-iter) tree-iter :in-out))
+  (tree-iter tree-iter))
+
+(defun list-store-prepend 
+    (store &optional data (iter (make-instance 'tree-iter)))
+  (%list-store-prepend store iter)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %list-store-append () nil
+  (list-store list-store)
+  (tree-iter tree-iter))
+
+(defun list-store-append 
+    (store &optional data (iter (make-instance 'tree-iter)))
+  (%list-store-append store iter)
+  (when data (%tree-model-set store iter data))
+  iter)
 
 (defbinding list-store-clear () nil
   (list-store list-store))
@@ -137,7 +168,6 @@
   (iter tree-iter)
   (psoition (or null tree-iter)))
 
-
 (defbinding list-store-move-after () nil
   (list-store list-store)
   (iter tree-iter)
@@ -146,58 +176,329 @@
 
 ;;; Tree Model
 
+(defbinding %tree-path-free () nil
+  (location pointer))
+
+(defbinding %tree-path-get-indices () pointer
+  (location pointer))
+
+(defbinding %tree-path-get-depth () int
+  (location pointer))
+
+(defun %make-tree-path (path)
+  (let ((c-vector (make-c-vector 'int (length path) path))
+	(location (allocate-memory (+ (size-of 'int) (size-of 'pointer)))))
+    (funcall (writer-function 'int) (length path) location)
+    (funcall (writer-function 'pointer) c-vector location (size-of 'int))
+    location))
+
+(defun %tree-path-to-vector (location &optional (destroy-p t))
+  (prog1
+      (map-c-vector 'vector #'identity (%tree-path-get-indices location)
+		    'int (%tree-path-get-depth location))
+    (when destroy-p
+      (%tree-path-free location))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmethod alien-type ((type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    (alien-type 'pointer))
+  
+  (defmethod size-of ((type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    (size-of 'pointer))
+  
+  (defmethod to-alien-form (path (type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    `(%make-tree-path ,path))
+  
+  (defmethod to-alien-function ((type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    #'%make-tree-path)
+  
+  (defmethod from-alien-form (location (type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    `(%tree-path-to-vector ,location))
+  
+  (defmethod from-alien-function ((type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    #'%tree-path-to-vector)
+  
+  (defmethod cleanup-form (location (type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    `(%tree-path-free ,location))
+  
+  (defmethod cleanup-function ((type (eql 'tree-path)) &rest args)
+    (declare (ignore type args))
+    #'%tree-path-free))
+
+
+(defbinding %tree-row-reference-new () pointer
+  (model tree-model)
+  (path tree-path))
+
+(defmethod initialize-instance ((reference tree-row-reference) &key model path)
+  (declare (ignore initargs))
+  (setf
+   (slot-value reference 'location)
+   (%tree-row-reference-new model path))
+  (call-next-method))
+
+(defbinding tree-row-reference-get-path () tree-path
+  (reference tree-row-reference))
+
+(defbinding (tree-row-reference-valid-p "gtk_tree_row_reference_valid") () boolean
+  (reference tree-row-reference))
+
+
+(defbinding tree-model-get-column-type () type-number
+  (tree-model tree-model)
+  (index int))
+
+(defbinding tree-model-get-iter 
+    (model path &optional (iter (make-instance 'tree-iter))) boolean
+  (model tree-model)
+  (iter tree-iter :return)
+  (path tree-path))
+ 
+(defbinding tree-model-get-path () tree-path
+  (tree-model tree-model)
+  (iter tree-iter))
+
+(defbinding %tree-model-get-value () nil
+  (tree-model tree-model)
+  (iter tree-iter)
+  (column int)
+  (gvalue gvalue))
+
+(defun tree-model-get-column-value (model iter column)
+  (let ((index (column-index model column)))
+    (with-gvalue (gvalue (tree-model-get-column-type model index))
+      (%tree-model-get-value model iter index gvalue))))
+
+(defbinding tree-model-iter-next () boolean
+  (tree-model tree-model)
+  (iter tree-iter :return))
+
+(defbinding tree-model-iter-children 
+    (tree-model parent &optional (iter (make-instance 'tree-iter))) boolean
+  (tree-model tree-model)
+  (iter tree-iter :return)
+  (parent (or null tree-iter)))
+
+(defbinding (tree-model-iter-has-child-p "gtk_tree_model_iter_has_child") 
+    () boolean
+  (tree-model tree-model)
+  (iter tree-iter))
+
+(defbinding tree-model-iter-n-children () int
+  (tree-model tree-model)
+  (iter tree-iter))
+
+(defbinding tree-model-iter-nth-child
+    (tree-model parent &optional (iter (make-instance 'tree-iter))) boolean
+  (tree-model tree-model)
+  (iter tree-iter :return)
+  (parent (or null tree-iter))
+  (n int))
+
+(defbinding tree-model-iter-parent
+    (tree-model child &optional (iter (make-instance 'tree-iter))) boolean
+  (tree-model tree-model)
+  (iter tree-iter :return)
+  (child tree-iter))
+
+(defbinding tree-model-get-string-from-iter () string
+  (tree-model tree-model)
+  (iter tree-iter))
+
+(def-callback-marshal %tree-model-foreach-func 
+  (boolean tree-model tree-path tree-iter))
+
+(defbinding %tree-model-foreach () nil
+  (tree-model tree-model)
+  ((callback %tree-model-foreach-func) pointer)
+  (callback-id unsigned-int))
+
+(defun tree-model-foreach (model function)
+  (with-callback-function (id function)
+    (%tree-model-foreach model id)))
+
+(defbinding tree-model-row-changed () nil
+  (tree-model tree-model)
+  (path tree-path)
+  (iter tree-iter))
+
+(defbinding tree-model-row-inserted () nil
+  (tree-model tree-model)
+  (path tree-path)
+  (iter tree-iter))
+
+(defbinding tree-model-row-has-child-toggled () nil
+  (tree-model tree-model)
+  (path tree-path)
+  (iter tree-iter))
+
+(defbinding tree-model-row-deleted () nil
+  (tree-model tree-model)
+  (path tree-path)
+  (iter tree-iter))
+
+(defbinding tree-model-rows-reordered () nil
+  (tree-model tree-model)
+  (path tree-path)
+  (iter tree-iter)
+  (new-order int))
+
+
+(defun column-types (model columns)
+  (map 'vector 
+       #'(lambda (column)
+	   (find-type-number (first (mklist column))))
+       columns))
+	       
+(defun column-index (model column)
+  (or
+   (etypecase column
+     (number column)
+     (symbol (position column (object-data model 'column-names)))
+     (string (position column (object-data model 'column-names)
+		   :test #'string=)))
+   (error "~A has no column ~S" model column)))
+
+(defun tree-model-column-value-setter (model column)
+  (let ((setters (or
+		  (object-data model 'column-setters)
+		  (setf 
+		   (object-data model 'column-setters)
+		   (make-array (tree-model-n-columns model) 
+		    :initial-element nil)))))
+    (let ((index (column-index model column)))
+    (or
+     (svref setters index)
+     (setf 
+      (svref setters index)
+      (let ((setter 
+	     (mkbinding (column-setter-name model)
+	      nil (type-of model) 'tree-iter 'int
+	      (type-from-number (tree-model-get-column-type model index))
+	      'int)))
+	#'(lambda (value iter)
+	    (funcall setter model iter index value -1))))))))
+
+(defun tree-model-row-setter (model)
+  (or 
+   (object-data model 'row-setter)
+   (progn
+     ;; This will create any missing column setter
+     (loop 
+      for i from 0 below (tree-model-n-columns model)
+      do (tree-model-column-value-setter model i))
+     (let ((setters (object-data model 'column-setters)))
+       (setf    
+	(object-data model 'row-setter)
+	#'(lambda (row iter)
+	    (map nil #'(lambda (value setter)
+			 (funcall setter value iter))
+		 row setters)))))))
+
+(defun (setf tree-model-column-value) (value model iter column)
+  (funcall (tree-model-column-value-setter model column) value iter)
+  value)
+
+(defun (setf tree-model-row-data) (data model iter)
+  (funcall (tree-model-row-setter model) data iter)
+  data)
+
+(defun %tree-model-set (model iter data)
+  (etypecase data
+    (vector (setf (tree-model-row-data model iter) data))
+    (cons 
+     (loop
+      as (column value . rest) = data then rest
+      do (setf (tree-model-column-value model iter column) value)
+      while rest))))
 
 
 ;;; Tree Store
 
 (defbinding %tree-store-set-column-types () nil
   (tree-store tree-store)
-  (n-columns unsigned-int)
-  (columns (vector type-number)))
+  ((length columns) unsigned-int)
+  (columns (vector gtype)))
 
-(defmethod initialize-instance ((tree-store tree-store) &key columns)
+(defmethod initialize-instance ((tree-store tree-store) &key column-types
+				column-names)
   (call-next-method)
-  (%tree-store-set-column-types tree-store (length columns)
-   (map 'vector #'find-type-number columns)))
+  (%tree-store-set-column-types tree-store column-types)
+  (when column-names
+    (setf (object-data tree-store 'column-names) column-names)))
 
-
-(defbinding %tree-store-set-value () nil
-  (tree-store tree-store)
-  (tree-iter tree-iter)
-  (column int)
-  (value gvalue))
+(defmethod column-setter-name ((tree-store tree-store))
+  (declare (ignore tree-store))
+  "gtk_tree_store_set")
 
 (defbinding tree-store-remove () boolean
   (tree-store tree-store)
   (tree-iter tree-iter))
 
-(defbinding tree-store-insert (tree-store position &optional parent) nil
+(defbinding %tree-store-insert () nil
   (tree-store tree-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (parent (or null tree-iter))
   (position int))
 
-(defbinding tree-store-insert-before (tree-store &optional parent sibling) nil
+(defun tree-store-insert 
+    (store parent position &optional data (iter (make-instance 'tree-iter)))
+  (%tree-store-insert store iter parent position)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %tree-store-insert-before () nil
   (tree-store tree-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (parent (or null tree-iter))
   (sibling (or null tree-iter)))
 
-(defbinding tree-store-insert-after (tree-store &optional parent sibling) nil
+(defun tree-store-insert-after 
+    (store parent sibling &optional data (iter (make-instance 'tree-iter)))
+  (%tree-store-insert-before store iter parent sibling)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %tree-store-insert-after () nil
   (tree-store tree-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (parent (or null tree-iter))
   (sibling (or null tree-iter)))
 
-(defbinding tree-store-prepend (tree-store &optional parent) nil
+(defun tree-store-insert-after 
+    (store parent sibling &optional data (iter (make-instance 'tree-iter)))
+  (%tree-store-insert-after store iter parent sibling)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %tree-store-prepend () nil
   (tree-store tree-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (parent (or null tree-iter)))
 
-(defbinding tree-store-append (tree-store &optional parent) nil
+(defun tree-store-prepend 
+    (store parent &optional data (iter (make-instance 'tree-iter)))
+  (%tree-store-prepend store iter parent)
+  (when data (%tree-model-set store iter data))
+  iter)
+
+(defbinding %tree-store-append () nil
   (tree-store tree-store)
-  ((make-instance 'tree-iter) tree-iter :in-out)
+  (tree-iter tree-iter)
   (parent (or null tree-iter)))
+
+(defun tree-store-append 
+    (store parent &optional data (iter (make-instance 'tree-iter)))
+  (%tree-store-append store iter parent)
+  (when data (%tree-model-set store iter data))
+  iter)
 
 (defbinding (tree-store-is-ancestor-p "gtk_tree_store_is_ancestor") () boolean
   (tree-store tree-store)
@@ -235,6 +536,13 @@
 
 
 ;;; Tree View
+
+(defmethod initialize-instance ((tree-view tree-view) &key column)
+  (call-next-method)
+  (mapc #'(lambda (column)
+	    (tree-view-append-column tree-view column))
+	(get-all initargs :column)))
+
 
 (defbinding tree-view-get-selection () tree-selection
   (tree-view tree-view))
@@ -350,17 +658,20 @@
   (tree-view tree-view)
   (path (or null tree-path))
   (column (or null tree-view-column))
-  ((make-instance 'gdk:rectangle) gdk:rectangle :in-out))
+  ((make-instance 'gdk:rectangle) gdk:rectangle :return))
 
 (defbinding tree-view-get-background-area () nil
   (tree-view tree-view)
   (path (or null tree-path))
   (column (or null tree-view-column))
-  ((make-instance 'gdk:rectangle) gdk:rectangle :in-out))
+  ((make-instance 'gdk:rectangle) gdk:rectangle :return))
 
 (defbinding tree-view-get-visible-rect () nil
   (tree-view tree-view)
-  ((make-instance 'gdk:rectangle) gdk:rectangle :in-out))
+  ((make-instance 'gdk:rectangle) gdk:rectangle :return))
 
 ;; and many more functions which we'll add later
+
+
+;;; Tree View Column
 

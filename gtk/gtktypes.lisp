@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.18 2004-11-07 17:55:29 espen Exp $
+;; $Id: gtktypes.lisp,v 1.19 2004-11-15 19:24:11 espen Exp $
 
 
 (in-package "GTK")
@@ -108,13 +108,33 @@
     :type string))
   (:metaclass static-struct-class))
 
+;; We don't really need to access any of these slots, but we need to
+;; specify the size of the struct somehow 
+(defclass tree-iter (boxed)
+  ((stamp :allocation :alien :type int)
+   (user-data :allocation :alien :type pointer)
+   (user-data2 :allocation :alien :type pointer)
+   (user-data3 :allocation :alien :type pointer))
+  (:metaclass boxed-class))
+
+
+;; (defclass tree-path (boxed)
+;;   ((depth :allocation :alien :type int)
+;;    (indices  :allocation :alien :type pointer))
+;;   (:metaclass boxed-class))
+
+(deftype tree-path () '(vector int))
+(register-type 'tree-path "GtkTreePath")
+
+
 
 (define-types-by-introspection "Gtk"
   ;; Manually defined
   ("GtkObject" :ignore t)
   ("GtkRequisition" :ignore t)
   ("GtkBorder" :ignore t)
-  
+  ("GtkTreeIter" :ignore t)
+  ("GtkTreePath" :ignore t)
 
   ;; Manual override
   ("GtkWidget"
@@ -661,6 +681,14 @@
      :reader tree-view-columns 
      :type (glist tree-view-column))))
 
+  ("GtkTreeModel"
+   :slots
+   ((n-columns
+     :allocation :virtual
+     :getter "gtk_tree_model_get_n_columns"
+     :reader tree-model-n-columns 
+     :type int)))
+
   ("GtkComboBox"
    :slots
    ((active-iter
@@ -669,6 +697,7 @@
      :setter "gtk_combo_box_set_active_iter"
      :accessor combo-box-active-iter 
      :type tree-iter)))
+
 
      
   ;; Not needed
