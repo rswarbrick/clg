@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.26 2004-12-21 00:15:19 espen Exp $
+;; $Id: gtk.lisp,v 1.27 2004-12-26 11:51:21 espen Exp $
 
 
 (in-package "GTK")
@@ -773,7 +773,41 @@
   ((or width -1) int)
   ((or height -1) int))
 
-;(defbinding window-set-geometry-hints)
+(defbinding %window-set-geometry-hints () nil
+  (window window)
+  (geometry gdk:geometry)
+  (geometry-mask gdk:window-hints))
+
+(defun window-set-geometry-hints (window &key min-width min-height
+                                  max-width max-height base-width base-height
+				  width-inc height-inc min-aspect max-aspect
+				  (gravity nil gravity-p) min-size max-size)
+  (let ((geometry (make-instance 'gdk:geometry 
+		   :min-width (or min-width -1)
+		   :min-height (or min-height -1)
+		   :max-width (or max-width -1)
+		   :max-height (or max-height -1)
+		   :base-width (or base-width 0)
+		   :base-height (or base-height 0)
+		   :width-inc (or width-inc 0)
+		   :height-inc (or height-inc 0)
+		   :min-aspect (or min-aspect 0)
+		   :max-aspect (or max-aspect 0)
+		   :gravity gravity))
+	(mask ()))
+    (when (or min-size min-width min-height)
+      (push :min-size mask))
+    (when (or max-size max-width max-height)
+      (push :max-size mask))
+    (when (or base-width base-height)
+      (push :base-size mask))
+    (when (or width-inc height-inc)
+      (push :resize-inc mask))
+    (when (or min-aspect max-aspect)
+      (push :aspect mask))
+    (when gravity-p
+      (push :win-gravity mask))
+    (%window-set-geometry-hints window geometry mask)))
 
 (defbinding window-list-toplevels () (glist (copy-of window))
   "Returns a list of all existing toplevel windows.")
@@ -792,6 +826,14 @@
   (window window)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifier gdk:modifier-type))
+
+(defbinding window-activate-key () boolean
+  (window window)
+  (event gdk:key-event))
+
+(defbinding window-propagate-key-event () boolean
+  (window window)
+  (event gdk:key-event))
 
 (defbinding window-present () nil
   (window window))
@@ -814,6 +856,20 @@
 (defbinding window-unmaximize () nil
   (window window))
 
+(defbinding window-fullscreen () nil
+  (window window))
+
+(defbinding window-unfullscreen () nil
+  (window window))
+
+(defbinding window-set-keep-above () nil
+  (window window)
+  (setting boolean))
+
+(defbinding window-set-keep-below () nil
+  (window window)
+  (setting boolean))
+
 (defbinding window-begin-resize-drag () nil
   (window window)
   (edge gdk:window-edge)
@@ -832,9 +888,6 @@
   (window window)
   (left int) (top int) (rigth int) (bottom int))
 
-(defbinding (window-default-icons "gtk_window_get_default_icon_list")
-    () (glist gdk:pixbuf))
-
 (defbinding %window-get-default-size () nil
   (window window)
   (width int :out)
@@ -850,12 +903,6 @@
 
 (defbinding %window-get-icon-list () (glist gdk:pixbuf)
   (window window))
-
-(defmethod window-icon ((window window))
-  (let ((icon-list (%window-get-icon-list window)))
-    (if (endp (rest icon-list))
-	(first icon-list)
-      icon-list)))
 
 (defbinding window-get-position () nil
   (window window)
@@ -884,19 +931,86 @@
   (width int)
   (heigth int))
 
-(defbinding %window-set-icon-list () nil
+(defbinding (window-default-icon-list "gtk_window_get_default_icon_list")
+    () (glist gdk:pixbuf))
+
+(defun window-default-icon ()
+  (first (window-default-icon-list)))
+
+(defbinding %window-set-default-icon-list () nil
+  (icons (glist gdk:pixbuf)))
+
+(defun (setf window-default-icon-list) (icons)
+  (%window-set-default-icon-list icons)
+  icons)
+
+(defbinding %window-set-default-icon () nil
+  (icons (glist gdk:pixbuf)))
+
+(defmethod (setf window-default-icon) ((icon gdk:pixbuf))
+  (%window-set-default-icon icon)
+  icon)
+
+(defmethod (setf window-group) ((group window-group) (window window))
+  (window-group-add-window group window)
+  group)
+
+(defbinding %window-set-default-icon-from-file () boolean
+  (filename pathname)
+  (nil null))
+
+(defmethod (setf window-default-icon) ((icon-file pathname))
+  (%window-set-default-icon-from-file icon-file)
+  icon-file)
+
+(defbinding %window-set-icon-from-file () boolean
   (window window)
-  (icon-list (glist gdk:pixbuf)))
+  (filename pathname)
+  (nil null))
 
-(defmethod (setf window-icon) (icon (window window))
-  (%window-set-icon-list window (mklist icon)))
+(defmethod (setf window-icon) ((icon-file pathname) (window window))
+  (%window-set-icon-from-file window icon-file)
+  icon-file)
+
+(defbinding window-set-auto-startup-notification () nil
+  (setting boolean))
+
+(defbinding decorated-window-init () nil
+  (window window))
+
+(defbinding decorated-window-calculate-frame-size () nil
+  (window window))
+
+(defbinding decorated-window-set-title () nil
+  (window window)
+  (title string))
+
+(defbinding decorated-window-move-resize-window () nil
+  (window window)
+  (x int)
+  (y int)
+  (width int)
+  (heigth int))
 
 
+;;; Window group
+
+(defmethod initialize-instance ((window-group window-group) &rest initargs 
+				&key window windows)
+  (declare (ignore window windows))
+  (prog1
+      (call-next-method)
+    (initial-add window-group #'window-group-add-window 
+     initargs :window :windows)))
 
 
-;;; File chooser
+(defbinding window-group-add-window () nil
+  (window-group window-group)
+  (window window))
 
-
+(defbinding window-group-remove-window () nil
+  (window-group window-group)
+  (window window))
 
 
 ;;; Scrolled window

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.25 2004-12-20 22:43:26 espen Exp $
+;; $Id: gtktypes.lisp,v 1.26 2004-12-26 11:51:21 espen Exp $
 
 
 (in-package "GTK")
@@ -146,7 +146,6 @@
     (window
      :allocation :virtual
      :getter "gtk_widget_get_window"
-     :unbound nil
      :reader widget-window
      :type gdk:window)
     (state
@@ -160,14 +159,12 @@
      :allocation :virtual
      :getter "gtk_widget_get_colormap"
      :setter "gtk_widget_set_colormap"
-     :unbound nil
      :initarg :colormap
      :accessor widget-colormap
      :type gdk:colormap)
     (visual
      :allocation :virtual
      :getter "gtk_widget_get_visual"
-     :unbound nil
      :reader widget-visual
      :type gdk:visual)
     (direction
@@ -187,7 +184,6 @@
     (settings
      :allocation :virtual
      :getter "gtk_widget_get_settings"
-     :unbound nil
      :accessor widget-settings
      :type settings)
     (child-visible
@@ -247,14 +243,7 @@
 
   ("GtkWindow"
    :slots
-   ((gravity
-     :allocation :virtual
-     :getter "gtk_window_get_gravity"
-     :setter "gtk_window_set_gravity"
-     :accessor window-gravity
-     :initarg :gravity
-     :type gdk:gravity)
-    (focus-widget
+   ((focus-widget
      :allocation :virtual
      :getter "gtk_window_get_focus"
      :setter "gtk_window_set_focus"
@@ -268,13 +257,6 @@
      :accessor window-default-widget
      :initarg :default-widget
      :type widget)
-    (decorated
-     :allocation :virtual
-     :getter "gtk_window_get_decorated"
-     :setter "gtk_window_set_decorated"
-     :accessor window-decorated-p
-     :initarg :decorated
-     :type boolean)
     (has-frame
      :allocation :virtual
      :getter "gtk_window_get_has_frame"
@@ -282,25 +264,13 @@
      :accessor window-has-frame-p
      :initarg :has-frame
      :type boolean)
-    (role
+    (icon-list
      :allocation :virtual
-     :getter "gtk_window_get_role"
-     :setter "gtk_window_set_role"
-     :accessor window-role
-     :initarg :role
-     :type string)
-    (type-hint
-     :allocation :virtual
-     :getter "gtk_window_get_type_hint"
-     :setter "gtk_window_set_type_hint"
-     :accessor window-type-hint
-     :initarg :type-hint
-     :type gdk:window-type-hint)
-    (icon
-     :allocation :virtual
-     :getter window-icon
-     :setter (setf window-icon)
-     :initarg :icon)
+     :getter "gtk_window_get_icon_list"
+     :setter "gtk_window_set_icon_list"
+     :accessor window-icon-list
+     :initarg :icon-list
+     :type (glist gdk:pixbuf))
     (mnemonic-modifier
      :allocation :virtual
      :getter "gtk_window_get_mnemonic_modifier"
@@ -314,8 +284,24 @@
      :setter "gtk_window_set_transient_for"
      :accessor window-transient-for
      :initarg :transient-for
-     :type window)))
+     :type window)
+    (group
+     :allocation :virtual
+     :getter "gtk_window_get_group"
+     :setter (setf window-group)
+     :reader window-group
+     :initarg :group
+     :type window-group)
+    (default-width :merge t :unbound -1)
+    (default-height :merge t :unbound -1)))
   
+  ("GtkWindowGroup"
+   :slots
+   ((grabs
+     :allocation :alien
+     :accessor window-group-grabs
+     :type (gslist window))))
+
   ("GtkTooltips"
    :slots
    ((enabled

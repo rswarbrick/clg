@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.4 2004-12-20 20:00:46 espen Exp $ */
+/* $Id: glue.c,v 1.5 2004-12-26 11:51:21 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -97,6 +97,13 @@ gtk_window_get_default (GtkWindow *window)
 {
   return window->default_widget;
 }
+
+GtkWindowGroup*
+gtk_window_get_group (GtkWindow *window)
+{
+  return window->group;
+}
+
 
 
 /* Layout */
