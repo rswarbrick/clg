@@ -6,6 +6,7 @@
 (export-from-file #p"clg:gtk;gtkcontainer.lisp")
 (export-from-file #p"clg:gtk;gtk.lisp")
 (export-from-file #p"clg:gtk;gtktree.lisp")
+(export-from-file #p"clg:gtk;gtktext.lisp")
 (export-from-file #p"clg:gtk;gtkaction.lisp")
 (export-from-file #p"clg:gtk;gtkutils.lisp")
 (export-from-file #p"clg:gtk;gtkstyle.lisp")
