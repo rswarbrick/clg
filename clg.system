@@ -100,14 +100,13 @@
      (:module gtk
       :components
       ((:file "gtk-package")
-;       (:file "gtk-export" :depends-on ("gtktypes" "gtk"))
+       (:file "gtk-export" :depends-on ("gtktypes" "gtk"))
        (:file "gtkobject" :depends-on ("gtk-package"))
        (:file "gtktypes" :depends-on ("gtkobject"))
        (:file "gtkwidget" :depends-on ("gtktypes"))
        (:file "gtkcontainer" :depends-on ("gtktypes"))
-;       (:file "gtk" :depends-on ("gtktypes"))
-;       (:file "gtkutils" :depends-on ("gtk"))
-       )
+       (:file "gtk" :depends-on ("gtktypes"))
+       (:file "gtkutils" :depends-on ("gtk")))
       :depends-on (glib gdk pango "gtkglue")))))
 
 
