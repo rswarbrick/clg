@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,19 +15,19 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.4 2001-01-28 14:25:48 espen Exp $
+;; $Id: gtk.lisp,v 1.5 2001-05-31 21:52:57 espen Exp $
 
 
 (in-package "GTK")
 
 ;;; Gtk version
 
-(define-foreign check-version () string
+(defbinding check-version () string
   (required-major unsigned-int)
   (required-minor unsigned-int)
   (required-micro unsigned-int))
 
-(define-foreign query-version () nil
+(defbinding query-version () nil
   (major unsigned-int :out)
   (minor unsigned-int :out)
   (micro unsigned-int :out))
@@ -43,84 +43,17 @@
 
 ;;; Label
 
-(define-foreign label-new () label
-  (text string))
-
-(define-foreign label-parse-uline () unsigned-int
+(defbinding label-select-region () nil
   (label label)
-  (string string))
+  (start int)
+  (end int))
 
 
 
 ;;; Acccel label
 
-(define-foreign accel-label-new () accel-label
-  (text string))
-
-(define-foreign accel-label-refetch () boolean
+(defbinding accel-label-refetch () boolean
   (accel-label accel-label))
-
-
-
-;;; Tips query
-
-(define-foreign tips-query-new () tips-query)
-
-(define-foreign tips-query-start-query () nil
-  (tips-query tips-query))
-
-(define-foreign tips-query-stop-query () nil
-  (tips-query tips-query))
-
-
-
-;;; Arrow
-
-(define-foreign arrow-new () arrow
-  (arrow-type arrow-type)
-  (shadow-type shadow-type))
-
-
-
-;;; Pixmap
-
-(defmethod initialize-instance ((pixmap pixmap) &rest initargs
-				&key source mask)
-  (declare (ignore initargs))
-  (call-next-method)
-  (if (typep source 'gdk:pixmap)
-      (pixmap-set pixmap source mask)
-    (multiple-value-bind (source mask) (gdk:pixmap-create source)
-      (pixmap-set pixmap source mask))))
-
-(defun pixmap-new (source &optional mask)
-  (make-instance 'pixmap :source source :mask mask))
-
-(define-foreign pixmap-set () nil
-  (pixmap pixmap)
-  (source gdk:pixmap)
-  (mask (or null gdk:bitmap)))
-
-(defun (setf pixmap-source) (source pixmap)
-  (if (typep source 'gdk:pixmap)
-      (pixmap-set pixmap source (pixmap-mask pixmap))
-    (multiple-value-bind (source mask) (gdk:pixmap-create source)
-      (pixmap-set pixmap source mask)))
-  source)
-
-(defun (setf pixmap-mask) (mask pixmap)
-  (pixmap-set pixmap (pixmap-source pixmap) mask)
-  mask)
-    
-(define-foreign ("gtk_pixmap_get" pixmap-source) () nil
-  (pixmap pixmap)
-  (val gdk:pixmap :out)
-  (nil null))
-
-(define-foreign ("gtk_pixmap_get" pixmap-mask) () nil
-  (pixmap pixmap)
-  (nil null)
-  (mask gdk:bitmap :out))
 
 
 
@@ -152,90 +85,33 @@
     (container-add bin child))))
 
 
-;;; Alignment
-
-(define-foreign alignment-new () alignment
-  (xalign single-float)
-  (ylign single-float)
-  (xscale single-float)
-  (yscale single-float))
-
-
-
-;;; Frame
-
-(define-foreign frame-new (&optional label) frame
-  (label string))
-
-
-
-;;; Aspect frame
-
-(define-foreign aspect-frame-new () alignment
-  (xalign single-float)
-  (ylign single-float)
-  (ratio single-float)
-  (obey-child boolean))
-
-
-
 ;;; Button
 
-(define-foreign %button-new () button)
-
-(define-foreign %button-new-with-label () button
-  (label string))
-
-(defun button-new (&optional label)
-  (if label
-      (%button-new-with-label label)
-    (%button-new)))
-
-(define-foreign button-pressed () nil
+(defbinding button-pressed () nil
   (button button))
 
-(define-foreign button-released () nil
+(defbinding button-released () nil
   (button button))
 
-(define-foreign button-clicked () nil
+(defbinding button-clicked () nil
   (button button))
 
-(define-foreign button-enter () nil
+(defbinding button-enter () nil
   (button button))
 
-(define-foreign button-leave () nil
+(defbinding button-leave () nil
   (button button))
 
 
 
 ;;; Toggle button
 
-(define-foreign %toggle-button-new () toggle-button)
-
-(define-foreign %toggle-button-new-with-label () toggle-button
-  (label string))
-
-(defun toggle-button-new (&optional label)
-  (if label
-      (%toggle-button-new-with-label label)
-    (%toggle-button-new)))
-
-(define-foreign toggle-button-toggled () nil
+(defbinding toggle-button-toggled () nil
   (toggle-button toggle-button))
 
 
 
 ;;; Check button
-
-(define-foreign %check-button-new () check-button)
-
-(define-foreign %check-button-new-with-label () check-button
-  (label string))
-
-(defun check-button-new (&optional label)
-  (if label
-      (%check-button-new-with-label label)
-    (%check-button-new)))
 
 (defmethod (setf button-label) ((label string) (button check-button))
   (call-next-method)
@@ -246,22 +122,10 @@
 
 ;;; Radio button
 
-(define-foreign %radio-button-new-with-label-from-widget () radio-button
-  (widget (or null radio-button))
-  (label string))
-
-(define-foreign %radio-button-new-from-widget () radio-button
-  (widget (or null radio-button)))
-
-(defun radio-button-new (&optional label group-with)
-  (if label
-    (%radio-button-new-with-label-from-widget group-with label))
-  (%radio-button-new-from-widget group-with))
-
-(define-foreign ("gtk_radio_button_group" %radio-button-get-group) () pointer
+(defbinding (%radio-button-get-group "gtk_radio_button_group") () pointer
   (radio-button radio-button))
 
-(define-foreign %radio-button-set-group () nil
+(defbinding %radio-button-set-group () nil
   (radio-button radio-button)
   (group pointer))
 
@@ -278,13 +142,11 @@
 
 ;;; Option menu
 
-(define-foreign option-menu-new () option-menu)
-
-(define-foreign %option-menu-set-menu () nil
+(defbinding %option-menu-set-menu () nil
   (option-menu option-menu)
   (menu widget))
 
-(define-foreign %option-menu-remove-menu () nil
+(defbinding %option-menu-remove-menu () nil
   (option-menu option-menu))
 
 (defun (setf option-menu-menu) (menu option-menu)
@@ -297,28 +159,18 @@
 
 ;;; Item
 
-(define-foreign item-select () nil
+(defbinding item-select () nil
   (item item))
 
-(define-foreign item-deselect () nil
+(defbinding item-deselect () nil
   (item item))
 
-(define-foreign item-toggle () nil
+(defbinding item-toggle () nil
   (item item))
 
 
 
 ;;; Menu item
-
-(define-foreign %menu-item-new () menu-item)
-
-(define-foreign %menu-item-new-with-label () menu-item
-  (label string))
-
-(defun menu-item-new (&optional label)
-  (if label
-      (%menu-item-new-with-label label)
-    (%menu-item-new)))
 
 (defun (setf menu-item-label) (label menu-item)
   (make-instance 'accel-label
@@ -326,11 +178,11 @@
    :visible t :parent menu-item)
   label)
 
-(define-foreign %menu-item-set-submenu () nil
+(defbinding %menu-item-set-submenu () nil
   (menu-item menu-item)
   (submenu menu))
 
-(define-foreign %menu-item-remove-submenu () nil
+(defbinding %menu-item-remove-submenu () nil
   (menu-item menu-item))
 
 (defun (setf menu-item-submenu) (submenu menu-item)
@@ -339,7 +191,7 @@
     (%menu-item-set-submenu menu-item submenu))
   submenu)
 
-(define-foreign %menu-item-configure () nil
+(defbinding %menu-item-configure () nil
   (menu-item menu-item)
   (show-toggle-indicator boolean)
   (show-submenu-indicator boolean))
@@ -357,63 +209,36 @@
    (menu-item-toggle-indicator-p menu-item)
    show))
 
-(define-foreign menu-item-select () nil
+(defbinding menu-item-select () nil
   (menu-item menu-item))
 
-(define-foreign menu-item-deselect () nil
+(defbinding menu-item-deselect () nil
   (menu-item menu-item))
 
-(define-foreign menu-item-activate () nil
+(defbinding menu-item-activate () nil
   (menu-item menu-item))
 
-(define-foreign menu-item-right-justify () nil
+(defbinding menu-item-right-justify () nil
   (menu-item menu-item))
 
 
 
 ;;; Check menu item
 
-(define-foreign %check-menu-item-new
-    () check-menu-item)
-
-(define-foreign %check-menu-item-new-with-label () check-menu-item
-  (label string))
-
-(defun check-menu-item-new (&optional label)
-  (if label
-      (%check-menu-item-new-with-label label)
-    (%check-menu-item-new)))
-
-(define-foreign check-menu-item-toggled () nil
+(defbinding check-menu-item-toggled () nil
   (check-menu-item check-menu-item))
 
 
 
 ;;; Radio menu item
 
-(define-foreign %radio-menu-item-new () radio-menu-item
-  (group pointer))
-
-(define-foreign %radio-menu-item-new-with-label () radio-menu-item
-  (group pointer)
-  (label string))
-
-(define-foreign
-    ("gtk_radio_menu_item_group" %radio-menu-item-get-group) () pointer
+(defbinding (%radio-menu-item-get-group
+	     "gtk_radio_menu_item_group") () pointer
   (radio-menu-item radio-menu-item))
 
-(define-foreign %radio-menu-item-set-group () nil
+(defbinding %radio-menu-item-set-group () nil
   (radio-menu-item radio-menu-item)
   (group pointer))
-
-(defun radio-menu-item-new (&optional label group-with)
-  (let ((group
-	 (if group-with
-	     (%radio-menu-item-get-group group-with)
-	   (make-pointer 0))))
-    (if label
-	(%radio-menu-item-new-with-label group label)
-      (%radio-menu-item-new group))))
 
 (defun radio-menu-item-add-to-group (item1 item2)
   "Add ITEM1 to the group which ITEM2 belongs to."
@@ -427,37 +252,9 @@
   
 
 
-;;; Tearoff menu item
-
-(define-foreign tearoff-menu-item-new () tearoff-menu-item)
-
-
-
-;;; List item
-
-(define-foreign %list-item-new () list-item)
-
-(define-foreign %list-item-new-with-label () list-item
-  (label string))
-
-(defun list-item-new (&optional label)
-  (if label
-      (%list-item-new-with-label label)
-    (%list-item-new)))
-      
-(define-foreign list-item-select () nil
-  (list-item list-item))
-
-(define-foreign list-item-deselect () nil
-  (list-item list-item))
-
-
 ;;; Window
 
-(define-foreign window-new () window
-  (type window-type))
-
-(define-foreign %window-set-wmclass () nil
+(defbinding %window-set-wmclass () nil
   (window window)
   (wmclass-name string)
   (wmclass-class string))
@@ -467,108 +264,69 @@
   (values (svref wmclass 0) (svref wmclass 1)))
 
 ;; gtkglue.c
-(define-foreign window-wmclass () nil
+(defbinding window-wmclass () nil
   (window window)
   (wmclass-name string :out)
   (wmclass-class string :out))
 
-(define-foreign window-add-accel-group () nil
+(defbinding window-add-accel-group () nil
   (window window)
   (accel-group accel-group))
 
-(define-foreign window-remove-accel-group () nil
+(defbinding window-remove-accel-group () nil
   (window window)
   (accel-group accel-group))
 
-(define-foreign window-activate-focus () int
+(defbinding window-activate-focus () int
   (window window))
 
-(define-foreign window-activate-default () int
+(defbinding window-activate-default () int
   (window window))
 
-(define-foreign window-set-transient-for () nil
+(defbinding window-set-transient-for () nil
   (window window)
   (parent window))
 
-;(define-foreign window-set-geometry-hints)
-
-
-
-;;; Dialog
-
-(define-foreign dialog-new () dialog)
-
-
-;;; Color selection dialog
-
-(define-foreign color-selection-dialog-new () color-selection-dialog
-  (title string))
-
-
-;;; Input dialog
-
-(define-foreign input-dialog-new () dialog)
+;(defbinding window-set-geometry-hints)
 
 
 
 ;;; File selection
 
-(define-foreign file-selection-new () file-selection
-  (title string))
-
-(define-foreign file-selection-complete () nil
+(defbinding file-selection-complete () nil
   (file-selection file-selection)
   (pattern string))
 
-(define-foreign file-selection-show-fileop-buttons () nil
+(defbinding file-selection-show-fileop-buttons () nil
   (file-selection file-selection))
 
-(define-foreign file-selection-hide-fileop-buttons () nil
+(defbinding file-selection-hide-fileop-buttons () nil
   (file-selection file-selection))
-
-
-
-;;; Handle box
-
-(define-foreign handle-box-new () handle-box)
 
 
 
 ;;; Scrolled window
 
-(define-foreign scrolled-window-new
-    (&optional hadjustment vadjustment) scrolled-window
-  (hadjustment (or null adjustment))
-  (vadjustment (or null adjustment)))
-
 (defun (setf scrolled-window-scrollbar-policy) (policy window)
   (setf (scrolled-window-hscrollbar-policy window) policy)
   (setf (scrolled-window-vscrollbar-policy window) policy))
 
-(define-foreign scrolled-window-add-with-viewport () nil
+(defbinding scrolled-window-add-with-viewport () nil
    (scrolled-window scrolled-window)
    (child widget))
 
 
 
-;;; Viewport
-
-(define-foreign viewport-new () viewport
-  (hadjustment adjustment)
-  (vadjustment adjustment))
-  
-
-
 ;;; Box
 
-(define-foreign box-pack-start () nil
+(defbinding box-pack-start () nil
   (box box)
   (child widget)
   (expand boolean)
   (fill boolean)
   (padding unsigned-int))
 
-(define-foreign box-pack-end () nil
+(defbinding box-pack-end () nil
   (box box)
   (child widget)
   (expand boolean)
@@ -580,12 +338,12 @@
       (box-pack-start box child expand fill padding)
     (box-pack-end box child expand fill padding)))
 
-(define-foreign box-reorder-child () nil
+(defbinding box-reorder-child () nil
   (box box)
   (child widget)
   (position int))
 
-(define-foreign box-query-child-packing () nil
+(defbinding box-query-child-packing () nil
   (box box)
   (child widget :out)
   (expand boolean :out)
@@ -593,7 +351,7 @@
   (padding unsigned-int :out)
   (pack-type pack-type :out))
 
-(define-foreign box-set-child-packing () nil
+(defbinding box-set-child-packing () nil
   (box box)
   (child widget)
   (expand boolean)
@@ -605,186 +363,66 @@
 
 ;;; Button box
 
-(define-foreign ("gtk_button_box_get_child_size_default"
-		  button-box-get-default-child-size) () nil
+(defbinding button-box-get-child-size () nil
+  (button-box button-box)
   (min-width int :out)
   (min-height int :out))
 
-(define-foreign ("gtk_button_box_set_child_size_default"
-		 button-box-set-default-child-size) () nil
+(defbinding button-box-set-child-size () nil
+  (button-box button-box)
   (min-width int)
   (min-height int))
 
-(define-foreign ("gtk_button_box_get_child_ipadding_default"
-		  button-box-get-default-child-ipadding) () nil
+(defbinding button-box-get-child-ipadding () nil
+  (button-box button-box)
   (ipad-x int :out)
   (ipad-y int :out))
 
-
-(define-foreign ("gtk_button_box_get_child_ipadding_default"
-		 button-box-set-default-child-ipadding) () nil
+(defbinding button-box-set-child-ipadding () nil
+  (button-box button-box)
   (ipad-x int)
   (ipad-y int))
 
 
 
-;;; HButton box
-
-(define-foreign hbutton-box-new () hbutton-box)
-
-(define-foreign ("gtk_hbutton_box_get_spacing_default"
-		  hbutton-box-default-spacing) () int)
-
-(define-foreign %hbutton-box-set-spacing-default () nil
-  (spacing int))
-
-(defun (setf hbutton-box-default-spacing) (spacing)
-  (%hbutton-box-set-spacing-default spacing))
-  
-(define-foreign ("gtk_hbutton_box_get_layout_default"
-		  hbutton-box-default-layout) () button-box-style)
-
-(define-foreign %hbutton-box-set-layout-default () nil
-  (layout button-box-style))
-
-(defun (setf hbutton-box-default-layout) (layout)
-  (%hbutton-box-set-layout-default layout))
-
-
-
-;;; VButton Box
-
-(define-foreign vbutton-box-new () vbutton-box)
-
-(define-foreign ("gtk_vbutton_box_get_spacing_default"
-		  vbutton-box-default-spacing) () int)
-
-(define-foreign %vbutton-box-set-spacing-default () nil
-  (spacing int))
-
-(defun (setf vbutton-box-default-spacing) (spacing)
-  (%vbutton-box-set-spacing-default spacing))
-  
-(define-foreign ("gtk_vbutton_box_get_layout_default"
-		  vbutton-box-default-layout) () button-box-style)
-
-(define-foreign %vbutton-box-set-layout-default () nil
-  (layout button-box-style))
-
-(defun (setf vbutton-box-default-layout) (layout)
-  (%vbutton-box-set-layout-default layout))
-
-
-
-;;; VBox
-
-(define-foreign vbox-new () vbox
-  (homogeneous boolean)
-  (spacing int))
-
-
-
 ;;; Color selection
 
-(define-foreign color-selection-new () color-selection)
+; (defbinding %color-selection-get-previous-color () nil
+;   (colorsel color-selection)
+;   (color pointer))
 
-(define-foreign %color-selection-get-color () nil
-  (colorsel color-selection)
-  (color pointer))
+; (defun color-selection-previous-color (colorsel)
+;   (let ((color (allocate-memory (* (size-of 'double-float) 4))))
+;     (%color-selection-get-previous-color colorsel color)
+;     (funcall (get-from-alien-function '(vector double-float 4)) color)))
 
-(defun color-selection-color (colorsel)
-  (let ((color (allocate-memory (* (size-of 'double-float) 4))))
-    (%color-selection-get-color colorsel color)
-    (funcall (get-from-alien-function '(vector double-float 4)) color)))
+; (defbinding %color-selection-set-previous-color () nil
+;   (colorsel color-selection)
+;   (color (vector double-float 4)))
 
-(define-foreign %color-selection-set-color () nil
-  (colorsel color-selection)
-  (color (vector double-float 4)))
+; (defun (setf color-selection-previous-color) (color colorsel)
+;   (%color-selection-set-previous-color colorsel color)
+;   color)
 
-(defun (setf color-selection-color) (color colorsel)
-  (%color-selection-set-color colorsel color)
-  color)
-
-(define-foreign %color-selection-get-old-color () nil
-  (colorsel color-selection)
-  (color pointer))
-
-(defun color-selection-old-color (colorsel)
-  (let ((color (allocate-memory (* (size-of 'double-float) 4))))
-    (%color-selection-get-old-color colorsel color)
-    (funcall (get-from-alien-function '(vector double-float 4)) color)))
-
-(define-foreign %color-selection-set-old-color () nil
-  (colorsel color-selection)
-  (color (vector double-float 4)))
-
-(defun (setf color-selection-old-color) (color colorsel)
-  (%color-selection-set-old-color colorsel color)
-  color)
-
-(define-foreign %color-selection-get-palette-color () boolean
-  (colorsel color-selection)
-  (x int)
-  (y int)
-  (color (vector double-float 4) :out))
-
-(defun color-selection-palette-color (colorsel x y)
-  (multiple-value-bind (color-set-p color)
-      (%color-selection-get-palette-color colorsel x y)
-    (and color-set-p color)))
-
-(define-foreign %color-selection-set-palette-color () nil
-  (colorsel color-selection)
-  (x int)
-  (y int)
-  (color (vector double-float 4)))
-
-(define-foreign %color-selection-unset-palette-color () nil
-  (colorsel color-selection)
-  (x int)
-  (y int))
-
-(defun (setf color-selection-palette-color) (color colorsel x y)
-  (if color
-      (%color-selection-set-palette-color colorsel x y color)
-    (%color-selection-unset-palette-color colorsel x y))
-  color)
-
-(define-foreign ("gtk_color_selection_is_adjusting"
-		 color-selection-is-adjusting-p) () boolean
+(defbinding (color-selection-is-adjusting-p
+	     "gtk_color_selection_is_adjusting") () boolean
   (colorsel color-selection))
-
-
-
-;;; Gamma curve
-
-;(define-foreign gamma-curve-new () gamma-curve)
-
-
-
-;;; HBox
-
-(define-foreign hbox-new () hbox
-  (homogeneous boolean)
-  (spacing int))
 
 
 
 ;;; Combo
 
-(define-foreign combo-new () combo)
-
-(define-foreign combo-set-value-in-list () nil
+(defbinding combo-set-value-in-list () nil
   (combo combo)
   (val boolean)
   (ok-if-empty boolean))
 
-; (define-foreign ("gtk_combo_set_item_string" (setf combo-item-string)) () nil
+; (defbinding ("gtk_combo_set_item_string" (setf combo-item-string)) () nil
 ;   (combo combo)
 ;   (item item)
 ;   (item-value string))
 
-(define-foreign %combo-set-popdown-strings () nil
+(defbinding %combo-set-popdown-strings () nil
   (combo combo)
   (strings (glist string)))
 
@@ -792,30 +430,28 @@
   (%combo-set-popdown-strings combo strings)
   strings)
 
-(define-foreign combo-disable-activate () nil
+(defbinding combo-disable-activate () nil
   (combo combo))
 
 
 
 ;;; Statusbar
 
-(define-foreign statusbar-new () statusbar)
-
-(define-foreign
-    ("gtk_statusbar_get_context_id" statusbar-context-id) () unsigned-int
+(defbinding (statusbar-context-id "gtk_statusbar_get_context_id")
+    () unsigned-int
   (statusbar statusbar)
   (context-description string))
 
-(define-foreign statusbar-push () unsigned-int
+(defbinding statusbar-push () unsigned-int
   (statusbar statusbar)
   (context-id unsigned-int)  
   (text string))
 
-(define-foreign statusbar-pop () nil
+(defbinding statusbar-pop () nil
   (statusbar statusbar)
   (context-id unsigned-int))
 
-(define-foreign statusbar-remove () nil
+(defbinding statusbar-remove () nil
   (statusbar statusbar)
   (context-id unsigned-int)
   (message-id unsigned-int))
@@ -824,15 +460,13 @@
 
 ;;; Fixed
 
-(define-foreign fixed-new () fixed)
-
-(define-foreign fixed-put () nil
+(defbinding fixed-put () nil
   (fixed fixed)
   (widget widget)
   (x (signed 16))
   (y (signed 16)))
 
-(define-foreign fixed-move () nil
+(defbinding fixed-move () nil
   (fixed fixed)
   (widget widget)
   (x (signed 16))
@@ -842,9 +476,7 @@
 
 ;;; Notebook
 
-(define-foreign notebook-new () notebook)
-
-(define-foreign ("gtk_notebook_insert_page_menu" notebook-insert-page)
+(defbinding (notebook-insert-page "gtk_notebook_insert_page_menu")
     (notebook position child tab-label &optional menu-label) nil
   (notebook notebook)
   (child widget)
@@ -862,7 +494,7 @@
 (defun notebook-prepend-page (notebook child tab-label &optional menu-label)
   (notebook-insert-page notebook 0 child tab-label menu-label))
   
-(define-foreign notebook-remove-page () nil
+(defbinding notebook-remove-page () nil
   (notebook notebook)
   (page-num int))
 
@@ -872,14 +504,14 @@
 ; 	nil
 ;       page-num)))
 
-(define-foreign ("gtk_notebook_get_nth_page" notebook-nth-page-child) () widget
+(defbinding (notebook-nth-page-child "gtk_notebook_get_nth_page") () widget
   (notebook notebook)
   (page-num int))
 
 (defun notebook-page-child (notebook)
   (notebook-nth-page-child notebook (notebook-page notebook)))
 
-(define-foreign %notebook-page-num () int
+(defbinding %notebook-page-num () int
   (notebook notebook)
   (child widget))
 
@@ -889,27 +521,27 @@
 	nil
       page-num)))
 
-(define-foreign notebook-next-page () nil
+(defbinding notebook-next-page () nil
   (notebook notebook))
 
-(define-foreign notebook-prev-page () nil
+(defbinding notebook-prev-page () nil
   (notebook notebook))
 
-(define-foreign notebook-popup-enable () nil
+(defbinding notebook-popup-enable () nil
   (notebook notebook))
 
-(define-foreign notebook-popup-disable () nil
+(defbinding notebook-popup-disable () nil
   (notebook notebook))
 
-(define-foreign
-    ("gtk_notebook_get_tab_label" notebook-tab-label) (notebook ref) widget
+(defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
+    (notebook ref) widget
   (notebook notebook)
   ((if (typep ref 'widget)
        ref
      (notebook-nth-page-child notebook ref))
    widget))
 
-(define-foreign %notebook-set-tab-label () nil
+(defbinding %notebook-set-tab-label () nil
   (notebook notebook)
   (reference widget)
   (tab-label widget))
@@ -926,15 +558,15 @@
      tab-label-widget)
     tab-label-widget))
    
-(define-foreign
-    ("gtk_notebook_get_menu_label" notebook-menu-label) (notebook ref) widget
+(defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
+    (notebook ref) widget
   (notebook notebook)
   ((if (typep ref 'widget)
        ref
      (notebook-nth-page-child notebook ref))
    widget))
 
-(define-foreign %notebook-set-menu-label () nil
+(defbinding %notebook-set-menu-label () nil
   (notebook notebook)
   (reference widget)
   (menu-label widget))
@@ -951,7 +583,7 @@
      menu-label-widget)
     menu-label-widget))
 
-(define-foreign notebook-query-tab-label-packing (notebook ref) nil
+(defbinding notebook-query-tab-label-packing (notebook ref) nil
   (notebook notebook)
   ((if (typep ref 'widget)
        ref
@@ -961,7 +593,7 @@
   (fill boolean :out)
   (pack-type pack-type :out))
 
-(define-foreign
+(defbinding
     notebook-set-tab-label-packing (notebook ref expand fill pack-type) nil
   (notebook notebook)
   ((if (typep ref 'widget)
@@ -972,40 +604,35 @@
   (fill boolean)
   (pack-type pack-type))
 
-(define-foreign notebook-reorder-child () nil
+(defbinding notebook-reorder-child () nil
   (notebook notebook)
   (child widget)
   (position int))
 
 
 
-;;; Font selection
-
-
-
-
 ;;; Paned
 
-(define-foreign paned-pack1 () nil
+(defbinding paned-pack1 () nil
   (paned paned)
   (child widget)
   (resize boolean)
   (shrink boolean))
 
-(define-foreign paned-pack2 () nil
+(defbinding paned-pack2 () nil
   (paned paned)
   (child widget)
   (resize boolean)
   (shrink boolean))
 
 ;; gtkglue.c
-(define-foreign paned-child1 () widget
+(defbinding paned-child1 () widget
   (paned paned)
   (resize boolean :out)
   (shrink boolean :out))
 
 ;; gtkglue.c
-(define-foreign paned-child2 () widget
+(defbinding paned-child2 () widget
   (paned paned)
   (resize boolean :out)
   (shrink boolean :out))
@@ -1017,37 +644,28 @@
   (paned-pack2 paned child t t))
 
 
-(define-foreign vpaned-new () vpaned)
-
-(define-foreign hpaned-new () hpaned)
-
-
 
 ;;; Layout
 
-(define-foreign layout-new (&optional hadjustment vadjustment) layout
-  (hadjustment (or null adjustment))
-  (vadjustment (or null adjustment)))
-
-(define-foreign layout-put () nil
+(defbinding layout-put () nil
   (layout layout)
   (widget widget)
   (x int)
   (y int))
 
-(define-foreign layout-move () nil
+(defbinding layout-move () nil
   (layout layout)
   (widget widget)
   (x int)
   (y int))
 
-(define-foreign layout-set-size () nil
+(defbinding layout-set-size () nil
   (layout layout)
   (width int)
   (height int))
 
 ;; gtkglue.c
-(define-foreign layout-get-size () nil
+(defbinding layout-get-size () nil
   (layout layout)
   (width int :out)
   (height int :out))
@@ -1064,122 +682,17 @@
 (defun (setf layout-y-size) (y layout)
   (layout-set-size layout (layout-x-size layout) y))
 
-(define-foreign layout-freeze () nil
+(defbinding layout-freeze () nil
   (layout layout))
 
-(define-foreign layout-thaw () nil
+(defbinding layout-thaw () nil
   (layout layout))
-
-
-
-;;; List
-
-; (define-foreign list-new () list-widget)
-
-; (define-foreign list-insert-items () nil
-;   (list list-widget)
-;   (items (list list-item))
-;   (position int))
-
-; (define-foreign list-append-items () nil
-;   (list list-widget)
-;   (items (glist list-item)))
-
-; (define-foreign list-prepend-items () nil
-;   (list list-widget)
-;   (items (glist list-item)))
-
-; (define-foreign %list-remove-items () nil
-;   (list list-widget)
-;   (items (glist list-item)))
-
-; (define-foreign %list-remove-items-no-unref () nil
-;   (list list-widget)
-;   (items (glist list-item)))
-
-; (defun list-remove-items (list items &key no-unref)
-;   (if no-unref
-;       (%list-remove-items-no-unref list items)
-;     (%list-remove-items list items)))
-
-; (define-foreign list-clear-items () nil
-;   (list list-widget)
-;   (start int)
-;   (end int))
-
-; (define-foreign list-select-item () nil
-;   (list list-widget)
-;   (item int))
-
-; (define-foreign list-unselect-item () nil
-;   (list list-widget)
-;   (item int))
-
-; (define-foreign list-select-child () nil
-;   (list list-widget)
-;   (child widget))
-
-; (define-foreign list-unselect-child () nil
-;   (list list-widget)
-;   (child widget))
-
-; (define-foreign list-child-position () int
-;   (list list-widget)
-;   (child widget))
-
-; (define-foreign list-extend-selection () nil
-;   (list list-widget)
-;   (scroll-type scroll-type)
-;   (position single-float)
-;   (auto-start-selection boolean))
-
-; (define-foreign list-start-selection () nil
-;   (list list-widget))
-
-; (define-foreign list-end-selection () nil
-;   (list list-widget))
-
-; (define-foreign list-select-all () nil
-;   (list list-widget))
-
-; (define-foreign list-unselect-all () nil
-;   (list list-widget))
-
-; (define-foreign list-scroll-horizontal () nil
-;   (list list-widget)
-;   (scroll-type scroll-type)
-;   (position single-float))
-
-; (define-foreign list-scroll-vertical () nil
-;   (list list-widget)
-;   (scroll-type scroll-type)
-;   (position single-float))
-
-; (define-foreign list-toggle-add-mode () nil
-;   (list list-widget))
-
-; (define-foreign list-toggle-focus-row () nil
-;   (list list-widget))
-
-; (define-foreign list-toggle-row () nil
-;   (list list-widget)
-;   (item list-item))
-
-; (define-foreign list-undo-selection () nil
-;   (list list-widget))
-
-; (define-foreign list-end-drag-selection () nil
-;   (list list-widget))
-
-; ;; gtkglue.c
-; (define-foreign list-selection () (glist list-item)
-;   (list list-widget))
 
 
 
 ;;; Menu shell
 
-(define-foreign menu-shell-insert () nil
+(defbinding menu-shell-insert () nil
   (menu-shell menu-shell)
   (menu-item menu-item)
   (position int))
@@ -1190,17 +703,17 @@
 (defun menu-shell-prepend (menu-shell menu-item)
   (menu-shell-insert menu-shell menu-item 0))
 
-(define-foreign menu-shell-deactivate () nil
+(defbinding menu-shell-deactivate () nil
   (menu-shell menu-shell))
 
-(define-foreign menu-shell-select-item () nil
+(defbinding menu-shell-select-item () nil
   (menu-shell menu-shell)
   (menu-item menu-item))
 
-(define-foreign menu-shell-deselect () nil
+(defbinding menu-shell-deselect () nil
   (menu-shell menu-shell))
 
-(define-foreign menu-shell-activate-item () nil
+(defbinding menu-shell-activate-item () nil
   (menu-shell menu-shell)
   (menu-item menu-item)
   (fore-deactivate boolean))
@@ -1209,9 +722,7 @@
 
 ; ;;; Menu bar
 
-(define-foreign menu-bar-new () menu-bar)
-
-; (define-foreign menu-bar-insert () nil
+; (defbinding menu-bar-insert () nil
 ;   (menu-bar menu-bar)
 ;   (menu menu)
 ;   (position int))
@@ -1226,8 +737,6 @@
 
 ; ;;; Menu
 
-(define-foreign menu-new () menu)
-
 ; (defun menu-insert (menu menu-item position)
 ;   (menu-shell-insert menu menu-item position))
 
@@ -1239,16 +748,16 @@
 
 ;(defun menu-popup ...)
 
-(define-foreign menu-reposition () nil
+(defbinding menu-reposition () nil
   (menu menu))
 
-(define-foreign menu-popdown () nil
+(defbinding menu-popdown () nil
   (menu menu))
 
-(define-foreign ("gtk_menu_get_active" menu-active) () widget
+(defbinding (menu-active "gtk_menu_get_active") () widget
   (menu menu))
 
-(define-foreign %menu-set-active () nil
+(defbinding %menu-set-active () nil
   (menu menu)
   (index unsigned-int))
 
@@ -1257,75 +766,26 @@
   
 ;(defun menu-attach-to-widget ...)
 
-(define-foreign menu-detach () nil
+(defbinding menu-detach () nil
   (menu menu))
 
-(define-foreign ("gtk_menu_get_attach_widget" menu-attach-widget) () widget
+(defbinding (menu-attach-widget "gtk_menu_get_attach_widget") () widget
   (menu menu))
 
-(define-foreign menu-reorder-child () nil
+(defbinding menu-reorder-child () nil
   (menu menu)
   (menu-item menu-item)
   (position int))
 
 
-
-;;; Packer
-
-(define-foreign packer-new () packer)
-
-(define-foreign packer-add
-    (packer child side anchor
-     &key
-     options
-     (border-width (packer-default-border-width packer))
-     (pad-x (packer-default-pad-x packer))
-     (pad-y (packer-default-pad-y packer))
-     (ipad-x (packer-default-ipad-x packer))
-     (ipad-y (packer-default-ipad-y packer))) nil
-  (packer packer)
-  (child widget)
-  (side side-type)
-  (anchor anchor-type)
-  (options packer-options)
-  (border-width unsigned-int)
-  (pad-x unsigned-int)
-  (pad-y unsigned-int)
-  (ipad-x unsigned-int)
-  (ipad-y unsigned-int))
-
-(define-foreign packer-set-child-packing () nil
-  (packer packer)
-  (child widget)
-  (side side-type)
-  (anchor anchor-type)
-  (options packer-options)
-  (border-width unsigned-int)
-  (pad-x unsigned-int)
-  (pad-y unsigned-int)
-  (ipad-x unsigned-int)
-  (ipad-y unsigned-int))
-
-(define-foreign packer-reorder-child () nil
-  (packer packer)
-  (child widget)
-  (position int))
-
-
-
 ;;; Table
 
-(define-foreign table-new () table
-  (rows unsigned-int)
-  (columns unsigned-int)
-  (homogeneous boolean))
-
-(define-foreign table-resize () nil
+(defbinding table-resize () nil
   (table table)
   (rows unsigned-int)
   (columns unsigned-int))
 
-(define-foreign table-attach (table child left right top bottom
+(defbinding table-attach (table child left right top bottom
 			       &key (x-options '(:expand :fill))
 			            (y-options '(:expand :fill))
 			            (x-padding 0) (y-padding 0)) nil
@@ -1340,7 +800,7 @@
   (x-padding unsigned-int)
   (y-padding unsigned-int))
 
-(define-foreign %table-set-row-spacing () nil
+(defbinding %table-set-row-spacing () nil
   (table table)
   (row unsigned-int)
   (spacing unsigned-int))
@@ -1350,13 +810,13 @@
   spacing)
 
 ;; gtkglue.c
-(define-foreign table-row-spacing (table row) unsigned-int
+(defbinding table-row-spacing (table row) unsigned-int
   (table table)
   ((progn
      (assert (and (>= row 0) (< row (table-rows table))))
      row) unsigned-int))
 
-(define-foreign %table-set-col-spacing () nil
+(defbinding %table-set-col-spacing () nil
   (table table)
   (col unsigned-int)
   (spacing unsigned-int))
@@ -1366,7 +826,7 @@
   spacing)
 
 ;; gtkglue.c
-(define-foreign table-column-spacing (table col) unsigned-int
+(defbinding table-column-spacing (table col) unsigned-int
   (table table)
   ((progn
      (assert (and (>= col 0) (< col (table-columns table))))
@@ -1398,12 +858,8 @@
 
 ;;; Toolbar
 
-(define-foreign toolbar-new () toolbar
-  (orientation orientation)
-  (style toolbar-style))
-
 ;; gtkglue.c
-(define-foreign toolbar-num-children () int
+(defbinding toolbar-num-children () int
   (toolbar toolbar))
 
 (defun %toolbar-position-num (toolbar position)
@@ -1414,7 +870,7 @@
      (assert (and (>= position 0) (< position (toolbar-num-children toolbar))))
      position)))
 
-(define-foreign %toolbar-insert-element () widget
+(defbinding %toolbar-insert-element () widget
   (toolbar toolbar)
   (type toolbar-child-type)
   (widget (or null widget))
@@ -1511,51 +967,48 @@
 
 ;;; Calendar
 
-(define-foreign calendar-new () calendar)
-
-(define-foreign calendar-select-month () int
+(defbinding calendar-select-month () int
   (calendar calendar)
   (month unsigned-int)
   (year unsigned-int))
 
-(define-foreign calendar-select-day () nil
+(defbinding calendar-select-day () nil
   (calendar calendar)
   (day unsigned-int))
 
-(define-foreign calendar-mark-day () int
+(defbinding calendar-mark-day () int
   (calendar calendar)
   (day unsigned-int))
 
-(define-foreign calendar-unmark-day () int
+(defbinding calendar-unmark-day () int
   (calendar calendar)
   (day unsigned-int))
 
-(define-foreign calendar-clear-marks () nil
+(defbinding calendar-clear-marks () nil
   (calendar calendar))
 
-(define-foreign calendar-display-options () nil
+(defbinding calendar-display-options () nil
   (calendar calendar)
   (options calendar-display-options))
 
-(define-foreign ("gtk_calendar_get_date" calendar-date) () nil
+(defbinding (calendar-date "gtk_calendar_get_date") () nil
   (calendar calendar)
   (year unsigned-int :out)
   (month unsigned-int :out)
   (day unsigned-int :out))
 
-(define-foreign calendar-freeze () nil
+(defbinding calendar-freeze () nil
   (calendar calendar))
 
-(define-foreign calendar-thaw () nil
+(defbinding calendar-thaw () nil
   (calendar calendar))
 
 
 
 ;;; Drawing area
 
-; (define-foreign drawing-area-new () drawing-area)
 
-; (define-foreign ("gtk_drawing_area_size" %drawing-area-set-size) () nil
+; (defbinding ("gtk_drawing_area_size" %drawing-area-set-size) () nil
 ;   (drawing-area drawing-area)
 ;   (width int)
 ;   (height int))
@@ -1565,25 +1018,21 @@
 ;   (values (svref size 0) (svref size 1)))
 
 ; ;; gtkglue.c
-; (define-foreign ("gtk_drawing_area_get_size" drawing-area-size) () nil
+; (defbinding ("gtk_drawing_area_get_size" drawing-area-size) () nil
 ;   (drawing-area drawing-area)
 ;   (width int :out)
 ;   (height int :out))
 
 
 
-; ;;; Curve
-
-
-
-; ;;; Editable
-
-(define-foreign editable-select-region (editable &optional (start 0) end) nil
+;;; Editable
+#|
+(defbinding editable-select-region (editable &optional (start 0) end) nil
   (editable editable)
   (start int)
   ((or end -1) int))
 
-(define-foreign editable-insert-text
+(defbinding editable-insert-text
     (editable text &optional (position 0)) nil
   (editable editable)
   (text string)
@@ -1596,12 +1045,12 @@
 (defun editable-prepend-text (editable text)
   (editable-insert-text editable text 0))
 
-(define-foreign editable-delete-text (editable &optional (start 0) end) nil
+(defbinding editable-delete-text (editable &optional (start 0) end) nil
   (editable editable)
   (start int)
   ((or end -1) int))
 
-(define-foreign ("gtk_editable_get_chars" editable-text)
+(defbinding (editable-text "gtk_editable_get_chars")
     (editable &optional (start 0) end) string
   (editable editable)
   (start int)
@@ -1615,216 +1064,157 @@
     (editable-delete-text editable))
   text)
 
-(define-foreign editable-cut-clipboard () nil
+(defbinding editable-cut-clipboard () nil
   (editable editable))
 
-(define-foreign editable-copy-clipboard () nil
+(defbinding editable-copy-clipboard () nil
   (editable editable))
 
-(define-foreign editable-paste-clipboard () nil
+(defbinding editable-paste-clipboard () nil
   (editable editable))
 
-; (define-foreign editable-claim-selection () nil
+; (defbinding editable-claim-selection () nil
 ;   (editable editable)
 ;   (claim boolean)
 ;   (time unsigned-int))
 
-(define-foreign editable-delete-selection () nil
+(defbinding editable-delete-selection () nil
   (editable editable))
 
-; (define-foreign editable-changed () nil
+; (defbinding editable-changed () nil
 ;   (editable editable))
-
-
-
-;;; Entry
-
-(define-foreign %entry-new() entry)
-
-(define-foreign %entry-new-with-max-length () entry
-  (max (unsigned 16)))
-
-(defun entry-new (&optional max)
-  (if max
-      (%entry-new-with-max-length max)
-    (%entry-new)))
+|#
 
 
 ;;; Spin button
 
-(define-foreign spin-button-new () spin-button
-  (adjustment adjustment)
-  (climb-rate single-float)
-  (digits unsigned-int))
-
 (defun spin-button-value-as-int (spin-button)
   (round (spin-button-value spin-button)))
 
-(define-foreign spin-button-spin () nil
+(defbinding spin-button-spin () nil
   (spin-button spin-button)
   (direction spin-type)
   (increment single-float))
 
-(define-foreign spin-button-update () nil
+(defbinding spin-button-update () nil
   (spin-button spin-button))
 
 
 
 ; ;;; Ruler
 
-(define-foreign ruler-set-range () nil
+(defbinding ruler-set-range () nil
   (ruler ruler)
   (lower single-float)
   (upper single-float)
   (position single-float)
   (max-size single-float))
 
-(define-foreign ruler-draw-ticks () nil
+(defbinding ruler-draw-ticks () nil
   (ruler ruler))
 
-(define-foreign ruler-draw-pos () nil
+(defbinding ruler-draw-pos () nil
   (ruler ruler))
 
-(define-foreign hruler-new () hruler)
-
-(define-foreign vruler-new () vruler)
 
 
 ;;; Range
-
-(define-foreign range-draw-background () nil
+#|
+(defbinding range-draw-background () nil
   (range range))
 
-(define-foreign range-clear-background () nil
+(defbinding range-clear-background () nil
   (range range))
 
-(define-foreign range-draw-trough () nil
+(defbinding range-draw-trough () nil
   (range range))
 
-(define-foreign range-draw-slider () nil
+(defbinding range-draw-slider () nil
   (range range))
 
-(define-foreign range-draw-step-forw () nil
+(defbinding range-draw-step-forw () nil
   (range range))
 
-(define-foreign range-slider-update () nil
+(defbinding range-slider-update () nil
   (range range))
 
-(define-foreign range-trough-click () int
+(defbinding range-trough-click () int
   (range range)
   (x int)
   (y int)
   (jump-perc single-float :out))
 
-(define-foreign range-default-hslider-update () nil
+(defbinding range-default-hslider-update () nil
   (range range))
 
-(define-foreign range-default-vslider-update () nil
+(defbinding range-default-vslider-update () nil
   (range range))
 
-(define-foreign range-default-htrough-click () int
+(defbinding range-default-htrough-click () int
   (range range)
   (x int)
   (y int)
   (jump-perc single-float :out))
 
-(define-foreign range-default-vtrough-click () int
+(defbinding range-default-vtrough-click () int
   (range range)
   (x int)
   (y int)
   (jump-perc single-float :out))
 
-(define-foreign range-default-hmotion () int
+(defbinding range-default-hmotion () int
   (range range)
   (x-delta int)
   (y-delta int))
 
-(define-foreign range-default-vmotion () int
+(defbinding range-default-vmotion () int
   (range range)
   (x-delta int)
   (y-delta int))
-
+|#
 
 
 ;;; Scale
 
-(define-foreign scale-draw-value () nil
+(defbinding scale-draw-value () nil
   (scale scale))
-
-(define-foreign hscale-new () hscale
-  (adjustment adjustment))
-
-(define-foreign vscale-new () hscale
-  (adjustment adjustment))
-
-
-
-;;; Scrollbar
-
-(define-foreign hscrollbar-new () hscrollbar
-  (adjustment adjustment))
-
-(define-foreign vscrollbar-new () vscrollbar
-  (adjustment adjustment))
-
-
-
-;;; Separator
-
-(define-foreign vseparator-new () vseparator)
-
-(define-foreign hseparator-new () hseparator)
-
-
-
-;;; Preview
 
 
 
 ;;; Progress
 
-(define-foreign progress-configure () adjustment
+(defbinding progress-configure () adjustment
   (progress progress)
   (value single-float)
   (min single-float)
   (max single-float))
 
-(define-foreign ("gtk_progress_get_text_from_value"
-		  progress-text-from-value) () string
+(defbinding (progress-text-from-value
+	     "gtk_progress_get_text_from_value") () string
   (progress progress))
 
-(define-foreign ("gtk_progress_get_percentage_from_value"
-		  progress-percentage-from-value) () single-float
+(defbinding (progress-percentage-from-value
+	     "gtk_progress_get_percentage_from_value") () single-float
   (progress progress))
 
 
 
 ;;; Progress bar
 
-(define-foreign progress-bar-new () progress-bar)
-
-(define-foreign progress-bar-pulse () nil
+(defbinding progress-bar-pulse () nil
   (progress-bar progress-bar))
 
 
 
 ;;; Adjustment
 
-(define-foreign adjustment-new () adjustment
-  (value single-float)
-  (lower single-float)
-  (upper single-float)
-  (step-increment single-float)
-  (page-increment single-float)
-  (page-size single-float))
-
-(define-foreign adjustment-changed () nil
+(defbinding adjustment-changed () nil
   (adjustment adjustment))
 
-(define-foreign adjustment-value-changed () nil
+(defbinding adjustment-value-changed () nil
   (adjustment adjustment))
 
-(define-foreign adjustment-clamp-page () nil
+(defbinding adjustment-clamp-page () nil
   (adjustment adjustment)
   (lower single-float)
   (upper single-float))
@@ -1833,53 +1223,49 @@
 
 ;;; Tooltips
 
-(define-foreign tooltips-new () tooltips)
-
-(define-foreign tooltips-enable () nil
+(defbinding tooltips-enable () nil
   (tooltips tooltips))
 
-(define-foreign tooltips-disable () nil
+(defbinding tooltips-disable () nil
   (tooltips tooltips))
 
-(define-foreign tooltips-set-tip () nil
+(defbinding tooltips-set-tip () nil
   (tooltips tooltips)
   (widget widget)
   (tip-text string)
   (tip-private string))
 
-(define-foreign tooltips-set-colors (tooltips background foreground) nil
+(defbinding tooltips-set-colors (tooltips background foreground) nil
   (tooltips tooltips)
   ((gdk:ensure-color background) gdk:color)
   ((gdk:ensure-color foreground) gdk:color))
 
-(define-foreign tooltips-force-window () nil
+(defbinding tooltips-force-window () nil
   (tooltips tooltips))
 
 
 
 ;;; Rc
 
-(define-foreign rc-add-default-file (filename) nil
+(defbinding rc-add-default-file (filename) nil
   ((namestring (truename filename)) string))
 
-(define-foreign rc-parse (filename) nil
+(defbinding rc-parse (filename) nil
   ((namestring (truename filename)) string))
 
-(define-foreign rc-parse-string () nil
+(defbinding rc-parse-string () nil
   (rc-string string))
 
-(define-foreign rc-reparse-all () nil)
+(defbinding rc-reparse-all () nil)
 
-(define-foreign rc-get-style () style
+(defbinding rc-get-style () style
   (widget widget))
 
 
 
 ;;; Accelerator Groups
-
-(define-foreign accel-group-new () accel-group)
-
-(define-foreign accel-group-get-default () accel-group)
+#|
+(defbinding accel-group-get-default () accel-group)
 
 (deftype-method alien-ref accel-group (type-spec)
   (declare (ignore type-spec))
@@ -1889,55 +1275,55 @@
   (declare (ignore type-spec))
   '%accel-group-unref)
 
-(define-foreign %accel-group-ref () accel-group
+(defbinding %accel-group-ref () accel-group
   (accel-group (or accel-group pointer)))
 
-(define-foreign %accel-group-unref () nil
+(defbinding %accel-group-unref () nil
   (accel-group (or accel-group pointer)))
 
-(define-foreign accel-group-activate (accel-group key modifiers) boolean
+(defbinding accel-group-activate (accel-group key modifiers) boolean
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign accel-groups-activate (object key modifiers) boolean
+(defbinding accel-groups-activate (object key modifiers) boolean
   (object object)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign accel-group-attach () nil
+(defbinding accel-group-attach () nil
   (accel-group accel-group)
   (object object))
 
-(define-foreign accel-group-detach () nil
+(defbinding accel-group-detach () nil
   (accel-group accel-group)
   (object object))
 
-(define-foreign accel-group-lock () nil
+(defbinding accel-group-lock () nil
   (accel-group accel-group))
 
-(define-foreign accel-group-unlock () nil
+(defbinding accel-group-unlock () nil
   (accel-group accel-group))
 
 
 ;;; Accelerator Groups Entries
 
-(define-foreign accel-group-get-entry (accel-group key modifiers) accel-entry
+(defbinding accel-group-get-entry (accel-group key modifiers) accel-entry
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign accel-group-lock-entry (accel-group key modifiers) nil
+(defbinding accel-group-lock-entry (accel-group key modifiers) nil
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign accel-group-unlock-entry (accel-group key modifiers) nil
+(defbinding accel-group-unlock-entry (accel-group key modifiers) nil
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
 
-(define-foreign accel-group-add
+(defbinding accel-group-add
     (accel-group key modifiers flags object signal) nil
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
@@ -1946,7 +1332,7 @@
   (object object)
   ((name-to-string signal) string))
 
-(define-foreign accel-group-add (accel-group key modifiers object) nil
+(defbinding accel-group-add (accel-group key modifiers object) nil
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type)
@@ -1955,7 +1341,7 @@
 
 ;;; Accelerator Signals
 
-(define-foreign accel-group-handle-add
+(defbinding accel-group-handle-add
     (object signal-id accel-group key modifiers flags) nil
   (object object)
   (signal-id unsigned-int)
@@ -1964,28 +1350,28 @@
   (modifiers gdk:modifier-type)
   (flags accel-flags))
 
-(define-foreign accel-group-handle-remove
+(defbinding accel-group-handle-remove
     (object accel-group key modifiers) nil
   (object object)
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type))
-
+|#
 
 
 ;;; Style
 
-; (define-foreign style-new () style)
+; (defbinding style-new () style)
 
-; (define-foreign style-copy () style
+; (defbinding style-copy () style
 ;   (style style))
-
-(define-foreign %style-get-color () gdk:color
+#|
+(defbinding %style-get-color () gdk:color
   (style style)
   (color-type color-type)
   (state-type state-type))
 
-(define-foreign %style-set-color () gdk:color
+(defbinding %style-set-color () gdk:color
   (style style)
   (color-type color-type)
   (state-type state-type)
@@ -2027,13 +1413,13 @@
 (defun (setf style-black) (color style)
   (%style-set-color style :black :normal color))
 
-(define-foreign style-get-gc () gdk:gc
+(defbinding style-get-gc () gdk:gc
   (style style)
   (color-type color-type)
   (state-type state-type))
 
-
-(define-foreign draw-hline () nil
+|#
+(defbinding draw-hline () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2041,7 +1427,7 @@
   (x2 int)
   (y int))
 
-(define-foreign draw-vline () nil
+(defbinding draw-vline () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2049,7 +1435,7 @@
   (y2 int)
   (x int))
 
-(define-foreign draw-shadow () nil
+(defbinding draw-shadow () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2059,7 +1445,7 @@
   (width int)
   (height int))
 
-; (define-foreign draw-polygon () nil
+; (defbinding draw-polygon () nil
 ;   (style style)
 ;   (window gdk:window)
 ;   (state state-type)
@@ -2068,7 +1454,7 @@
 ;   ((length points) int)
 ;   (fill boolean))
 
-(define-foreign draw-arrow () nil
+(defbinding draw-arrow () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2080,7 +1466,7 @@
   (width int)
   (height int))
   
-(define-foreign draw-diamond () nil
+(defbinding draw-diamond () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2090,7 +1476,7 @@
   (width int)
   (height int))
 
-; (define-foreign draw-oval () nil
+; (defbinding draw-oval () nil
 ;   (style style)
 ;   (window gdk:window)
 ;   (state state-type)
@@ -2100,7 +1486,7 @@
 ;   (width int)
 ;   (height int))
 
-(define-foreign draw-string () nil
+(defbinding draw-string () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2108,7 +1494,7 @@
   (y int)
   (string string))
 
-(define-foreign draw-box () nil
+(defbinding draw-box () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2118,7 +1504,7 @@
   (width int)
   (height int))
 
-(define-foreign draw-flat-box () nil
+(defbinding draw-flat-box () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2128,7 +1514,7 @@
   (width int)
   (height int))
 
-(define-foreign draw-check () nil
+(defbinding draw-check () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2138,7 +1524,7 @@
   (width int)
   (height int))
 
-(define-foreign draw-option () nil
+(defbinding draw-option () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2148,7 +1534,7 @@
   (width int)
   (height int))
 
-; (define-foreign draw-cross () nil
+; (defbinding draw-cross () nil
 ;   (style style)
 ;   (window gdk:window)
 ;   (state state-type)
@@ -2158,7 +1544,7 @@
 ;   (width int)
 ;   (height int))
 
-; (define-foreign draw-ramp () nil
+; (defbinding draw-ramp () nil
 ;   (style style)
 ;   (window gdk:window)
 ;   (state state-type)
@@ -2169,7 +1555,7 @@
 ;   (width int)
 ;   (height int))
 
-(define-foreign draw-tab () nil
+(defbinding draw-tab () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2178,7 +1564,7 @@
   (width int)
   (height int))
 
-(define-foreign draw-shadow-gap () nil
+(defbinding draw-shadow-gap () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2190,7 +1576,7 @@
   (gap-x int)
   (gap-width int))
 
-(define-foreign draw-box-gap () nil
+(defbinding draw-box-gap () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2202,7 +1588,7 @@
   (gap-x int)
   (gap-width int))
 
-(define-foreign draw-extension () nil
+(defbinding draw-extension () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2211,7 +1597,7 @@
   (width int)
   (height int))
 
-(define-foreign draw-focus () nil
+(defbinding draw-focus () nil
   (style style)
   (window gdk:window)
   (x int)
@@ -2219,7 +1605,7 @@
   (width int)
   (height int))
 
-(define-foreign draw-slider () nil
+(defbinding draw-slider () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2230,7 +1616,7 @@
   (height int)
   (orientation orientation))
 
-(define-foreign draw-handle () nil
+(defbinding draw-handle () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2241,7 +1627,7 @@
   (height int)
   (orientation orientation))
 
-(define-foreign draw-handle () nil
+(defbinding draw-handle () nil
   (style style)
   (window gdk:window)
   (state state-type)
@@ -2252,7 +1638,7 @@
   (height int)
   (orientation orientation))
 
-(define-foreign paint-hline () nil
+(defbinding paint-hline () nil
   (style style)
   (window gdk:window)
   (state state-type)
