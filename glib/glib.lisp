@@ -15,10 +15,11 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.7 2000-10-05 17:17:41 espen Exp $
+;; $Id: glib.lisp,v 1.8 2001-02-11 20:21:13 espen Exp $
 
 
 (in-package "GLIB")
+
 (use-prefix "g")
 
 
@@ -39,8 +40,41 @@
   to)
 
 
+;;;; User data mechanism
+
+(internal *user-data* *user-data-count*)
+
+(declaim (fixnum *user-data-count*))
+
+(defvar *destroy-notify* (system:foreign-symbol-address "destroy_notify"))
+(defvar *user-data* (make-hash-table))
+(defvar *user-data-count* 0)
+
+(defun register-user-data (object &optional destroy-function)
+  (check-type destroy-function (or null symbol function))
+  (incf *user-data-count*)
+  (setf
+   (gethash *user-data-count* *user-data*)
+   (cons object destroy-function))
+  *user-data-count*)
+
+(defun find-user-data (id)
+  (check-type id fixnum)
+  (multiple-value-bind (user-data p) (gethash id *user-data*)
+    (values (car user-data) p)))
+
+(defun destroy-user-data (id)
+  (check-type id fixnum)
+  (let ((user-data (gethash id *user-data*)))
+    (when (cdr user-data)
+      (funcall (cdr user-data) (car user-data))))
+  (remhash id *user-data*))
+
+
 
 ;;;; Quarks
+
+(internal *quark-counter* *quark-from-object* *quark-to-object*)
 
 (deftype quark () 'unsigned)
 
@@ -49,10 +83,11 @@
 (define-foreign %quark-from-string () quark
   (string string))
 
-(defvar *string-counter* 0)
+(defvar *quark-counter* 0)
 
 (defun %quark-get-reserved ()
-  (%quark-from-string (format nil "CLG-~D" (incf *string-counter*))))
+  ;; The string is just a dummy
+  (%quark-from-string (format nil "#@£$%&-quark-~D" (incf *quark-counter*))))
 
 (defvar *quark-from-object* (make-hash-table))
 (defvar *quark-to-object* (make-hash-table))
