@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.2 2001-04-30 11:25:25 espen Exp $
+;; $Id: gboxed.lisp,v 1.3 2001-05-11 16:04:33 espen Exp $
 
 (in-package "GLIB")
 
@@ -23,45 +23,16 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass boxed (proxy)
     ()
-    (:metaclass proxy-class)))
+    (:metaclass proxy-class)
+    (:copy %boxed-copy)
+    (:free %boxed-free)))
 
-(defmethod initialize-proxy ((boxed boxed) &rest initargs
-			     &key location weak-ref)
-  (declare (ignore initargs))
-  (setf
-   (slot-value boxed 'location)
-   (if weak-ref
-       (%boxed-copy (find-type-number (class-of boxed)) location)
-     location))
-  (call-next-method))
-
-(defmethod instance-finalizer ((boxed boxed))
-  (let ((location (proxy-location boxed))
-	(type-number (find-type-number (class-of boxed))))
-    (declare (type system-area-pointer location))
-    #'(lambda ()
-	(%boxed-free type-number location)
-	(remove-cached-instance location))))
-
-
-(deftype-method translate-to-alien boxed (type-spec boxed &optional weak-ref)
-  (if weak-ref
-      `(proxy-location ,boxed)
-    `(let ((boxed ,boxed))
-       (%boxed-copy
-	(find-type-number type-spec)
-	(proxy-location boxed)))))
-
-(deftype-method unreference-alien boxed (type-spec c-struct)
-  `(%boxed-free ,(find-type-number type-spec) ,c-struct))
-
-
-(defbinding %boxed-copy () pointer
-  (type type-number)
+(defbinding %boxed-copy (type location) pointer
+  ((find-type-number type) type-number)
   (location pointer))
 
-(defbinding %boxed-free () nil
-  (type type-number)
+(defbinding %boxed-free (type location) nil
+  ((find-type-number type) type-number)
   (location pointer))
 
 
@@ -72,29 +43,15 @@
 
 
 (defmethod shared-initialize ((class boxed-class) names
-			      &rest initargs
-			      &key name alien-name type-init)
+			      &rest initargs &key name alien-name)
   (declare (ignore initargs names))
   (call-next-method)
 
   (let* ((class-name (or name (class-name class)))
 	 (type-number
-	  (cond
-	   ((and alien-name type-init)
-	    (error
-	     "Specify either :type-init or :alien-name for class ~A"
-	     class-name))
-	   (alien-name (type-number-from-alien-name (first alien-name)))
-	   (type-init (funcall (mkbinding (first type-init) 'type-number)))
-	   (t
-	    (or
-	     (type-number-from-alien-name
-	      (default-alien-type-name class-name) nil)
-	     (funcall
-	      (mkbinding
-	       (default-alien-fname (format nil "~A_get_type" class-name))
-	       'type-number)))))))
-    (setf (find-type-number class) type-number)))
+	  (find-type-number
+	   (or (first alien-name) (default-alien-type-name class-name)))))
+    (register-type class-name type-number)))
 
 
 (defmethod validate-superclass
@@ -102,6 +59,12 @@
   (subtypep (class-name super) 'boxed))
 
 
-;;;; Initializing type numbers
+;;;; 
 
-(setf (alien-type-name 'boxed) "GBoxed")
+(defun expand-boxed-type (type-number &optional slots)
+  `(defclass ,(type-from-number type-number) (boxed)
+     ,slots
+     (:metaclass boxed-class)
+     (:alien-name ,(find-type-name type-number))))
+
+(register-derivable-type 'boxed "GBoxed" :expand 'expand-boxed-type)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.1 2001-04-29 20:19:25 espen Exp $
+;; $Id: genums.lisp,v 1.2 2001-05-11 16:04:33 espen Exp $
 
 (in-package "GLIB")
 
@@ -38,7 +38,24 @@
 	 (rest args)
        args))))
 
-
+(defun %query-enum-or-flags-values (query-function class type)
+  (multiple-value-bind (sap length)
+      (funcall query-function (type-class-ref type))
+    (let ((values nil)
+	  (size (proxy-class-size (find-class class)))
+	  (proxy (make-proxy-instance class sap nil)))
+      (dotimes (i length)
+	(with-slots (location nickname value) proxy
+	  (setf location sap)
+	  (setq sap (sap+ sap size))
+	  (push
+	   (list
+	    (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD")
+	    value)
+	   values)))
+      values)))
+   
+  
 ;;;; Enum type
 
 (deftype enum (&rest args)
@@ -69,43 +86,20 @@
     `(ecase ,expr
        ,@(%map-mappings args :int-enum))))
 
-(setf (alien-type-name 'enum) "GEnum")
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass %enum-value (alien-structure)
+  (defclass %enum-value (static)
     ((value :allocation :alien :type int)
      (name :allocation :alien :type string)
      (nickname :allocation :alien :type string))
     (:metaclass proxy-class)))
 
-(defbinding %enum-class-values () (glist %enum-value)
-  (class pointer))
+(defbinding %enum-class-values () pointer
+  (class pointer)
+  (n-values unsigned-int :out))
 
-(defun %query-enum-values (type-number)
-  (mapcar
-   #'(lambda (enum-value)
-       (list
-	(intern
-	 (substitute
-	  #\- #\_ (string-upcase (slot-value enum-value 'nickname))) "KEYWORD")
-	(slot-value enum-value 'value)))
-   (%enum-class-values (type-class-peek type-number))))
+(defun query-enum-values (type)
+  (%query-enum-or-flags-values #'%enum-class-values '%enum-value type))
 
-(defun define-enum-by-query (init-fname &optional name)
-  (let ((type-number (type-init name init-fname)))
-    (unless (= (type-parent type-number) (find-type-number 'enum))
-      (error "~A is not an enum type" (alien-type-name type-number)))
-    
-    (type-class-ref type-number)
-    (setf (find-type-number name) type-number)
-    (let ((expanded (cons 'enum (%query-enum-values type-number)))
-      	  (name (or name (default-type-name (alien-type-name type-number)))))
-      (lisp::%deftype
-       name
-       #'(lambda (whole)
-	   (unless (zerop (length (cdr whole)))
-	     (lisp::do-arg-count-error 'deftype name (cdr whole) nil 0 0))
-	   expanded)))))
 
 
 ;;;;  Flags type
@@ -150,41 +144,46 @@
 	   (unless (zerop (logand ,expr (first mapping)))
 	     (push (second mapping) ,result)))))))
 
-(setf (alien-type-name 'flags) "GFlags")
 
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass %flags-value (alien-structure)
+;(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass %flags-value (static)
     ((value :allocation :alien :type unsigned-int)
      (name :allocation :alien :type string)
      (nickname :allocation :alien :type string))
-    (:metaclass proxy-class)))
+    (:metaclass proxy-class));)
 
-(defbinding %flags-class-values () (glist %flags-value)
-  (class pointer))
+(defbinding %flags-class-values () pointer
+  (class pointer)
+  (n-values unsigned-int :out))
 
-(defun %query-flags-values (type-number)
-  (mapcar
-   #'(lambda (flags-value)
-       (list
-	(intern
-	 (substitute
-	  #\- #\_ (string-upcase (slot-value flags-value 'nickname))) "KEYWORD")
-	(slot-value flags-value 'value)))
-   (%flags-class-values (type-class-peek type-number))))
+(defun query-flags-values (type)
+  (%query-enum-or-flags-values #'%flags-class-values '%flags-value type))
 
-(defun define-flags-by-query (init-fname &optional name)
-  (let ((type-number (type-init nil init-fname)))
-    (unless (= (type-parent type-number) (find-type-number 'flags))
-      (error "~A is not a flags type" (alien-type-name type-number)))
-    
-    (type-class-ref type-number)
-    (setf (find-type-number name) type-number)
-    (let ((expanded (cons 'flags (%query-flags-values type-number)))
-	  (name (or name (default-type-name (alien-type-name type-number)))))
-      (lisp::%deftype
-       name
-       #'(lambda (whole)
-	   (unless (zerop (length (cdr whole)))
-	     (lisp::do-arg-count-error 'deftype name (cdr whole) nil 0 0))
-	   expanded)))))
+
+
+;;;;
+
+(defun expand-enum-type (type-number &optional mappings)
+  (let* ((super (supertype type-number))
+	 (type (type-from-number type-number))
+	 (expanded-mappings
+	  (append
+	   (delete-if
+	    #'(lambda (mapping)
+		(or
+		 (assoc (first mapping) mappings)
+		 (rassoc (cdr mapping) mappings :test #'equal)))
+	    (if (eq super 'enum)
+		(query-enum-values type-number)
+	      (query-flags-values type-number)))
+	   (remove-if
+	    #'(lambda (mapping) (eq (second mapping) nil)) mappings))))
+    `(progn
+       (register-type ',type ,(find-type-name type-number))
+       (deftype ,type () '(,super ,@expanded-mappings)))))
+
+
+(register-derivable-type 'enum "GEnum" :expand 'expand-enum-type)
+(register-derivable-type 'flags "GFlags" :expand 'expand-enum-type)
+
