@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkaction.lisp,v 1.1 2004-12-04 18:03:21 espen Exp $
+;; $Id: gtkaction.lisp,v 1.2 2004-12-17 00:13:33 espen Exp $
 
 
 (in-package "GTK")
@@ -44,15 +44,10 @@
 (defmethod initialize-instance ((action-group action-group) &rest initargs 
 				&key action actions)
   (declare (ignore action actions))
-  (call-next-method)
-  (flet ((add-action (action)
-	   (action-group-add-action action-group action)))
-    (loop 
-     as (initarg value . rest) = initargs then rest
-     do (case initarg
-	  (:action (add-action value))
-	  (:actions (mapc #'add-action value)))
-     while rest)))
+  (prog1
+      (call-next-method)
+    (initial-add action-group #'action-group-add-action 
+     initargs :action :actions)))
 
 (defbinding action-group-get-action () action
   (action-group action-group)
