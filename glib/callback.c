@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.3 2001-04-29 20:11:21 espen Exp $ */
+/* $Id: callback.c,v 1.4 2001-05-11 16:12:27 espen Exp $ */
 
 #include <gobject/gobject.h>
 
@@ -85,40 +85,25 @@ destroy_notify_address ()
 #endif
 
 
-GList*
-g_object_class_properties (GObjectClass *class)
+GParamSpec**
+g_object_class_properties (GObjectClass *class, guint *n_properties)
 {
-  GList *list = NULL;
-  int i;
-
-  for (i = 0; i < class->n_property_specs; i++)
-    list = g_list_append (list, class->property_specs[i]);
-
-  return list;
+  *n_properties  = class->n_property_specs;
+  return class->property_specs;
 }
 
 #include        <gobject/genums.h>
-GList*
-g_enum_class_values (GEnumClass *class)
+GEnumValue*
+g_enum_class_values (GEnumClass *class, guint *n_values)
 {
-  GList *list = NULL;
-  int i;
-
-  for (i = 0; i < class->n_values; i++)
-    list = g_list_append (list, &class->values[i]);
-
-  return list;
+  *n_values = class->n_values;
+  return class->values;
 }
 
-GList*
-g_flags_class_values (GFlagsClass *class)
+GFlagsValue*
+g_flags_class_values (GFlagsClass *class, guint *n_values)
 {
-  GList *list = NULL;
-  int i;
-
-  for (i = 0; i < class->n_values; i++)
-    list = g_list_append (list, &class->values[i]);
-
-  return list;
+  *n_values = class->n_values;
+  return class->values;
 }
 
