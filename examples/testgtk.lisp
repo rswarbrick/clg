@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.16 2005-01-12 14:03:04 espen Exp $
+;; $Id: testgtk.lisp,v 1.17 2005-02-22 23:14:04 espen Exp $
 
 
 ;(use-package "GTK")
@@ -25,12 +25,12 @@
   `(let ((,window nil))
      (defun ,name ()
        (unless ,window
-	 (setq ,window (apply #'make-instance 'window :title ,title ',initargs))
+	 (setq ,window (make-instance 'window :title ,title ,@initargs :show-children t))
 	 (signal-connect ,window 'destroy #'(lambda () (setq ,window nil)))
 	 ,@body)
        
        (if (not (widget-visible-p ,window))
-	   (widget-show-all ,window)
+	   (widget-show ,window)
 	 (widget-hide ,window)))))
 
 
@@ -40,7 +40,7 @@
   `(let ((,dialog nil))
      (defun ,name ()
        (unless ,dialog
-	 (setq ,dialog (apply #'make-instance ,class :title ,title ',initargs))
+	 (setq ,dialog (make-instance ,class :title ,title ,@initargs :show-children t))
 	 (signal-connect ,dialog 'destroy #'(lambda () (setq ,dialog nil)))
 	 ,@body)
        
@@ -185,7 +185,7 @@
 
 (define-toplevel create-button-box (window "Button Boxes")
   (make-instance 'v-box
-   :parent window :border-width 10 :spacing 10 :show-all t
+   :parent window :border-width 10 :spacing 10
    :child (make-instance 'frame
 	   :label "Horizontal Button Boxes"
 	   :child (make-instance 'v-box
@@ -234,15 +234,14 @@
 				  (widget-hide button+1)
 				(widget-show button+1))))
 	  (table-attach table button column (1+ column) row (1+ row)
-			:options '(:expand :fill)))))
-    (widget-show-all table)))
+			:options '(:expand :fill)))))))
 
 
 ;; Calenadar
 
 (define-simple-dialog create-calendar (dialog "Calendar")
   (make-instance 'v-box
-   :parent dialog :border-width 10 :show-all t
+   :parent dialog :border-width 10
    :child (make-instance 'calendar)))
 
 
@@ -250,7 +249,7 @@
 
 (define-simple-dialog create-check-buttons (dialog "Check Buttons")
   (make-instance 'v-box
-   :border-width 10 :spacing 10 :parent dialog :show-all t
+   :border-width 10 :spacing 10 :parent dialog
    :children (loop
 	      for n from 1 to 3
 	      collect (make-instance 'check-button
@@ -262,25 +261,22 @@
 
 (define-dialog create-color-selection (dialog "Color selection dialog" 
 				       'color-selection-dialog
-				       :allow-grow nil :allow-shrink nil)
-  (with-slots (action-area colorsel) dialog
-;;     This seg faults for some unknown reason
-;;     (let ((button (make-instance 'check-button :label "Show Palette")))
-;;       (dialog-add-action-widget dialog button
-;;        #'(lambda () 
-;;  	  (setf 
-;;  	   (color-selection-has-palette-p colorsel)
-;;  	   (toggle-button-active-p button)))))
+				       :allow-grow nil :allow-shrink nil
+				       :show-children nil)
+  (with-slots (colorsel) dialog
+    (let ((button (make-instance 'check-button :label "Show Opacity")))
+      (dialog-add-action-widget dialog button
+       #'(lambda () 
+ 	  (setf 
+ 	   (color-selection-has-opacity-control-p colorsel)
+ 	   (toggle-button-active-p button)))))
 
-    (container-add action-area 
-     (create-check-button "Show Opacity" 
-      #'(lambda (state)
-	  (setf (color-selection-has-opacity-control-p colorsel) state))))
-
-    (container-add action-area
-     (create-check-button "Show Palette" 
-      #'(lambda (state) 
-	  (setf (color-selection-has-palette-p colorsel) state))))
+    (let ((button (make-instance 'check-button :label "Show Palette")))
+      (dialog-add-action-widget dialog button
+       #'(lambda () 
+ 	  (setf 
+ 	   (color-selection-has-palette-p colorsel)
+ 	   (toggle-button-active-p button)))))
 
     (signal-connect dialog :ok
      #'(lambda ()
@@ -355,7 +351,7 @@
 	 (set-cursor spinner drawing-area label)))
 
     (make-instance 'v-box
-     :parent dialog :border-width 10 :spacing 5 :show-all t
+     :parent dialog :border-width 10 :spacing 5
      :child (list
 	     (make-instance 'h-box
 	      :border-width 5
@@ -365,7 +361,6 @@
 	      :child spinner)
 	     :expand nil)
      :child (make-instance 'frame
-;	     :shadow-type :etched-in
 	     :label "Cursor Area" :label-xalign 0.5 :border-width 10
 	     :child drawing-area)
      :child (list label :expand nil))
@@ -440,15 +435,14 @@
       
 	(create-check-button "Editable" 'editable)
 	(create-check-button "Visible" 'visibility)
-	(create-check-button "Sensitive" 'sensitive)))
-    (widget-show-all main)))
+	(create-check-button "Sensitive" 'sensitive)))))
 
 
 ;; Expander
 
 (define-simple-dialog create-expander (dialog "Expander" :resizable nil)
   (make-instance 'v-box
-   :parent dialog :spacing 5 :border-width 5 :show-all t
+   :parent dialog :spacing 5 :border-width 5
    :child (create-label "Expander demo. Click on the triangle for details.")
    :child (make-instance 'expander
 	   :label "Details"
@@ -572,8 +566,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
   (let ((layout (make-instance 'layout
 		 :parent (make-instance 'scrolled-window :parent window)
 		 :width 1600 :height 128000 :events '(:exposure-mask)
- 		 :signal (list 'expose-event #'layout-expose :object t)
-		 )))
+ 		 :signal (list 'expose-event #'layout-expose :object t))))
 
     (with-slots (hadjustment vadjustment) layout
       (setf
@@ -583,18 +576,22 @@ This one is underlined (こんにちは) in quite a funky fashion"
     (dotimes (i 16)
       (dotimes (j 16)
 	(let ((text (format nil "Button ~D, ~D" i j)))
-	  (make-instance (if (not (zerop (mod (+ i j) 2)))
-			     'button
-			   'label)
-	   :label text :parent (list layout :x (* j 100) :y (* i 100))))))
+	  (layout-put layout
+	   (make-instance (if (not (zerop (mod (+ i j) 2)))
+			      'button
+			    'label)
+			  :label text :visible t)
+	   (* j 100) (* i 100)))))
 
     (loop
      for i from 16 below 1280
      do (let ((text (format nil "Button ~D, ~D" i 0)))
-	  (make-instance (if (not (zerop (mod i 2)))
-			     'button
-			   'label)
-	   :label text :parent (list layout :x 0 :y (* i 100)))))))
+	  (layout-put layout
+	   (make-instance (if (not (zerop (mod i 2)))
+			      'button
+			    'label)
+			  :label text :visible t)
+	   0 (* i 100))))))
 
 
 
@@ -632,7 +629,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
       (tree-view-append-column tree column))      
 
     (make-instance 'v-box
-     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :parent dialog :border-width 10 :spacing 10
      :child (list
 	     (make-instance 'h-box
               :spacing 10
@@ -791,12 +788,12 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	     :signal (list 'clicked #'(lambda () (widget-hide page)))))
 
     (let ((label-box (make-instance 'h-box 
-		      :show-all t
+		      :show-children t
 		      :child-args '(:expand nil)
 		      :child (make-instance 'image :pixbuf book-closed)
 		      :child (make-instance 'label :label title)))
 	  (menu-box (make-instance 'h-box 
-		     :show-all t
+		     :show-children t
 		     :child-args '(:expand nil)
 		     :child (make-instance 'image :pixbuf book-closed)
 		     :child (make-instance 'label :label title))))
@@ -984,7 +981,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		     t))))
 
     (make-instance 'v-box
-     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :parent dialog :border-width 10 :spacing 10
      :child progress
      :child activity-mode-button)
 
@@ -996,7 +993,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 (define-simple-dialog create-radio-buttons (dialog "Radio buttons")
   (make-instance 'v-box
-   :parent dialog :border-width 10 :spacing 10 :show-all t
+   :parent dialog :border-width 10 :spacing 10
    :children (make-radio-group 'radio-button
 	      '((:label "button1") (:label "button2") (:label "button3"))
 	      nil)))
@@ -1007,7 +1004,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 (define-simple-dialog create-range-controls (dialog "Range controls")
   (let ((adjustment (adjustment-new 0.0 0.0 101.0 0.1 1.0 1.0)))
     (make-instance 'v-box
-     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :parent dialog :border-width 10 :spacing 10
      :child (make-instance 'h-scale
 	     :width-request 150 :adjustment adjustment :inverted t
 	     :update-policy :delayed :digits 1 :draw-value t)
@@ -1111,7 +1108,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	       (make-instance 'frame :label label :child table))))
 
       (make-instance 'v-box
-       :parent dialog :border-width 5 :spacing 5 :show-all t
+       :parent dialog :border-width 5 :spacing 5
        :child (create-frame "Color Options"
 	       '(("Foreground" "Red" "Green" "Blue")
 		 ("Background" "Red" "Green" "Blue")))
@@ -1360,7 +1357,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
      #'(lambda () (when idle (idle-remove idle))))
  
     (make-instance 'v-box
-     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :parent dialog :border-width 10 :spacing 10
      :child label
      :child (make-instance 'frame
 	     :label "Label Container" :border-width 5
@@ -1442,6 +1439,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		       (setq active-tags (delete tag active-tags)))
  		     (multiple-value-bind (non-zero-p start end)
  			 (text-buffer-get-selection-bounds buffer)
+		       (declare (ignore non-zero-p))
 		       (if active 
 			   (text-buffer-apply-tag buffer tag start end)
 			 (text-buffer-remove-tag buffer tag start end))))))))
@@ -1507,7 +1505,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 (define-simple-dialog create-toggle-buttons (dialog "Toggle Button")
   (make-instance 'v-box
-   :border-width 10 :spacing 10 :parent dialog :show-all t
+   :border-width 10 :spacing 10 :parent dialog
       :children (loop
 	      for n from 1 to 3
 	      collect (make-instance 'toggle-button
@@ -1617,7 +1615,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	       (tooltips-set-tip tooltips button tip-text tip-private)
 	       button)))
       (make-instance 'v-box
-       :parent dialog :border-width 10 :spacing 10 :show-all t
+       :parent dialog :border-width 10 :spacing 10
        :child (create-button "button1" "This is button 1" "ContextHelp/button/1")
        :child (create-button "button2" "This is button 2. This is also has a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")))))
 
@@ -1685,7 +1683,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
     (window-add-accel-group window (ui-manager-accel-group ui))
     
     (make-instance 'v-box 
-     :parent window :show-all t
+     :parent window
      :child (list 
 	     (ui-manager-get-widget ui "/MenuBar")
 	     :expand nil :fill nil)
