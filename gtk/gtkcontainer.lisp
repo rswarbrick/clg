@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.14 2004-12-20 20:09:54 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.15 2004-12-29 21:14:23 espen Exp $
 
 (in-package "GTK")
 
@@ -81,6 +81,15 @@
   (with-callback-function (id function)
     (%container-foreach container id)))
 
+(defbinding %container-forall (container callback-id) nil
+  (container container)
+  ((callback %foreach-callback) pointer)
+  (callback-id unsigned-int))
+
+(defun container-forall (container function)
+  (with-callback-function (id function)
+    (%container-forall container id)))
+
 (defun map-container (seqtype func container)
   (case seqtype
     ((nil)
@@ -103,31 +112,14 @@
 	    (incf index)))
        seq))))
 
-(defmacro do-container ((var container &optional (result nil)) &body body)
-  (let ((continue (make-symbol "CONTINUE")))
-    `(let ((,continue t))
-       (container-foreach
-	,container
-	#'(lambda (,var)
-	    (when ,continue
-	      (setq ,continue nil)
-	      (block nil
-		,@body
-		(setq ,continue t)))))
-       ,result)))
-
-;; (defbinding %container-get-children () (glist widget)
-;;   (container container))
-
 (defmethod container-children ((container container))
-;;   (%container-get-children container)
   (map-container 'list #'identity container))
 
 (defmethod (setf container-children) (children (container container))
   (dolist (child (container-children container))
     (container-remove container child))
   (dolist (child children)
-    (container-add container child))
+    (apply #'container-add container (mklist child)))
   children)
 
 (defun container-length (container)
