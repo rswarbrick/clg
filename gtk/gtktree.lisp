@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.4 2004-12-17 00:36:32 espen Exp $
+;; $Id: gtktree.lisp,v 1.5 2005-01-06 21:50:11 espen Exp $
 
 
 (in-package "GTK")
@@ -314,7 +314,7 @@
 
 (defun tree-model-column-value (model iter column)
   (let ((index (column-index model column)))
-    (with-gvalue (gvalue (tree-model-get-column-type model index))
+    (with-gvalue (gvalue)
       (%tree-model-get-value model iter index gvalue))))
 
 (defbinding tree-model-iter-next () boolean
