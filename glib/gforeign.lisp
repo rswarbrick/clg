@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.8 2001-05-04 17:00:37 espen Exp $
+;; $Id: gforeign.lisp,v 1.9 2001-05-11 15:57:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -287,10 +287,11 @@
     
 	 
 (defmacro defbinding (name lambda-list return-type-spec &rest docs/args)
-  (multiple-value-bind (c-name lisp-name)
+  (multiple-value-bind (lisp-name c-name)
       (if (atom name)
-	  (values (default-alien-fname name) name)
-	(values-list name))
+ 	  (values name (default-alien-fname name))
+ 	(values-list name))
+		       
     (let ((supplied-lambda-list lambda-list)
 	  (docs nil)
 	  (args nil))
@@ -311,11 +312,6 @@
       (%defbinding
        c-name lisp-name (or supplied-lambda-list (nreverse lambda-list))
        return-type-spec (reverse docs) (reverse args)))))
-
-;; For backward compatibility
-(defmacro define-foreign (&rest args)
-  `(defbinding ,@args))
-  
 
 #+cmu
 (defun %defbinding (foreign-name lisp-name lambda-list
