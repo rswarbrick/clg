@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.18 2004-10-31 11:41:06 espen Exp $
+;; $Id: gtype.lisp,v 1.19 2004-11-07 01:21:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -33,7 +33,7 @@
      (name :allocation :alien :type string)
      (class-size :allocation :alien :type unsigned-int)
      (instance-size :allocation :alien :type unsigned-int))
-    (:metaclass proxy-class)))
+    (:metaclass struct-class)))
 
 
 (defbinding %type-query () nil
@@ -87,7 +87,7 @@
      (let ((type-number (%type-from-name type)))
        (cond
 	((and (zerop type-number) error)
-	 (error "Invalid alien type name: ~A" type))
+	 (error "Invalid gtype name: ~A" type))
 	((zerop type-number) nil)
 	(t type-number))))
     (symbol
@@ -123,7 +123,7 @@
        (funcall (mkbinding fname 'type-number)))
    (mklist init)))
 
-(defun %init-types-in-library (pathname ignore)
+(defun %init-types-in-library (pathname prefix ignore)
   (let ((process (ext:run-program
 		  "nm" (list "-D" (namestring (truename pathname)))
 		  :output :stream :wait nil))
@@ -133,6 +133,8 @@
 		 (when line
 		   (let ((symbol (subseq line 11)))
 		     (when (and
+			    (> (length symbol) (length prefix))
+			    (string= prefix symbol :end2 (length prefix))
 			    (search "_get_type" symbol)
 			    (not (member symbol ignore :test #'string=)))
 		       (push symbol fnames)))
@@ -141,9 +143,8 @@
       (ext:process-close process)
       `(init-type ',fnames))))
 
-(defmacro init-types-in-library (filename &key ignore)
-  (%init-types-in-library
-   (format nil "~A/~A" *gtk-library-path* filename) ignore))
+(defmacro init-types-in-library (filename &key (prefix "") ignore)
+  (%init-types-in-library filename prefix ignore))
 
 
 
@@ -156,16 +157,15 @@
 
 (defun %type-of-ginstance (location)
   (let ((class (sap-ref-sap location 0)))
-    (type-from-number (sap-ref-unsigned class 0))))
+    (type-from-number (sap-ref-32 class 0))))
 
-(deftype-method translate-from-alien
-    ginstance (type-spec location &optional weak-ref)
-  (declare (ignore type-spec))
-  `(let ((location ,location))
-     (unless (null-pointer-p location)
-       (ensure-proxy-instance
-	(%type-of-ginstance location) location ,weak-ref))))
-
+(defmethod ensure-proxy-instance ((class ginstance-class) location)
+  (declare (ignore class))
+  (let ((class (find-class (%type-of-ginstance location))))
+    (if class
+	(make-instance class :location (reference-foreign class location))
+      ;; TODO: (make-instance 'ginstance ...)
+      location)))
 
 
 ;;;; Metaclass for subclasses of ginstance
@@ -176,9 +176,8 @@
 
 
 (defmethod shared-initialize ((class ginstance-class) names
-			      &rest initargs &key name alien-name
-			      ref unref)
-  (declare (ignore initargs names))
+			      &rest initargs &key name alien-name)
+  (declare (ignore names))
   (let* ((class-name (or name (class-name class)))
 	 (type-number
 	  (find-type-number
@@ -187,26 +186,10 @@
     (if (getf initargs :size)
 	(call-next-method)
       (let ((size (type-instance-size type-number)))
-	(apply #'call-next-method class names :size (list size) initargs))))
-
-  (when ref
-    (let ((ref (mkbinding (first ref) 'pointer 'pointer)))
-      (setf
-       (slot-value class 'copy)
-       #'(lambda (type location)
-	   (declare (ignore type))
-	   (funcall ref location)))))
-  (when unref
-    (let ((unref (mkbinding (first unref) 'nil 'pointer)))
-      (setf
-       (slot-value class 'free)
-       #'(lambda (type location)
-	   (declare (ignore type))
-	   (funcall unref location))))))
+	(apply #'call-next-method class names :size (list size) initargs)))))
 
 
-(defmethod validate-superclass
-    ((class ginstance-class) (super pcl::standard-class))
+(defmethod validate-superclass ((class ginstance-class) (super standard-class))
   (subtypep (class-name super) 'ginstance))
 
 
@@ -257,7 +240,7 @@
 (defun type-interfaces (type)
   (multiple-value-bind (array length) (%type-interfaces type)
     (unwind-protect
-	(map-c-array 'list #'identity array 'type-number length)
+	(map-c-vector 'list #'identity array 'type-number length)
       (deallocate-memory array))))
 
 (defun implements (type)
@@ -280,7 +263,7 @@
   (let ((type-number (find-type-number type t)))
     (multiple-value-bind (array length) (%type-children type-number)
       (unwind-protect
-	  (map-c-array
+	  (map-c-vector
 	   'nil
 	   #'(lambda (type-number)
 	       (when (or
