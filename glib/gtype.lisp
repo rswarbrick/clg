@@ -15,15 +15,15 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.17 2004-10-27 14:59:00 espen Exp $
+;; $Id: gtype.lisp,v 1.18 2004-10-31 11:41:06 espen Exp $
 
 (in-package "GLIB")
 
 (use-prefix "g")
 
-;(load-shared-library "libgobject-2.0" :init "g_type_init")
-
-;;;; 
+;; Initialize the glib type system
+(defbinding type-init () nil)
+(type-init)
 
 (deftype type-number () '(unsigned 32))
 
