@@ -16,18 +16,18 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gdkglue.c,v 1.1 2000-08-14 16:44:41 espen Exp $ */
+/* $Id: gdkglue.c,v 1.2 2001-10-21 23:02:40 espen Exp $ */
 
 
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
 
 
-extern GPollFD event_poll_fd;
+extern Display *gdk_display;
 
-gint gdk_event_poll_fd ()
+gint gdk_connection_number ()
 {
-  return event_poll_fd.fd;
+  return ConnectionNumber (gdk_display); 
 }
 
 

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.2 2001-05-31 12:36:39 espen Exp $
+;; $Id: gdkevents.lisp,v 1.3 2001-10-21 23:02:40 espen Exp $
 
 (in-package "GDK")
 
@@ -49,10 +49,8 @@
 
 (defmethod initialize-instance ((event event) &rest initargs)
   (declare (ignore initargs))
-  (with-slots (location %type) event
-    (setf location (%event-new))
-    (setf %type (event-class-type (class-of event))))
-  (call-next-method))
+  (call-next-method)
+  (setf (slot-value event '%type) (event-class-type (class-of event))))
 
 (deftype-method translate-from-alien
     event (type-spec location &optional weak-ref)
@@ -60,8 +58,6 @@
   `(let ((location ,location))
      (unless (null-pointer-p location)
        (ensure-proxy-instance (%type-of-event location) location ,weak-ref))))
-
-(defbinding %event-new () pointer)
 
 
 ;;;; Metaclass for event classes
