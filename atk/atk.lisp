@@ -15,11 +15,12 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: atk.lisp,v 1.2 2002-03-19 17:15:05 espen Exp $
+;; $Id: atk.lisp,v 1.3 2004-10-31 11:44:45 espen Exp $
 
 (in-package "ATK")
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "libatk-1.0.so")
 
-  (define-types-by-introspection "Atk"))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (init-types-in-library "libatk-1.0.so"))
+
+(define-types-by-introspection "Atk")
