@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.1 2000-11-09 20:29:19 espen Exp $
+;; $Id: gcallback.lisp,v 1.2 2001-02-11 21:49:12 espen Exp $
 
 (in-package "GLIB")
 
@@ -26,9 +26,8 @@
 
 (deftype gclosure () 'pointer)
 
-(define-foreign lisp-callback-closure () gclosure
+(define-foreign lisp-callback-closure-new () gclosure
   (callback-id unsigned-int))
-
 
 
 
@@ -36,7 +35,7 @@
 
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
-  (lisp-callback-closure (register-user-data function)))
+  (lisp-callback-closure-new (register-user-data function)))
 
 (defun callback-trampoline (callback-id params return-value)
   (let* ((return-type (unless (null-pointer-p return-value)
@@ -46,14 +45,14 @@
 
     (destructuring-bind (nparams . param-values) params
       (dotimes (n nparams)
-	(push (gvalue-value (sap+ param-values (* n +gvalue-size+))) args)))
+	(push (gvalue-get (sap+ param-values (* n +gvalue-size+))) args)))
 
     (labels ((invoke-callback ()
 	       (restart-case
 		   (unwind-protect
 		       (let ((result (apply callback-function args)))
 			 (when return-type
-			   (setf (gvalue-value return-value) result))))
+			   (gvalue-set return-value result))))
 		
 		 (continue nil :report "Return from callback function"
 		  (when return-type
@@ -62,9 +61,7 @@
 		     "Enter return value of type ~S: "
 		     return-type)
 		    (force-output *query-io*)
-		    (setf
-		     (gvalue-value return-value)
-		     (eval (read *query-io*)))))
+		    (gvalue-set return-value (eval (read *query-io*)))))
 		 (re-invoke nil :report "Re-invoke callback function"
 		  (invoke-callback)))))
       (invoke-callback))))
@@ -93,7 +90,7 @@
 (define-foreign signal-name () string
   (signal-id unsigned-int))
 
-(defun %ensure-signal-id (signal-id instance)
+(defun ensure-signal-id (signal-id instance)
   (etypecase signal-id
     (integer signal-id)
     (string (signal-lookup signal-id (type-number-of instance)))
@@ -101,7 +98,7 @@
   
 (define-foreign signal-stop-emission (instance signal-id) nil
   (instance ginstance)
-  ((%ensure-signal-id signal-id instance) unsigned-int))
+  ((ensure-signal-id signal-id instance) unsigned-int))
 
 ; (define-foreign ("g_signal_add_emission_hook_full" signal-add-emisson-hook)
 ;     () unsigned-int
@@ -115,14 +112,14 @@
 (define-foreign ("g_signal_has_handler_pending" signal-has-handler-pending-p)
     (instance signal-id &key detail blocked) boolean
   (instance ginstance)
-  ((%ensure-signal-id signal-id instance) unsigned-int)
+  ((ensure-signal-id signal-id instance) unsigned-int)
   ((or detail 0) quark)
   (blocked boolean))
     
 (define-foreign ("g_signal_connect_closure_by_id" signal-connect-closure)
     (instance signal-id closure &key detail after) unsigned-int
   (instance ginstance)
-  ((%ensure-signal-id signal-id instance) unsigned-int)
+  ((ensure-signal-id signal-id instance) unsigned-int)
   ((or detail 0) quark)
   (closure gclosure)
   (after boolean))
@@ -151,3 +148,12 @@
     
     (signal-connect-closure
      instance signal (register-callback-function callback) :after after)))
+
+
+;;;; Idles and timeouts
+
+; (defun timeout-remove (tag)
+;   (source-remove tag))
+  
+; (defun idle-remove (tag)
+;   (source-remove tag))
