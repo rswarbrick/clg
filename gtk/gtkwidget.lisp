@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.13 2004-12-20 20:09:53 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.14 2005-01-06 21:00:51 espen Exp $
 
 (in-package "GTK")
 
@@ -49,7 +49,23 @@
 	:parent parent :child object))))
    (t (call-next-method))))
 
-
+(defmethod create-callback-function ((widget widget) function arg1)
+  (if (eq arg1 :parent)
+      #'(lambda (&rest args)
+	  (if (slot-boundp widget 'parent)
+	      (apply function (widget-parent widget) (rest args))
+	    (signal-connect widget 'parent-set
+	     #'(lambda (old-parent)
+		 (declare (ignore old-parent))
+		 (let ((*signal-stop-emission* 
+			#'(lambda ()
+			    (warn "Ignoring emission stop in delayed signal handler"))))
+		   (apply function (widget-parent widget) (rest args))))
+	     :remove t)
+;	    (warn "Widget has no parent -- ignoring signal")
+	    ))
+    (call-next-method)))
+      
 (defun child-property-value (widget slot)
   (slot-value (widget-child-properties widget) slot))
 

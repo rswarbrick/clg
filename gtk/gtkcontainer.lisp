@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.15 2004-12-29 21:14:23 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.16 2005-01-06 21:00:53 espen Exp $
 
 (in-package "GTK")
 
@@ -28,6 +28,15 @@
    #'(lambda (container args) 
        (apply #'container-add container (append (mklist args) child-args)))
    initargs :child :children))
+
+
+(defmethod create-callback-function ((container container) function arg1)
+  (if (eq arg1 :children)
+      #'(lambda (&rest args)
+	  (mapc #'(lambda (child)
+		    (apply function child (rest args)))
+		(container-children container)))
+    (call-next-method)))
 
 
 (defbinding %container-add () nil
