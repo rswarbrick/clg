@@ -1,5 +1,5 @@
 This package contains Common Lisp bindings to GTK+ v2.0. It currently
-works with only CMUCL, but ports to other CL implementations may be
+only works with CMUCL, but ports to other CL implementations may be
 added later.
 
 
@@ -19,7 +19,29 @@ Build instructions
    systems you may also have to rebuild lisp with -rdynamic added to
    OS_LINK_FLAGS.
 
-2. 
+2. Edit clg.system to reflect the paths on your system:
+
+   - Edit the logical-pathname-translations to point to the
+     place where the sources actually are, or set the translations
+     somewhere else, like ~/.cmucl-init.lisp.
+
+   - Edit the pkg-config search path if your gtk+ installation is in 
+     unusual place.
+
+   - Edit *cmucl-include-path* to point to the directory where the
+     lisp.h file resides, if it is not auto detected.  Try "locate 
+     '*/lisp.h'" if you don't know the location.
+
+3. Compile and load clg:
+   (load "clg.system")
+   (mk:oos :clg :compile)
+   (mk:oos :clg :load)
+
+4. If everything worked, try (load "hello-world") to see a small
+   window pop up.
+
+Send comments and patches to clg-devel@lists.sourceforge.net
+
 
 
 
