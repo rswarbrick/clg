@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.17 2004-10-31 14:44:05 espen Exp $
+;; $Id: gtkobject.lisp,v 1.18 2004-11-03 16:54:24 espen Exp $
 
 
 (in-package "GTK")
@@ -91,8 +91,6 @@
   "Initializes the library without opening the display."
   (nil null)
   (nil null))
-
-(import 'gtk-system:clg-init)
 
 (defun clg-init (&optional display)
   "Initializes the system and starts the event handling"
