@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.18 2004-11-07 16:03:55 espen Exp $
+;; $Id: glib.lisp,v 1.19 2004-11-12 13:27:41 espen Exp $
 
 
 (in-package "GLIB")
@@ -313,11 +313,19 @@
   (let* ((size-of-type (size-of type))
 	 (location (or location (allocate-memory (* size-of-type length))))
 	 (writer (writer-function type)))
-    (loop
-     for element across content
-     for i from 0 below length
-     as offset = 0 then (+ offset size-of-type)
-     do (funcall writer element location offset))
+    (etypecase content
+      (vector
+       (loop
+	for element across content
+	for i from 0 below length
+	as offset = 0 then (+ offset size-of-type)
+	do (funcall writer element location offset)))
+      (list
+       (loop
+	for element in content
+	for i from 0 below length
+	as offset = 0 then (+ offset size-of-type)
+	do (funcall writer element location offset))))
     location))
 
 
