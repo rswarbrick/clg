@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.9 2005-02-11 19:09:38 espen Exp $
+;; $Id: genums.lisp,v 1.10 2005-02-14 00:43:43 espen Exp $
 
 (in-package "GLIB")
   
@@ -29,8 +29,9 @@
 	     (unless (atom mapping)
 	       (setq value (second mapping)))
 	     (ecase op
-	       (:symbol-int (list symbol value))
-	       (:int-symbol (list value symbol))
+	       (:symbol-int `(,symbol ,value))
+	       (:int-symbol `(,value ,symbol))
+	       (:int-quoted-symbol `(,value ',symbol))
 	       (:symbols symbol)))))
 
 (deftype enum (&rest args)
@@ -53,8 +54,8 @@
 
 (defmethod from-alien-form (form (type (eql 'enum)) &rest args)
   (declare (ignore type))
-  `(ecase ,form
-    ,@(%map-enum args :int-symbol)))
+  `(case ,form
+    ,@(%map-enum args :int-quoted-symbol)))
 
 (defmethod to-alien-function ((type (eql 'enum)) &rest args)
   (declare (ignore type))
@@ -106,8 +107,8 @@
 	   ,@(%map-enum args :symbol-int)
 	   (t (error 'type-error :datum enum :expected-type ',name))))
        (defun ,int-enum (value)
-	 (ecase value
-	   ,@(%map-enum args :int-symbol)))
+	 (case value
+	   ,@(%map-enum args :int-quoted-symbol)))
        (defmethod to-alien-form (form (type (eql ',name)) &rest args)
 	 (declare (ignore type args))
 	 (list ',enum-int form))
@@ -142,8 +143,8 @@
 	     (unless (atom mapping)
 	       (setq value (second mapping)))
 	     (ecase op
-	       (:symbol-int (list symbol value))
-	       (:int-symbol (list value symbol))
+	       (:symbol-int `(,symbol ,value))
+	       (:int-symbol `(,value ,symbol))
 	       (:symbols symbol)))))
 
 (deftype flags (&rest args)
