@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.14 2005-02-26 10:44:09 espen Exp $
+;; $Id: gdktypes.lisp,v 1.15 2005-02-26 18:53:33 espen Exp $
 
 (in-package "GDK")
 
@@ -100,6 +100,22 @@
   ("GdkCursor" :ignore t)
   ("GdkFont" :ignore t) ; deprecated
   ("GdkEventMask" :ignore t) ; manually defined
+
+  ("GdkDisplay"
+   :slots
+   ((name
+     :allocation :virtual
+     :getter "gdk_display_get_name"
+     :reader display-name
+     :type (copy-of string))
+    (screens
+     :allocation :virtual
+     :getter display-screens)
+    (devices
+     :allocation :virtual
+     :getter "gdk_display_list_devices"
+     :reader display-devices
+     :type (copy-of (glist device)))))
 
   ("GdkDrawable"
    :slots
