@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.26 2005-02-10 00:12:04 espen Exp $
+;; $Id: glib.lisp,v 1.27 2005-02-14 00:44:26 espen Exp $
 
 
 (in-package "GLIB")
@@ -548,17 +548,17 @@
   (deallocate-memory location))
 
 
-(defmethod alien-type ((type (eql 'vector-null)) &rest args)
+(defmethod alien-type ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type args))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'vector-null)) &rest args)
+(defmethod size-of ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type args))
   (alien-type 'pointer))
 
-(defmethod writer-function ((type (eql 'vector-null)) &rest args)
+(defmethod writer-function ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+  (destructuring-bind (element-type) args
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
     #'(lambda (vector location &optional (offset 0))
@@ -566,9 +566,9 @@
 	 (sap-ref-sap location offset)
 	 (make-0-vector element-type vector)))))
 
-(defmethod reader-function ((type (eql 'vector-null)) &rest args)
+(defmethod reader-function ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+  (destructuring-bind (element-type) args
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
     #'(lambda (location &optional (offset 0))
@@ -576,17 +576,17 @@
 	  (map-0-vector 'vector #'identity (sap-ref-sap location offset) 
 	   element-type)))))
 
-(defmethod destroy-function ((type (eql 'vector-null)) &rest args)
+(defmethod destroy-function ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+  (destructuring-bind (element-type) args
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
     #'(lambda (location &optional (offset 0))
 	  (unless (null-pointer-p (sap-ref-sap location offset))
-	    (destroy-c-vector 
+	    (destroy-0-vector 
 	     (sap-ref-sap location offset) element-type)
 	    (setf (sap-ref-sap location offset) (make-pointer 0))))))
 
-(defmethod unbound-value ((type (eql 'vector-null)) &rest args)
-  (declare (ignore args))
+(defmethod unbound-value ((type (eql 'null-terminated-vector)) &rest args)
+  (declare (ignore type args))
   (values t nil))
