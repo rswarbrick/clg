@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.1 2000-08-14 16:44:38 espen Exp $
+;; $Id: gforeign.lisp,v 1.2 2000-08-16 18:25:30 espen Exp $
 
 (in-package "GLIB")
 
@@ -296,9 +296,11 @@
 	    (push doc/arg docs)
 	  (progn
 	    (destructuring-bind (expr type &optional (style :in)) doc/arg
-	      (unless (member style '(:in :out))
+	      (unless (member style '(:in :out :in-out))
 		(error "Bogus argument style ~S in ~S." style doc/arg))
-	      (when (and (not supplied-lambda-list) (namep expr) (eq style :in))
+	      (when (and
+		     (not supplied-lambda-list)
+		     (namep expr) (member style '(:in :in-out)))
 		(push expr lambda-list))
 	      (push
 	       (list (if (namep expr) expr (gensym)) expr type style) args)))))
@@ -318,10 +320,13 @@
 	(let ((declaration (translate-type-spec type-spec))
 	      (deallocation (cleanup-alien type-spec expr)))
 	  (cond
-	   ((eq style :out)
+	   ((member style '(:out :in-out))
 	    (alien-types `(* ,declaration))
 	    (alien-parameters `(addr ,var))
-	    (alien-bindings `(,var ,declaration))
+	    (alien-bindings
+	     `(,var ,declaration
+	       ,@(when (eq style :in-out)
+		   (list (translate-to-alien type-spec expr)))))
 	    (alien-values (translate-from-alien type-spec var)))
 	  (deallocation
 	   (alien-types declaration)
