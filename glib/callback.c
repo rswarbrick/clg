@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.1 2000-11-09 20:29:19 espen Exp $ */
+/* $Id: callback.c,v 1.2 2001-02-11 21:53:03 espen Exp $ */
 
 #include <gobject/gobject.h>
 
@@ -65,7 +65,7 @@ void destroy_notify (gpointer data)
 }
 
 GClosure*
-g_lisp_callback_closure (guint callback_id)
+g_lisp_callback_closure_new (guint callback_id)
 {
   GClosure *closure;
 
