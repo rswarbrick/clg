@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.7 2001-04-30 11:25:25 espen Exp $
+;; $Id: gforeign.lisp,v 1.8 2001-05-04 17:00:37 espen Exp $
 
 (in-package "GLIB")
 
@@ -401,7 +401,6 @@
 (deftype boolean (&optional (size '*))
   (declare (ignore size))
   `(member t nil))
-(deftype static (type) type)
 (deftype invalid () nil)
 
 (defun atomic-type-p (type-spec)
