@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.2 2000-08-22 23:12:20 espen Exp $
+;; $Id: gutils.lisp,v 1.3 2000-10-05 17:18:28 espen Exp $
 
 
 (in-package "KERNEL")
@@ -105,3 +105,10 @@
 
 (defun assoc-delete (key alist &key (test #'eq))
   (delete-if #'(lambda (element) (funcall test key (car element))) alist))
+
+
+(defun funcallable (object)
+  (if (consp object)
+      (fdefinition object)
+    object))
+
