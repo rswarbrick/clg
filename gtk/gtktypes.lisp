@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.15 2002-04-02 15:03:47 espen Exp $
+;; $Id: gtktypes.lisp,v 1.16 2004-10-31 12:05:52 espen Exp $
 
 
 (in-package "GTK")
@@ -31,8 +31,8 @@
     :accessor requisition-height
     :initarg :height
     :type int))
-  (:metaclass boxed-class)
-  (:alien-name "GtkTypeRequisition"))
+  (:metaclass boxed-class))
+
 
 (defclass allocation (struct)
   ((x
@@ -78,47 +78,7 @@
     :accessor border-bottom
     :initarg :bottom
     :type int))
-  (:metaclass boxed-class)
-  (:alien-name "GtkTypeBorder"))
-
-(defclass adjustment (%object)
-  ((lower
-    :allocation :alien
-    :accessor adjustment-lower
-    :initarg :lower
-    :type single-float)
-   (upper
-    :allocation :alien
-    :accessor adjustment-upper
-    :initarg :upper
-    :type single-float)
-   (%value ; to get the offset right
-    :allocation :alien
-    :type single-float)
-   (step-increment
-    :allocation :alien
-    :accessor adjustment-step-increment
-    :initarg :step-increment
-    :type single-float)
-   (page-increment
-    :allocation :alien
-    :accessor adjustment-page-increment
-    :initarg :page-increment
-    :type single-float)
-   (page-size
-    :allocation :alien
-    :accessor adjustment-page-size
-    :initarg :page-size
-    :type single-float)
-   (value
-    :allocation :virtual
-    :getter "gtk_adjustment_get_value"
-    :setter "gtk_adjustment_set_value"
-    :accessor adjustment-value
-    :initarg :value
-    :type single-float))
-  (:metaclass gobject-class)
-  (:alien-name "GtkAdjustment"))
+  (:metaclass boxed-class))
 
 (defclass stock-item (struct)
   ((id
@@ -149,22 +109,20 @@
   (:metaclass proxy-class))
 
 
-
 (define-types-by-introspection "Gtk"
   ;; Manually defined
   ("GtkObject" :ignore t)
   ("GtkRequisition" :ignore t)
   ("GtkBorder" :ignore t)
-  ("GtkAdjustment" :ignore t)
-
   
+
   ;; Manual override
   ("GtkWidget"
    :slots
    ((child-slots
-    :allocation :instance
-    :accessor widget-child-slots
-    :type container-child)
+     :allocation :instance
+     :accessor widget-child-slots
+     :type container-child)
     (parent-window
      :allocation :virtual
      :getter "gtk_widget_get_parent_window"
@@ -417,7 +375,7 @@
      :type widget)))
 
   ("GtkPaned"
-   :slot
+   :slots
    ((child1
     :allocation :virtual
     :getter paned-child1
@@ -477,7 +435,13 @@
      :setter "gtk_toolbar_set_icon_size"
      :accessor toolbar-icon-size
      :initarg :icon-size
-     :type icon-size)))
+     :type icon-size)
+    (toolbar-style
+     :allocation :property
+     :pname "toolbar-style"
+     :initarg :toolbar-style
+     :accessor toolbar-style
+     :type toolbar-style)))
 
   ("GtkNotebook"
    :slots
@@ -524,10 +488,10 @@
 
   ("GtkDialog"
    :slots
-   ((main-area
+   ((vbox
      :allocation :virtual
      :getter "gtk_dialog_get_vbox"
-     :reader dialog-main-area
+     :reader dialog-vbox
      :type widget)
     (action-area
      :allocation :virtual
@@ -580,6 +544,7 @@
   ("GtkLayout"
    :slots
    ((bin-window
+     :allocation :virtual
      :getter "gtk_layout_get_bin_window"
      :reader layout-bin-window
      :type gdk:window)))
@@ -587,11 +552,107 @@
   ("GtkFixed"
    :slots
    ((has-window
+     :allocation :virtual
      :getter "gtk_fixed_get_has_window"
      :setter "gtk_fixed_set_has_window"
      :reader fixed-has-window-p
      :initarg :has-window
      :type boolean)))
+
+  ("GtkRange"
+   :slots
+   ((value
+     :allocation :virtual
+     :getter "gtk_range_get_value"
+     :setter "gtk_range_set_value"
+     :initarg :value
+     :accessor range-value
+     :type double-float)
+   (upper
+     :allocation :virtual
+     :getter range-upper
+     :setter (setf range-upper)
+     :initarg :upper)
+   (lower
+     :allocation :virtual
+     :getter range-lower
+     :setter (setf range-lower)
+     :initarg :lower)
+   (step-increment
+     :allocation :virtual
+     :getter range-step-increment
+     :setter (setf range-step-increment)
+     :initarg :step-increment)
+   (page-increment
+     :allocation :virtual
+     :getter range-page-increment
+     :setter (setf range-page-increment)
+     :initarg :page-increment)))
+
+  ("GtkImage"
+   :slots
+   ((file :ignore t)))
+       
+  ;; Interfaces
+  ("GtkEditable"
+   :slots
+   ((editable
+     :allocation :virtual
+     :getter "gtk_editable_get_editable"
+     :setter "gtk_editable_set_editable"
+     :reader editable-editable-p
+     :initarg :editable
+     :type boolean)
+    (position
+     :allocation :virtual
+     :getter "gtk_editable_get_position"
+     :setter "gtk_editable_set_position"
+     :reader editable-position
+     :initarg :position
+     :type int)
+    (text
+     :allocation :virtual
+     :getter editable-text
+     :setter (setf editable-text)
+     :initarg text)))
+
+  ("GtkFileChooser"
+   :slots
+   ((filename
+     :allocation :virtual
+     :getter "gtk_file_chooser_get_filename"
+     :setter "gtk_file_chooser_set_filename"
+     :accessor file-chooser-filename
+     :initarg :filename
+     :type string)
+    (current-name
+     :allocation :virtual
+     :setter "gtk_file_chooser_set_current_name"
+     :accessor file-choser-current-name
+     :initarg :current-name
+     :type string)
+    (current-folder
+     :allocation :virtual
+     :setter "gtk_file_chooser_set_current_folder"
+     :setter "gtk_file_chooser_get_current_folder"
+     :accessor file-choser-current-folder
+     :initarg :current-folder
+     :type string)
+    (uri
+     :allocation :virtual
+     :getter "gtk_file_chooser_get_uri"
+     :setter "gtk_file_chooser_set_uri"
+     :accessor file-choser-uri
+     :initarg :uri
+     :type string)
+    (current-folder-uri
+     :allocation :virtual
+     :setter "gtk_file_chooser_set_current_folder_uri"
+     :setter "gtk_file_chooser_get_current_folder_uri"
+     :accessor file-choser-current-folder-uri
+     :initarg :current-folder-uri
+     :type string)))
+
      
   ;; Not needed
   ("GtkFundamentalType" :ignore t)
@@ -609,4 +670,11 @@
   ("GtkPixmap" :ignore t)
   ("GtkPreview" :ignore-prefix t)
   ("GtkTipsQuery" :ignore t)
-  ("GtkOldEditable" :ignore t))
+  ("GtkOldEditable" :ignore t)
+
+  ;; What are these?
+  ("GtkFileSystemModule" :ignore t)
+  ("GtkIMModule" :ignore t)
+  ("GtkThemeEngine" :ignore t)
+
+  )

@@ -15,14 +15,16 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.8 2002-03-24 21:56:34 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.9 2004-10-31 12:05:52 espen Exp $
 
 (in-package "GTK")
             
-(defmethod shared-initialize ((container container) names &rest initargs)
+(defmethod shared-initialize ((container container) names &rest initargs 
+			      &key child children child-args)
+  (declare (ignore child))
   (call-next-method)
-  (dolist (child (get-all initargs :child))
-    (apply #'container-add container (mklist child))))
+  (dolist (child (append children (get-all initargs :child)))
+    (apply #'container-add container (append (mklist child) child-args))))
 
 
 (defbinding %container-add () nil
@@ -82,7 +84,7 @@
 (defun map-container (seqtype func container)
   (case seqtype
     ((nil)
-     (%container-foreach container func)
+     (container-foreach container func)
      nil)
     (list
      (let ((list nil))

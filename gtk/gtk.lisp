@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.12 2002-04-02 15:03:47 espen Exp $
+;; $Id: gtk.lisp,v 1.13 2004-10-31 12:05:52 espen Exp $
 
 
 (in-package "GTK")
@@ -45,6 +45,7 @@
 ;;; Acccel group
 
 
+
 ;;; Acccel label
 
 (defbinding accel-label-refetch () boolean
@@ -52,6 +53,15 @@
 
 
 ;;; Adjustment
+
+(defmethod shared-initialize ((adjustment adjustment) names &key value)
+  (prog1
+      (call-next-method)
+    ;; we need to make sure that the value is set last, otherwise it
+    ;; may be outside current limits
+    (when value
+      (setf (slot-value adjustment 'value) value))))
+
 
 (defbinding adjustment-changed () nil
   (adjustment adjustment))
@@ -101,7 +111,7 @@
   (fill boolean)
   (padding unsigned-int))
 
-(defun box-pack (box child &key from-end (expand t) (fill t) (padding 0))
+(defun box-pack (box child &key from-end expand fill (padding 0))
   (if from-end
       (box-pack-end box child expand fill padding)
     (box-pack-start box child expand fill padding)))
@@ -253,39 +263,40 @@
 
 ;;;; Dialog
 
-(defmethod shared-initialize ((dialog dialog) names &rest initargs)
+(defmethod shared-initialize ((dialog dialog) names &rest initargs &key button)
   (call-next-method)
   (dolist (button-definition (get-all initargs :button))
-    (apply #'dialog-add-button dialog button-definition)))
+    (apply #'dialog-add-button dialog (mklist button-definition))))
   
 
 (defvar %*response-id-key* (gensym))
 
-(defun %dialog-find-response-id-num (dialog response-id &optional create-p error-p)
+(defun %dialog-find-response-id-num (dialog id &optional create-p error-p)
   (or
-   (cadr (assoc response-id (rest (type-expand-1 'response-type))))
-   (let* ((response-ids (object-data dialog %*response-id-key*))
-	  (response-id-num (position response-id response-ids)))
+   (cadr (assoc id (rest (type-expand-1 'response-type))))
+   (let ((response-ids (object-data dialog %*response-id-key*)))
     (cond
-     (response-id-num)
-     (create-p
-      (cond
-       (response-ids
-	(setf (cdr (last response-ids)) (list response-id))
-	(1- (length response-ids)))
-       (t
-	(setf (object-data dialog %*response-id-key*) (list response-id))
-	0)))
-     (error-p
-      (error "Invalid response: ~A" response-id))))))
+      ((and response-ids (position id response-ids :test #'equal)))
+      (create-p
+       (cond
+	 (response-ids
+	  (vector-push-extend id response-ids)
+	  (1- (length response-ids)))
+	 (t
+	  (setf 
+	   (object-data dialog %*response-id-key*)
+	   (make-array 1 :adjustable t :fill-pointer t :initial-element id))
+	  0)))
+      (error-p
+       (error "Invalid response: ~A" id))))))
 
 (defun %dialog-find-response-id (dialog response-id-num)
   (if (< response-id-num 0)
       (car
        (rassoc
 	(list response-id-num)
-	(rest (type-expand-1 'response-type)) :test #'equalp))
-    (nth response-id-num (object-data dialog %*response-id-key*))))
+	(rest (type-expand-1 'response-type)) :test #'equal))
+    (aref (object-data dialog %*response-id-key*) response-id-num )))
 
 
 (defmethod signal-connect ((dialog dialog) signal function &key object after)
@@ -301,8 +312,7 @@
 	      (object (funcall function object))
 	      (t (funcall function)))))
        :object t :after after))
-    (t
-     (call-next-method)))))
+    ((call-next-method)))))
 
 
 (defbinding dialog-run () nil
@@ -318,16 +328,19 @@
   (text string)
   (response-id-num int))
 
-(defun dialog-add-button (dialog label &optional response-id default-p)
-  (let* ((response-id-num
-	  (if response-id
-	      (%dialog-find-response-id-num dialog response-id t)
-	    (length (object-data dialog %*response-id-key*))))
-	 (button (%dialog-add-button dialog label response-id-num)))
-    (unless response-id
-      (%dialog-find-response-id-num dialog button t))
-    (when default-p
-      (%dialog-set-default-response dialog response-id-num))
+(defun dialog-add-button (dialog label &optional (response label)
+			  &key default object after)
+  "Adds a button to the dialog. If no response is given, then label
+   will be used."
+  (let* ((id (if (functionp response)
+		 label
+	       response))
+	 (id-num (%dialog-find-response-id-num dialog id t))
+	 (button (%dialog-add-button dialog label id-num)))
+    (when (functionp response)
+       (signal-connect dialog id response :object object :after after))
+    (when default
+      (%dialog-set-default-response dialog id-num))
     button))
 
 
@@ -336,12 +349,17 @@
   (action-widget widget)
   (response-id-num int))
 
-(defun dialog-add-action-widget (dialog widget &optional (response-id widget)
-				 default-p)
-  (let ((response-id-num (%dialog-find-response-id-num dialog response-id t)))
-    (%dialog-add-action-widget dialog widget response-id-num)
-    (when default-p
-      (%dialog-set-default-response dialog response-id-num))
+(defun dialog-add-action-widget (dialog widget &optional (response widget)
+				 &key default object after)
+  (let* ((id (if (functionp response)
+		 widget
+	       response))
+	 (id-num (%dialog-find-response-id-num dialog id t)))
+    (%dialog-add-action-widget dialog widget id-num)
+    (when (functionp response)
+       (signal-connect dialog id response :object object :after after))
+    (when default
+      (%dialog-set-default-response dialog id-num))
     widget))
 
 
@@ -362,16 +380,16 @@
 ;; Addition dialog functions
 
 (defmethod container-add ((dialog dialog) (child widget) &rest args)
-  (apply #'container-add (slot-value dialog 'main-area) child args))
+  (apply #'container-add (dialog-vbox dialog) child args))
 
 (defmethod container-remove ((dialog dialog) (child widget))
-  (container-remove (slot-value dialog 'main-area) child))
+  (container-remove (dialog-vbox dialog) child))
 
 (defmethod container-children ((dialog dialog))
-  (container-children (dialog-main-area dialog)))
+  (container-children (dialog-vbox dialog)))
 
 (defmethod (setf container-children) (children (dialog dialog))
-  (setf (container-children (dialog-main-area dialog)) children))
+  (setf (container-children (dialog-vbox dialog)) children))
 
 
 
@@ -389,11 +407,53 @@
   (y int :out))
 
 
+;;; Image
+
+(defbinding image-set-from-file () nil
+  (image image)
+  (filename pathname))
+
+(defbinding image-set-from-pixmap () nil
+  (image image)
+  (pixmap gdk:pixmap)
+  (mask gdk:bitmap))
+
+(defbinding image-set-from-stock () nil
+  (image image)
+  (stock-id string)
+  (icon-size icon-size))
+
+(defun image-set-from-pixmap-data (image pixmap-data)
+  (multiple-value-bind (pixmap mask) (gdk:pixmap-create pixmap-data)
+    (image-set-from-pixmap image pixmap mask)))
+
+(defun image-set-from-source (image source)
+  (etypecase source
+    (pathname (image-set-from-file image source))
+    (string (if (stock-lookup source)
+		(setf (image-stock image) source)
+	      (image-set-from-file image source)))
+    (vector (image-set-from-pixmap-data image source))))
+
+
+(defmethod shared-initialize ((image image) names &rest initargs 
+			      &key file pixmap source)
+  (prog1
+      (if (vectorp pixmap)
+	  (progn
+	    (remf initargs :pixmap)
+	    (apply #'call-next-method image names initargs))
+	(call-next-method))
+    (cond
+      (file (image-set-from-file image file))
+      ((vectorp pixmap) (image-set-from-pixmap-data image pixmap))
+      (source (image-set-from-source image source)))))
+
 
 ;;; Label
 
 (defbinding label-get-layout-offsets () nil
-  (labe label)
+  (label label)
   (x int :out)
   (y int :out))
 
@@ -402,13 +462,13 @@
   (start int)
   (end int))
 
-(defbinding  label-get-text () string
+(defbinding label-get-text () string
   (label label))
 
 (defbinding label-get-layout () pango:layout
   (label label))
 
-(defbinding  label-get-selection-bounds () boolean
+(defbinding label-get-selection-bounds () boolean
   (label label)
   (start int :out)
   (end int :out))
@@ -692,11 +752,8 @@
 
 
 
-;;; File selection
+;;; File chooser
 
-(defbinding file-selection-complete () nil
-  (file-selection file-selection)
-  (pattern string))
 
 
 
@@ -761,7 +818,7 @@
     (keyword (case page
 	       (:first 0)
 	       (:last -1)
-	       (error "Invalid position keyword: ~A" page)))
+	       (t (error "Invalid position keyword: ~A" page))))
     (widget (notebook-page-num notebook page t))))
 
 (defun %notebook-child (notebook position)
@@ -790,7 +847,7 @@
   
 (defbinding notebook-remove-page (notebook page) nil
   (notebook notebook)
-  ((%notebook-position notebook position) int))
+  ((%notebook-position notebook page) int))
 
 (defbinding %notebook-page-num () int
   (notebook notebook)
@@ -828,11 +885,19 @@
      (:last -1)
      (t page)) int))
 
-(defbinding (notebook-current-page-num "gtk_notebook_get_current_page") () int
+
+(defbinding %notebook-get-current-page () int
   (notebook notebook))
 
+(defun notebook-current-page-num (notebook)
+  (let ((num (%notebook-get-current-page notebook)))
+    (when (>= num 0)
+      num)))
+
 (defun notebook-current-page (notebook)
-  (notebook-nth-page-child notebook (notebook-current-page-num notebook)))
+  (let ((page-num (notebook-current-page-num notebook)))
+    (when page-num
+      (notebook-nth-page-child notebook page-num))))
 
 (defbinding  %notebook-set-current-page () nil
   (notebook notebook)
@@ -843,50 +908,50 @@
   page)
 
 
-;; (defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
-;;     (notebook page) widget
-;;   (notebook notebook)
-;;   ((%notebook-child notebook page) widget))
+(defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
+    (notebook page) widget
+  (notebook notebook)
+  ((%notebook-child notebook page) widget))
 
-;; (defbinding (notebook-tab-label-text "gtk_notebook_get_tab_label_text")
-;;     (notebook page) string
-;;   (notebook notebook)
-;;   ((%notebook-child notebook page) widget))
+(defbinding (notebook-tab-label-text "gtk_notebook_get_tab_label_text")
+    (notebook page) string
+  (notebook notebook)
+  ((%notebook-child notebook page) widget))
 
-;; (defbinding %notebook-set-tab-label () nil
-;;   (notebook notebook)
-;;   (page widget)
-;;   (tab-label widget))
+(defbinding %notebook-set-tab-label () nil
+  (notebook notebook)
+  (page widget)
+  (tab-label widget))
 
-;; (defun (setf notebook-tab-label) (tab-label notebook page)
-;;   (let ((widget (if (stringp tab-label)
-;; 		    (make-instance 'label :label tab-label)
-;; 		  tab-label)))
-;;     (%notebook-set-tab-label notebook (%notebook-child notebook page) widget)
-;;     widget))
+(defun (setf notebook-tab-label) (tab-label notebook page)
+  (let ((widget (if (stringp tab-label)
+		    (make-instance 'label :label tab-label)
+		  tab-label)))
+    (%notebook-set-tab-label notebook (%notebook-child notebook page) widget)
+    widget))
 
 
-;; (defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
-;;     (notebook page) widget
-;;   (notebook notebook)
-;;   ((%notebook-child notebook page) widget))
+(defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
+    (notebook page) widget
+  (notebook notebook)
+  ((%notebook-child notebook page) widget))
 
-;; (defbinding (notebook-menu-label-text "gtk_notebook_get_menu_label_text")
-;;     (notebook page) string
-;;   (notebook notebook)
-;;   ((%notebook-child notebook page) widget))
+(defbinding (notebook-menu-label-text "gtk_notebook_get_menu_label_text")
+    (notebook page) string
+  (notebook notebook)
+  ((%notebook-child notebook page) widget))
 
-;; (defbinding %notebook-set-menu-label () nil
-;;   (notebook notebook)
-;;   (page widget)
-;;   (menu-label widget))
+(defbinding %notebook-set-menu-label () nil
+  (notebook notebook)
+  (page widget)
+  (menu-label widget))
 
-;; (defun (setf notebook-menu-label) (menu-label notebook page)
-;;   (let ((widget (if (stringp menu-label)
-;; 		    (make-instance 'label :label menu-label)
-;; 		  menu-label)))
-;;     (%notebook-set-menu-label notebook (%notebook-child notebook page) widget)
-;;     widget))
+(defun (setf notebook-menu-label) (menu-label notebook page)
+  (let ((widget (if (stringp menu-label)
+		    (make-instance 'label :label menu-label)
+		  menu-label)))
+    (%notebook-set-menu-label notebook (%notebook-child notebook page) widget)
+    widget))
 
 
 (defbinding notebook-query-tab-label-packing (notebook page) nil
@@ -999,7 +1064,7 @@
     (keyword (case child
 	       (:first 0)
 	       (:last -1)
-	       (error "Invalid position keyword: ~A" child)))
+	       (t (error "Invalid position keyword: ~A" child))))
     (widget (menu-child-position menu child))))
 
 
@@ -1165,8 +1230,8 @@
 		       &key tooltip-text tooltip-private-text
 		       type icon group callback object)
   (let* ((numpos (case position
-		   (:first 0)
-		   (:last -1)
+		   (:first -1)
+		   (:last 0)
 		   (t position)))
 	 (widget
 	  (cond
@@ -1193,7 +1258,15 @@
 	   ((typep element 'string)
 	    (%toolbar-insert-element
 	     toolbar (or type :button) (when (eq type :radio-button) group)
-	     element tooltip-text tooltip-private-text icon numpos))
+	     element tooltip-text tooltip-private-text 
+	     (etypecase icon
+	       (null nil)
+	       (widget icon)
+	       ((or pathname string vector)
+		(make-instance 'image 
+		 :source icon ; :icon-size (toolbar-icon-size toolbar)
+		 )))
+	     numpos))
 	   ((error "Invalid element type: ~A" element)))))
     (when callback
       (signal-connect widget 'clicked callback :object object))
@@ -1243,11 +1316,16 @@
 
 
 ;;; Editable
-#|
+
 (defbinding editable-select-region (editable &optional (start 0) end) nil
   (editable editable)
   (start int)
   ((or end -1) int))
+
+(defbinding editable-get-selection-bounds (editable) nil
+  (editable editable)
+  (start int :out)
+  (end int :out))
 
 (defbinding editable-insert-text
     (editable text &optional (position 0)) nil
@@ -1290,17 +1368,9 @@
 (defbinding editable-paste-clipboard () nil
   (editable editable))
 
-; (defbinding editable-claim-selection () nil
-;   (editable editable)
-;   (claim boolean)
-;   (time unsigned-int))
-
 (defbinding editable-delete-selection () nil
   (editable editable))
 
-; (defbinding editable-changed () nil
-;   (editable editable))
-|#
 
 
 ;;; Spin button
@@ -1336,59 +1406,40 @@
 
 
 ;;; Range
-#|
-(defbinding range-draw-background () nil
-  (range range))
 
-(defbinding range-clear-background () nil
-  (range range))
+(defun range-lower (range)
+  (adjustment-lower (range-adjustment range)))
 
-(defbinding range-draw-trough () nil
-  (range range))
+(defun range-upper (range)
+  (adjustment-upper (range-adjustment range)))
 
-(defbinding range-draw-slider () nil
-  (range range))
+(defun (setf range-lower) (value range)
+  (setf (adjustment-lower (range-adjustment range)) value))
 
-(defbinding range-draw-step-forw () nil
-  (range range))
+(defun (setf range-upper) (value range)
+  (setf (adjustment-upper (range-adjustment range)) value))
 
-(defbinding range-slider-update () nil
-  (range range))
+(defun range-page-increment (range)
+  (adjustment-page-increment (range-adjustment range)))
 
-(defbinding range-trough-click () int
+(defun range-step-increment (range)
+  (adjustment-step-increment (range-adjustment range)))
+
+(defun (setf range-page-increment) (value range)
+  (setf (adjustment-page-increment (range-adjustment range)) value))
+
+(defun (setf range-step-increment) (value range)
+  (setf (adjustment-step-increment (range-adjustment range)) value))
+
+(defbinding range-set-range () nil
   (range range)
-  (x int)
-  (y int)
-  (jump-perc single-float :out))
+  (lower double-float)
+  (upper double-float))
 
-(defbinding range-default-hslider-update () nil
-  (range range))
-
-(defbinding range-default-vslider-update () nil
-  (range range))
-
-(defbinding range-default-htrough-click () int
+(defbinding range-set-increments () nil
   (range range)
-  (x int)
-  (y int)
-  (jump-perc single-float :out))
-
-(defbinding range-default-vtrough-click () int
-  (range range)
-  (x int)
-  (y int)
-  (jump-perc single-float :out))
-
-(defbinding range-default-hmotion () int
-  (range range)
-  (x-delta int)
-  (y-delta int))
-
-(defbinding range-default-vmotion () int
-  (range range)
-  (x-delta int)
-  (y-delta int))
-|#
+  (step double-float)
+  (page double-float))
 
 
 ;;; Scale

@@ -15,10 +15,14 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkutils.lisp,v 1.1 2000-10-05 17:21:46 espen Exp $
+;; $Id: gtkutils.lisp,v 1.2 2004-10-31 12:05:52 espen Exp $
 
 
 (in-package "GTK")
+
+
+(defun v-box-new (&optional homogeneous (spacing 0))
+  (make-instance 'v-box :homogeneous homogeneous :spacing spacing))
 
 (defun create-button (specs &optional callback &rest args)
   (destructuring-bind (label &rest initargs) (mklist specs)
@@ -32,20 +36,33 @@
 	(setf (widget-sensitive-p button) nil))
       button)))
 
-(defun %create-toggleable-button (class label callback state args)
-  (let ((button (make-instance class :label label :active state :visible t)))
+(defun button-new (label &optional callback)
+  (let ((button (make-instance 'button :label label)))
+    (when callback
+      (signal-connect button 'clicked callback))
+    button))
+
+(defun label-new (label)
+  (make-instance 'label :label label))
+  
+
+
+(defun %create-toggleable-button (class label callback initstate initargs)
+  (let ((button 
+	 (apply #'make-instance class :label label :active initstate :visible t
+		initargs)))
     (signal-connect
      button 'toggled
      #'(lambda ()
-	 (apply (funcallable callback) (toggle-button-active-p button) args)))
-    (apply (funcallable callback) state args)
+	 (funcall (funcallable callback) (toggle-button-active-p button))))
+    (funcall (funcallable callback) initstate)
     button))
 
-(defun create-toggle-button (label callback &optional state &rest args)
-  (%create-toggleable-button 'toggle-button label callback state args))
+(defun create-toggle-button (label callback &optional initstate &rest initargs)
+  (%create-toggleable-button 'toggle-button label callback initstate initargs))
 
-(defun create-check-button (label callback &optional state &rest args)
-  (%create-toggleable-button 'check-button label callback state args))
+(defun create-check-button (label callback &optional initstate &rest initargs)
+  (%create-toggleable-button 'check-button label callback initstate initargs))
 
 (defun create-radio-button-group (specs active &optional callback &rest args)
   (let ((group nil)
@@ -80,12 +97,12 @@
 	     button)))
      specs)))
 
-(defun create-option-menu (specs active &optional callback &rest args)
+(defun create-option-menu (specs active &optional callback &rest initargs)
   (let ((menu (make-instance 'menu))
 	(group nil)
 	(i 0))
     (dolist (spec specs)
-      (destructuring-bind (label &optional object &rest initargs) (mklist spec)
+      (destructuring-bind (label &optional item-callback) (mklist spec)
 	(let ((menu-item
 	       (apply
 		#'make-instance 'radio-menu-item
@@ -94,19 +111,18 @@
 	  (setq group (%radio-menu-item-get-group menu-item))
 	  (cond
 	   (callback
-	    (signal-connect
-	     menu-item 'activated
-	     #'(lambda ()
-		 (apply (funcallable callback) object args))))
-	   (object
-	    (signal-connect
-	     menu-item 'toggled
-	     #'(lambda ()
-		 (apply
-		  (funcallable object)
-		  (check-menu-item-active-p menu-item) args)))))
+	    (signal-connect menu-item 'activated callback :object t))
+	   (item-callback
+	    (signal-connect menu-item 'toggled  item-callback :object t)))
 	  (incf i)
 	  (menu-shell-append menu menu-item))))
     
     (make-instance 'option-menu :history active :menu menu)))
 
+;; (defun sf (n)
+;;   (coerce n 'single-float))
+
+(defun adjustment-new (value lower upper step-increment page-increment page-size)
+  (make-instance 'adjustment 
+   :value value :lower lower :upper upper :step-increment step-increment
+   :page-increment page-increment :page-size page-size))

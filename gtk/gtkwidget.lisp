@@ -15,22 +15,22 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.8 2002-03-24 12:58:34 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.9 2004-10-31 12:05:52 espen Exp $
 
 (in-package "GTK")
 
 
 (defmethod shared-initialize ((widget widget) names &rest initargs &key parent)
-  (declare (ignore initargs names))
+  (remf initargs :parent)
   (prog1
-      (call-next-method)
+      (apply #'call-next-method widget names initargs)
     (when parent
       (let ((old-parent (widget-parent widget))
-	    (parent-widget (first (mklist parent)))
+	    (parent (first (mklist parent)))
 	    (args (rest (mklist parent))))
 	(when old-parent
 	  (container-remove old-parent widget))
-	(apply #'container-add parent-widget widget args)))))
+	(apply #'container-add parent widget args)))))
 
 (defmethod shared-initialize :after ((widget widget) names &rest initargs
 				     &key show-all)
