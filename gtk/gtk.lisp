@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.29 2005-01-06 21:05:46 espen Exp $
+;; $Id: gtk.lisp,v 1.30 2005-01-12 13:38:18 espen Exp $
 
 
 (in-package "GTK")
@@ -100,6 +100,30 @@
   (adjustment adjustment)
   (lower single-float)
   (upper single-float))
+
+
+;;; Alignment
+
+(defbinding alignment-set () nil
+  (alognment alignment)
+  (x-align single-float)
+  (y-align single-float)
+  (x-scale single-float)
+  (y-scale single-float))
+
+(defbinding alignment-get-padding () nil
+  (alognment alignment)
+  (top unsigned-int :out)
+  (bottom unsigned-int :out)
+  (left unsigned-int :out)
+  (right unsigned-int :out))
+
+(defbinding alignment-set-padding () nil
+  (alognment alignment)
+  (top unsigned-int)
+  (bottom unsigned-int)
+  (left unsigned-int)
+  (right unsigned-int))
 
 
 ;;; Aspect frame
@@ -495,6 +519,138 @@
 (defbinding entry-completion-delete-action () nil
   (completion entry-completion)
   (index int))
+
+
+;;; File Chooser
+
+(defmethod initialize-instance ((file-chooser file-chooser) &rest initargs 
+				&key filter filters shortcut-folder 
+				shortcut-folders shortcut-folder-uti
+				shortcut-folder-uris)
+  (declare (ignore filter filters shortcut-folder shortcut-folders 
+		   shortcut-folder-uti shortcut-folder-uris))
+  (prog1
+      (call-next-method)
+    (initial-add file-chooser #'file-chooser-add-filter
+     initargs :filer :filters)
+    (initial-add file-chooser #'file-chooser-add-shortcut-folder
+     initargs :shortcut-folder :shortcut-folders)
+    (initial-add file-chooser #'file-chooser-add-shortcut-folder-uri
+     initargs :shortcut-folder-uri :shortcut-folders-uris)))
+
+
+(defbinding file-chooser-select-filename () boolean
+  (file-chooser file-chooser)
+  (filename string))
+
+(defbinding file-chooser-unselect-filename () nil
+  (file-chooser file-chooser)
+  (filename string))
+
+(defbinding file-chooser-select-all () boolean
+  (file-chooser file-chooser))
+
+(defbinding file-chooser-unselect-all () boolean
+  (file-chooser file-chooser))
+  
+(defbinding file-chooser-get-filenames () (gslist string)
+  (file-chooser file-chooser))
+
+(defbinding file-chooser-select-uri () boolean
+  (file-chooser file-chooser)
+  (uri string))
+
+(defbinding file-chooser-unselect-uri () nil
+  (file-chooser file-chooser)
+  (uri string))
+
+(defbinding file-chooser-get-uris () (gslist string)
+  (file-chooser file-chooser))
+
+(defbinding file-chooser-add-filter () nil
+  (file-chooser file-chooser)
+  (filter file-filter))
+
+(defbinding file-chooser-remove-filter () nil
+  (file-chooser file-chooser)
+  (filter file-filter))
+
+(defbinding file-chooser-list-filters () (gslist file-filter)
+  (file-chooser file-chooser))
+
+(defbinding file-chooser-add-shortcut-folder () boolean
+  (file-chooser file-chooser)
+  (folder string)
+  (nil null))
+
+(defbinding file-chooser-remove-shortcut-folder () nil
+  (file-chooser file-chooser)
+  (folder string)
+  (nil null))
+
+(defbinding file-chooser-list-shortcut-folders () (gslist string)
+  (file-chooser file-chooser))
+
+(defbinding file-chooser-add-shortcut-folder-uri () boolean
+  (file-chooser file-chooser)
+  (uri string)
+  (nil null))
+
+(defbinding file-chooser-remove-shortcut-folder-uri () nil
+  (file-chooser file-chooser)
+  (uri string)
+  (nil null))
+
+(defbinding file-chooser-list-shortcut-folder-uris () (gslist string)
+  (file-chooser file-chooser))
+
+
+;;; File Filter
+
+(defmethod initialize-instance ((file-filter file-filter) &rest initargs 
+				&key mime-type mime-types pattern patterns
+				pixbuf-formats)
+  (declare (ignore mime-type mime-types pattern patterns))
+  (prog1
+      (call-next-method)
+    (when pixbuf-formats
+      #-gtk2.6(warn "Initarg :PIXBUF-FORMATS not supportet in this version of Gtk")
+      #+gtk2.6(file-filter-add-pixbuf-formats file-filter))
+    (initial-add file-filter #'file-filter-add-mime-type
+     initargs :mime-type :mime-types)
+    (initial-add file-filter #'file-filter-add-pattern
+     initargs :pattern :patterns)))
+
+
+(defbinding file-filter-add-mime-type () nil
+  (filter file-filter)
+  (mime-type string))
+
+(defbinding file-filter-add-pattern () nil
+  (filter file-filter)
+  (pattern string))
+
+#+gtk2.6
+(defbinding file-filter-add-pixbuf-formats () nil
+  (filter file-filter)
+  (pattern string))
+
+(def-callback-marshal %file-filter-func (boolean file-filter-info))
+
+(defbinding file-filter-add-custom () nil
+  (filter file-filter)
+  (needed file-filter-flags)
+  ((callback %file-filter-func) pointer)
+  ((register-callback-function function) unsigned-int)
+  ((callback %destroy-user-data) pointer))
+
+(defbinding file-filter-get-needed () file-filter-flags
+  (filter file-filter))
+
+(defbinding file-filter-filter () boolean
+  (filter file-filter)
+  (filter-info file-filter-info))
+
 
 
 ;;; Image
@@ -1086,20 +1242,15 @@
 
 ;;; Notebook
 
-(defun %notebook-position (notebook page)
+(defun %ensure-notebook-position (notebook page)
   (etypecase page
-    (int page)
-    (keyword (case page
-	       (:first 0)
-	       (:last -1)
-	       (t (error "Invalid position keyword: ~A" page))))
+    (position page)
     (widget (notebook-page-num notebook page t))))
 
-(defun %notebook-child (notebook position)
+(defun %ensure-notebook-child (notebook position)
   (typecase position
      (widget position)
-     (t (notebook-nth-page-child notebook position))))
-
+     (t (notebook-get-nth-page notebook position))))
 
 (defbinding (notebook-insert "gtk_notebook_insert_page_menu")
     (notebook position child tab-label &optional menu-label) nil
@@ -1111,7 +1262,7 @@
   ((if (stringp menu-label)
        (make-instance 'label :label menu-label)
      menu-label) (or null widget))
-  ((%notebook-position notebook position) int))
+  ((%ensure-notebook-position notebook position) position))
 
 (defun notebook-append (notebook child tab-label &optional menu-label)
   (notebook-insert notebook :last child tab-label menu-label))
@@ -1121,7 +1272,7 @@
   
 (defbinding notebook-remove-page (notebook page) nil
   (notebook notebook)
-  ((%notebook-position notebook page) int))
+  ((%ensure-notebook-position notebook page) position))
 
 (defbinding %notebook-page-num () int
   (notebook notebook)
@@ -1131,7 +1282,7 @@
   (let ((page-num (%notebook-page-num notebook child)))
     (if (= page-num -1)
 	(when error-p
-	  (error "~A is not a child of ~A" child notebook))
+	  (error "~A is not a page in ~A" child notebook))
       page-num)))
 
 (defbinding notebook-next-page () nil
@@ -1151,46 +1302,26 @@
 (defbinding notebook-popup-disable () nil
   (notebook notebook))
 
-(defbinding (notebook-nth-page-child "gtk_notebook_get_nth_page")
-    (notebook page) widget
+(defbinding notebook-get-nth-page () widget
   (notebook notebook)
-  ((case page
-     (:first 0)
-     (:last -1)
-     (t page)) int))
+  (page position))
 
-
-(defbinding %notebook-get-current-page () int
-  (notebook notebook))
-
-(defun notebook-current-page-num (notebook)
-  (let ((num (%notebook-get-current-page notebook)))
-    (when (>= num 0)
-      num)))
-
-(defun notebook-current-page (notebook)
-  (let ((page-num (notebook-current-page-num notebook)))
-    (when page-num
-      (notebook-nth-page-child notebook page-num))))
-
-(defbinding  %notebook-set-current-page () nil
-  (notebook notebook)
-  (page-num int))
+(defun %notebook-current-page (notebook)
+  (when (slot-boundp notebook 'current-page-num)
+    (notebook-get-nth-page notebook (notebook-current-page-num notebook))))
 
 (defun (setf notebook-current-page) (page notebook)
-  (%notebook-set-current-page notebook (%notebook-position notebook page))
-  page)
-
+  (setf (notebook-current-page notebook) (notebook-page-num notebook page)))
 
 (defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
     (notebook page) widget
   (notebook notebook)
-  ((%notebook-child notebook page) widget))
+  ((%ensure-notebook-child notebook page) widget))
 
 (defbinding (notebook-tab-label-text "gtk_notebook_get_tab_label_text")
     (notebook page) (copy-of string)
   (notebook notebook)
-  ((%notebook-child notebook page) widget))
+  ((%ensure-notebook-child notebook page) widget))
 
 (defbinding %notebook-set-tab-label () nil
   (notebook notebook)
@@ -1201,19 +1332,19 @@
   (let ((widget (if (stringp tab-label)
 		    (make-instance 'label :label tab-label)
 		  tab-label)))
-    (%notebook-set-tab-label notebook (%notebook-child notebook page) widget)
+    (%notebook-set-tab-label notebook (%ensure-notebook-child notebook page) widget)
     widget))
 
 
 (defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
     (notebook page) widget
   (notebook notebook)
-  ((%notebook-child notebook page) widget))
+  ((%ensure-notebook-child notebook page) widget))
 
 (defbinding (notebook-menu-label-text "gtk_notebook_get_menu_label_text")
     (notebook page) (copy-of string)
   (notebook notebook)
-  ((%notebook-child notebook page) widget))
+  ((%ensure-notebook-child notebook page) widget))
 
 (defbinding %notebook-set-menu-label () nil
   (notebook notebook)
@@ -1224,7 +1355,7 @@
   (let ((widget (if (stringp menu-label)
 		    (make-instance 'label :label menu-label)
 		  menu-label)))
-    (%notebook-set-menu-label notebook (%notebook-child notebook page) widget)
+    (%notebook-set-menu-label notebook (%ensure-notebook-child notebook page) widget)
     widget))
 
 
@@ -1264,16 +1395,25 @@
 
 (defbinding layout-put () nil
   (layout layout)
-  (widget widget)
+  (child widget)
   (x int)
   (y int))
 
 (defbinding layout-move () nil
   (layout layout)
-  (widget widget)
+  (child widget)
   (x int)
   (y int))
 
+(defbinding layout-set-size () nil
+  (layout layout)
+  (width unsigned-int)
+  (height unsigned-int))
+
+(defbinding layout-get-size () nil
+  (layout layout)
+  (width unsigned-int :out)
+  (height unsigned-int :out))
 
 
 ;;; Menu shell
@@ -1687,11 +1827,12 @@
   (position single-float)
   (max-size single-float))
 
-(defbinding ruler-draw-ticks () nil
-  (ruler ruler))
-
-(defbinding ruler-draw-pos () nil
-  (ruler ruler))
+(defbinding ruler-get-range () nil
+  (ruler ruler)
+  (lower single-float :out)
+  (upper single-float :out)
+  (position single-float :out)
+  (max-size single-float :out))
 
 
 
@@ -1734,9 +1875,10 @@
 
 ;;; Scale
 
-; (defbinding scale-draw-value () nil
-;   (scale scale))
-
+(defbinding scale-get-layout-offsets () nil
+  (scale scale)
+  (x int :out)
+  (y int :out))
 
 
 ;;; Progress bar

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.29 2005-01-07 00:28:36 espen Exp $
+;; $Id: gtktypes.lisp,v 1.30 2005-01-12 13:38:18 espen Exp $
 
 
 (in-package "GTK")
@@ -126,7 +126,12 @@
 (deftype tree-path () '(vector integer))
 (register-type 'tree-path "GtkTreePath")
 
-(deftype position () '(or int (enum (:start 0) (:end -1))))
+(deftype position () 
+  '(or int (enum (:start 0) (:end -1) (:first 0) (:last -1))))
+
+(defmethod reader-function ((type (eql 'position)) &rest args)
+  (declare (ignore type args))
+  (reader-function 'int))
 
 ;; Forward definitions
 (defclass widget (%object)
@@ -157,6 +162,13 @@
      :allocation :virtual
      :getter "gtk_widget_get_window"
      :reader widget-window
+     :type gdk:window)
+    (parent-window
+     :allocation :virtual
+     :getter %widget-parent-window
+     :setter "gtk_widget_set_parent_window"
+     :accessor widget-parent-window
+     :initarg :parent-window
      :type gdk:window)
     (state
      :allocation :virtual
@@ -190,7 +202,7 @@
      :setter "gtk_widget_set_composite_name"
      :accessor widget-composite-name
      :initarg :composite-name
-     :type string)
+     :type (copy-of string)) ; will leak the string when setting
     (settings
      :allocation :virtual
      :getter "gtk_widget_get_settings"
@@ -528,10 +540,19 @@
    :slots
    ((current-page
      :allocation :virtual
-     :getter notebook-current-page
+     :getter %notebook-current-page
      :setter (setf notebook-current-page)
+     :reader notebook-current-page
+     :type widget
      :initarg :current-page)
-    (page :ignore t)))
+    (current-page-num
+     :allocation :virtual
+     :getter "gtk_notebook_get_current_page"
+     :setter "gtk_notebook_set_current_page"
+     :unbound -1
+     :initarg :current-page-num
+     :accessor notebook-current-page-num
+     :type position)))
   
   ("GtkRuler"
    :slots
@@ -644,24 +665,6 @@
      :accessor radio-menu-item-value
      :documentation "Value passed as argument to the activate callback")))
 
-  ("GtkFileSelection"
-   :slots
-   ((action-area
-     :allocation :virtual
-     :getter "gtk_file_selection_get_action_area"
-     :reader file-selection-action-area
-     :type widget)
-    (ok-button
-     :allocation :virtual
-     :getter "gtk_file_selection_get_ok_button"
-     :reader file-selection-ok-button
-     :type widget)
-    (cancel-button
-     :allocation :virtual
-     :getter "gtk_file_selection_get_cancel_button"
-     :reader file-selection-cancel-button
-     :type widget)))
-
   ("GtkLayout"
    :slots
    ((bin-window
@@ -724,6 +727,14 @@
      :reader label-layout
      :type pango:layout)))
 
+  ("GtkScale"
+   :slots
+   ((layout
+     :allocation :virtual
+     :getter "gtk_scale_get_layout"
+     :reader scale-layout
+     :type pango:layout)))
+
   ("GtkEditable"
    :slots
    ((editable
@@ -758,29 +769,39 @@
     (current-name
      :allocation :virtual
      :setter "gtk_file_chooser_set_current_name"
-     :accessor file-choser-current-name
+     :accessor file-chooser-current-name
      :initarg :current-name
      :type string)
     (current-folder
      :allocation :virtual
      :setter "gtk_file_chooser_set_current_folder"
      :setter "gtk_file_chooser_get_current_folder"
-     :accessor file-choser-current-folder
+     :accessor file-chooser-current-folder
      :initarg :current-folder
      :type string)
     (uri
      :allocation :virtual
      :getter "gtk_file_chooser_get_uri"
      :setter "gtk_file_chooser_set_uri"
-     :accessor file-choser-uri
+     :accessor file-chooser-uri
      :initarg :uri
      :type string)
     (current-folder-uri
      :allocation :virtual
      :setter "gtk_file_chooser_set_current_folder_uri"
      :setter "gtk_file_chooser_get_current_folder_uri"
-     :accessor file-choser-current-folder-uri
+     :accessor file-chooser-current-folder-uri
      :initarg :current-folder-uri
+     :type string)))
+
+  ("GtkFileFilter"
+   :slots
+   ((name
+     :allocation :virtual
+     :getter "gtk_file_filter_get_name"
+     :setter "gtk_file_filter_set_name"
+     :accessor file-filter-name
+     :initarg :name
      :type string)))
 
   ("GtkTreeView"
@@ -950,6 +971,27 @@
      :allocation :virtual
      :getter radio-action-value)))
 
+  ("GtkColorSelection"
+   :slots
+   ((previous-alpha
+     :allocation :virtual
+     :getter "gtk_color_selection_get_previous_alpha"
+     :setter "gtk_color_selection_get_previous_alpha"
+     :initarg :previous-alpha
+     :accessor color-selection-previous-alpha
+     :type (unsigned 16))
+    (previous-color
+     :allocation :virtual
+     :getter "gtk_color_selection_get_previous_color"
+     :setter "gtk_color_selection_get_previous_color"
+     :initarg :previous-color
+     :accessor color-selection-previous-color
+     :type gdk:color)))
+
+  ("GtkFontSelection"
+   :slots
+   ; deprecated property
+   ((font :ignore t)))
 
   ;; Not needed
   ("GtkFundamentalType" :ignore t)
@@ -973,6 +1015,8 @@
   ("GtkOldEditable" :ignore t)
   ("GtkCombo" :ignore t)
   ("GtkOptionMenu" :ignore t)
+  ("GtkFileSelection" :ignore t)
+  ("GtkInputDialog")
 
   ;; What are these?
   ("GtkFileSystemModule" :ignore t)
@@ -987,7 +1031,7 @@
     :allocation :virtual
     :getter "gtk_text_iter_get_buffer"
     :reader text-iter-buffer
-    :type text-buffer)
+    :type pointer) ;text-buffer)
    (offset
     :allocation :virtual
     :getter "gtk_text_iter_get_offset"
@@ -1026,11 +1070,12 @@
     :type int)
    ;; Workaround to get correct size 
    (dummy14
-     :allocation :alien :offset #.(* 13 (size-of 'pointer))
-     :type pointer))
+    :allocation :alien :offset #.(* 13 (size-of 'pointer))
+    :type pointer))
   (:metaclass boxed-class 
    ;; I am pretty sure this was working in older versons on CMUCL
-   :size #.(* 14 (size-of 'pointer))))
+;   :size #.(* 14 (size-of 'pointer))
+   ))
 
 
 (defclass tooltips-data (struct)
@@ -1049,5 +1094,28 @@
    (tip-private
     :allocation :alien
     :reader tooltips-data-tip-private
+    :type string))
+  (:metaclass struct-class))
+
+(defclass file-filter-info (struct)
+  ((contains
+    :allocation :alien 
+    :initarg :contains
+    :type file-filter-flags)
+   (filename 
+    :allocation :alien 
+    :initarg :filename
+    :type string)
+   (uri 
+    :allocation :alien 
+    :initarg :uri
+    :type string)
+   (display-name 
+    :allocation :alien 
+    :initarg :display-name
+    :type string)
+   (mime-type 
+    :allocation :alien 
+    :initarg :mime-type
     :type string))
   (:metaclass struct-class))
