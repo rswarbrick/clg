@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.25 2005-02-03 23:09:04 espen Exp $
+;; $Id: gtype.lisp,v 1.26 2005-02-10 00:20:02 espen Exp $
 
 (in-package "GLIB")
 
@@ -153,35 +153,59 @@
 (defun type-number-of (object)
   (find-type-number (type-of object) t))
 
-(defun init-type (init)
-  (mapc
-   #'(lambda (fname)
-       (funcall (mkbinding fname 'type-number)))
-   (mklist init)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun %find-types-in-library (pathname prefix ignore)
+    (let ((process (run-program
+		    "/usr/bin/nm" (list "--defined-only" "-D" (namestring (truename pathname)))
+		    :output :stream :wait nil)))
+      (unwind-protect
+	  (loop 
+	   as symbol = (let ((line (read-line (process-output process) nil)))
+			 (when line (subseq line 11)))			  
+	   while symbol
+	   when (and
+		 (> (length symbol) (length prefix))
+		 (string= prefix symbol :end2 (length prefix))
+		 (search "_get_type" symbol)
+		 (not (member symbol ignore :test #'string=)))
+	   collect symbol)
+	(process-close process)))))
 
-(defun %init-types-in-library (pathname prefix ignore)
-  (let ((process (run-program
-		  "/usr/bin/nm" (list "--defined-only" "-D" (namestring (truename pathname)))
-		  :output :stream :wait nil))
-	(fnames ()))
-    (labels ((read-symbols ()
-	       (let ((line (read-line (process-output process) nil)))
-		 (when line
-		   (let ((symbol (subseq line 11)))
-		     (when (and
-			    (> (length symbol) (length prefix))
-			    (string= prefix symbol :end2 (length prefix))
-			    (search "_get_type" symbol)
-			    (not (member symbol ignore :test #'string=)))
-		       (push symbol fnames)))
-		   (read-symbols)))))
-      (read-symbols)
-      (process-close process)
-      `(init-type ',fnames))))
 
 (defmacro init-types-in-library (filename &key (prefix "") ignore)
-  (%init-types-in-library filename prefix ignore))
+  (let ((names (%find-types-in-library filename prefix ignore)))
+    `(progn
+       ,@(mapcar #'(lambda (name)
+		     `(progn
+			(defbinding (,(intern name) ,name) () type-number)
+			(,(intern name))))
+		 names))))
 
+
+
+;;;; Metaclass for subclasses of ginstance
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass ginstance-class (proxy-class)
+    ()))
+
+
+(defmethod shared-initialize ((class ginstance-class) names
+			      &rest initargs &key name alien-name)
+  (declare (ignore names))
+  (let* ((class-name (or name (class-name class)))
+	 (type-number
+	  (find-type-number
+	   (or (first alien-name) (default-alien-type-name class-name)) t)))
+    (register-type class-name type-number)
+    (if (getf initargs :size)
+	(call-next-method)
+      (let ((size (type-instance-size type-number)))
+	(apply #'call-next-method class names :size (list size) initargs)))))
+
+
+(defmethod validate-superclass ((class ginstance-class) (super standard-class))
+  (subtypep (class-name super) 'ginstance))
 
 
 ;;;; Superclass for wrapping types in the glib type system
@@ -215,31 +239,6 @@
   (declare (ignore args))
   #'(lambda (location &optional (offset 0))
       (ensure-proxy-instance class (sap-ref-sap location offset))))
-
-
-;;;; Metaclass for subclasses of ginstance
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginstance-class (proxy-class)
-    ()))
-
-
-(defmethod shared-initialize ((class ginstance-class) names
-			      &rest initargs &key name alien-name)
-  (declare (ignore names))
-  (let* ((class-name (or name (class-name class)))
-	 (type-number
-	  (find-type-number
-	   (or (first alien-name) (default-alien-type-name class-name)) t)))
-    (register-type class-name type-number)
-    (if (getf initargs :size)
-	(call-next-method)
-      (let ((size (type-instance-size type-number)))
-	(apply #'call-next-method class names :size (list size) initargs)))))
-
-
-(defmethod validate-superclass ((class ginstance-class) (super standard-class))
-  (subtypep (class-name super) 'ginstance))
 
 
 ;;;; Registering fundamental types
@@ -345,31 +344,33 @@
       (funcall list-dependencies (find-type-number type t)))))
 
 (defun %sort-types-topologicaly (types)
-  (let ((unsorted (mapcar 
-		   #'(lambda (type)
-		       (cons type (remove-if #'(lambda (dep)
-						 (not (find dep types)))
-					     (find-type-dependencies type))))
-		   types))
-	(forward-define ())
+  (let ((partial-sorted
+	 (sort
+	  (mapcar 
+	   #'(lambda (type)
+	       (cons type (remove-if #'(lambda (dep)
+					 (not (find dep types)))
+				     (find-type-dependencies type))))
+	   types)
+	  #'(lambda (type1 type2) (type-is-p type2 type1)) :key #'car))
 	(sorted ()))
 
     (loop
-     as tmp = unsorted then (or (rest tmp) unsorted)
+     as tmp = partial-sorted then (or (rest tmp) partial-sorted)
      while tmp
      do (destructuring-bind (type . dependencies) (first tmp)
 	  (cond
 	   ((every #'(lambda (dep)
-		       (or (find dep forward-define) (find dep sorted)))
+		       (assoc dep sorted))
 		   dependencies)
-	    (push type sorted)
-	    (setq unsorted (delete type unsorted :key #'first)))
+	    (push (cons type nil) sorted) ; no forward definition needed
+	    (setq partial-sorted (delete type partial-sorted :key #'first)))
 	   ((some #'(lambda (dep)
 		      (find type (find-type-dependencies dep)))
 		  dependencies)
-	    (push type forward-define)))))
-
-    (values (nreverse sorted) forward-define)))
+	    (push (cons type t) sorted) ; forward definition needed
+	    (setq partial-sorted (delete type partial-sorted :key #'first))))))
+    (nreverse sorted)))
 
 
 (defun expand-type-definitions (prefix &optional args)
@@ -394,24 +395,31 @@
 			      (getf (cdr options) :except)))))
 		   args))))
 	   (find-types prefix))))
-             
+
      (dolist (type-number type-list)
        (let ((name (find-type-name type-number)))
 	 (register-type
 	  (getf (type-options type-number) :type (default-type-name name))
 	  type-number)))
-     
-     (multiple-value-bind  (sorted-type-list forward-define)
-	 (%sort-types-topologicaly type-list)
+
+     (let ((sorted-type-list (%sort-types-topologicaly type-list)))
        `(progn
 	  ,@(mapcar
-	     #'(lambda (type)
-		 (expand-type-definition type t (type-options type)))
-	     forward-define)
+	     #'(lambda (pair)
+		 (destructuring-bind (type . forward-p) pair
+		   (expand-type-definition type forward-p (type-options type))))
+	     sorted-type-list)
 	  ,@(mapcar
-	     #'(lambda (type)
-		 (expand-type-definition type nil (type-options type)))
+	     #'(lambda (pair)
+		 (destructuring-bind (type . forward-p) pair
+		   (when forward-p
+		     (expand-type-definition type nil (type-options type)))))
 	     sorted-type-list))))))
 
 (defmacro define-types-by-introspection (prefix &rest args)
   (expand-type-definitions prefix args))
+
+
+;;;; Initialize all non static types in GObject
+
+(init-types-in-library #.(concatenate 'string (pkg-config:pkg-variable "glib-2.0" "libdir") "/libgobject-2.0.so"))

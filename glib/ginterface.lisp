@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.7 2005-02-03 23:09:04 espen Exp $
+;; $Id: ginterface.lisp,v 1.8 2005-02-10 00:20:02 espen Exp $
 
 (in-package "GLIB")
 
@@ -128,9 +128,10 @@
     (unwind-protect
 	 (multiple-value-bind (array length)
 	     (%object-interface-list-properties iface)
-	   (unwind-protect
-		(%map-params array length type-number inherited-p)
-	     (deallocate-memory array)))
+	   (unless (null-pointer-p array)
+	     (unwind-protect
+		 (%map-params array length type-number inherited-p)
+	       (deallocate-memory array))))
 ;      (type-default-interface-unref type-number)
       )))
 
@@ -146,6 +147,9 @@
       (:alien-name ,(find-type-name type)))))
 
 (defun ginterface-dependencies (type)
-  (delete-duplicates (mapcar #'param-value-type (query-object-interface-properties type))))
+  (delete-duplicates 
+   (cons
+    (supertype type)
+    (mapcar #'param-value-type (query-object-interface-properties type)))))
 
 (register-derivable-type 'ginterface "GInterface" 'expand-ginterface-type 'ginterface-dependencies)

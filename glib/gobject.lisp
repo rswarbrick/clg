@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.31 2005-02-03 23:09:04 espen Exp $
+;; $Id: gobject.lisp,v 1.32 2005-02-10 00:20:02 espen Exp $
 
 (in-package "GLIB")
 
@@ -108,8 +108,10 @@
     (when (and (not (slot-boundp slotd 'getter)) (slot-readable-p slotd))
       (setf 
        (slot-value slotd 'getter)
-       (let ((reader (reader-function type)))
+       (let ((reader nil)) ;(reader-function type)))
 	 #'(lambda (object)
+	     (unless reader
+	       (setq reader (reader-function type)))
 	     (let ((gvalue (gvalue-new type-number)))
 	       (%object-get-property object pname gvalue)
 	       (unwind-protect
@@ -119,8 +121,10 @@
     (when (and (not (slot-boundp slotd 'setter)) (slot-writable-p slotd))
       (setf 
        (slot-value slotd 'setter)
-       (let ((writer (writer-function type)))
+       (let ((writer nil)) ;(writer-function type)))
 	 #'(lambda (value object)
+	     (unless writer
+	       (setq writer (writer-function type)))
 	     (let ((gvalue (gvalue-new type-number)))
 	       (funcall writer value gvalue +gvalue-value-offset+)
 	       (%object-set-property object pname gvalue)
@@ -334,9 +338,10 @@
     (unwind-protect
 	 (multiple-value-bind (array length)
 	     (%object-class-list-properties class)
-	   (unwind-protect
-		(%map-params array length type-number inherited-p)
-	     (deallocate-memory array)))
+	   (unless (null-pointer-p array)
+	     (unwind-protect
+		 (%map-params array length type-number inherited-p)
+	       (deallocate-memory array))))
 ;      (type-class-unref type-number)
       )))
 
@@ -426,7 +431,12 @@
       (:alien-name ,(find-type-name type)))))
 
 (defun gobject-dependencies (type)
-  (delete-duplicates (mapcar #'param-value-type (query-object-class-properties type))))
+  (delete-duplicates 
+   (cons
+    (supertype type)
+    (append 
+     (type-interfaces type)
+     (mapcar #'param-value-type (query-object-class-properties type))))))
 
 
 (register-derivable-type 'gobject "GObject" 'expand-gobject-type 'gobject-dependencies)
