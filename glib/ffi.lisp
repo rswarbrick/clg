@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.6 2004-11-19 13:02:51 espen Exp $
+;; $Id: ffi.lisp,v 1.7 2004-12-04 00:28:47 espen Exp $
 
 (in-package "GLIB")
 
@@ -299,7 +299,7 @@
 
 (defmethod destroy-function ((type t) &rest args)
   (declare (ignore type args))
-  #'(lambda (location offset)
+  #'(lambda (location &optional offset)
       (declare (ignore location offset))))
 
 (defmethod copy-to-alien-form  (form (type t) &rest args)
@@ -767,5 +767,13 @@
 (defmethod from-alien-function ((type (eql 'copy-of)) &rest args)
   (declare (ignore type))
   (copy-from-alien-function (first args)))
+
+(defmethod reader-function ((type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (reader-function (first args)))
+
+(defmethod writer-function ((type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (writer-function (first args)))
 
 (export 'copy-of)
