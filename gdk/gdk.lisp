@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.7 2001-10-21 23:02:40 espen Exp $
+;; $Id: gdk.lisp,v 1.8 2004-10-28 09:28:25 espen Exp $
 
 
 (in-package "GDK")
@@ -271,8 +271,12 @@
   (y int :out)
   (mask modifier-type :out))
 
-(defbinding get-root-window () window)
+(defbinding %get-default-root-window () window)
 
+(defun get-root-window (%optional display)
+  (if display
+      (error "Not implemented")
+    (%get-default-root-window)))
 
 
 ;;
@@ -312,7 +316,7 @@
 
 
 ;;; Pixmaps
-#|
+
 (defbinding pixmap-new (width height depth &key window) pixmap
   (width int)
   (height int)
@@ -345,10 +349,10 @@
 	    window colormap color (namestring (truename source))))
  	  ((vector string)
 	   (%pixmap-colormap-create-from-xpm-d window colormap color source)))
-      (unreference-instance pixmap)
-      (unreference-instance mask)
+;;       (unreference-instance pixmap)
+;;       (unreference-instance mask)
       (values pixmap mask))))
-|#  
+
 
 
 ;;; Color
