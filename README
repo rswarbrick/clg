@@ -1,0 +1,25 @@
+This package contains Common Lisp bindings to GTK+ v2.0. It currently
+works with only CMUCL, but ports to other CL implementations may be
+added later.
+
+
+New versions
+------------
+
+The most recent version of this package can be found at:
+
+
+
+Build instructions
+------------------
+
+1. When building for CMUCL, first obtain a matching binary and source
+   tree (the only source file you will actually need is lisp.h, which
+   have to be copied or linked to your CMUCL_LIB directory).  On ELF
+   systems you may also have to rebuild lisp with -rdynamic added to
+   OS_LINK_FLAGS.
+
+2. 
+
+
+
