@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.13 2004-10-27 14:58:59 espen Exp $
+;; $Id: gobject.lisp,v 1.14 2004-10-28 09:34:35 espen Exp $
 
 (in-package "GLIB")
 
@@ -53,7 +53,10 @@
      (slot-value object 'location) 
      (if (zerop (length names))
 	 (%gobject-new (type-number-of object))
-       (%gobject-newvv (type-number-of object) (length names) names values))))
+       (%gobject-newvv (type-number-of object) (length names) names values)))
+    
+    (mapc #'gvalue-free values))
+  
   (apply #'call-next-method object initargs))
 
 
