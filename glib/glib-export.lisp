@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-export.lisp,v 1.1 2000-08-14 16:44:30 espen Exp $
+;; $Id: glib-export.lisp,v 1.2 2000-08-17 22:43:02 espen Exp $
 
 
 ;;; Autogenerating exported symbols
@@ -35,7 +35,7 @@
 	name
       (first name)))
 
-  (defexport define-type-method-func (name lambda-list)
+  (defexport define-type-method-fun (name lambda-list)
     (declare (ignore lambda-list))
     name))
 
