@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.15 2004-12-16 23:19:17 espen Exp $
+;; $Id: proxy.lisp,v 1.16 2004-12-19 23:33:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -246,6 +246,12 @@
 (defgeneric reference-foreign (class location))
 (defgeneric unreference-foreign (class location))
 
+(defmethod reference-foreign ((name symbol) location)
+  (reference-foreign (find-class name) location))
+
+(defmethod unreference-foreign ((name symbol) location)
+  (unreference-foreign (find-class name) location))
+
 (defmethod unreference-foreign :around ((class class) location)
   (unless (null-pointer-p location)
 ;;     (format t "Unreferencing ~A at ~A" (class-name class) location)
@@ -357,7 +363,11 @@
 
   (defmethod compute-slots ((class proxy-class))
     (loop 
-     with offset = (proxy-instance-size (most-specific-proxy-superclass class))
+     with offset = (let ((size-of-super-classes
+			  (proxy-instance-size 
+			   (most-specific-proxy-superclass class))))
+		     (+ size-of-super-classes 
+			(mod size-of-super-classes +struct-alignmen+)))
      with size = offset
      for slotd in (class-direct-slots class)
      when (eq (slot-definition-allocation slotd) :alien)
