@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.23 2004-12-16 23:19:17 espen Exp $
+;; $Id: gobject.lisp,v 1.24 2004-12-21 00:04:48 espen Exp $
 
 (in-package "GLIB")
 
@@ -152,49 +152,50 @@
 
 
 (defmethod initialize-instance ((object gobject) &rest initargs)
-  ;; Extract initargs which we should pass directly to the GObeject
-  ;; constructor
-  (let* ((slotds (class-slots (class-of object)))
-	 (args (when initargs
-		 (loop 
-		  as (key value . rest) = initargs then rest
-		  as slotd = (find-if
-			      #'(lambda (slotd)
-				  (member key (slot-definition-initargs slotd)))
-			      slotds)
-		  when (and (typep slotd 'effective-property-slot-definition)
-			    (slot-value slotd 'construct))
-		  collect (progn 
-			    (remf initargs key)
-			    (list 
-			     (slot-definition-pname slotd)
-			     (slot-definition-type slotd)
-			     value))
-		  while rest))))
-    (if args
-	(let* ((string-size (size-of 'string))
-	       (string-writer (writer-function 'string))
-	       (string-destroy (destroy-function 'string))
-	       (params (allocate-memory 
-			(* (length args) (+ string-size +gvalue-size+)))))
-	  (loop
-	   for (pname type value) in args
-	   as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
-	   do (funcall string-writer pname tmp)
-	   (gvalue-init (sap+ tmp string-size) type value))
-	  (unwind-protect
-	       (setf  
-		(slot-value object 'location) 
-		(%gobject-newv (type-number-of object) (length args) params))
+  (unless (slot-boundp object 'location)
+    ;; Extract initargs which we should pass directly to the GObeject
+    ;; constructor
+    (let* ((slotds (class-slots (class-of object)))
+	   (args (when initargs
+		   (loop 
+		    as (key value . rest) = initargs then rest
+		    as slotd = (find-if
+				#'(lambda (slotd)
+				    (member key (slot-definition-initargs slotd)))
+				slotds)
+		    when (and (typep slotd 'effective-property-slot-definition)
+			      (slot-value slotd 'construct))
+		    collect (progn 
+			      (remf initargs key)
+			      (list 
+			       (slot-definition-pname slotd)
+			       (slot-definition-type slotd)
+			       value))
+		    while rest))))
+      (if args
+	  (let* ((string-size (size-of 'string))
+		 (string-writer (writer-function 'string))
+		 (string-destroy (destroy-function 'string))
+		 (params (allocate-memory 
+			  (* (length args) (+ string-size +gvalue-size+)))))
 	    (loop
-	     repeat (length args)
+	     for (pname type value) in args
 	     as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
-	     do (funcall string-destroy tmp)
-	     (gvalue-unset (sap+ tmp string-size)))
-	    (deallocate-memory params)))
+	     do (funcall string-writer pname tmp)
+	     (gvalue-init (sap+ tmp string-size) type value))
+	    (unwind-protect
+		(setf  
+		 (slot-value object 'location) 
+		 (%gobject-newv (type-number-of object) (length args) params))
+	      (loop
+	       repeat (length args)
+	       as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
+	       do (funcall string-destroy tmp)
+	       (gvalue-unset (sap+ tmp string-size)))
+	      (deallocate-memory params)))
 	(setf  
 	 (slot-value object 'location) 
-	 (%gobject-new (type-number-of object)))))
+	 (%gobject-new (type-number-of object))))))
 
   (apply #'call-next-method object initargs))
 
