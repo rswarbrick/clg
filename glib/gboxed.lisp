@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.11 2004-11-06 21:39:58 espen Exp $
+;; $Id: gboxed.lisp,v 1.12 2004-11-07 21:41:35 espen Exp $
 
 (in-package "GLIB")
 
@@ -25,7 +25,7 @@
 			  (pkg-config:pkg-variable "glib-2.0" "libdir")
 			  "/libgobject-2.0.so")))
 
-(defclass boxed (proxy)
+(defclass boxed (struct)
   ()
   (:metaclass struct-class))
 
