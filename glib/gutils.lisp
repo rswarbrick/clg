@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.9 2001-10-21 16:53:13 espen Exp $
+;; $Id: gutils.lisp,v 1.10 2001-11-12 22:26:56 espen Exp $
 
 
 (in-package "KERNEL")
@@ -165,3 +165,37 @@
 	(plist-remove (cddr plist) property)
       (list*
        (first plist) (second plist) (plist-remove (cddr plist) property)))))
+
+
+;;;
+
+(defun utf-8-encode (code)
+  (labels ((encode-bytes (bit)
+             (unless (zerop bit)
+	       (cons
+		(deposit-field 
+                 #x80 (byte 7 6) (ldb (byte bit (- bit 6)) code))
+		(encode-bytes (- bit 6)))))
+           (encode-string (length)
+             (map 'string #'code-char
+              (cons
+               (deposit-field
+	        (mask-field (byte 7 (- 7 length)) #xFF)
+		(byte 7 (- 6 length))
+		(ldb (byte (+ (* length 6) 6) (* length 6)) code))
+	       (encode-bytes (* length 6))))))
+    (cond
+     ((< code #x80) (string (code-char code)))
+     ((< code #x800) (encode-string 1))
+     ((< code #x10000) (encode-string 2))
+     ((< code #x200000) (encode-string 3)) 
+     ((< code #x4000000) (encode-string 4))
+     ((< code #x80000000) (encode-string 5))
+     (t (error "Invalid char code ~A" code)))))
+
+
+(defun latin1-to-unicode (string)
+  (reduce
+   #'(lambda (str1 str2)
+       (concatenate 'string str1 str2))
+   (map 'list #'(lambda (char) (utf-8-encode (char-code char))) string)))
