@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.1 2000-08-14 16:45:01 espen Exp $ */
+/* $Id: gtkglue.c,v 1.2 2000-08-15 19:41:26 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -149,6 +149,12 @@ GtkWidget*
 gtk_menu_item_get_submenu (GtkMenuItem* menu_item)
 {
   return menu_item->submenu;
+}
+
+GtkSubmenuPlacement
+gtk_menu_item_get_placement (GtkMenuItem* menu_item)
+{
+  return menu_item->submenu_placement;
 }
 
 gint
@@ -513,6 +519,21 @@ gtk_list_selection (GtkList *list)
 }
 
 
+/* Menu */
+
+gboolean
+gtk_menu_get_tearoff_state (GtkMenu *menu)
+{
+  return menu->torn_off;
+}
+
+gchar*
+gtk_menu_get_title (GtkMenu *menu)
+{
+  return g_strdup (gtk_object_get_data (GTK_OBJECT (menu), "gtk-menu-title"));
+}
+
+
 /* Table */
 
 guint
@@ -536,6 +557,12 @@ gint
 gtk_toolbar_num_children (GtkToolbar *toolbar)
 {
   return toolbar->num_children;
+}
+
+gint
+gtk_toolbar_get_tooltips (GtkToolbar *toolbar)
+{
+  return toolbar->tooltips->enabled;
 }
 
 
@@ -624,8 +651,11 @@ gtk_tooltips_get_delay (GtkTooltips *tooltips)
   return tooltips->delay;
 }
 
-
-
+gboolean
+gtk_tooltips_get_enabled (GtkTooltips *tooltips)
+{
+  return tooltips->enabled;
+}
 
 
 /* GtkStyle accessor functions */
