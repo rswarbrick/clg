@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.6 2005-02-01 15:24:52 espen Exp $
+;; $Id: genums.lisp,v 1.7 2005-02-03 22:59:35 espen Exp $
 
 (in-package "GLIB")
 
@@ -156,7 +156,7 @@
   (declare (ignore type))
   `(loop
     for mapping in ',(%map-enum args :int-flags)
-    unless (zerop (logand int (first mapping)))
+    unless (zerop (logand ,int (first mapping)))
     collect (second mapping)))
 
 (defmethod to-alien-function ((type (eql 'flags)) &rest args)
@@ -214,7 +214,7 @@
 ;;;;
 
 (defun expand-enum-type (type-number forward-p options)
-  (declare (ignore forward))
+  (declare (ignore forward-p))
   (let* ((super (supertype type-number))
 	 (type (type-from-number type-number))
 	 (mappings (getf options :mappings))
