@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.30 2005-01-12 13:38:18 espen Exp $
+;; $Id: gtktypes.lisp,v 1.31 2005-02-04 13:15:14 espen Exp $
 
 
 (in-package "GTK")
@@ -626,7 +626,7 @@
      :type entry-completion)
     (max-length :merge t :unbound 0)
     #+gtk2.6
-    (with-chars :merge t :unbound -1)))
+    (width-chars :merge t :unbound -1)))
 
   ("GtkEntryCompletion"
    :slots
@@ -992,6 +992,15 @@
    :slots
    ; deprecated property
    ((font :ignore t)))
+
+  ("GtkClipboard"
+   :slots
+   ((display
+     :allocation :virtual
+     :getter "gtk_clipboard_get_display"
+     :reader clipboard-display
+     :type gdk:display)))
+
 
   ;; Not needed
   ("GtkFundamentalType" :ignore t)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.32 2005-02-03 23:09:07 espen Exp $
+;; $Id: gtk.lisp,v 1.33 2005-02-04 13:15:15 espen Exp $
 
 
 (in-package "GTK")
@@ -60,6 +60,24 @@
       (setq *periodic-polling-function* #'main-iterate-all)
       (setq *max-event-to-sec* 0)
       (setq *max-event-to-usec* 1000))))
+
+
+;;; About dialog
+
+#+gtk2.6
+(progn
+  (def-callback-marshal %about-dialog-activate-link-func 
+    (nil (dialog about-dialog) (link (copy-of string))))
+
+  (defbinding about-dialog-set-email-hook (function) nil
+    ((callback %about-dialog-activate-link-func) pointer)
+    ((register-callback-function function) unsigned-int)
+    ((callback user-data-destroy-func) pointer))
+  
+  (defbinding about-dialog-set-url-hook (function) nil
+    ((callback %about-dialog-activate-link-func) pointer)
+    ((register-callback-function function) unsigned-int)
+    ((callback user-data-destroy-func) pointer)))
 
 
 ;;; Acccel group
@@ -565,8 +583,8 @@
   (sensitive boolean))
 
 #+gtk2.6
-(defbinding alternative-dialog-button-order-p(&optional screen)
-  (screen (or null screen)))
+(defbinding alternative-dialog-button-order-p (&optional screen) boolean
+  (screen (or null gdk:screen)))
 
 #+gtk2.6
 (defbinding (dialog-set-alternative-button-order 
@@ -752,8 +770,7 @@
 
 #+gtk2.6
 (defbinding file-filter-add-pixbuf-formats () nil
-  (filter file-filter)
-  (pattern string))
+  (filter file-filter))
 
 (def-callback-marshal %file-filter-func (boolean file-filter-info))
 
@@ -920,7 +937,7 @@
 ;;; Menu tool button
 
 #+gtk2.6
-(defbinding menu-tool-button-set-arrow-tip () nil
+(defbinding menu-tool-button-set-arrow-tooltip () nil
   (menu-tool-button menu-tool-button)
   (tooltips tooltips)
   (tip-text string)
