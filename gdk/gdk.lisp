@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.2 2000-08-23 17:32:30 espen Exp $
+;; $Id: gdk.lisp,v 1.3 2000-09-04 22:12:45 espen Exp $
 
 
 (in-package "GDK")
@@ -396,12 +396,12 @@
   (color (or null color))
   (filename string))
 
-(define-foreign pixmap-colormap-create-from-xpm-d () pixmap
+(define-foreign %pixmap-colormap-create-from-xpm-d () pixmap
   (window (or null window))
   (colormap (or null colormap))
   (mask bitmap :out)
   (color (or null color))
-  (data pointer))
+  (data (vector string)))
 
 (defun pixmap-create (source &key color window colormap)
   (let ((window
@@ -409,14 +409,12 @@
 	     (get-root-window)
 	   window)))
     (multiple-value-bind (pixmap mask)
-        (typecase source
+        (etypecase source
 	  ((or string pathname)
 	   (%pixmap-colormap-create-from-xpm
 	    window colormap color (namestring (truename source))))
-; 	  (t
-; 	   (with-array (data :initial-contents source :free-contents t)
-; 	     (pixmap-colormap-create-from-xpm-d window colormap color data)))
-	  )
+ 	  ((vector string)
+	   (%pixmap-colormap-create-from-xpm-d window colormap color source)))
       (unreference-instance pixmap)
       (unreference-instance mask)
       (values pixmap mask))))
