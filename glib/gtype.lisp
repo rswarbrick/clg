@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.6 2000-11-09 20:29:19 espen Exp $
+;; $Id: gtype.lisp,v 1.7 2001-01-28 14:11:20 espen Exp $
 
 (in-package "GLIB")
 
@@ -38,8 +38,8 @@
 (define-foreign type-instance-size (type) int
   ((find-type-number type) type-number))
 
-(define-foreign type-create-instance (type) pointer
-  ((find-type-number type) type-number))
+; (define-foreign type-create-instance (type) pointer
+;   ((find-type-number type) type-number))
 
 (define-foreign type-free-instance () nil
   (instance pointer))
@@ -171,10 +171,10 @@
        object))
      ((or (functionp writer) (symbolp writer))
       (funcall writer value object)
-      object)
+      value)
      (t
       (funcall (fdefinition writer) value object)
-      object))))
+      value))))
 	
 
 (defmethod validate-superclass
@@ -623,8 +623,8 @@
   (subtypep (class-name super) 'ginstance))
 
 
-(defmethod allocate-alien-storage ((class ginstance-class))
-  (type-create-instance (find-type-number class)))
+; (defmethod allocate-alien-storage ((class ginstance-class))
+;   (type-create-instance (find-type-number class)))
 
 
 ;;;; Initializing type numbers
