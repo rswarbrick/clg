@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: defpackage.lisp,v 1.3 2004-12-26 11:45:07 espen Exp $
+;; $Id: defpackage.lisp,v 1.4 2004-12-29 21:06:22 espen Exp $
 
 ;(export 'kernel::type-expand-1 "KERNEL")
 
@@ -31,7 +31,7 @@
 	   "TRANSLATE-FROM-ALIEN" "CLEANUP-ALIEN" "UNREFERENCE-ALIEN"
 	   "SIZE-OF" "UNBOUND-VALUE")
   (:export "DEFBINDING" "DEFINE-FOREIGN" "MKBINDING" "USE-PREFIX"
-	   "PACKAGE-PREFIX")
+	   "PACKAGE-PREFIX" "DEFCALLBACK")
   (:export "LONG" "UNSIGNED-LONG" "INT" "UNSIGNED-INT" "SHORT" "UNSIGNED-SHORT"
 	   "SIGNED" "UNSIGNED" "CHAR" "POINTER")
   (:export "INTERN-ARGUMENT-TRANSLATOR" "INTERN-RETURN-VALUE-TRANSLATOR"
