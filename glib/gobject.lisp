@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.7 2001-05-11 16:08:08 espen Exp $
+;; $Id: gobject.lisp,v 1.8 2001-05-29 15:50:31 espen Exp $
 
 (in-package "GLIB")
 
@@ -99,6 +99,7 @@
   (defclass effective-gobject-slot-definition
     (effective-virtual-slot-definition)))
 
+  
 
 ; (defbinding object-class-install-param () nil
 ;   (class pointer)
@@ -133,30 +134,33 @@
      direct-slotds)
   (with-slots (type) slotd
     (let ((param-name (slot-definition-param (first direct-slotds)))
-	  (type-number (find-type-number type))
-	  (getter (intern-reader-function type))
-	  (setter (intern-writer-function type))
-	  (destroy (intern-destroy-function type)))
+	  (type-number (find-type-number type)))
       (list
        #'(lambda (object)
 	   (with-gc-disabled
 	     (let ((gvalue (gvalue-new type-number)))
 	       (%object-get-property object param-name gvalue)
 	       (prog1
-		   (funcall getter gvalue +gvalue-value-offset+)
+		   (funcall
+		    (intern-reader-function type) gvalue +gvalue-value-offset+)
 		 (gvalue-free gvalue t)))))
        #'(lambda (value object)
 	   (with-gc-disabled
   	     (let ((gvalue (gvalue-new type-number)))
-	       (funcall setter value gvalue +gvalue-value-offset+)
+	       (funcall
+		(intern-writer-function type)
+		value gvalue +gvalue-value-offset+)
 	       (%object-set-property object param-name gvalue)
-	       (funcall destroy gvalue +gvalue-value-offset+)
+	       (funcall
+		(intern-destroy-function type)
+		gvalue +gvalue-value-offset+)
 	       (gvalue-free gvalue nil)
 	       value)))))))
 
 (defmethod validate-superclass ((class gobject-class)
 				(super pcl::standard-class))
-  (subtypep (class-name super) 'gobject))
+;  (subtypep (class-name super) 'gobject)
+  t)
 
 
 
@@ -166,13 +170,13 @@
   (class pointer)
   (n-properties unsigned-int :out))
 
-(defun query-object-class-properties (type)
-  (let ((class (type-class-ref type)))
+(defun query-object-class-properties (type-number)
+  (let ((class (type-class-ref type-number)))
     (multiple-value-bind (array length)
 	(%object-class-properties class)
       (map-c-array 'list #'identity array 'param length))))
 
-(defun query-object-class-dependencies (class)
+(defun query-object-type-dependencies (type-number)
   (delete-duplicates
    (reduce
     #'nconc
@@ -180,11 +184,11 @@
      #'(lambda (param)
 	 ;; A gobject does not depend on it's supertypes due to forward
 	 ;; referenced superclasses
-	 (delete-if
-	  #'(lambda (type)
-	      (type-is-p class type))
+  	 (delete-if
+  	  #'(lambda (type)
+  	      (type-is-p type-number type))
 	  (type-hierarchy (param-type param))))
-     (query-object-class-properties class)))))
+     (query-object-class-properties type-number)))))
 
 
 (defun default-slot-name (name)
@@ -194,9 +198,10 @@
   (intern
    (format
     nil "~A-~A~A" class-name slot-name
-    (if (eq 'boolean type) "-p" ""))))
+    (if (eq 'boolean type) "-P" ""))))
 
-(defun expand-gobject-type (type-number &optional slots)
+(defun expand-gobject-type (type-number &optional slots
+			    (metaclass 'gobject-class))
   (let* ((super (supertype type-number))
 	 (class  (type-from-number type-number))
 	 (expanded-slots
@@ -204,17 +209,24 @@
 	   #'(lambda (param)
 	       (with-slots (name flags type documentation) param
 	         (let* ((slot-name (default-slot-name name))
-			(slot-type (type-from-number type))
+			(slot-type (type-from-number type #|t|#))
 			(accessor
 			 (default-slot-accessor class slot-name slot-type)))
 		   `(,slot-name
 		     :allocation :param
 		     :param ,name
-		     ,@(when (member :writable flags)
+		     ,@(cond
+			((and
+			  (member :writable flags)
+			  (member :readable flags))
+			 (list :accessor accessor))
+			((member :writable flags)
 			 (list :writer `(setf ,accessor)))
-		     ,@(when (member :readable flags)
-			 (list :reader accessor))
-		     ,@(when (member :construct flags)
+			((member :readable flags)
+			 (list :reader accessor)))
+		     ,@(when (or
+			      (member :construct flags)
+			      (member :writable flags))
 			 (list :initarg (intern (string slot-name) "KEYWORD")))
 		     :type ,slot-type
 		     ,@(when documentation
@@ -223,11 +235,11 @@
 
     `(defclass ,class (,super)
        ,expanded-slots
-       (:metaclass gobject-class)
+       (:metaclass ,metaclass)
        (:alien-name ,(find-type-name type-number)))))
     
 (register-derivable-type
  'gobject "GObject"
- :query 'query-object-class-dependencies
+ :query 'query-object-type-dependencies
  :expand 'expand-gobject-type)
 

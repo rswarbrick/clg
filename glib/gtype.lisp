@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.10 2001-05-11 16:04:33 espen Exp $
+;; $Id: gtype.lisp,v 1.11 2001-05-29 15:49:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -93,8 +93,15 @@
 	(and error (error "Type not registered: ~A" type)))))
     (pcl::class (find-type-number (class-name type) error))))
  
-(defun type-from-number (type-number)
-  (gethash type-number *number-to-type-hash*))
+(defun type-from-number (type-number &optional error)
+  (multiple-value-bind (type found)
+      (gethash type-number *number-to-type-hash*)
+    (when (and error (not found))
+      (let ((name (find-type-name type-number)))
+	(if name
+	    (error "Type number not registered: ~A (~A)" type-number name)
+	  (error "Invalid type number: ~A" type-number))))
+    type))
 
 (defun type-from-name (name)
   (etypecase name
@@ -112,7 +119,7 @@
        (funcall (mkbinding fname 'type-number)))
    (mklist init)))
 
-(defmacro init-types-in-library (pathname)
+(defun %init-types-in-library (pathname ignore)
   (let ((process (ext:run-program
 		  "nm" (list (namestring (truename pathname)))
 		  :output :stream :wait nil))
@@ -120,12 +127,19 @@
     (labels ((read-symbols ()
 	       (let ((line (read-line (ext:process-output process) nil)))
 		 (when line
-		   (when (search "_get_type" line)
-		     (push (subseq line 11) fnames))
+		   (let ((symbol (subseq line 11)))
+		     (when (and
+			    (search "_get_type" symbol)
+			    (not (member symbol ignore :test #'string=)))
+		       (push symbol fnames)))
 		   (read-symbols)))))
       (read-symbols)
       (ext:process-close process)
       `(init-type ',fnames))))
+
+(defmacro init-types-in-library (pathname &key ignore)
+  (%init-types-in-library pathname ignore))
+
 
 
 ;;;; Superclass for wrapping types in the glib type system
@@ -162,9 +176,10 @@
   (let* ((class-name (or name (class-name class)))
 	 (type-number
 	  (find-type-number
-	   (or (first alien-name) (default-alien-type-name class-name)))))
+	   (or (first alien-name) (default-alien-type-name class-name)) t)))
     (register-type class-name type-number)
     (let ((size (or size (type-instance-size type-number))))
+      (declare (special size))
       (call-next-method)))
 
   (when ref
@@ -201,7 +216,7 @@
 (register-type 'unsigned-long "gulong")
 (register-type 'single-float "gfloat")
 (register-type 'double-float "gdouble")
-(register-type 'string "GString")
+(register-type 'string "gchararray")
 
 
 ;;;; 
@@ -218,17 +233,19 @@
        (list type-number query expand)
        *derivable-type-info*))))
 
+(defun find-type-info (type)
+  (dolist (super (cdr (type-hierarchy type)))
+    (let ((info (assoc super *derivable-type-info*)))
+      (return-if info))))
+
 (defun type-dependencies (type)
-  (let ((query (second (assoc (car (last (type-hierarchy type)))
-			      *derivable-type-info*))))
+  (let ((query (second (find-type-info type))))
     (when query
       (funcall query (find-type-number type t)))))
 
 (defun expand-type-definition (type)
-  (let ((expander (third (assoc (car (last (type-hierarchy type)))
-				*derivable-type-info*))))
+  (let ((expander (third (find-type-info type))))
     (funcall expander (find-type-number type t))))
-
 
 (defbinding type-parent (type) type-number
   ((find-type-number type t) type-number))
@@ -269,7 +286,7 @@
     (dolist (type-info *derivable-type-info*)
       (map-subtypes
        #'(lambda (type-number)
-	   (push type-number type-list))
+	   (pushnew type-number type-list))
        (first type-info) prefix))
     type-list))
 
@@ -295,12 +312,20 @@
 (defun expand-type-definitions (prefix &optional args)
   (flet ((type-options (type-number)
 	   (let ((name (find-type-name type-number)))
-	     (cdr (assoc name argss :test #'string=)))))
+	     (cdr (assoc name args :test #'string=)))))
 
     (let ((type-list
 	   (delete-if
 	    #'(lambda (type-number)
-		(getf (type-options type-number) :ignore nil))
+		(let ((name (find-type-name type-number)))
+		  (or
+		   (getf (type-options type-number) :ignore)
+		   (find-if
+		    #'(lambda (options)
+			(and
+			 (string-prefix-p (first options) name)
+			 (getf (cdr options) :ignore-prefix)))
+		    args))))
 	    (find-types prefix))))
              
       (dolist (type-number type-list)
@@ -315,5 +340,4 @@
 	    (%sort-types-topologicaly type-list))))))
 	    
 (defmacro define-types-by-introspection (prefix &rest args)
-  `(eval-when (:compile-toplevel :load-toplevel :execute)
-     ,(expand-type-definitions prefix args)))
+  (expand-type-definitions prefix args))
