@@ -15,28 +15,43 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.3 2000-09-04 22:17:07 espen Exp $
+;; $Id: gtktypes.lisp,v 1.4 2000-10-05 17:30:07 espen Exp $
 
 
 
 (in-package "GTK")
 
 
-; (deftype color-type
-;   (enum
-;    :foreground
-;    :background
-;    :light
-;    :dark
-;    :mid
-;    :text
-;    :base
-;    :white
-;    :black))
+(deftype color-type ()
+  '(enum
+    :foreground
+    :background
+    :light
+    :dark
+    :mid
+    :text
+    :base
+    :white
+    :black))
 
 
-(defclass  style (gobject)
-  ()
+(defclass style (gobject)
+  ((white
+    :allocation :virtual
+    :location style-white
+    :initarg :white
+    :type gdk:color)
+   (black
+    :allocation :virtual
+    :location style-black
+    :initarg :black
+    :type gdk:color)
+   (font
+    :allocation :virtual
+    :location ("gtk_style_get_font" "gtk_style_set_font")
+    :accessor style-font
+    :initarg :font
+    :type gdk:font))
   (:metaclass gobject-class)
   (:alien-name "GtkStyle"))
 
@@ -49,11 +64,18 @@
 (deftype accel-entry () 'pointer) ; internal?
 
 
-;; These types are actully a single linked lists of widgets. As long as
-;; we don't have to access the individual widgets defining them this way
-;; is adequate and most efficient.
-(deftype radio-button-group () 'pointer) 
-(deftype radio-menu-item-group () 'pointer)
+
+;; Forward declaration of widget and container
+(defclass widget (object)
+  ()
+  (:metaclass object-class)
+  (:alien-name "GtkWidget"))
+
+(defclass container (widget)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkContainer"))
+
 
 
 (defclass data (object)
@@ -113,9 +135,121 @@
   (:alien-name "GtkTooltips"))
 
 
-;; Forward declaration, the real definition is in gtkwidget.lisp
 (defclass widget (object)
-  ()
+  ((child-slots
+    :allocation :instance
+    :accessor widget-child-slots
+    :type container-child)
+   (name
+    :allocation :arg
+    :accessor widget-name
+    :initarg :name
+    :type string)
+   (parent
+    :allocation :arg
+    :accessor widget-parent
+;   :initarg :parent
+    :type container)
+   (x
+    :allocation :arg
+    :accessor widget-x-position
+    :initarg :x
+    :type int)
+   (y
+    :allocation :arg
+    :accessor widget-y-position
+    :initarg :y
+    :type int)
+   (width
+    :allocation :arg
+    :accessor widget-width
+    :initarg :width
+    :type int)
+   (height
+    :allocation :arg
+    :accessor widget-height
+    :initarg :height
+    :type int)
+   (visible
+    :allocation :arg
+    :accessor widget-visible-p
+    :initarg :visible
+    :type boolean)
+   (sensitive
+    :allocation :arg
+    :accessor widget-sensitive-p
+    :initarg :sensitive
+    :type boolean)
+   (app-paintable
+    :allocation :arg
+    :reader widget-app-paintable-p
+    :type boolean)
+   (can-focus
+    :allocation :arg
+    :accessor widget-can-focus-p
+    :initarg :can-focus
+    :type boolean)
+   (has-focus
+    :allocation :arg
+    :accessor widget-has-focus-p
+    :initarg :has-focus
+    :type boolean)
+   (can-default
+    :allocation :arg
+    :accessor widget-can-default-p
+    :initarg :can-default
+    :type boolean)
+   (has-default
+    :allocation :arg
+    :accessor widget-has-default-p
+    :initarg :has-default
+    :type boolean)
+   (receives-default
+    :allocation :arg
+    :accessor widget-receives-default-p
+    :initarg :receives-default
+    :type boolean)
+   (composite-child
+    :allocation :arg
+    :accessor widget-composite-child-p
+    :initarg :composite-child
+    :type boolean)
+   (style
+    :allocation :arg
+    :accessor widget-style
+    :initarg :style
+    :type style)
+   (events
+    :allocation :arg
+    :accessor widget-events
+    :initarg :events
+    :type gdk:event-mask)
+   (extension-events
+    :allocation :arg
+    :accessor widget-extension-events
+    :initarg :extpension-events
+    :type gdk:event-mask)
+   (state
+    :allocation :virtual
+    :location ("gtk_widget_get_state" "gtk_widget_set_state")
+    :accessor widget-state
+    :initarg :state
+    :type state-type)
+   (window
+    :allocation :virtual
+    :location "gtk_widget_get_window"
+    :reader widget-window
+    :type gdk:window)
+   (colormap
+    :allocation :virtual
+    :location "gtk_widget_get_colormap"
+    :reader widget-colormap
+    :type gdk:colormap)
+   (visual
+    :allocation :virtual
+    :location "gtk_widget_get_visual"
+    :reader widget-visual
+    :type gdk:visual))
   (:metaclass object-class)
   (:alien-name "GtkWidget"))
 
@@ -244,9 +378,38 @@
   (:alien-name "GtkPixmap"))
 
 
-;; Forward declaration, the real definition is in gtkcontainer.lisp
 (defclass container (widget)
-  ()
+  ((border-width
+    :allocation :arg
+    :accessor container-border-width
+    :initarg :border-width
+    :type unsigned-long)
+   (resize-mode
+    :allocation :arg
+    :accessor container-resize-mode
+    :initarg :resize-mode
+    :type resize-mode)
+   (children
+    :allocation :virtual
+    :location container-children)
+   (focus-child
+    :allocation :virtual
+    :location ("gtk_container_get_focus_child" "gtk_container_set_focus_child")
+    :accessor container-focus-child
+    :initarg :focus-child
+    :type widget)
+   (focus-hadjustment
+    :allocation :virtual
+    :location (nil "gtk_container_set_focus_hadjustment")
+    :writer (setf container-focus-hadjustment)
+    :initarg :focus-hadjustment
+    :type adjustment)   
+   (focus-vadjustment
+    :allocation :virtual
+    :location (nil "gtk_container_set_focus_vadjustment")
+    :writer (setf container-focus-vadjustment)
+    :initarg :focus-vadjustment
+    :type adjustment))
   (:metaclass widget-class)
   (:alien-name "GtkContainer"))
 
@@ -263,7 +426,6 @@
   ((child
     :allocation :virtual
     :location bin-child
-    :initarg :child
     :type widget))
   (:metaclass container-class)
   (:alien-name "GtkBin"))
@@ -300,7 +462,8 @@
 
 (defclass frame (bin)
   ((label
-    :allocation :arg
+    :allocation :virtual
+    :location ("gtk_frame_get_label" "gtk_frame_set_label")
     :accessor frame-label
     :initarg :label
     :type string)
@@ -401,18 +564,12 @@
   (:metaclass child-class))
 
 
-;; Forward declaration
-(defclass radio-button (check-button)
-  ()
-  (:metaclass container-class)
-  (:alien-name "GtkRadioButton"))
-
 (defclass radio-button (check-button)
   ((group
-    :allocation :arg
-;    :accessor radio-button-group
-    :initarg :group
-    :type radio-button))
+    :allocation :virtual
+    :location ("gtk_radio_button_group")
+    :reader radio-button-group
+    :type (static (gslist widget))))
   (:metaclass container-class)
   (:alien-name "GtkRadioButton"))
 
@@ -523,9 +680,9 @@
 (defclass radio-menu-item (check-menu-item)
   ((group
     :allocation :virtual
-    :location ("gtk_radio_menu_item_group" "gtk_radio_menu_item_set_group")
-    :accessor radio-menu-item-group
-    :type radio-menu-item-group))
+    :location ("gtk_radio_menu_item_group")
+    :reader radio-menu-item-group
+    :type (static (gslist widget))))
   (:metaclass container-class)
   (:alien-name "GtkRadioMenuItem"))
 
@@ -623,31 +780,44 @@
   (:metaclass child-class))
 
 
-; (defclass color-selection-dialog window
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((colorsel               :read-only t :type widget)
-;    (main-vbox              :read-only t :type widget)
-;    (ok-button              :read-only t :type widget)
-;    (reset-button           :read-only t :type widget)
-;    (cancel-button          :read-only t :type widget)
-;    (help-button            :read-only t :type widget)))
-
 (defclass dialog (window)
-  ((action-area
-    :allocation :virtual
-    :location "gtk_dialog_get_action_area"
-    :reader dialog-action-area
+  ((main-box
+    :allocation :alien
+    :reader dialog-main-box
     :type widget)
-   (box
-    :allocation :virtual
-    :location "gtk_dialog_get_vbox"
-    :reader dialog-box
-    :type widget))  
+   (action-area
+    :allocation :alien
+    :reader dialog-action-area
+    :type widget))
   (:metaclass container-class)
   (:alien-name "GtkDialog"))
 
 (defclass dialog-child (window-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass color-selection-dialog (dialog)
+  ((colorsel
+    :allocation :alien
+    :reader color-selection-dialog-colorsel
+    :type widget)
+   (ok-button
+    :allocation :alien
+    :reader color-selection-dialog-ok-button
+    :type widget)
+   (cancel-button
+    :allocation :alien
+    :reader color-selection-dialog-cancel-button
+    :type widget)
+   (help-button
+    :allocation :alien
+    :reader color-selection-dialog-help-button
+    :type widget))
+  (:metaclass container-class)
+  (:alien-name "GtkColorSelectionDialog"))
+
+(defclass color-selection-dialog-child (dialog-child)
   ()
   (:metaclass child-class))
 
@@ -662,13 +832,36 @@
   (:metaclass child-class))
 
 
-; (defclass file-selection window
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((filename               :type string)
-;    (action-area            :read-only t :type widget)
-;    (ok-button              :read-only t :type widget)
-;    (cancel-button          :read-only t :type widget)))
+(defclass file-selection (window)
+  ((filename
+    :allocation :virtual
+    :location ("gtk_file_selection_get_filename"
+	       "gtk_file_selection_set_filename")
+    :accessor file-selection-filename
+    :initarg :filename
+    :type string)
+    (action-area
+     :allocation :virtual
+     :location "gtk_file_selection_get_action_area"
+     :reader file-selection-action-area
+     :type widget)
+    (ok-button
+     :allocation :virtual
+     :location "gtk_file_selection_get_ok_button"
+     :reader file-selection-ok-button
+     :type widget)
+    (cancel-button
+     :allocation :virtual
+     :location "gtk_file_selection_get_cancel_button"
+     :reader file-selection-cancel-button
+     :type widget))
+  (:metaclass container-class)
+  (:alien-name "GtkFileSelection"))
+
+(defclass file-selection-child (window-child)
+  ()
+  (:metaclass child-class))
+
 
 ; (defclass plug window)
 
@@ -831,11 +1024,34 @@
     :allocation :virtual
     :location ("gtk_button_box_get_spacing" "gtk_button_box_set_spacing")
     :accessor button-box-spacing
+    :initarg :spacing
+    :type int)
+   (child-min-width
+    :allocation :alien
+    :offset #.(size-of 'int)
+    :accessor button-box-child-min-width
+    :initarg :child-min-width
+    :type int)
+   (child-min-height
+    :allocation :alien
+    :accessor button-box-child-min-height
+    :initarg :child-min-height
+    :type int)
+   (child-ipad-x
+    :allocation :alien
+    :accessor button-box-child-ipad-x
+    :initarg :child-ipad-x
+    :type int)
+   (child-ipad-y
+    :allocation :alien
+    :accessor button-box-child-ipad-y
+    :initarg :child-ipad-y
     :type int)
    (layout
     :allocation :virtual
     :location ("gtk_button_box_get_layout" "gtk_button_box_set_layout")
     :accessor button-box-layout
+    :initarg :layout
     :type button-box-style))
   (:metaclass container-class)
   (:alien-name "GtkButtonBox"))
@@ -875,16 +1091,36 @@
   (:metaclass child-class))
 
 
-; (defclass color-selection vbox
-;   :slots
-;   ((policy                 :c-writer "gtk_color_selection_set_update_policy"
-; 			   :read-method :arg :type update-type)
-;    (use-opacity            :c-writer "gtk_color_selection_set_opacity"
-; 			   :read-method :arg :type boolean)
-;    ;; slots not accessible through the arg mechanism
-;    (color                  :access-method :lisp)))
+(defclass color-selection (vbox)
+  ((use-opacity
+    :allocation :virtual
+    :location ("gtk_color_selection_get_use_opacity"
+	       "gtk_color_selection_set_use_opacity")
+    :accessor color-selection-use-opacity-p
+    :initarg :use-opacity
+    :type boolean)
+   (use-palette
+    :allocation :virtual
+    :location ("gtk_color_selection_get_use_palette"
+	       "gtk_color_selection_set_use_palette")
+    :accessor color-selection-use-palette-p
+    :initarg :use-palette
+    :type boolean)
+   (color
+    :allocation :virtual
+    :location color-selection-color
+    :initarg :color)
+   (old-color
+    :allocation :virtual
+    :location color-selection-old-color
+    :initarg :old-color
+    :type (vector double-float 4)))
+  (:metaclass container-class)
+  (:alien-name "GtkColorSelection"))
 
-; (defclass gamma-curve vbox)
+(defclass color-selection-child (vbox-child)
+  ()
+  (:metaclass child-class))
 
 
 (defclass hbox (box)
@@ -906,41 +1142,6 @@
   ()
   (:metaclass child-class))
 
-;; CList and CTree is deprecated
-; (defclass clist container
-;   :c-name "GtkCList"
-;   :c-prefix "gtk_clist_"
-;   :slots
-;   ((n-columns              :read-only t :initarg t :access-method :arg
-; 			   :type unsigned-int)
-;    (shadow-type            :read-method :arg :type shadow-type)
-;    (selection-mode         :read-method :arg :type selection-mode)
-;    (row-height             :read-method :arg :type unsigned-int)
-;    (reorderable            :read-method :arg :type boolean)
-;    (titles-visible         :write-method :lisp :type boolean)
-;    (titles-active          :access-method :arg :type boolean)
-;    (use-drag-icons         :read-method :arg :type boolean)
-;    (sort-type              :read-method :arg :type sort-type)
-;    ;; slots not accessible through the arg mechanism
-;    (hadjustment            :type adjustment)
-;    (vadjustment            :type adjustment)
-;    (sort-column            :type int)
-;    (focus-row              :reader %clist-focus-row :read-only t :type int)
-;    (n-rows                 :read-only t :type int)))
-
-; (defclass ctree clist
-;   :c-name "GtkCTree"
-;   :c-prefix "gtk_ctree_"
-;   :slots
-;   ((n-columns              :read-only t :initarg t :access-method :arg
-; 			   :type unsigned-int)
-;    (tree-column            :read-only t :initarg t :access-method :arg
-; 			   :type unsigned-int)
-;    (indent                 :read-method :arg :type unsigned-int)
-;    (spacing                :read-method :arg :type unsigned-int)
-;    (show-stub              :read-method :arg :type boolean)
-;    (line-style             :read-method :arg :type ctree-line-style)
-;    (expander-style         :read-method :arg :type ctree-expander-style)))
 
 (defclass fixed (container)
   ()
@@ -1056,7 +1257,17 @@
     :location ("gtk_paned_get_position" "gtk_paned_set_position")
     :accessor paned-position
     :initarg :position
-    :type int))
+    :type int)
+   (child1
+    :allocation :virtual
+    :location paned-child1
+    :initarg :child1
+    :type widget)
+   (child2
+    :allocation :virtual
+    :location paned-child2
+    :initarg :child2
+    :type widget))
   (:metaclass container-class)
   (:alien-name "GtkPaned"))
 
@@ -1097,7 +1308,26 @@
     :location ("gtk_layout_get_vadjustment" "gtk_layout_set_vadjustment")
     :accessor layout-vadjustment
     :initarg :vadjustment
-    :type adjustment))
+    :type adjustment)
+   (x-size
+    :allocation :virtual
+    :location layout-x-size
+    :initarg :x-size)
+   (y-size
+    :allocation :virtual
+    :location layout-y-size
+    :initarg :y-size)
+   (x-offset
+    :allocation :alien
+    :offset #.(+ (size-of 'pointer) (* (size-of 'int) 2))
+    :accessor layout-x-offset
+    :initarg :x-offset
+    :type unsigned-int)
+   (y-offset
+    :allocation :alien
+    :accessor layout-y-offset
+    :initarg :y-offset
+    :type unsigned-int))
   (:metaclass container-class)
   (:alien-name "GtkLayout"))
 
@@ -1189,8 +1419,8 @@
     :type unsigned-int)
    (default-ipad-x
     :allocation :arg
-    :accessor packer-default-ipad-y
-    :initarg :default-ipad-y
+    :accessor packer-default-ipad-x
+    :initarg :default-ipad-x
     :type unsigned-int)
    (default-ipad-y
     :allocation :arg
@@ -1709,31 +1939,106 @@
 ;   :slots
 ;   ((expand                 :read-method :arg :type boolean)))
 
-; (defclass progress widget
-;   :slots
-;   ((activity-mode          :read-method :arg :type boolean)
-;    (show-text              :read-method :arg :type boolean)
-;    (text-xalign            :access-method :arg :type single-float)
-;    (text-yalign            :access-method :arg :type single-float)
-;    ;; slots not accessible through the arg mechanism
-;    (format-string          :type string)
-;    (adjustment             :type adjustment)
-;    (percentage             :c-reader "gtk_progress_get_current_percentage"
-; 			   :type single-float)
-;    (value                  :type single-float)
-;    (text                   :c-reader "gtk_progress_get_current_text"
-; 			   :read-only t :type string)))
+(defclass progress (widget)
+  ((activity-mode
+    :allocation :arg
+    :accessor progress-activity-mode-p
+    :initarg :activity-mode
+    :type boolean)   
+   (show-text
+    :allocation :arg
+    :accessor progress-show-text-p
+    :initarg :show-text
+    :type boolean)
+   (text-xalign
+    :allocation :arg
+    :accessor progress-text-xalign
+    :initarg :text-xalign
+    :type single-float)
+   (text-yalign
+    :allocation :arg
+    :accessor progress-text-yalign
+    :initarg :text-yalign
+    :type single-float)
+   (format-string
+    :allocation :virtual
+    :location ("gtk_progress_get_format_string"
+	       "gtk_progress_set_format_string")
+    :accessor progress-format-string
+    :initarg :format-string
+    :type string)
+   (adjustment
+    :allocation :virtual
+    :location ("gtk_progress_get_adjustment"
+	       "gtk_progress_set_adjustment")
+    :accessor progress-adjustment
+    :initarg :adjustment
+    :type adjustment)
+   (percentage
+    :allocation :virtual
+    :location ("gtk_progress_get_current_percentage"
+	       "gtk_progress_set_percentage")
+    :accessor progress-percentage
+    :initarg :percentage
+    :type single-float)
+   (value
+    :allocation :virtual
+    :location ("gtk_progress_get_value" "gtk_progress_set_value")
+    :accessor progress-value
+    :initarg :value
+    :type single-float)
+   (text
+    :allocation :virtual
+    :location ("gtk_progress_get_current_text")
+    :reader progress-text
+    :type string))
+  (:metaclass widget-class)
+  (:alien-name "GtkProgress"))
+  
 
-; (defclass progress-bar progress
-;   :slots
-;   ((adjustment             :c-writer "gtk_progress_set_adjustment"
-; 			   :read-method :arg :type adjustment)
-;    (orientation            :read-method :arg :type progress-bar-orientation)
-;    (bar-style              :read-method :arg :accessor progress-bar-style
-; 			   :type progress-bar-style)
-;    (activity-step          :read-method :arg :type unsigned-int)
-;    (activity-blocks        :read-method :arg :type unsigned-int)
-;    (discrete-blocks        :read-method :arg :type unsigned-int)))
+(defclass progress-bar (progress)
+  ((orientation
+    :allocation :arg
+    :accessor progress-bar-orientation
+    :initarg :orientation
+    :type progress-bar-orientation)
+   (bar-style
+    :allocation :arg
+    :accessor progress-bar-style
+    :initarg :bar-style
+    :type progress-bar-style)
+   (activity-step
+    :allocation :arg
+    :accessor progress-bar-activity-step
+    :initarg :activity-step
+    :type unsigned-int)
+   (activity-blocks
+    :allocation :arg
+    :accessor progress-bar-activity-blocks
+    :initarg :activity-blocks
+    :type unsigned-int)
+   (discrete-blocks
+    :allocation :arg
+    :accessor progress-bar-discrete-blocks
+    :initarg :discrete-blocks
+    :type unsigned-int)
+   (fraction
+    :allocation :arg
+    :accessor progress-bar-fraction
+    :initarg :fraction
+    :type single-float)
+   (pulse-step
+    :allocation :arg
+    :accessor progress-bar-pulse-step
+    :initarg :pulse-step
+    :type single-float)
+   (text
+    :allocation :virtual
+    :location ("gtk_progress_get_current_text" "gtk_progress_bar_set_text")
+    :accessor progress-bar-text
+    :type string))
+  (:metaclass widget-class)
+  (:alien-name "GtkProgressBar"))
 
 ; (defclass item-factory object)
 
