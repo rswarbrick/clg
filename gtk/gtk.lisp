@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.19 2004-11-21 17:39:27 espen Exp $
+;; $Id: gtk.lisp,v 1.20 2004-12-04 00:34:49 espen Exp $
 
 
 (in-package "GTK")
@@ -650,6 +650,14 @@
 
 ;;; Window
 
+(defmethod initialize-instance ((window window) &rest initargs &key accel-group)
+  (declare (ignore accel-group))
+  (call-next-method)
+  (mapc #'(lambda (accel-group)
+	    (window-add-accel-group window accel-group))
+        (get-all initargs :accel-group)))
+
+
 (defbinding window-set-wmclass () nil
   (window window)
   (wmclass-name string)
@@ -676,7 +684,8 @@
 
 ;(defbinding window-set-geometry-hints)
 
-(defbinding window-list-toplevels () (glist window))
+(defbinding window-list-toplevels () (glist (copy-of window))
+  "Returns a list of all existing toplevel windows.")
 
 (defbinding window-add-mnemonic (window key target) nil
   (window window)
@@ -1497,11 +1506,35 @@
 
 ;;; Stock items
 
-(defbinding stock-lookup () boolean
-  (stock-id string)
-  ((make-instance 'stock-item) stock-item :return))
-  
+(defbinding %stock-item-copy () pointer
+  (location pointer))
 
+(defbinding %stock-item-free () nil
+  (location pointer))
+
+(defmethod reference-foreign ((class (eql (find-class 'stock-item))) location)
+  (%stock-item-copy location))
+
+(defmethod unreference-foreign ((class (eql (find-class 'stock-item))) location)
+  (%stock-item-free location))
+
+(defbinding stock-add (stock-item) nil
+  (stock-item stock-item)
+  (1 unsigned-int))
+
+(defbinding stock-list-ids () (gslist string))
+
+(defbinding %stock-lookup () boolean
+  (stock-id string)
+  (location pointer))
+
+(defun stock-lookup (stock-id)
+  (let ((location 
+	 (allocate-memory (proxy-instance-size (find-class 'stock-item)))))
+    (unwind-protect
+	(when (%stock-lookup stock-id location)
+	  (ensure-proxy-instance 'stock-item (%stock-item-copy location)))
+	(deallocate-memory location))))
 
 
 ;;; Tooltips
