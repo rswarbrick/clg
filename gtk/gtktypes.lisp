@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.1 2000-08-14 16:44:59 espen Exp $
+;; $Id: gtktypes.lisp,v 1.2 2000-08-15 19:55:08 espen Exp $
 
 
 
@@ -40,15 +40,20 @@
   (:metaclass gobject-class)
   (:alien-name "GtkStyle"))
 
-; (define-boxed accel-group :c-name "GtkAccelGroup")
+
+(defclass accel-group (alien-object)
+  ()
+  (:metaclass alien-class)
+  (:alien-name "GtkAccelGroup"))
+
+(deftype accel-entry () 'pointer) ; internal?
 
 
-(deftype (accel-group "GtkAccelGroup") () 'pointer)
-
-(deftype accel-entry () 'pointer)
-(deftype radio-button-group () 'pointer)
+;; These types are actully a single linked lists of widgets. As long as
+;; we don't have to access the individual widgets defining them this way
+;; is adequate and most efficient.
+(deftype radio-button-group () 'pointer) 
 (deftype radio-menu-item-group () 'pointer)
-; (define-boxed ctree-node :c-name "GtkCTreeNode")
 
 
 (defclass data (object)
@@ -92,10 +97,20 @@
   (:alien-name "GtkAdjustment"))
   
 
-; (define-class tooltips data
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((delay                  :type unsigned-int)))
+(defclass tooltips (data)
+  ((delay
+    :allocation :virtual
+    :location ("gtk_tooltips_get_delay" "gtk_tooltips_set_delay")
+    :accessor tooltips-delay
+    :type unsigned-int)
+   (enabled
+    :allocation :virtual
+    :location ("gtk_tooltips_get_enabled" (setf tooltips-enabled-p))
+    :reader tooltips-enabled-p
+    :initarg :enabled
+    :type boolean))
+  (:metaclass object-class)
+  (:alien-name "GtkTooltips"))
 
 
 ;; Forward declaration, the real definition is in gtkwidget.lisp
@@ -379,7 +394,7 @@
     :allocation :arg
     :initarg :group
 ;    :access :write-only
-    :type pointer)) ;radio-button-group))
+    :type radio-button-group))
   (:metaclass container-class)
   (:alien-name "GtkRadioButton"))
 
@@ -414,16 +429,37 @@
 
 
 (defclass menu-item (item)
-  ()
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((label                  :write-only t :access-method :lisp :type string)
-;    (submenu                :write-method :lisp :type menu-item)
-;    (placement              :write-only t :type submenu-placement)
-;    (toggle-indicator       :c-reader "gtk_menu_item_get_show_toggle"
-; 		           :write-method :lisp :type boolean)
-;    (submenu-indicator      :c-reader "gtk_menu_item_get_show_submenu"
-; 		           :write-method :lisp :type boolean)))
+  ((label
+    :allocation :virtual
+    :location menu-item-label
+    :initarg :label
+    :type string)
+   (submenu
+    :allocation :virtual
+    :location ("gtk_menu_item_get_submenu" (setf menu-item-submenu))
+    :reader menu-item-submenu
+    :initarg :submenu
+    :type menu-item)
+   (placement
+    :allocation :virtual
+    :location ("gtk_menu_item_get_placement" "gtk_menu_item_set_placement")
+    :accessor menu-item-placement
+    :initarg :placement
+    :type submenu-placement)
+   (toggle-indicator
+    :allocation :virtual
+    :location ("gtk_menu_item_get_show_toggle"
+	       (setf menu-item-toggle-indicator-p))
+    :reader menu-item-toggle-indicator-p
+    :initarg :toggle-indicator
+    :type boolean)
+   (submenu-indicator
+    :allocation :virtual
+    :location ("gtk_menu_item_get_show_submenu"
+	       (setf menu-item-submenu-indicator-p))
+    :reader menu-item-submenu-indicator-p
+    :initarg :submenu-indicator
+    :type boolean))
   (:metaclass container-class)
   (:alien-name "GtkMenuItem"))
   
@@ -431,24 +467,32 @@
 
   
 (defclass check-menu-item (menu-item)
-  ()
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((active :type boolean)
-;    (toggle-indicator       :c-writer "gtk_check_menu_item_set_show_toggle"
-; 			   :c-reader "gtk_check_menu_item_get_show_toggle"
-; 			   :type boolean)))
+  ((active
+    :allocation :virtual
+    :location ("gtk_check_menu_item_get_active"
+	       "gtk_check_menu_item_set_active")
+    :accessor check-menu-item-active-p
+    :initarg :active
+    :type boolean)
+   (toggle-indicator
+    :allocation :virtual
+    :location ("gtk_check_menu_item_get_show_toggle"
+	       "gtk_check_menu_item_set_show_toggle")
+    :accessor check-menu-item-toggle-indicator-p
+    :initarg :toggle-indicator
+    :type boolean))
   (:metaclass container-class)
   (:alien-name "GtkCheckMenuItem"))
 
 (defclass check-menu-item-child (menu-item-child))
 
+
 (defclass radio-menu-item (check-menu-item)
-  ()
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((group                  :c-reader "gtk_radio_menu_item_group"
-; 			   :type radio-menu-item-group)))
+  ((group
+    :allocation :virtual
+    :location "gtk_radio_menu_item_group"
+    :reader radio-menu-item-group
+    :type radio-menu-item-group))
   (:metaclass container-class)
   (:alien-name "GtkRadioMenuItem"))
 
@@ -462,6 +506,7 @@
 
 (defclass tearoff-menu-item-child (menu-item-child))
 
+
 (defclass list-item (item)
   ()
   (:metaclass container-class)
@@ -470,6 +515,7 @@
 (defclass list-item-child (item-child))
   
 
+;; deprecated
 (defclass tree-item (item)
   ()
 ;   :slots
@@ -562,14 +608,41 @@
 
 ; (defclass plug window)
 
-; (defclass event-box bin)
 
-; (defclass handle-box bin
-;   :slots
-;   ((shadow-type            :read-method :arg :arg-name "shadow"
-; 			   :type shadow-type)
-;    (handle-position        :read-method :arg :type position-type)
-;    (snap-edge              :read-method :arg :type position-type)))
+(defclass event-box (bin)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkEventBox"))
+
+(defclass event-box-child (bin-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass handle-box (bin)
+  ((shadow-type
+    :allocation :arg
+    :location "GtkHandleBox::shadow"
+    :accessor handle-box-shadow-type
+    :initarg :shadow-type
+    :type shadow-type)   
+   (handle-position
+    :allocation :arg
+    :accessor handle-box-handle-position
+    :initarg :handle-position
+    :type position-type)
+   (snap-edge
+    :allocation :arg
+    :accessor handle-box-snap-edge
+    :initarg :snap-edge
+    :type position-type))
+  (:metaclass container-class)
+  (:alien-name "GtkHandleBox"))
+
+(defclass handle-box-child (bin-child)
+  ()
+  (:metaclass child-class))
+
 
 (defclass scrolled-window (bin)
   ((hadjustment
@@ -617,15 +690,34 @@
   (:metaclass container-class)
   (:alien-name "GtkScrolledWindow"))
 
-(defclass scrolled-window-child (bin-child))
+(defclass scrolled-window-child (bin-child)
+  ()
+  (:metaclass child-class))
 
 
+(defclass viewport (bin)
+  ((hadjustment
+    :allocation :arg
+    :accessor viewport-hadjustment
+    :initarg :hadjustment
+    :type adjustment)   
+   (vadjustment
+    :allocation :arg
+    :accessor viewport-vadjustment
+    :initarg :vadjustment
+    :type adjustment)
+   (shadow-type
+    :allocation :arg
+    :accessor viewport-shadow-type
+    :initarg :shadow-type
+    :type shadow-type))
+  (:metaclass container-class)
+  (:alien-name "GtkViewport"))
 
-; (defclass viewport bin
-;   :slots
-;   ((hadjustment            :read-method :arg :type adjustment)
-;    (vadjustment            :read-method :arg :type adjustment)
-;    (shadow-type            :read-method :arg :type shadow-type)))
+(defclass viewport-child (bin-child)
+  ()
+  (:metaclass child-class))
+  
 
 (defclass box (container)
   ((spacing
@@ -688,6 +780,7 @@
   ()
   (:metaclass child-class))
 
+
 (defclass hbutton-box (button-box)
   ()
   (:metaclass container-class)
@@ -697,9 +790,16 @@
   ()
   (:metaclass child-class))
 
+
+(defclass vbutton-box (button-box)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkVButtonBox"))
+
 (defclass vbutton-box-child (button-box-child)
   ()
   (:metaclass child-class))
+
 
 (defclass vbox (box)
   ()
@@ -709,7 +809,6 @@
 (defclass vbox-child (box-child)
   ()
   (:metaclass child-class))
-
 
 
 ; (defclass color-selection vbox
@@ -723,6 +822,7 @@
 
 ; (defclass gamma-curve vbox)
 
+
 (defclass hbox (box)
   ()
   (:metaclass container-class)
@@ -733,9 +833,16 @@
   (:metaclass child-class))
 
 
+(defclass statusbar (hbox)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkStatusbar"))
 
-; (defclass statusbar hbox)
+(defclass statusbar-child (hbox-child)
+  ()
+  (:metaclass child-class))
 
+;; CList and CTree is deprecated
 ; (defclass clist container
 ;   :c-name "GtkCList"
 ;   :c-prefix "gtk_clist_"
@@ -771,48 +878,169 @@
 ;    (line-style             :read-method :arg :type ctree-line-style)
 ;    (expander-style         :read-method :arg :type ctree-expander-style)))
 
-; (defclass fixed container)
+(defclass fixed (container)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkFixed"))
 
-; (defclass notebook container
-;   :slots
-;   ((show-tabs              :read-method :arg :type boolean)
-;    (show-border            :read-method :arg :type boolean)
-;    (scrollable             :read-method :arg :type boolean)
-;    (enable-popup           :access-method :arg :type boolean)
-;    (homogeneous            :c-writer "gtk_notebook_set_homogeneous_tabs"
-; 			   :read-method :arg :type boolean)
-;    (current-page           :c-writer "gtk_notebook_set_page" :type int)
-;    (tab-pos                :read-method :arg :type position-type)
-;    (tab-border             :read-method :arg :type unsigned-int)
-;    (tab-hborder            :read-method :arg :type unsigned-int)
-;    (tab-vborder            :read-method :arg :type unsigned-int))
-;   :child-slots
-;   ((tab-label              :access-method :arg :type string)
-;    (menu-label             :access-method :arg :type string)
-;    (tab-fill               :access-method :arg :type boolean)
-;    (tab-pack               :access-method :arg :type boolean)
-;    (position               :access-method :arg :type int)))
+(defclass fixed-child (container-child)
+  ()
+  (:metaclass child-class))
 
-; (defclass font-selection notebook)
 
-; (defclass paned container
-;   :constructor nil
-;   :slots
-;   ((handle-size            :read-method :arg :type unsigned-int)
-;    (gutter-size            :read-method :arg :type unsigned-int)
-;    ;; slots not accessible through the arg mechanism
-;    (position               :write-only t :type int)))
+(defclass notebook (container)
+  ((tab-pos
+    :allocation :arg
+    :accessor notebook-tab-pos
+    :initarg :tab-pos
+    :type position-type)
+   (show-tabs
+    :allocation :arg
+    :accessor notebook-show-tabs-p
+    :initarg :show-tabs
+    :type boolean)
+   (show-border
+    :allocation :arg
+    :accessor notebook-show-border-p
+    :initarg :show-border
+    :type boolean)
+   (scrollable
+    :allocation :arg
+    :accessor notebook-scrollable-p
+    :initarg :scrollable
+    :type boolean)
+   (tab-border
+    :allocation :arg
+    :accessor notebook-tab-border
+    :initarg :tab-border
+    :type unsigned-int)
+   (tab-hborder
+    :allocation :arg
+    :accessor notebook-tab-hborder
+    :initarg :tab-hborder
+    :type unsigned-int)
+   (tab-vborder
+    :allocation :arg
+    :accessor notebook-tab-vborder
+    :initarg :tab-vborder
+    :type unsigned-int)
+   (page
+    :allocation :arg
+    :accessor notebook-page
+    :initarg :page
+    :type int)
+   (enable-popup
+    :allocation :arg
+    :accessor notebook-enable-popup-p
+    :initarg :enable-popup
+    :type boolean)
+   (homogeneous
+    :allocation :arg
+    :accessor notebook-homogeneous-p
+    :initarg :homogeneous
+    :type boolean))
+  (:metaclass container-class)
+  (:alien-name "GtkNotebook"))
 
-; (defclass hpaned paned)
+(defclass notebook-child (container-child)
+  ((tab-label
+    :allocation :arg
+    :accessor notebook-child-tab-label
+    :initarg :tab-label
+    :type string)
+   (menu-label
+    :allocation :arg
+    :accessor notebook-child-menu-label
+    :initarg :menu-label
+    :type string)
+   (position
+    :allocation :arg
+    :accessor notebook-child-position
+    :initarg :position
+    :type int)
+   (tab-fill
+    :allocation :arg
+    :accessor notebook-child-tab-fill-p
+    :initarg :tab-fill
+    :type boolean)
+   (tab-pack
+    :allocation :arg
+    :accessor notebook-child-tab-pack-p
+    :initarg :tab-pack
+    :type boolean))
+  (:metaclass child-class))
 
-; (defclass vpaned paned)
 
-; (defclass layout container
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((hadjustment            :type adjustment)
-;    (vadjustment            :type adjustment)
-;    (bin-window             :read-only t :type gdk:window)))
+(defclass font-selection (notebook)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkFontSelection"))
+
+(defclass font-selection-child (notebook-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass paned (container)
+  ((handle-size
+    :allocation :arg
+    :accessor paned-handle-size
+    :initarg handle-size
+    :type unsigned-int)
+   (position
+    :allocation :virtual
+    :location ("gtk_paned_get_position" "gtk_paned_set_position")
+    :accessor paned-position
+    :initarg :position
+    :type int))
+  (:metaclass container-class)
+  (:alien-name "GtkPaned"))
+
+(defclass paned-child (container-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass hpaned (paned)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkHPaned"))
+
+(defclass hpaned-child (paned-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass vpaned (paned)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkVPaned"))
+
+(defclass vpaned-child (paned-child)
+  ()
+  (:metaclass child-class))
+
+
+(defclass layout (container)
+  ((hadjustment
+    :allocation :virtual
+    :location ("gtk_layout_get_hadjustment" "gtk_layout_set_hadjustment")
+    :accessor layout-hadjustment
+    :initarg :hadjustment
+    :type adjustment)
+   (vadjustment
+    :allocation :virtual
+    :location ("gtk_layout_get_vadjustment" "gtk_layout_set_vadjustment")
+    :accessor layout-vadjustment
+    :initarg :vadjustment
+    :type adjustment))
+  (:metaclass container-class)
+  (:alien-name "GtkLayout"))
+
+(defclass layout-child (container-child)
+  ()
+  (:metaclass child-class))
+  
 
 ; (defclass list-widget container
 ;   :c-name "GtkList"
@@ -821,87 +1049,307 @@
 ; 			   :c-writer "gtk_list_set_selection_mode"
 ; 			   :type selection-mode)))
 
-; (defclass menu-shell container :constructor nil)
 
-; (defclass menu-bar menu-shell
-;   :slots
-;   ((shadow-type            :read-method :arg :arg-name "shadow"
-; 			   :type shadow-type)))
+(defclass menu-shell (container)
+  ()
+  (:metaclass container-class)
+  (:alien-name "GtkMenuShell"))
 
-; (defclass menu menu-shell
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((accel-group            :type accel-group)
-;    (tearoff-state          :write-only t :type boolean)
-;    (title                  :write-only t :type string)))
+(defclass menu-shell-child (container-child)
+  ()
+  (:metaclass child-class))
 
-; (defclass packer container
-;   :slots
-;   ((spacing                :read-method :arg :type unsigned-int)
-;    (default-border-width   :read-method :arg :type unsigned-int)
-;    (default-pad-x          :access-method :arg :type unsigned-int)
-;    (default-pad-y          :access-method :arg :type unsigned-int)
-;    (default-ipad-x         :access-method :arg :type unsigned-int)
-;    (default-ipad-y         :access-method :arg :type unsigned-int))
-;   :child-slots
-;   ((side                   :access-method :arg :type side-type)
-;    (anchor                 :access-method :arg :type anchor-type)
-;    (expand                 :access-method :arg :type boolean)
-;    (fill-x                 :access-method :arg :type boolean)
-;    (fill-y                 :access-method :arg :type boolean)
-;    (use-default            :access-method :arg :type boolean)
-;    (border-width           :access-method :arg :type unsigned-int)
-;    (pad-x                  :access-method :arg :type unsigned-int)
-;    (pad-y                  :access-method :arg :type unsigned-int)
-;    (ipad-x                 :access-method :arg :type unsigned-int)
-;    (ipad-y                 :access-method :arg :type unsigned-int)
-;    (position               :access-method :arg :type long)))
 
-; (defclass socket container)
+(defclass menu-bar (menu-shell)
+  ((shadow-type
+    :allocation :arg
+    :location "GtkMenuBar::shadow"
+    :accessor menu-bar-shadow-type
+    :initarg :shadow-type
+    :type shadow-type))
+  (:metaclass container-class)
+  (:alien-name "GtkMenuBar"))
 
-; (defclass table container
-;   :slots
-;   ((rows                   :access-method :arg :arg-name "n_rows"
-; 			   :type unsigned-int)
-;    (columns                :access-method :arg :arg-name "n_columns"
-; 			   :type unsigned-int)
-;    (row-spacing            :c-writer "gtk_table_set_row_spacings"
-; 			   :accessor table-row-spacings
-; 			   :read-method :arg :type unsigned-int)
-;    (column-spacing         :c-writer "gtk_table_set_col_spacings"
-; 			   :accessor table-column-spacings
-; 			   :read-method :arg  :type unsigned-int)
-;    (homogeneous            :read-method :arg :type boolean))
-;   :child-slots
-;   ((left-attach            :access-method :arg :type unsigned-int)
-;    (right-attach           :access-method :arg :type unsigned-int)
-;    (top-attach             :access-method :arg :type unsigned-int)
-;    (bottom-attach          :access-method :arg :type unsigned-int)
-;    (x-options              :access-method :arg :type attach-options)
-;    (y-options              :access-method :arg :type attach-options)
-;    (x-padding              :access-method :arg :type unsigned-int)
-;    (y-padding              :access-method :arg :type unsigned-int)
-;    ;; Slots added for convenience sake
-;    (x-expand               :access-method :lisp :type boolean)
-;    (y-expand               :access-method :lisp :type boolean)
-;    (x-shrink               :access-method :lisp :type boolean)
-;    (y-shrink               :access-method :lisp :type boolean)
-;    (x-fill                 :access-method :lisp :type boolean)
-;    (y-fill                 :access-method :lisp :type boolean)))
+(defclass menu-bar-child (menu-shell-child)
+  ()
+  (:metaclass child-class))
+  
 
-; (defclass toolbar container
-;   :slots
-;   ((orientation            :read-method :arg :type orientation)
-;    (toolbar-style          :accessor toolbar-style
-;                            :c-writer "gtk_toolbar_set_style"
-; 			   :read-method :arg :type toolbar-style)
-;    (space-size             :read-method :arg :type unsigned-int)
-;    (space-style            :read-method :arg :type toolbar-space-style)
-;    (relief                 :c-writer "gtk_toolbar_set_button_relief"
-; 			   :read-method :arg :type relief-style)
-;    ;; slots not accessible through the arg mechanism
-;    (tooltips               :write-only t :type boolean)))
+(defclass menu (menu-shell)
+  ((accel-group
+    :allocation :virtual
+    :location ("gtk_menu_get_accel_group" "gtk_menu_set_accel_group")
+    :accessor menu-accel-group
+    :initarg :accel-group
+    :type accel-group)
+   (tornoff
+    :allocation :virtual
+    :location ("gtk_menu_get_tearoff_state" "gtk_menu_set_tearoff_state")
+    :accessor menu-tornoff-p
+    :initarg :tearoff
+    :type boolean)
+   (title
+    :allocation :virtual
+    :location ("gtk_menu_get_title" "gtk_menu_set_title")
+    :accessor menu-title
+    :initarg :title
+    :type string))
+  (:metaclass container-class)
+  (:alien-name "GtkMenu"))
 
+(defclass menu-child (menu-shell-child)
+  ()
+  (:metaclass child-class))
+  
+
+(defclass packer (container)
+  ((spacing
+    :allocation :arg
+    :accessor packer-spacing
+    :initarg :spacing
+    :type unsigned-int)
+   (default-border-width
+    :allocation :arg
+    :accessor packer-default-border-width
+    :initarg :default-border-width
+    :type unsigned-int)
+   (default-pad-x
+    :allocation :arg
+    :accessor packer-default-pad-x
+    :initarg :default-pad-x
+    :type unsigned-int)
+   (default-pad-y
+    :allocation :arg
+    :accessor packer-default-pad-y
+    :initarg :default-pad-y
+    :type unsigned-int)
+   (default-ipad-x
+    :allocation :arg
+    :accessor packer-default-ipad-y
+    :initarg :default-ipad-y
+    :type unsigned-int)
+   (default-ipad-y
+    :allocation :arg
+    :accessor packer-default-ipad-y
+    :initarg :default-ipad-y
+    :type unsigned-int))
+  (:metaclass container-class)
+  (:alien-name "GtkPacker"))
+
+(defclass packer-child (container-child)
+  ((side
+    :allocation :arg
+    :accessor packer-child-side
+    :initarg :side
+    :type side-type)
+   (anchor
+    :allocation :arg
+    :accessor packer-child-anchor
+    :initarg :anchor
+    :type anchor-type)
+   (expand
+    :allocation :arg
+    :accessor packer-child-expand-p
+    :initarg :expand
+    :type boolean)
+   (fill-x
+    :allocation :arg
+    :accessor packer-child-fill-x-p
+    :initarg :fill-x
+    :type boolean)
+   (fill-y
+    :allocation :arg
+    :accessor packer-child-fill-y-p
+    :initarg :fill-y    
+    :type boolean)
+   (use-default
+    :allocation :arg
+    :accessor packer-child-use-default
+    :initarg :default
+    :type boolean)
+   (border-width
+    :allocation :arg
+    :accessor packer-child-border-width
+    :initarg :default    
+    :type unsigned-int)
+   (pad-x
+    :allocation :arg
+    :accessor packer-child-pad-x
+    :initarg :pad-x
+    :type unsigned-int)
+   (pad-y
+    :allocation :arg
+    :accessor packer-child-pad-y
+    :initarg :pad-y
+    :type unsigned-int)
+   (ipad-x
+    :allocation :arg
+    :accessor packer-child-ipad-x
+    :initarg :ipad-x
+    :type unsigned-int)
+   (ipad-y
+    :allocation :arg
+    :accessor packer-child-ipad-y
+    :initarg :ipad-y
+    :type unsigned-int)
+   (position
+    :allocation :arg
+    :accessor packer-child-position
+    :initarg :iposition
+    :type long))
+  (:metaclass child-class))
+
+
+;(defclass socket (container))
+
+
+(defclass table (container)
+  ((rows
+    :allocation :arg
+    :location "GtkTable::n_rows"
+    :accessor table-rows
+    :initarg :rows
+    :type unsigned-int)
+   (columns
+    :allocation :arg
+    :location "GtkTable::n_columns"
+    :accessor table-columns
+    :initarg :columns
+    :type unsigned-int)
+   (row-spacing
+    :allocation :arg
+    :accessor table-row-spacing
+    :initarg :row-spacing
+    :type unsigned-int)
+   (column-spacing
+    :allocation :arg
+    :accessor table-column-spacing
+    :initarg :column-spacing
+    :type unsigned-int)
+   (homogeneous
+    :allocation :arg
+    :accessor table-homogeneous-p
+    :initarg :homogeneous
+    :type boolean))
+  (:metaclass container-class)
+  (:alien-name "GtkTable"))
+
+(defclass table-child (container-child)
+  ((left-attach
+    :allocation :arg
+    :accessor table-child-left-attach
+    :initarg :left-attach
+    :type unsigned-int)
+   (right-attach
+    :allocation :arg
+    :accessor table-child-right-attach
+    :initarg :right-attach
+    :type unsigned-int)
+   (top-attach
+    :allocation :arg
+    :accessor table-child-top-attach
+    :initarg :top-attach
+    :type unsigned-int)
+   (bottom-attach
+    :allocation :arg
+    :accessor table-child-bottom-attach
+    :initarg :bottom-attach
+    :type unsigned-int)
+   (x-options
+    :allocation :arg
+    :accessor table-child-x-options
+    :initarg :x-options
+    :type attach-options)
+   (y-options
+    :allocation :arg
+    :accessor table-child-y-options
+    :initarg :y-options
+    :type attach-options)
+   (x-padding
+    :allocation :arg
+    :accessor table-child-x-padding
+    :initarg :x-padding
+    :type unsigned-int)
+   (y-padding
+    :allocation :arg
+    :accessor table-child-y-padding
+    :initarg :y-padding
+    :type unsigned-int)
+   
+   (x-expand
+    :allocation :virtual
+    :location table-child-x-expand-p
+    :initarg :x-expand
+    :type boolean)   
+   (y-expand
+    :allocation :virtual
+    :location table-child-y-expand-p
+    :initarg :y-expand
+    :type boolean)
+   (x-shrink
+    :allocation :virtual
+    :location table-child-x-shrink-p
+    :initarg :x-shrink
+    :type boolean)   
+   (y-shrink
+    :allocation :virtual
+    :location table-child-y-shrink-p
+    :initarg :y-shrink
+    :type boolean)   
+   (x-fill
+    :allocation :virtual
+    :location table-child-x-fill-p
+    :initarg :x-fill
+    :type boolean)   
+   (y-fill
+    :allocation :virtual
+    :location table-child-y-fill-p
+    :initarg :y-fill
+    :type boolean))
+  (:metaclass child-class))
+  
+
+(defclass toolbar (container)
+  ((orientation
+    :allocation :arg
+    :accessor toolbar-orientation
+    :initarg :orientation
+    :type orientation)
+   (toolbar-style
+    :allocation :arg
+    :accessor toolbar-style
+    :initarg :toolbar-style
+    :type toolbar-style)
+   (space-size
+    :allocation :arg
+    :accessor toolbar-space-size
+    :initarg :space-size
+    :type unsigned-int)
+   (space-style
+    :allocation :arg
+    :accessor toolbar-space-style
+    :initarg :space-style
+    :type toolbar-space-style)
+   (relief
+    :allocation :arg
+    :accessor toolbar-relief
+    :initarg :relief
+    :type relief-style)
+   (tooltips
+    :allocation :virtual
+    :location ("gtk_toolbar_get_tooltips" "gtk_toolbar_set_tooltips")
+    :accessor toolbar-tooltips-p
+    :initarg :tooltips
+    :type boolean))
+  (:metaclass container-class)
+  (:alien-name "GtkToolbar"))
+
+(defclass toolbar-child (container-child)
+  ()
+  (:metaclass child-class))
+
+
+;; Deprecated
 (defclass tree (container)
   ()
 ;   :slots
@@ -920,7 +1368,10 @@
   (:alien-name "GtkCalendar"))
 
 
-; (defclass drawing-area widget)
+(defclass drawing-area (widget)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkDrawingArea"))
 
 ; (defclass curve drawing-area
 ;   :slots
@@ -930,41 +1381,123 @@
 ;    (min-y                  :access-method :arg :type single-float)
 ;    (max-y                  :access-method :arg :type single-float)))
 
-; (defclass editable widget
-;   :slots
-;   ((position               :type int)
-;    (editable               :read-method :arg :type boolean)
-;    ;; slots not accessible through the arg mechanism
-;    (text                   :access-method :lisp :type string)))
+(defclass editable (widget)
+  ((position
+    :allocation :arg
+    :location "GtkEditable::text_position"
+    :accessor ediatable-position
+    :initarg :position
+    :type int)
+   (editable
+    :allocation :arg
+    :accessor ediatable-editable-p
+    :initarg :editabe
+    :type boolean)
+   (text
+    :allocation :virtual
+    :location editable-text
+    :initarg text
+    :type string))
+  (:metaclass widget-class)
+  (:alien-name "GtkEditable"))
 
-; (defclass entry editable
-;   :slots
-;   ((max-length             :read-method :arg :type unsigned-int)
-;    (visibility             :read-method :arg :accessor entry-visible-p
-; 			   :type boolean)
-;    ;; slots not accessible through the arg mechanism
-;    (text                   :type string)))
+  
+(defclass entry (editable)
+  ((max-length
+    :allocation :arg
+    :accessor entry-max-length
+    :initarg :max-length
+    :type unsigned-int)
+   (visible
+    :allocation :arg
+    :location "GtkEntry::visibility"
+    :accessor entry-visible-p
+    :initarg :visible
+    :type boolean))
+  (:metaclass widget-class)
+  (:alien-name "GtkEntry"))
+  
 
-; (defclass combo hbox
-;   :slots
-;   ;; slots not accessible through the arg mechanism
-;   ((entry                  :read-only t :type entry)
-;    (use-arrows             :type boolean)
-;    (use-arrows-always      :type boolean)
-;    (case-sensitive         :type boolean)))
+(defclass combo (hbox)
+  ((entry
+    :allocation :virtual
+    :location "gtk_combo_get_entry"
+    :reader combo-entry
+    :type entry)
+   (use-arrows
+    :allocation :virtual
+    :location ("gtk_combo_get_use_arrows" "gtk_combo_set_use_arrows")
+    :accessor combo-use-arrows-p
+    :initarg :use-arrows
+    :type boolean)
+   (use-arrows-always
+    :allocation :virtual
+    :location
+    ("gtk_combo_get_use_arrows_always" "gtk_combo_set_use_arrows_always")
+    :accessor combo-use-arrows-always-p
+    :initarg :use-arrows-always
+    :type boolean)
+   (case-sensitive
+    :allocation :virtual
+    :location ("gtk_combo_get_case_sensitive" "gtk_combo_set_case_sensitive")
+    :accessor combo-case-sensitive-p
+    :initarg :case-sensitive
+    :type boolean))
+  (:metaclass widget-class)
+  (:alien-name "GtkCombo"))
+  
 
-; (defclass spin-button entry
-;   :slots
-;   ((adjustment             :access-method :arg :type adjustment)
-;    (climb-rate             :access-method :arg :type single-float)
-;    (digits                 :access-method :arg :type unsigned-int)
-;    (snap-to-ticks          :read-method :arg :type boolean)
-;    (numeric                :read-method :arg :type boolean)
-;    (wrap                   :read-method :arg :type boolean)
-;    (update-policy          :read-method :arg :type spin-button-update-policy)
-;    (shadow-type            :read-method :arg :type shadow-type)
-;    (value                  :read-method :arg :type single-float)))
+(defclass spin-button (entry)
+  ((adjustment
+    :allocation :arg
+    :accessor spin-button-adjustment
+    :initarg :adjustment
+    :type adjustment)
+   (climb-rate
+    :allocation :arg
+    :accessor spin-button-climb-rate
+    :initarg :climb-rate
+    :type single-float)
+   (digits
+    :allocation :arg
+    :accessor spin-button-digits
+    :initarg :digits
+    :type unsigned-int)
+   (snap-to-ticks
+    :allocation :arg
+    :accessor spin-button-snap-to-ticks-p
+    :initarg :snap-to-ticks
+    :type boolean)
+   (numeric
+    :allocation :arg
+    :accessor spin-button-numeric-p
+    :initarg :numeric
+    :type boolean)
+   (wrap
+    :allocation :arg
+    :accessor spin-button-wrap-p
+    :initarg :wrap
+    :type boolean)
+   (update-policy
+    :allocation :arg
+    :accessor spin-button-update-policy
+    :initarg :update-policy
+    :type spin-button-update-policy)
+   (shadow-type
+    :allocation :arg
+    :accessor spin-button-shadow-type
+    :initarg :shadow-type
+    :type shadow-type)
+   (value
+    :allocation :arg
+    :accessor spin-button-value
+    :initarg :value
+    :type single-float))
+  (:metaclass widget-class)
+  (:alien-name "GtkSpinButton"))
+  
 
+;; Deprecated
 ; (defclass text editable
 ;   :slots
 ;   ((hadjustment            :access-method :arg :type adjustment)
@@ -975,44 +1508,120 @@
 ;    (point                  :type unsigned-int)
 ;    (length                 :read-only t :type unsigned-int)))
 
-; (defclass ruler widget
-;   :constructor nil
-;   :slots
-;   ((lower                  :access-method :arg :type single-float)
-;    (upper                  :access-method :arg :type single-float)
-;    (position               :access-method :arg :type single-float)
-;    (max-size               :access-method :arg :type single-float)
-;    ;; slots not accessible through the arg mechanism
-;    (:metric                :write-only t :type metric-type)))
+(defclass ruler (widget)
+  ((lower
+    :allocation :arg
+    :accessor ruler-lower
+    :initarg :lower
+    :type single-float)
+   (upper
+    :allocation :arg
+    :accessor ruler-upper
+    :initarg :upper
+    :type single-float)
+   (position
+    :allocation :arg
+    :accessor ruler-position
+    :initarg :position
+    :type single-float)
+   (max-size
+    :allocation :arg
+    :accessor ruler-max-size
+    :initarg :max-size
+    :type single-float)
+   (metric
+    :allocation :virtual
+    :location (nil "gtk_ruler_set_metric")
+    :accessor ruler-metric
+    :initarg :metric
+    :type metric-type))
+  (:metaclass widget-class)
+  (:alien-name "GtkRuler"))
 
-; (defclass hruler ruler)
 
-; (defclass vruler ruler)
+(defclass hruler (ruler)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkHRuler"))
 
-; (defclass range widget
-;   :slots
-;   ((update-policy          :read-method :arg :type update-type)
-;    ;; slots not accessible through the arg mechanism
-;    (adjustment             :type adjustment)))
 
-; (defclass scale range
-;   :constructor nil
-;   :slots
-;   ((digits                 :read-method :arg :type unsigned-int)
-;    (draw-value             :read-method :arg :type boolean)
-;    (value-pos              :read-method :arg :type position-type)
-;    ;; slots not accessible through the arg mechanism
-;    (value-width            :read-only t :type int)))
+(defclass vruler (ruler)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkVRuler"))
 
-; (defclass hscale scale)
 
-; (defclass vscale scale)
+(defclass range (widget)
+  ((update-policy
+    :allocation :arg
+    :accessor range-update-policy
+    :initarg :update-policy
+    :type update-type)
+   (adjustment
+    :allocation :virtual
+    :location ("gtk_range_get_adjustment" "gtk_range_set_adjustment")
+    :accessor ruler-adjustment
+    :initarg :adjustment
+    :type adjustment))
+  (:metaclass widget-class)
+  (:alien-name "GtkRange"))
 
-; (defclass scrollbar range :constructor nil)
 
-; (defclass hscrollbar scrollbar)
+(defclass scale (range)
+  ((digits
+    :allocation :arg
+    :accessor scale-digits
+    :initarg :digits
+    :type unsigned-int)
+   (draw-value
+    :allocation :arg
+    :accessor scale-draw-value-p
+    :initarg :draw-value
+    :type boolean)
+   (value-position
+    :allocation :arg
+    :location "GtkScale::value_pos"
+    :accessor scale-value-position
+    :initarg :value-position
+    :type position-type)
+   (value-width
+    :allocation :virtual
+    :location "gtk_scale_get_value_width"
+    :reader ruler-value-width
+    :type int))
+  (:metaclass widget-class)
+  (:alien-name "GtkScale"))
 
-; (defclass vscrollbar scrollbar)
+
+(defclass hscale (scale)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkHScale"))
+
+
+(defclass vscale (scale)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkVScale"))
+
+
+(defclass scrollbar (range)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkScrollbar"))
+
+
+(defclass hscrollbar (scrollbar)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkHScrollbar"))
+
+
+(defclass vscrollbar (scrollbar)
+  ()
+  (:metaclass widget-class)
+  (:alien-name "GtkVScrollbar"))
+
 
 (defclass separator (widget)
   ()
