@@ -15,11 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.3 2001-05-11 16:17:21 espen Exp $
+;; $Id: gdktypes.lisp,v 1.4 2001-05-29 15:53:32 espen Exp $
 
 (in-package "GDK")
 
-(init-types-in-library "/opt/gnome/lib/libgdk-x11-1.3.so")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (init-types-in-library "/opt/gnome/lib/libgdk-x11-1.3.so")
+  (init-types-in-library "/opt/gnome/lib/libgdk_pixbuf-1.3.so"))
 
 (defclass color (boxed)
   ((pixel
@@ -37,19 +39,20 @@
     :allocation :alien
     :accessor color-blue
     :type unsigned-short))
-  (:metaclass boxed-class))
+  (:metaclass boxed-class)
+  (:alien-name "GdkColor"))
 
 
-
-(define-types-by-introspection "Gdk"
-  ("GdkFunction" :type gc-function)
-  ("GdkGC" :type gc)
-  ("GdkDrawableImplX11" :ignore t)
-  ("GdkWindowImplX11" :ignore t)
-  ("GdkPixmapImplX11" :ignore t)
-  ("GdkGCX11" :ignore t)
-  ("GdkColor" :ignore t)
-  ("GdkEvent" :ignore t))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-types-by-introspection "Gdk"
+    ("GdkFunction" :type gc-function)
+    ("GdkGC" :type gc)
+    ("GdkDrawableImplX11" :ignore t)
+    ("GdkWindowImplX11" :ignore t)
+    ("GdkPixmapImplX11" :ignore t)
+    ("GdkGCX11" :ignore t)
+    ("GdkColor" :ignore t)
+    ("GdkEvent" :ignore t)))
 
 
 (deftype bitmap () 'pixmap)
