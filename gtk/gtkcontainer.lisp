@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.7 2002-03-24 12:58:34 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.8 2002-03-24 21:56:34 espen Exp $
 
 (in-package "GTK")
             
@@ -29,7 +29,7 @@
   (container container)
   (widget widget))
 
-(defun container-add (container widget &rest args)
+(defmethod container-add ((container container) (widget widget) &rest args)
   (%container-add container widget)
   (when args
     (setf
@@ -44,7 +44,7 @@
   (container container)
   (widget widget))
 
-(defun container-remove (container widget)
+(defmethod container-remove ((container container) (widget widget))
   (%container-remove container widget)
   (slot-makunbound widget 'child-slots))
 
