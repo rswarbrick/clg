@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.1 2000-08-14 16:44:34 espen Exp $
+;; $Id: gutils.lisp,v 1.2 2000-08-22 23:12:20 espen Exp $
 
 
 (in-package "KERNEL")
@@ -83,3 +83,25 @@
   
 (defun null-pointer-p (pointer)
   (zerop (sap-int pointer)))
+
+
+(defmacro when-bind ((var expr) &body body)
+  `(let ((,var ,expr))
+     (when ,var
+       ,@body)))
+
+
+(defmacro assoc-ref (key alist &key (test #'eq))
+  `(cdr (assoc ,key ,alist :test ,test)))
+
+
+(defmacro assoc-lref (key alist &key (test #'eq))
+  `(cadr (assoc ,key ,alist :test ,test)))
+
+
+(defun assoc-rem (key alist &key (test #'eq))
+  (remove-if #'(lambda (element) (funcall test key (car element))) alist))
+
+
+(defun assoc-delete (key alist &key (test #'eq))
+  (delete-if #'(lambda (element) (funcall test key (car element))) alist))
