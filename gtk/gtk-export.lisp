@@ -1,7 +1,6 @@
 (in-package "GTK")
 
 ;;; Autogenerating exported symbols
-(export-from-file #p"clg:gtk;gtkenums.lisp")
 (export-from-file #p"clg:gtk;gtktypes.lisp")
 (export-from-file #p"clg:gtk;gtkwidget.lisp")
 (export-from-file #p"clg:gtk;gtkcontainer.lisp")
