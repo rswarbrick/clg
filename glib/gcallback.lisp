@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.17 2005-01-03 16:37:16 espen Exp $
+;; $Id: gcallback.lisp,v 1.18 2005-01-30 14:23:20 espen Exp $
 
 (in-package "GLIB")
 
@@ -240,7 +240,9 @@
   (instance ginstance)
   (handler-id unsigned-int))
 
-(defbinding (callback-closure-new "clg_callback_closure_new") () pointer
+(deftype gclosure () 'pointer)
+
+(defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
   (callback-id unsigned-int) 
   (callback pointer)
   (destroy-notify pointer))
