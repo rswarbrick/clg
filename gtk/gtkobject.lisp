@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.12 2001-11-12 22:33:08 espen Exp $
+;; $Id: gtkobject.lisp,v 1.13 2002-03-19 19:09:18 espen Exp $
 
 
 (in-package "GTK")
@@ -34,7 +34,7 @@
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library "libgtk-x11-1.3.so"
+  (init-types-in-library "libgtk-x11-2.0.so"
    :ignore ("gtk_window_get_type_hint"))
 
   (defclass %object (gobject)
@@ -135,8 +135,15 @@
     (:property (find-class 'effective-child-slot-definition))
     (t (call-next-method))))
 
+(progn
+  (declaim (optimize (ext:inhibit-warnings 3)))
+  (defun %container-child-get-property (parent child pname gvalue))
+  (defun %container-child-set-property (parent child pname gvalue)))
+
+
 (defmethod compute-virtual-slot-accessors
     ((class child-class) (slotd effective-child-slot-definition) direct-slotds)
+
   (with-slots (type) slotd
     (let ((pname (slot-definition-pname (first direct-slotds)))
 	  (type-number (find-type-number type)))

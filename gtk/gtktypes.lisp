@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.10 2001-12-12 20:24:41 espen Exp $
+;; $Id: gtktypes.lisp,v 1.11 2002-03-19 19:09:18 espen Exp $
 
 
 (in-package "GTK")
@@ -32,7 +32,7 @@
     :initarg :height
     :type int))
   (:metaclass boxed-class)
-  (:alien-name "GtkRequisition"))
+  (:alien-name "GtkTypeRequisition"))
 
 (defclass border (boxed)
   ((left
@@ -56,7 +56,7 @@
     :initarg :bottom
     :type int))
   (:metaclass boxed-class)
-  (:alien-name "GtkBorder"))
+  (:alien-name "GtkTypeBorder"))
 
 (defclass adjustment (%object)
   ((lower
