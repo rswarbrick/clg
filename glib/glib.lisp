@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.21 2004-12-09 23:31:50 espen Exp $
+;; $Id: glib.lisp,v 1.22 2004-12-26 11:40:58 espen Exp $
 
 
 (in-package "GLIB")
@@ -225,10 +225,34 @@
     `(destroy-glist ,glist ',element-type)))
 
 (defmethod cleanup-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type args))
+  (declare (ignore type))
   (destructuring-bind (element-type) args
     #'(lambda (glist)
 	(destroy-glist glist element-type))))
+
+(defmethod writer-function ((type (eql 'glist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (list location &optional (offset 0))
+	(setf 
+	 (sap-ref-sap location offset)
+	 (make-glist element-type list)))))
+
+(defmethod reader-function ((type (eql 'glist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
+
+(defmethod destroy-function ((type (eql 'glist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (destroy-glist (sap-ref-sap location offset) element-type)
+	  (setf (sap-ref-sap location offset) (make-pointer 0))))))
+
 
 
 ;;;; Single linked list (GSList)
@@ -305,16 +329,38 @@
 	(map-glist 'list #'identity gslist element-type))))
 
 (defmethod cleanup-form (gslist (type (eql 'gslist)) &rest args)
-  (declare (ignore type args))
+  (declare (ignore type))
   (destructuring-bind (element-type) args
     `(destroy-gslist ,gslist ',element-type)))
 
 (defmethod cleanup-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type args))
+  (declare (ignore type))
   (destructuring-bind (element-type) args
     #'(lambda (gslist)
 	(destroy-gslist gslist element-type))))
 
+(defmethod writer-function ((type (eql 'gslist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (list location &optional (offset 0))
+	(setf 
+	 (sap-ref-sap location offset)
+	 (make-gslist element-type list)))))
+
+(defmethod reader-function ((type (eql 'gslist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
+
+(defmethod destroy-function ((type (eql 'gslist)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (destroy-gslist (sap-ref-sap location offset) element-type)
+	  (setf (sap-ref-sap location offset) (make-pointer 0))))))
 
 
 ;;; Vector
