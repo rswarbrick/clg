@@ -24,7 +24,7 @@
 ;;;
 
 ;;; Modifications for better AMOP conformance
-;;; Copyright (C) 2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;;; by Espen S. Johnsen <espen@users.sf.net>
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -39,7 +39,7 @@
   (allocation :instance :type symbol)
   ;;
   ;; Specified slot type or T.
-  (type t :type (or symbol list number)))
+  (type t :type (or symbol list)))
 
 
 (defmethod compute-slots :around ((class standard-class))
@@ -117,3 +117,5 @@
 	(update-pv-table-cache-info class)
 	(maybe-update-standard-class-locations class)))))
 
+
+(pushnew :clg-pcl *features*)
