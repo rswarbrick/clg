@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users@sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.13 2005-01-30 15:08:03 espen Exp $
+;; $Id: gdk.lisp,v 1.14 2005-02-26 18:53:09 espen Exp $
 
 
 (in-package "GDK")
@@ -28,17 +28,8 @@
   (nil null))
 
 
+
 ;;; Display
-
-(defbinding (display-manager "gdk_display_manager_get") () display-manager)
-
-
-(defbinding (display-set-default "gdk_display_manager_set_default_display")
-    (display) nil
-  ((display-manager) display-manager)
-  (display display))
-
-(defbinding display-get-default () display)
 
 (defbinding %display-open () display
   (display-name (or null string)))
@@ -49,9 +40,64 @@
       (display-set-default display))
     display))
 
+(defbinding %display-get-n-screens () int
+  (display display))
+
+(defbinding %display-get-screen () screen
+  (display display)
+  (screen-num int))
+
+(defun display-screens (&optional (display (display-get-default)))
+  (loop
+   for i from 0 below (%display-get-n-screens display)
+   collect (%display-get-screen display i)))
+
+(defbinding display-get-default-screen 
+    (&optional (display (display-get-default))) screen
+  (display display))
+
+(defbinding display-beep (&optional (display (display-get-default))) nil
+  (display display))
+
+(defbinding display-sync (&optional (display (display-get-default))) nil
+  (display display))
+
+(defbinding display-flush (&optional (display (display-get-default))) nil
+  (display display))
+
+(defbinding display-close (&optional (display (display-get-default))) nil
+  (display display))
+
+(defbinding display-get-event
+    (&optional (display (display-get-default))) event
+  (display display))
+
+(defbinding display-peek-event
+    (&optional (display (display-get-default))) event
+  (display display))
+
+(defbinding display-put-event
+    (event &optional (display (display-get-default))) event
+  (display display)
+  (event event))
+
 (defbinding (display-connection-number "clg_gdk_connection_number")
     (&optional (display (display-get-default))) int
   (display display))
+
+
+
+;;; Display manager
+
+(defbinding display-get-default () display)
+
+(defbinding (display-manager "gdk_display_manager_get") () display-manager)
+
+(defbinding (display-set-default "gdk_display_manager_set_default_display")
+    (display) nil
+  ((display-manager) display-manager)
+  (display display))
+
 
 
 ;;; Events
@@ -73,50 +119,10 @@
 (defbinding set-show-events () nil
   (show-events boolean))
 
-;;; Misc
-
-(defbinding set-use-xshm () nil
-  (use-xshm boolean))
-
 (defbinding get-show-events () boolean)
 
-(defbinding get-use-xshm () boolean)
 
-(defbinding get-display () string)
-
-; (defbinding time-get () (unsigned 32))
-
-; (defbinding timer-get () (unsigned 32))
-
-; (defbinding timer-set () nil
-;   (milliseconds (unsigned 32)))
-
-; (defbinding timer-enable () nil)
-
-; (defbinding timer-disable () nil)
-
-; input ...
-
-(defbinding pointer-grab () int
-  (window window)
-  (owner-events boolean)
-  (event-mask event-mask)
-  (confine-to (or null window))
-  (cursor (or null cursor))
-  (time (unsigned 32)))
-
-(defbinding pointer-ungrab () nil
-  (time (unsigned 32)))
-
-(defbinding keyboard-grab () int
-  (window window)
-  (owner-events boolean)
-  (time (unsigned 32)))
-
-(defbinding keyboard-ungrab () nil
-  (time (unsigned 32)))
-
-(defbinding (pointer-is-grabbed-p "gdk_pointer_is_grabbed") () boolean)
+;;; Miscellaneous functions
 
 (defbinding screen-width () int)
 (defbinding screen-height () int)
@@ -124,8 +130,40 @@
 (defbinding screen-width-mm () int)
 (defbinding screen-height-mm () int)
 
-(defbinding flush () nil)
-(defbinding beep () nil)
+(defun %grab-time (time-or-event)
+  (etypecase time-or-event
+    (null 0)
+    (timed-event (event-time time-or-event))
+    (integer time-or-event)))
+
+(defbinding pointer-grab 
+    (window &key owner-events events confine-to cursor time) grab-status
+  (window window)
+  (owner-events boolean)
+  (events event-mask)
+  (confine-to (or null window))
+  (cursor (or null cursor))
+  ((%grab-time time) (unsigned 32)))
+
+(defbinding (pointer-ungrab "gdk_display_pointer_ungrab")
+    (&optional (display (display-get-default) time)) nil
+  (display display)
+  ((%grab-time time) (unsigned 32)))
+
+(defbinding (pointer-is-grabbed-p "gdk_display_pointer_is_grabbed") 
+    (&optional (display (display-get-default))) boolean)
+
+(defbinding keyboard-grab (window &key owner-events time) grab-status
+  (window window)
+  (owner-events boolean)
+  ((%grab-time time) (unsigned 32)))
+
+(defbinding (keyboard-ungrab "gdk_display_keyboard_ungrab")
+    (&optional (display (display-get-default) time)) nil
+  (display display)
+  ((%grab-time time) (unsigned 32)))
+
+
 
 (defbinding atom-intern (atom-name &optional only-if-exists) atom
   ((string atom-name) string)
