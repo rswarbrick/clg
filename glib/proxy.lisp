@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.3 2001-05-04 16:56:34 espen Exp $
+;; $Id: proxy.lisp,v 1.4 2001-05-11 16:01:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -245,8 +245,8 @@
 
   (defmethod finalize-inheritance ((class proxy-class))
     (call-next-method)
-    (let ((super (direct-proxy-superclass class)))
-      (unless (typep super 'proxy)
+    (let ((super (most-specific-proxy-superclass class)))
+      (unless (or (not super) (eq super (find-class 'proxy)))
  	(unless (or (slot-boundp class 'copy) (not (slot-boundp super 'copy)))
  	  (setf (slot-value class 'copy) (proxy-class-copy super)))
  	(unless (or (slot-boundp class 'free) (not (slot-boundp super 'free)))
@@ -316,7 +316,7 @@
   (defmethod validate-superclass ((class proxy-class)
 				  (super pcl::standard-class))
     (subtypep (class-name super) 'proxy))
-  
+
   (defmethod proxy-class-size (class)
     (declare (ignore class))
     0)
@@ -352,7 +352,6 @@
     (:copy %copy-struct)
     (:free %free-struct)))
 
-
 (defmethod initialize-instance ((structure struct)
 				&rest initargs)
   (declare (ignore initargs))
@@ -370,10 +369,12 @@
   (deallocate-memory location))
 
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+;(eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass static (struct)
     ()
-    (:metaclass proxy-class)))
+    (:metaclass proxy-class)
+    (:copy %copy-static)
+    (:free %free-static));)
 
 (defun %copy-static (type location)
   (declare (ignore type))
