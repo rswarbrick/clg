@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.4 2004-11-06 21:39:58 espen Exp $
+;; $Id: genums.lisp,v 1.5 2004-12-19 18:18:05 espen Exp $
 
 (in-package "GLIB")
 
@@ -118,7 +118,14 @@
 (defun query-enum-values (type)
   (%query-enum-or-flags-values #'%enum-class-values '%enum-value type))
 
+(defun enum-int (enum type)
+  (funcall (to-alien-function type) enum))
 
+(defun int-enum (int type)
+  (funcall (from-alien-function type) int))
+
+(defun enum-mapping (type)
+  (rest (type-expand-to 'enum type)))
 
 ;;;;  Generic flags type
 
