@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.25 2004-12-20 23:19:19 espen Exp $
+;; $Id: gtk.lisp,v 1.26 2004-12-21 00:15:19 espen Exp $
 
 
 (in-package "GTK")
@@ -663,6 +663,48 @@
 (defbinding menu-item-toggle-size-allocate () nil
   (menu-item menu-item)
   (allocation int))
+
+
+;;; Message dialog
+
+(defmethod initialize-instance ((dialog message-dialog) &rest initargs 
+				&key (type :info) (buttons :close) ; or :ok? 
+				flags message parent)
+  (remf initargs :parent)
+  (setf 
+   (slot-value dialog 'location)
+   (%message-dialog-new parent flags type buttons nil))
+  (message-dialog-set-markup dialog message)
+  (apply #'call-next-method dialog initargs))
+
+
+(defbinding %message-dialog-new () pointer
+  (parent (or null window))
+  (flags dialog-flags)
+  (type message-type)
+  (buttons buttons-type)
+  (message (or null string)))
+
+(defbinding %message-dialog-new-with-markup () pointer
+  (parent (or null window))
+  (flags dialog-flags)
+  (type message-type)
+  (buttons buttons-type)
+  (message string))
+
+(defbinding message-dialog-set-markup () nil
+  (message-dialog message-dialog)
+  (markup string))
+
+#+gtk2.6
+(defbinding message-dialog-format-secondary-text () nil
+  (message-dialog message-dialog)
+  (text string))
+
+#+gtk2.6
+(defbinding message-dialog-format-secondary-markup () nil
+  (message-dialog message-dialog)
+  (markup string))
 
 
 
