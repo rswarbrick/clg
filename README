@@ -26,7 +26,7 @@ Build instructions
      somewhere else, like ~/.cmucl-init.lisp.
 
    - Edit the pkg-config search path if your gtk+ installation is in 
-     unusual place.
+     an unusual place.
 
    - Edit *cmucl-include-path* to point to the directory where the
      lisp.h file resides, if it is not auto detected.  Try "locate 
