@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.17 2004-12-26 11:40:14 espen Exp $
+;; $Id: proxy.lisp,v 1.18 2005-01-12 13:35:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -402,6 +402,9 @@
   (defmethod proxy-instance-size (class)
     (declare (ignore class))
     0)
+
+  (defmethod proxy-instance-size ((class-name symbol))
+    (proxy-instance-size (find-class class-name)))
 )
   
 (defmethod alien-type ((class proxy-class) &rest args)
@@ -470,7 +473,7 @@
       (unreference-foreign class (sap-ref-sap location offset))))
 
 (defmethod unbound-value ((class proxy-class) &rest args)
-  (declare (ignore type args))
+  (declare (ignore args))
   (values t nil))
 
 (defgeneric ensure-proxy-instance (class location)
@@ -501,7 +504,7 @@
     (let ((size (proxy-instance-size (class-of struct))))
       (if (zerop size)
 	  (error "~A has zero size" (class-of struct))
-	  (setf (slot-value struct 'location) (allocate-memory size)))))
+	(setf (slot-value struct 'location) (allocate-memory size)))))
   (call-next-method))
 
 
