@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.15 2005-02-15 15:28:15 espen Exp $
+;; $Id: ffi.lisp,v 1.16 2005-02-22 17:27:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -809,3 +809,56 @@
 (defmethod writer-function ((type (eql 'copy-of)) &rest args)
   (declare (ignore type))
   (writer-function (first args)))
+
+
+(defmethod alien-type ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'pointer))
+
+(defmethod size-of ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  (size-of 'pointer))
+
+(defmethod to-alien-form (callback (type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  #+cmu `(callback ,callback)
+  #+sbcl `(sb-alien:alien-function-sap ,callback))
+
+(defmethod to-alien-function ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  #+cmu #'(lambda (callback) (callback callback))
+  #+sbcl #'sb-alien:alien-function-sap)
+
+#+cmu
+(defun find-callback (pointer)
+  (find pointer alien::*callbacks* :key #'callback-trampoline :test #'sap=))
+
+(defmethod from-alien-form (pointer (type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  #+cmu  `(find-callback ,pointer)
+  #+sbcl `(sb-alien::%find-alien-function ,pointer))
+
+(defmethod from-alien-function ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  #+cmu  #'find-callback
+  #+sbcl #'sb-alien::%find-alien-function)
+
+(defmethod writer-function ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  (let ((writer (writer-function 'pointer))
+	(to-alien (to-alien-function 'callback)))
+    #'(lambda (callback location &optional (offset 0))
+	(funcall writer (funcall to-alien callback) location offset))))
+
+(defmethod reader-function ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  (let ((reader (reader-function 'pointer))
+	(from-alien (from-alien-function 'callback)))
+  #'(lambda (location &optional (offset 0))
+      (let ((pointer (funcall reader location offset)))
+	(unless (null-pointer-p pointer)
+	  (funcall from-alien pointer))))))
+
+(defmethod unbound-value ((type (eql 'callback)) &rest args)
+  (declare (ignore type args))
+  (values t nil))
