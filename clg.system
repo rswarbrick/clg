@@ -4,6 +4,7 @@
  (logical-pathname-translations "clg")
  '(("**;*.*.*" "/home/espen/src/clg/**/*.*.*")))
 (setq mk::*cmu-errors-to-file* nil)
+(setq ext:*environment-list* (cons '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*))
 
 (load "clg:tools;config")
 (load "clg:tools;sharedlib")
@@ -20,13 +21,13 @@
      (:module glib
       :initially-do
       (progn
-	(load-shared-library "libglib-1.3.so.2")
-	(load-shared-library "libgobject-1.3.so.2" :init "g_type_init"))
+	(load-shared-library "libglib-1.3.so.4")
+	(load-shared-library "libgobject-1.3.so.4" :init "g_type_init"))
       :components
       ((:file "callback"
 	:language :c
 	:compiler-options
-	(:cflags ,(configure-cflags "glib-config-2.0")
+	(:cflags ,(pkg-cflags "glib-2.0")
 		 :optimize 2
 		 :definitions (#+cmu CMUCL)
 		 :include-paths ("/usr/src/cmucl-2.4.20/src/lisp")))
@@ -34,24 +35,49 @@
        (:file "gutils" :depends-on ("glib-package"))
        (:file "gforeign" :depends-on ("gutils"))
        (:file "glib" :depends-on ("gforeign"))
-       (:file "gtype" :depends-on ("glib"))
-       (:file "gparam" :depends-on ("glib"))
+       (:file "proxy" :depends-on ("glib"))
+       (:file "gtype" :depends-on ("proxy"))
+       (:file "gboxed" :depends-on ("gtype"))
        (:file "gcallback" :depends-on ("gtype" "gparam" "callback"))
-       (:file "gobject" :depends-on ("gtype"))
+       (:file "genums" :depends-on ("gtype"))
+       (:file "gparam" :depends-on ("genums"))
+       (:file "gobject" :depends-on ("gparam"))
        (:file "glib-export"
-	:depends-on ("gutils" "glib" "gtype" "gparam" "gcallback" "gobject")))
+	:depends-on
+	("gutils" "glib" "proxy" "gboxed" "gtype" "gparam" "gcallback"
+	 "genums" "gobject")))
       :depends-on (tools))
      (:file "gdkglue"
       :source-pathname "gdk;"
       :binary-pathname "gdk;"
       :initially-do
       (progn
-	(load-shared-library "libgdk_pixbuf-1.3.so.2")
-	(load-shared-library "libgdk-x11-1.3.so.2")
-	;; Initializing of gdk types is done by gtk, so we
-	;; have to load an initialize it at this point
+	(load-shared-library "libgdk_pixbuf-1.3.so.4")
+	(load-shared-library "libgdk-x11-1.3.so.4"
+	 :init "gdk_init"
+	 :prototype '(function
+		      c-call:void
+		      alien:system-area-pointer
+		      alien:system-area-pointer)
+	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
+      :language :c
+      :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
+			 :optimize 2))
+     (:module gdk
+       :components
+       ((:file "gdk-package")
+        (:file "gdk-export" :depends-on ("gdkevents" "gdktypes" "gdk"))
+        (:file "gdktypes" :depends-on ("gdk-package"))
+        (:file "gdkevents" :depends-on ("gdktypes"))
+	(:file "gdk" :depends-on ("gdkevents")))
+       :depends-on (glib "gdkglue"))
+     (:file "gtkglue"
+      :source-pathname "gtk;"
+      :binary-pathname "gtk;"
+      :initially-do
+      (progn
 	(load-shared-library
-	 "libgtk-x11-1.3.so.2"
+	 "libgtk-x11-1.3.so.4"
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
@@ -59,37 +85,23 @@
 		      alien:system-area-pointer)
 	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
       :language :c
-      :compiler-options (:cflags ,(configure-cflags "gtk-config-2.0")
-				 :optimize 2))
-     (:module gdk
-      :components
-      ((:file "gdk-package")
-       (:file "gdk-export" :depends-on ("gdkenums" "gdktypes" "gdk"))
-       (:file "gdkenums" :depends-on ("gdk-package"))
-       (:file "gdktypes" :depends-on ("gdkenums"))
-       (:file "gdk" :depends-on ("gdktypes")))
-      :depends-on (glib "gdkglue"))
-     (:file "gtkglue"
-      :source-pathname "gtk;"
-      :binary-pathname "gtk;"
-      :language :c
-      :compiler-options (:cflags ,(configure-cflags "gtk-config-2.0")
+      :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
 			 :optimize 2
 			 :definitions (#+cmu CMUCL)
 			 :include-paths ("/usr/lib/cmucl")))
      (:module gtk
       :components
       ((:file "gtk-package")
-       (:file "gtk-export" :depends-on ("gtkenums" "gtktypes" "gtk"))
-       (:file "gtkobject" :depends-on ("gtk-package"))
-       (:file "gtkenums" :depends-on ("gtk-package"))
-        (:file "gtktypes" :depends-on ("gtkenums" "gtkobject"))
-        (:file "gtkwidget" :depends-on ("gtktypes"))
-        (:file "gtkcontainer" :depends-on ("gtktypes"))
-        (:file "gtk" :depends-on ("gtktypes"))
-        (:file "gtkutils" :depends-on ("gtk"))
+;       (:file "gtk-export" :depends-on ("gtkenums" "gtktypes" "gtk"))
+;       (:file "gtkobject" :depends-on ("gtk-package"))
+;        (:file "gtktypes" :depends-on ("gtkenums" "gtkobject"))
+;        (:file "gtkwidget" :depends-on ("gtktypes"))
+;        (:file "gtkcontainer" :depends-on ("gtktypes"))
+;        (:file "gtk" :depends-on ("gtktypes"))
+;        (:file "gtkutils" :depends-on ("gtk"))
        )
-      :depends-on (glib gdk "gtkglue")))))
+      :depends-on (glib gdk "gtkglue"))
+)))
 
 
 
