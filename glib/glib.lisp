@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.8 2001-02-11 20:21:13 espen Exp $
+;; $Id: glib.lisp,v 1.9 2001-04-29 20:07:17 espen Exp $
 
 
 (in-package "GLIB")
@@ -25,14 +25,14 @@
 
 ;;;; Memory management
 
-(define-foreign ("g_malloc0" allocate-memory) () pointer
+(defbinding ("g_malloc0" allocate-memory) () pointer
   (size unsigned-long))
 
-(define-foreign ("g_realloc" reallocate-memory) () pointer
+(defbinding ("g_realloc" reallocate-memory) () pointer
   (address pointer)
   (size unsigned-long))
 
-(define-foreign ("g_free" deallocate-memory) () nil
+(defbinding ("g_free" deallocate-memory) () nil
   (address pointer))
 
 (defun copy-memory (from length &optional (to (allocate-memory length)))
@@ -78,9 +78,9 @@
 
 (deftype quark () 'unsigned)
 
-;(define-foreign %quark-get-reserved () quark)
+;(defbinding %quark-get-reserved () quark)
 
-(define-foreign %quark-from-string () quark
+(defbinding %quark-from-string () quark
   (string string))
 
 (defvar *quark-counter* 0)
@@ -123,15 +123,15 @@
 
 (deftype glist (type) `(or (null (cons ,type list))))
 
-(define-foreign ("g_list_append" %glist-append-unsigned) () pointer
+(defbinding ("g_list_append" %glist-append-unsigned) () pointer
   (glist pointer)
   (data unsigned))
 
-(define-foreign ("g_list_append" %glist-append-signed) () pointer
+(defbinding ("g_list_append" %glist-append-signed) () pointer
   (glist pointer)
   (data signed))
 
-(define-foreign ("g_list_append" %glist-append-sap) () pointer
+(defbinding ("g_list_append" %glist-append-sap) () pointer
   (glist pointer)
   (data pointer))
 
@@ -151,7 +151,7 @@
   (unless (null-pointer-p glist)
     (sap-ref-sap glist +size-of-sap+)))
   
-(define-foreign ("g_list_free" glist-free) () nil
+(defbinding ("g_list_free" glist-free) () nil
   (glist pointer))
 
 (deftype-method translate-type-spec glist (type-spec)
@@ -162,57 +162,58 @@
   (declare (ignore type-spec))
   (size-of 'pointer))
 
-(deftype-method translate-to-alien glist (type-spec list &optional copy)
-  (declare (ignore copy))
-  (let* ((element-type-spec (second (type-expand-to 'glist type-spec)))
-	 (to-alien (translate-to-alien element-type-spec 'element t)))
+(deftype-method translate-to-alien glist (type-spec list &optional weak-ref)
+  (declare (ignore weak-ref))
+  (let* ((element-type (second (type-expand-to 'glist type-spec)))
+	 (element (translate-to-alien element-type 'element)))
     `(let ((glist (make-pointer 0))) 
        (dolist (element ,list glist)
-	 (setq glist (glist-append glist ,to-alien ,element-type-spec))))))
+	 (setq glist (glist-append glist ,element ,element-type))))))
 
 (deftype-method translate-from-alien
-    glist (type-spec glist &optional (alloc :reference))
-  (let ((element-type-spec (second (type-expand-to 'glist type-spec))))
+    glist (type-spec glist &optional weak-ref)
+  (let ((element-type (second (type-expand-to 'glist type-spec))))
     `(let ((glist ,glist)
 	   (list nil))
        (do ((tmp glist (glist-next tmp)))
 	   ((null-pointer-p tmp))
 	 (push
 	  ,(translate-from-alien
-	    element-type-spec `(glist-data tmp ,element-type-spec) alloc)
+	    element-type `(glist-data tmp ,element-type) weak-ref)
 	  list))
-       ,(when (eq alloc :reference)
+       ,(unless weak-ref
 	  '(glist-free glist))
        (nreverse list))))
 
-(deftype-method cleanup-alien glist (type-spec glist &optional copied)
-  (declare (ignore copied))
-  (let* ((element-type-spec (second (type-expand-to 'glist type-spec)))
-	 (alien-type-spec (translate-type-spec element-type-spec)))
+(deftype-method cleanup-alien glist (type-spec glist &optional weak-ref)
+  (when weak-ref
+    (unreference-alien type-spec glist)))
+
+(deftype-method unreference-alien glist (type-spec glist)
+  (let ((element-type (second (type-expand-to 'glist type-spec))))
     `(let ((glist ,glist))
        (unless (null-pointer-p glist)
-	 ,(when (eq alien-type-spec 'system-area-pointer)
+	 ,(unless (atomic-type-p element-type)
 	    `(do ((tmp glist (glist-next tmp)))
 		 ((null-pointer-p tmp))
-	       ,(cleanup-alien
-		 element-type-spec `(glist-data tmp ,element-type-spec) t)))
+	       ,(unreference-alien
+		 element-type `(glist-data tmp ,element-type))))
 	 (glist-free glist)))))
-
 
 
 ;;;; Single linked list (GSList)
 
 (deftype gslist (type) `(or (null (cons ,type list))))
 
-(define-foreign ("g_slist_prepend" %gslist-prepend-unsigned) () pointer
+(defbinding ("g_slist_prepend" %gslist-prepend-unsigned) () pointer
   (gslist pointer)
   (data unsigned))
 
-(define-foreign ("g_slist_prepend" %gslist-prepend-signed) () pointer
+(defbinding ("g_slist_prepend" %gslist-prepend-signed) () pointer
   (gslist pointer)
   (data signed))
 
-(define-foreign ("g_slist_prepend" %gslist-prepend-sap) () pointer
+(defbinding ("g_slist_prepend" %gslist-prepend-sap) () pointer
   (gslist pointer)
   (data pointer))
 
@@ -222,7 +223,7 @@
     (signed `(%gslist-prepend-signed ,gslist ,value))
     (system-area-pointer `(%gslist-prepend-sap ,gslist ,value))))
   
-(define-foreign ("g_slist_free" gslist-free) () nil
+(defbinding ("g_slist_free" gslist-free) () nil
   (gslist pointer))
 
 (deftype-method translate-type-spec gslist (type-spec)
@@ -233,45 +234,49 @@
   (declare (ignore type-spec))
   (size-of 'pointer))
 
-(deftype-method translate-to-alien gslist (type-spec list &optional copy)
-  (declare (ignore copy))
-  (let* ((element-type-spec (second (type-expand-to 'gslist type-spec)))
-	 (to-alien (translate-to-alien element-type-spec 'element t)))
+(deftype-method translate-to-alien gslist (type-spec list &optional weak-ref)
+  (declare (ignore weak-ref))
+  (let* ((element-type (second (type-expand-to 'gslist type-spec)))
+	 (element (translate-to-alien element-type 'element)))
     `(let ((gslist (make-pointer 0))) 
        (dolist (element (reverse ,list) gslist)
-	 (setq gslist (gslist-prepend gslist ,to-alien ,element-type-spec))))))
+	 (setq gslist (gslist-prepend gslist ,element ,element-type))))))
 
 (deftype-method translate-from-alien
-    gslist (type-spec gslist &optional (alloc :reference))
-  (let ((element-type-spec (second (type-expand-to 'gslist type-spec))))
+    gslist (type-spec gslist &optional weak-ref)
+  (let ((element-type (second (type-expand-to 'gslist type-spec))))
     `(let ((gslist ,gslist)
 	   (list nil))
        (do ((tmp gslist (glist-next tmp)))
 	   ((null-pointer-p tmp))
 	 (push
 	  ,(translate-from-alien
-	    element-type-spec `(glist-data tmp ,element-type-spec) alloc)
+	    element-type `(glist-data tmp ,element-type) weak-ref)
 	  list))
-       ,(when (eq alloc :reference)
+       ,(unless weak-ref
 	  '(gslist-free gslist))
        (nreverse list))))
 
-(deftype-method cleanup-alien gslist (type-spec gslist &optional copied)
-  (declare (ignore copied))
-  (let* ((element-type-spec (second (type-expand-to 'gslist type-spec)))
-	 (alien-type-spec (translate-type-spec element-type-spec)))
+(deftype-method cleanup-alien gslist (type-spec gslist &optional weak-ref)
+  (when weak-ref
+    (unreference-alien type-spec gslist)))
+
+(deftype-method unreference-alien gslist (type-spec gslist)
+  (let ((element-type (second (type-expand-to 'gslist type-spec))))
     `(let ((gslist ,gslist))
        (unless (null-pointer-p gslist)
-	 ,(when (eq alien-type-spec 'system-area-pointer)
+	 ,(unless (atomic-type-p element-type)
 	    `(do ((tmp gslist (glist-next tmp)))
 		 ((null-pointer-p tmp))
-	       ,(cleanup-alien
-		 element-type-spec `(glist-data tmp ,element-type-spec) t)))
+	       ,(unreference-alien
+		 element-type `(glist-data tmp ,element-type))))
 	 (gslist-free gslist)))))
 
 
 
 ;;; Vector
+
+(defvar *magic-end-of-array* (allocate-memory 1))
 
 (deftype-method translate-type-spec vector (type-spec)
   (declare (ignore type-spec))
@@ -281,43 +286,73 @@
   (declare (ignore type-spec))
   (size-of 'pointer))
 
-(deftype-method translate-to-alien vector (type-spec vector &optional copy)
-  (declare (ignore copy))
+(deftype-method translate-to-alien vector (type-spec vector &optional weak-ref)
+  (declare (ignore weak-ref))
   (destructuring-bind (element-type &optional (length '*))
       (cdr (type-expand-to 'vector type-spec))
-    (let ((element-size (size-of element-type)))
+    (let* ((element-size (size-of element-type))
+	   (size (cond
+		  ((not (eq length '*))
+		   (* element-size length))
+		  ((not (atomic-type-p element-type))
+		   `(* ,element-size (1+ (length vector))))
+		  (t
+		   `(* ,element-size (length vector))))))
+	  
       `(let ((vector ,vector))
-	 (let ((c-vector
-		(allocate-memory
-		 ,(if (eq length '*)
-		      `(* ,element-size (length vector))
-		    (* element-size length)))))
-	   (dotimes (i ,(if (eq length '*) '(length vector) length) c-vector)
+	 (let ((c-vector (allocate-memory ,size)))
+	   (dotimes (i ,(if (eq length '*) '(length vector) length))
 	     (setf
 	      (,(sap-ref-fname element-type) c-vector (* i ,element-size))
-	      ,(translate-to-alien element-type '(aref vector i) :copy))))))))
+	      ,(translate-to-alien element-type '(aref vector i))))
+	   ,(when (and
+		   (eq length '*)
+		   (not (atomic-type-p element-type)))
+	      `(setf
+		(sap-ref-sap c-vector (* (length vector) ,element-size))
+		*magic-end-of-array*))
+	   c-vector)))))
 
 (deftype-method translate-from-alien
-    vector (type-spec sap &optional (alloc :reference))
+    vector (type-spec c-array &optional weak-ref)
   (destructuring-bind (element-type &optional (length '*))
       (cdr (type-expand-to 'vector type-spec))
     (when (eq length '*)
       (error "Can't use vectors of variable length as return type"))
     (let ((element-size (size-of element-type)))
-      `(let ((sap ,sap)
+      `(let ((c-array ,c-array)
 	     (vector (make-array ,length :element-type ',element-type)))
-	 (dotimes (i ,length vector)
+	 (dotimes (i ,length)
 	   (setf
 	    (aref vector i)
 	    ,(translate-to-alien
 	      element-type
-	      `(,(sap-ref-fname element-type) sap (* i ,element-size))
-	      alloc)))))))
+	      `(,(sap-ref-fname element-type) c-array (* i ,element-size))
+	      weak-ref)))
+	 ,(unless weak-ref
+	    '(deallocate-memory c-vector))
+	 vector))))
+	 
 
+(deftype-method cleanup-alien vector (type-spec c-vector &optional weak-ref)
+  (when weak-ref
+    (unreference-alien type-spec c-vector)))
 
-(deftype-method cleanup-alien vector (type-spec sap &optional copied)
-  (declare (ignore type-spec copied))
-  ;; The individual elements also have to be cleaned up to avoid memory leaks,
-  ;; but this is currently not possible because we can't always tell the
-  ;; length of the vector
-  `(deallocate-memory ,sap))
+(deftype-method unreference-alien vector (type-spec c-vector)
+  (destructuring-bind (element-type &optional (length '*))
+      (cdr (type-expand-to 'vector type-spec))
+    `(let ((c-vector ,c-vector))
+       (unless (null-pointer-p c-vector)
+	 ,(unless (atomic-type-p element-type)
+	    (let ((element-size (size-of element-type)))
+	      (if (not (eq length '*))
+		  `(dotimes (i ,length)
+		     (unreference-alien
+		      element-type (sap-ref-sap c-vector (* i ,element-size))))
+		`(do ((offset 0 (+ offset ,element-size))
+		      ((sap=
+			(sap-ref-sap c-vector offset)
+			*magic-end-of-array*)))
+		     ,(unreference-alien
+		       element-type '(sap-ref-sap c-vector offset))))))
+	 (deallocate-memory c-vector)))))
