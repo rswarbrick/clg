@@ -100,8 +100,9 @@
   t)
   
 
+;;; Shared libraries
 
-(defclass library (static-file) 
+(defclass library (component) 
   ((libdir :initarg :libdir)))
 
 
@@ -119,3 +120,17 @@
 
 (defmethod perform ((o load-op) (c library))
   (load-dso (component-pathname c)))
+
+(defmethod perform ((operation operation) (c library))
+  nil)
+
+(defmethod operation-done-p ((o load-op) (c library))
+  #+sbcl(find (sb-ext::unix-namestring (component-pathname c)) sb-alien::*shared-objects* :key #'sb-alien::shared-object-file :test #'equal)
+  #+cmu(rassoc (unix::unix-namestring (component-pathname c)) 
+	system::*global-table* 
+	:key #'(lambda (pathname)
+		 (when pathname (unix::unix-namestring pathname)))
+	:test #'equal))
+
+(defmethod operation-done-p ((o operation) (c library))
+  t)
