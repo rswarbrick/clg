@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.4 2000-09-04 22:04:24 espen Exp $
+;; $Id: gtype.lisp,v 1.5 2000-10-01 17:20:43 espen Exp $
 
 (in-package "GLIB")
 
@@ -550,8 +550,8 @@
 	  (:reference
 	   `(ensure-alien-instance
 	     ',type-spec
-	     `(,(alien-copier type-spec)
-	       location ,(alien-class-size (find-class type-spec)))))))))
+	     (,(alien-copier type-spec)
+	      location ,(alien-class-size (find-class type-spec)))))))))
 
 (deftype-method cleanup-alien alien-structure (type-spec sap &optional copied)
   (when copied
