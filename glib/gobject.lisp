@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.3 2000-11-09 20:29:19 espen Exp $
+;; $Id: gobject.lisp,v 1.4 2001-01-28 14:17:12 espen Exp $
 
 (in-package "GLIB")
 
@@ -24,9 +24,14 @@
   (defclass gobject (ginstance)
     ()
     (:metaclass ginstance-class)
-    (:alien-name "GObject"))
+    (:alien-name "GObject")))
 
-  (defclass gobject-class (ginstance-class)))
+
+;;;; Object construction
+
+(define-foreign ("g_object_new" %gobject-new) () gobject
+  (type type-number)
+  (nil null))
 
 
 ;;;; Reference counting for gobject
@@ -58,28 +63,34 @@
 
 ;;;; Parameter stuff
 
-(define-foreign %object-set-param () nil
+(define-foreign %object-set-property () nil
   (object gobject)
   (name string)
   (value gvalue))
 
-(define-foreign %object-get-param () nil
+(define-foreign %object-get-property () nil
   (object gobject)
   (name string)
-  (value gvalue :out))
+  (value gvalue))
 
-(define-foreign object-queue-param-changed () nil
+(define-foreign %object-notify () nil
   (object gobject)
   (name string))
 
+(define-foreign object-freeze-notify () nil
+  (object gobject))
 
-
+(define-foreign object-thaw-notify () nil
+  (object gobject))
 
 (define-foreign %object-set-qdata-full () nil
   (object gobject)
   (id quark)
   (data unsigned-long)
   (destroy-marshal pointer))
+
+
+;;;; User data
 
 (defun (setf object-data) (data object key &key (test #'eq))
   (%object-set-qdata-full
@@ -97,10 +108,18 @@
 
 
 
+;;;; Metaclass used for subclasses of gobject
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass gobject-class (ginstance-class))
 
+  (defclass direct-gobject-slot-definition (direct-virtual-slot-definition))
 
-;;;; Methods for gobject-class
+  (defclass effective-gobject-slot-definition
+    (effective-virtual-slot-definition)))
+
+(defmethod allocate-alien-storage ((class gobject-class))
+  (alien-instance-location (%gobject-new (find-type-number class))))
 
 (defmethod shared-initialize ((class gobject-class) names &rest initargs
 			      &key type-init name)
@@ -128,3 +147,52 @@
 ;   (class pointer)
 ;   (name string))
 
+
+(defmethod initialize-instance :after ((slotd direct-gobject-slot-definition)
+				       &rest initargs &key)
+  (declare (ignore initargs))
+  (unless (slot-boundp slotd 'location)
+    ;; Find parameter name from slot name
+    (with-slots (pcl::name location) slotd
+      (setf location (signal-name-to-string pcl::name)))))
+
+(defmethod direct-slot-definition-class ((class gobject-class) initargs)
+  (case (getf initargs :allocation)
+    (:param (find-class 'direct-gobject-slot-definition))
+    (t (call-next-method))))
+
+(defmethod effective-slot-definition-class ((class gobject-class) initargs)
+  (case (getf initargs :allocation)
+    (:param (find-class 'effective-gobject-slot-definition))
+    (t (call-next-method))))
+
+(defmethod compute-virtual-slot-location
+    ((class gobject-class) (slotd effective-gobject-slot-definition)
+     direct-slotds)
+  (with-slots (type) slotd
+    (let ((param-name (slot-definition-location (first direct-slotds)))
+	  (type-number (find-type-number type))
+	  (reader (get-reader-function type))
+	  (writer (get-writer-function type))
+	  (destroy (get-destroy-function type)))
+      (list
+       #'(lambda (object)
+	   (with-gc-disabled
+	     (let ((gvalue (gvalue-new type-number)))
+	       (%object-get-property object param-name gvalue)
+	       (prog1
+		   (funcall reader gvalue +gvalue-value-offset+)
+		 (gvalue-free gvalue t)))))
+       #'(lambda (value object)
+	   (with-gc-disabled
+  	     (let ((gvalue (gvalue-new type-number)))
+	       (funcall writer value gvalue +gvalue-value-offset+)
+	       (%object-set-property object param-name gvalue)
+	       (funcall destroy gvalue +gvalue-value-offset+)
+	       (gvalue-free gvalue nil)
+	       value)))))))
+
+
+(defmethod validate-superclass ((class gobject-class)
+				(super pcl::standard-class))
+  (subtypep (class-name super) 'gobject))
