@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.9 2001-05-11 15:57:57 espen Exp $
+;; $Id: gforeign.lisp,v 1.10 2001-05-31 21:52:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -54,6 +54,8 @@
 (defun find-applicable-type-method (type-spec fname &optional (error t))
   (flet ((find-superclass-method (class)
 	   (when class
+  	     (unless (class-finalized-p class)		   
+	       (finalize-inheritance class))
 	     (dolist (super (cdr (pcl::class-precedence-list class)))
 	       (return-if (find-type-method super fname)))))
 	 (find-expanded-type-method (type-spec)
@@ -321,7 +323,7 @@
     (dolist (arg args)
       (destructuring-bind (var expr type-spec style) arg
 	(let ((declaration (translate-type-spec type-spec))
-	      (deallocation (cleanup-alien type-spec expr t)))
+	      (deallocation (cleanup-alien type-spec var t)))
 	  (cond
 	   ((member style '(:out :in-out))
 	    (alien-types `(* ,declaration))
@@ -616,7 +618,6 @@
 	 ))))
 
 (deftype-method cleanup-alien string (type-spec c-string &optional weak-ref)
-  (declare (ignore type-spec))
   (when weak-ref
     (unreference-alien type-spec c-string)))
 
