@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.16 2004-11-07 01:23:38 espen Exp $
+;; $Id: gtk.lisp,v 1.17 2004-11-07 17:55:29 espen Exp $
 
 
 (in-package "GTK")
@@ -132,8 +132,8 @@
   (fill boolean)
   (padding unsigned-int))
 
-(defun box-pack (box child &key from-end expand fill (padding 0))
-  (if from-end
+(defun box-pack (box child &key end expand fill (padding 0))
+  (if end
       (box-pack-end box child expand fill padding)
     (box-pack-start box child expand fill padding)))
 
@@ -265,22 +265,58 @@
 
 
 
-;;; Combo
+;;;; Combo Box
 
-(defmethod shared-initialize ((combo combo) names &rest initargs
-			      &key popdown-strings)
-  (declare (ignore initargs))
+(defmethod shared-initialize ((combo-box combo-box) names &key model content)
+  (unless model
+    (setf 
+     (combo-box-model combo-box) 
+     (make-instance 'list-store :columns '(string)))
+    (unless (typep combo-box 'combo-box-entry)
+      (let ((cell (make-instance 'cell-renderer-text)))
+	(cell-layout-pack combo-box cell :expand t)
+	(cell-layout-add-attribute combo-box cell :text 0)))
+    (when content
+      (map 'nil #'(lambda (text)
+		    (combo-box-append-text combo-box text))
+	   content)))
+    (call-next-method))
+
+;; (defmethod shared-initialize :after ((combo-box combo-box) names &key active)
+;;   (when active
+;;     (signal-emit combo-box 'changed)))
+
+(defbinding combo-box-append-text () nil
+  (combo-box combo-box)
+  (text string))
+
+(defbinding combo-box-insert-text () nil
+  (combo-box combo-box)
+  (position int)
+  (text string))
+
+(defbinding combo-box-prepend-text () nil
+  (combo-box combo-box)
+  (text string))
+
+#+gtk2.6
+(defbinding combo-box-get-active-text () string
+  (combo-box combo-box))
+
+(defbinding combo-box-popup () nil
+  (combo-box combo-box))
+
+(defbinding combo-box-popdown () nil
+  (combo-box combo-box))
+
+
+
+;;;; Combo Box Entry
+
+(defmethod shared-initialize ((combo-box-entry combo-box-entry) names &key model)
   (call-next-method)
-  (when popdown-strings
-    (combo-set-popdown-strings combo popdown-strings)))
-			    
-(defbinding combo-set-popdown-strings () nil
-  (combo combo)
-  (strings (glist string)))
-
-(defbinding combo-disable-activate () nil
-  (combo combo))
-
+  (unless model
+    (setf (combo-box-entry-text-column combo-box-entry) 0)))
 
 
 ;;;; Dialog
@@ -518,23 +554,6 @@
   (call-next-method)
   (when group-with
     (radio-button-add-to-group button group-with)))
-
-
-;;; Option menu
-
-(defbinding %option-menu-set-menu () nil
-  (option-menu option-menu)
-  (menu widget))
-
-(defbinding %option-menu-remove-menu () nil
-  (option-menu option-menu))
-
-(defun (setf option-menu-menu) (menu option-menu)
-  (if (not menu)
-      (%option-menu-remove-menu option-menu)
-    (%option-menu-set-menu option-menu menu))
-  menu)
-    
 
 
 ;;; Item
@@ -1110,13 +1129,10 @@
 (defun menu-popup (menu button activate-time &key callback parent-menu-shell
 		   parent-menu-item)
   (if callback
-      (let ((callback-id (register-callback-function callback)))
-	(unwind-protect
-	    (%menu-popup
-	     menu parent-menu-shell parent-menu-item
-	     (callback %menu-popup-callback)
-	     callback-id button activate-time)
-	  (destroy-user-data callback-id)))
+      (with-callback-function (id callback)
+	(%menu-popup 
+	 menu parent-menu-shell parent-menu-item 
+	 (callback %menu-popup-callback) id button activate-time))
     (%menu-popup
      menu parent-menu-shell parent-menu-item nil 0 button activate-time)))
  

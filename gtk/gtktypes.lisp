@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.17 2004-11-06 21:39:58 espen Exp $
+;; $Id: gtktypes.lisp,v 1.18 2004-11-07 17:55:29 espen Exp $
 
 
 (in-package "GTK")
@@ -653,6 +653,23 @@
      :initarg :current-folder-uri
      :type string)))
 
+  ("GtkTreeView"
+   :slots
+   ((columns
+     :allocation :virtual
+     :getter "gtk_tree_view_get_columns"
+     :reader tree-view-columns 
+     :type (glist tree-view-column))))
+
+  ("GtkComboBox"
+   :slots
+   ((active-iter
+     :allocation :virtual
+     :getter "gtk_combo_box_get_active_iter"
+     :setter "gtk_combo_box_set_active_iter"
+     :accessor combo-box-active-iter 
+     :type tree-iter)))
+
      
   ;; Not needed
   ("GtkFundamentalType" :ignore t)
@@ -662,15 +679,20 @@
   ;; Deprecated widgets
   ("GtkCList" :ignore-prefix t)
   ("GtkCTree" :ignore-prefix t)
-  ("GtkList" :ignore-prefix t)
+  ("GtkList" :ignore t)
+  ("GtkListItem" :ignore t)
   ("GtkTree" :ignore t)
   ("GtkTreeItem" :ignore t)
+  ("GtkItemFactory" :ignore t)
   ("GtkText" :ignore-prefix t :except ("GtkTextDirection"))
   ("GtkPacker" :ignore-prefix t)
   ("GtkPixmap" :ignore t)
   ("GtkPreview" :ignore-prefix t)
+  ("GtkProgres" :ignore t)
   ("GtkTipsQuery" :ignore t)
   ("GtkOldEditable" :ignore t)
+  ("GtkCombo" :ignore t)
+  ("GtkOptionMenu" :ignore t)
 
   ;; What are these?
   ("GtkFileSystemModule" :ignore t)
