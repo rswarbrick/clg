@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.6 2002-03-19 17:09:15 espen Exp $
+;; $Id: gcallback.lisp,v 1.7 2002-03-24 12:52:11 espen Exp $
 
 (in-package "GLIB")
 
@@ -104,9 +104,6 @@
 
 
 ;;;; Signals
-
-(defun signal-name-to-string (name)
-  (substitute #\_ #\- (string-downcase (string name))))
 
 (defbinding signal-lookup (name itype) unsigned-int
   ((signal-name-to-string name) string)
