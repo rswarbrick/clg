@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: utils.lisp,v 1.1 2004-10-27 14:50:15 espen Exp $
+;; $Id: utils.lisp,v 1.2 2004-12-05 16:59:58 espen Exp $
 
 
 (in-package "GLIB")
@@ -53,7 +53,7 @@
 	     (ext:gc-on)))))))
 
 (defun mklist (obj)
-  (if (atom obj) (list obj) obj))
+  (if (and obj (atom obj)) (list obj) obj))
 
 (defun namep (obj)
   (and (symbolp obj) (not (member obj '(t nil)))))
