@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.3 2000-08-23 14:27:41 espen Exp $
+;; $Id: gforeign.lisp,v 1.4 2000-09-04 22:07:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -104,9 +104,10 @@
 ;; To make the compiler shut up
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-type-method-fun translate-type-spec (type-spec))
+  (define-type-method-fun size-of (type-spec))
   (define-type-method-fun translate-to-alien (type-spec expr &optional copy))
   (define-type-method-fun translate-from-alien (type-spec expr &optional alloc))
-  (define-type-method-fun cleanup-alien (type-spec expr &optional copied)))
+  (define-type-method-fun cleanup-alien (type-spec alien &optional copied)))
   
 
 ;;;; 
@@ -200,7 +201,13 @@
 
 ;;;;
 
+(defconstant +bits-per-unit+ 8
+  "Number of bits in an addressable unit (byte)")
+
+;; Sizes of fundamental C types in addressable units
+(defconstant +size-of-short+ 2)
 (defconstant +size-of-int+ 4)
+(defconstant +size-of-long+ 4)
 (defconstant +size-of-sap+ 4)
 (defconstant +size-of-float+ 4)
 (defconstant +size-of-double+ 8)
@@ -229,25 +236,6 @@
       (system-area-pointer 'sap-ref-sap)
       (single-float 'sap-ref-single)
       (double-float 'sap-ref-double))))
-
-
-(defun signed (size)
-  (if (eq size '*)
-      `(signed ,(* 8 +size-of-int+))
-    `(signed ,size)))
-
-(defun unsigned (size)
-  (if (eq size '*)
-      `(unsigned ,(* 8 +size-of-int+))
-    `(unsigned ,size)))
-
-(defun size-of (type-spec)
-  (let ((alien-type-spec (translate-type-spec type-spec)))
-    (ecase (first (mklist alien-type-spec))
-     ((signed unsigned) (/ (second alien-type-spec) 8))
-     ((system-area-pointer single-float) +size-of-sap+)
-     (single-float +size-of-float+)
-     (double-float +size-of-double+))))
 
 
 ;;;; Foreign function call interface
@@ -314,7 +302,7 @@
 (defun %define-foreign (foreign-name lisp-name lambda-list
 			return-type-spec docs args)
   (ext:collect ((alien-types) (alien-bindings) (alien-parameters)
-		(alien-values) (alien-deallocatiors))
+		(alien-values) (alien-deallocators))
     (dolist (arg args)
       (destructuring-bind (var expr type-spec style) arg
 	(let ((declaration (translate-type-spec type-spec))
@@ -333,7 +321,7 @@
 	   (alien-bindings
 	    `(,var ,declaration ,(translate-to-alien type-spec expr)))
 	   (alien-parameters var)
-	   (alien-deallocatiors deallocation))
+	   (alien-deallocators deallocation))
 	  (t
 	   (alien-types declaration)
 	   (alien-parameters (translate-to-alien type-spec expr)))))))
@@ -350,17 +338,17 @@
 	   ,(if return-type-spec
 		`(let ((result
 			,(translate-from-alien return-type-spec alien-funcall)))
-		   ,@(alien-deallocatiors)
+		   ,@(alien-deallocators)
 		   (values result ,@(alien-values)))
 	      `(progn
 		 ,alien-funcall
-		 ,@(alien-deallocatiors)
+		 ,@(alien-deallocators)
 		 (values ,@(alien-values)))))))))
 
   
 
 
-;;;; Translations for fundamental types
+;;;; Definitons and translations of fundamental types
 
 (lisp:deftype long (&optional (min '*) (max '*)) `(integer ,min ,max))
 (lisp:deftype unsigned-long (&optional (min '*) (max '*)) `(integer ,min ,max))
@@ -379,6 +367,7 @@
 (lisp:deftype invalid () nil)
 
 
+
 (deftype-method cleanup-alien t (type-spec alien &optional copied)
   (declare (ignore type-spec alien copied))
   nil)
@@ -395,7 +384,11 @@
 
 (deftype-method translate-type-spec fixnum (type-spec)
   (declare (ignore type-spec))
-  (signed '*))
+  (translate-type-spec 'signed))
+
+(deftype-method size-of fixnum (type-spec)
+  (declare (ignore type-spec))
+  (size-of 'signed))
 
 (deftype-method translate-to-alien fixnum (type-spec number &optional copy)
   (declare (ignore type-spec copy))
@@ -408,53 +401,101 @@
 
 (deftype-method translate-type-spec long (type-spec)
   (declare (ignore type-spec))
-  (signed '*))
+  `(signed ,(* +bits-per-unit+ +size-of-long+)))
+
+(deftype-method size-of long (type-spec)
+  (declare (ignore type-spec))
+  +size-of-long+)
 
 
 (deftype-method translate-type-spec unsigned-long (type-spec)
   (declare (ignore type-spec))
-  (unsigned '*))
+  `(unsigned ,(* +bits-per-unit+ +size-of-long+)))
+
+(deftype-method size-of unsigned-long (type-spec)
+  (declare (ignore type-spec))
+  +size-of-long+)
+
+
+(deftype-method translate-type-spec int (type-spec)
+  (declare (ignore type-spec))
+  `(signed ,(* +bits-per-unit+ +size-of-int+)))
+
+(deftype-method size-of int (type-spec)
+  (declare (ignore type-spec))
+  +size-of-int+)
+
+
+(deftype-method translate-type-spec unsigned-int (type-spec)
+  (declare (ignore type-spec))
+  `(signed ,(* +bits-per-unit+ +size-of-int+)))
+
+(deftype-method size-of unsigned-int (type-spec)
+  (declare (ignore type-spec))
+  +size-of-int+)
 
 
 (deftype-method translate-type-spec short (type-spec)
   (declare (ignore type-spec))
-  '(signed 16))
+  `(signed ,(* +bits-per-unit+ +size-of-short+)))
+
+(deftype-method size-of short (type-spec)
+  (declare (ignore type-spec))
+  +size-of-short+)
 
 
 (deftype-method translate-type-spec unsigned-short (type-spec)
   (declare (ignore type-spec))
-  '(unsigned 16))
+  `(unsigned ,(* +bits-per-unit+ +size-of-short+)))
+
+(deftype-method size-of unsigned-short (type-spec)
+  (declare (ignore type-spec))
+  +size-of-short+)
 
 
 (deftype-method translate-type-spec signed-byte (type-spec)
-  (destructuring-bind (name &optional (size '*))
-      (type-expand-to 'signed-byte type-spec)
-    (declare (ignore name))
-    (signed size)))
+  (let ((size (second (mklist (type-expand-to 'signed-byte type-spec)))))
+    `(signed
+      ,(cond
+	((member size '(nil *)) (* +bits-per-unit+ +size-of-int+))
+	(t size)))))
+
+(deftype-method size-of signed-byte (type-spec)
+  (let ((size (second (mklist (type-expand-to 'signed-byte type-spec)))))
+    (cond
+     ((member size '(nil *)) +size-of-int+)
+     (t (/ size +bits-per-unit+)))))
 
 (deftype-method translate-to-alien signed-byte (type-spec number &optional copy)
   (declare (ignore type-spec copy))
   number)
 
-(deftype-method
-    translate-from-alien signed-byte (type-spec number &optional alloc)
+(deftype-method translate-from-alien signed-byte
+    (type-spec number &optional alloc)
   (declare (ignore type-spec alloc))
   number)
 
 
 (deftype-method translate-type-spec unsigned-byte (type-spec)
-  (destructuring-bind (name &optional (size '*))
-      (type-expand-to 'unsigned-byte type-spec)
-    (declare (ignore name))
-    (unsigned size)))
+  (let ((size (second (mklist (type-expand-to 'unsigned-byte type-spec)))))
+    `(signed
+      ,(cond
+	((member size '(nil *)) (* +bits-per-unit+ +size-of-int+))
+	(t size)))))
 
-(deftype-method
-    translate-to-alien unsigned-byte (type-spec number &optional copy)
+(deftype-method size-of unsigned-byte (type-spec)
+  (let ((size (second (mklist (type-expand-to 'unsigned-byte type-spec)))))
+    (cond
+     ((member size '(nil *)) +size-of-int+)
+     (t (/ size +bits-per-unit+)))))
+
+(deftype-method translate-to-alien unsigned-byte
+    (type-spec number &optional copy)
   (declare (ignore type-spec copy))
   number)
 
-(deftype-method
-    translate-from-alien unsigned-byte (type-spec number &optional alloc)
+(deftype-method translate-from-alien unsigned-byte
+    (type-spec number &optional alloc)
   (declare (ignore type-spec alloc))
   number)
 
@@ -463,13 +504,17 @@
   (declare (ignore type-spec))
   'single-float)
 
-(deftype-method
-    translate-to-alien single-float (type-spec number &optional copy)
+(deftype-method size-of single-float (type-spec)
+  (declare (ignore type-spec))
+  +size-of-float+)
+
+(deftype-method translate-to-alien single-float
+    (type-spec number &optional copy)
   (declare (ignore type-spec copy))
   number)
 
-(deftype-method
-    translate-from-alien single-float (type-spec number &optional alloc)
+(deftype-method translate-from-alien single-float
+    (type-spec number &optional alloc)
   (declare (ignore type-spec alloc))
   number)
 
@@ -478,20 +523,28 @@
   (declare (ignore type-spec))
   'double-float)
 
-(deftype-method
-    translate-to-alien double-float (type-spec number &optional copy)
+(deftype-method size-of double-float (type-spec)
+  (declare (ignore type-spec))
+  +size-of-double+)
+
+(deftype-method translate-to-alien double-float
+    (type-spec number &optional copy)
   (declare (ignore type-spec copy))
   number)
 
-(deftype-method
-    translate-from-alien double-float (type-spec number &optional alloc)
+(deftype-method translate-from-alien double-float
+    (type-spec number &optional alloc)
   (declare (ignore type-spec alloc))
   number)
 
 
 (deftype-method translate-type-spec base-char (type-spec)
   (declare (ignore type-spec))
-  '(unsigned 8))
+  '(unsigned +bits-per-unit+))
+
+(deftype-method size-of base-char (type-spec)
+  (declare (ignore type-spec))
+  1)
 
 (deftype-method translate-to-alien base-char (type-spec char &optional copy)
   (declare (ignore type-spec copy))
@@ -506,6 +559,10 @@
   (declare (ignore type-spec))
   'system-area-pointer)
 
+(deftype-method size-of string (type-spec)
+  (declare (ignore type-spec))
+  +size-of-sap+)
+
 (deftype-method translate-to-alien string (type-spec string &optional copy)
   (declare (ignore type-spec))
   (if copy
@@ -515,8 +572,8 @@
 	  (1+ (length string))))
     `(make-pointer (1+ (kernel:get-lisp-obj-address ,string)))))
 
-(deftype-method
-    translate-from-alien string (type-spec sap &optional (alloc :copy))
+(deftype-method translate-from-alien string
+    (type-spec sap &optional (alloc :copy))
   (declare (ignore type-spec))
   `(let ((sap ,sap))
      (unless (null-pointer-p sap)
@@ -533,12 +590,12 @@
 
 
 (deftype-method translate-type-spec boolean (type-spec)
-  (if (atom type-spec)
-      (unsigned '*)
-    (destructuring-bind (name &optional (size '*))
-	(type-expand-to 'boolean type-spec)
-      (declare (ignore name))
-      (unsigned size))))
+  (translate-type-spec
+   (cons 'unsigned (cdr (mklist (type-expand-to 'boolean type-spec))))))
+
+(deftype-method size-of boolean (type-spec)
+  (size-of
+   (cons 'unsigned (cdr (mklist (type-expand-to 'boolean type-spec))))))
 
 (deftype-method translate-to-alien boolean (type-spec boolean &optional copy)
   (declare (ignore type-spec copy))
@@ -549,16 +606,16 @@
   `(not (zerop ,int)))
 
 
-(deftype-method translate-type-spec or (union-type-spec)
-  (destructuring-bind (name &rest type-specs)
-      (type-expand-to 'or union-type-spec)
-    (declare (ignore name))
-    (let ((type-spec-translations
-	   (map 'list #'translate-type-spec type-specs)))
-      (unless (apply #'all-equal type-spec-translations)
-	(error
-	 "No common alien type specifier for union type: ~A" union-type-spec))
-      (first type-spec-translations))))
+(deftype-method translate-type-spec or (union-type)
+  (let* ((member-types (cdr (type-expand-to 'or union-type)))
+	 (alien-type (translate-type-spec (first member-types))))
+    (dolist (type (cdr member-types))
+      (unless (eq alien-type (translate-type-spec type))
+	(error "No common alien type specifier for union type: ~A" union-type)))
+    alien-type))
+
+(deftype-method size-of or (union-type)
+  (size-of (first (cdr (type-expand-to 'or union-type)))))
 
 (deftype-method translate-to-alien or (union-type-spec expr &optional copy)
   (destructuring-bind (name &rest type-specs)
@@ -573,18 +630,21 @@
 	    type-specs)))))
 
 
-
 (deftype-method translate-type-spec system-area-pointer (type-spec)
   (declare (ignore type-spec))
   'system-area-pointer)
 
-(deftype-method
-    translate-to-alien system-area-pointer (type-spec sap &optional copy)
+(deftype-method size-of system-area-pointer (type-spec)
+  (declare (ignore type-spec))
+  +size-of-sap+)
+
+(deftype-method translate-to-alien system-area-pointer
+    (type-spec sap &optional copy)
   (declare (ignore type-spec copy))
   sap)
 
-(deftype-method
-  translate-from-alien system-area-pointer (type-spec sap &optional alloc)
+(deftype-method translate-from-alien system-area-pointer
+    (type-spec sap &optional alloc)
   (declare (ignore type-spec alloc))
   sap)
 
@@ -594,7 +654,7 @@
   'system-area-pointer)
 
 (deftype-method translate-to-alien null (type-spec expr &optional copy)
-  (declare (ignore type-spec copy))
+  (declare (ignore type-spec expr copy))
   `(make-pointer 0))
 
 
@@ -606,6 +666,9 @@
 (deftype-method transalte-type-spec static (type-spec)
   (translate-type-spec (second type-spec)))
   
+(deftype-method size-of static (type-spec)
+  (size-of type-spec))
+
 (deftype-method translate-to-alien static (type-spec expr &optional copy)
   (declare (ignore copy))
   (translate-to-alien (second type-spec) expr nil))
@@ -640,22 +703,30 @@
 	 (rest args)
        args))))
 
+
 (lisp:deftype enum (&rest args)
   `(member ,@(map-mappings args :symbols)))
 
 (deftype-method translate-type-spec enum (type-spec)
-  (destructuring-bind (name &rest args) (type-expand-to 'enum type-spec)
-    (declare (ignore name))
+  (let ((args (cdr (type-expand-to 'enum type-spec))))
     (if (integerp (first args))
-	`(signed ,(first args))
-      '(signed 32))))
+	(translate-type-spec `(signed ,(first args)))
+      (translate-type-spec 'signed))))
+
+(deftype-method size-of enum (type-spec)
+  (let ((args (cdr (type-expand-to 'enum type-spec))))
+    (if (integerp (first args))
+	(size-of `(signed ,(first args)))
+      (size-of 'signed))))
 
 (deftype-method translate-to-alien enum (type-spec expr &optional copy)
   (declare (ignore copy))
-  (destructuring-bind (name &rest args) (type-expand-to 'enum type-spec)
-    (declare (ignore name))
-    `(ecase ,expr
-       ,@(map-mappings args :enum-int))))
+  (let ((args (cdr (type-expand-to 'enum type-spec))))
+    `(let ((expr ,expr))
+       (if (integerp expr)
+	   expr
+	 (ecase expr
+	   ,@(map-mappings args :enum-int))))))
 
 (deftype-method translate-from-alien enum (type-spec expr &optional alloc)
   (declare (ignore alloc))
@@ -673,11 +744,16 @@
      list)))
 
 (deftype-method translate-type-spec flags (type-spec)
-  (destructuring-bind (name &rest args) (type-expand-to 'flags type-spec)
-    (declare (ignore name))
+  (let ((args (cdr (type-expand-to 'flags type-spec))))
     (if (integerp (first args))
-	`(signed ,(first args))
-      '(signed 32))))
+	(translate-type-spec `(signed ,(first args)))
+      (translate-type-spec 'signed))))
+
+(deftype-method size-of flags (type-spec)
+  (let ((args (cdr (type-expand-to 'flags type-spec))))
+    (if (integerp (first args))
+	(size-of `(signed ,(first args)))
+      (size-of 'signed))))
 
 (deftype-method translate-to-alien flags (type-spec expr &optional copy)
   (declare (ignore copy))
