@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.24 2004-12-21 00:04:48 espen Exp $
+;; $Id: gobject.lisp,v 1.25 2004-12-28 20:29:05 espen Exp $
 
 (in-package "GLIB")
 
@@ -103,7 +103,7 @@
        (let ((reader nil))
 	 #'(lambda (object)
 	     (unless reader
-	       (setq reader (reader-function (type-from-number type-number))))
+	       (setq reader (reader-function type))) ;(type-from-number type-number))))
 	     (let ((gvalue (gvalue-new type-number)))
 	       (%object-get-property object pname gvalue)
 	       (unwind-protect
@@ -116,7 +116,7 @@
        (let ((writer nil))
 	 #'(lambda (value object)
 	     (unless writer
-	       (setq writer (writer-function (type-from-number type-number))))
+	       (setq writer (writer-function type))) ;(type-from-number type-number))))
 	     (let ((gvalue (gvalue-new type-number)))
 	       (funcall writer value gvalue +gvalue-value-offset+)
 	       (%object-set-property object pname gvalue)
@@ -314,10 +314,8 @@
       `(,slot-name
 	:allocation :property :pname ,name
 
-	;; temporary hack
 	,@(cond
-	   ((find :unbound args) (list :unbound (getf args :unbound)))
-	   ((type-is-p slot-type 'gobject) (list :unbound nil)))
+	   ((find :unbound args) (list :unbound (getf args :unbound))))
 	
 	;; accessors
 	,@(cond
@@ -380,3 +378,24 @@
 
 
 (register-derivable-type 'gobject "GObject" 'expand-gobject-type)
+
+
+;;; Pseudo type for gobject instances which have their reference count
+;;; increased by the returning function
+
+(defmethod alien-type ((type (eql 'referenced)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'gobject))
+
+(defmethod from-alien-form (form (type (eql 'referenced)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (type) args
+    (if (subtypep type 'gobject)
+	(let ((instance (make-symbol "INSTANCE")))
+	  `(let ((,instance ,(from-alien-form form type)))
+	     (when ,instance
+	       (%object-unref (proxy-location ,instance)))
+	     ,instance))
+      (error "~A is not a subclass of GOBJECT" type))))
+
+(export 'referenced)
