@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.12 2005-01-03 16:35:05 espen Exp $
+;; $Id: ffi.lisp,v 1.13 2005-02-03 23:09:03 espen Exp $
 
 (in-package "GLIB")
 
@@ -113,10 +113,10 @@
        c-name lisp-name (or supplied-lambda-list (nreverse lambda-list))
        return-type (reverse docs) (reverse args)))))
 
-#+cmu
+#+(or cmu sbcl)
 (defun %defbinding (foreign-name lisp-name lambda-list return-type docs args)
-  (ext:collect ((alien-types) (alien-bindings) (alien-parameters) 
-		(return-values) (cleanup-forms))
+  (collect ((alien-types) (alien-bindings) (alien-parameters) 
+	    (return-values) (cleanup-forms))
     (dolist (arg args)
       (destructuring-bind (var expr type style) arg
 	(let ((declaration (alien-type type))
@@ -151,7 +151,8 @@
 	   (alien-funcall `(alien-funcall ,alien-name ,@(alien-parameters))))
       `(defun ,lisp-name ,lambda-list
 	 ,@docs
-	 (declare (optimize (ext:inhibit-warnings 3)))
+	 #+cmu(declare (optimize (inhibit-warnings 3)))
+	 #+sbcl(declare (muffle-conditions compiler-note))
 	 (with-alien ((,alien-name
 		       (function
 			,(alien-type return-type)
@@ -173,14 +174,15 @@
 
 ;;; Creates bindings at runtime
 (defun mkbinding (name return-type &rest arg-types)
-  (declare (optimize (ext:inhibit-warnings 3)))
+  #+cmu(declare (optimize (inhibit-warnings 3)))
+  #+sbcl(declare (muffle-conditions compiler-note))
   (let* ((ftype 
 	  `(function ,@(mapcar #'alien-type (cons return-type arg-types))))
 	 (alien
-	  (alien::%heap-alien
-	   (alien::make-heap-alien-info
-	    :type (alien::parse-alien-type ftype)
-	    :sap-form (system:foreign-symbol-address name :flavor :code))))
+	  (%heap-alien
+	   (make-heap-alien-info
+	    :type (parse-alien-type ftype #+sbcl nil)
+	    :sap-form (foreign-symbol-address name))))
 	 (translate-arguments (mapcar #'to-alien-function arg-types))
 	 (translate-return-value (from-alien-function return-type))
 	 (cleanup-arguments (mapcar #'cleanup-function arg-types)))
@@ -189,25 +191,30 @@
 	(map-into args #'funcall translate-arguments args)
 	(prog1
 	    (funcall translate-return-value 
-	     (apply #'alien:alien-funcall alien args))
+	     (apply #'alien-funcall alien args))
 	  (mapc #'funcall cleanup-arguments args)))))
 
 
 (defmacro defcallback (name (return-type &rest args) &body body)
-  `(def-callback ,name 
-       (,(alien-type return-type) 
-	,@(mapcar #'(lambda (arg)
-		      (destructuring-bind (name type) arg
-			`(,name ,(alien-type type))))
-		  args))
-    ,(to-alien-form 
-      `(let (,@(mapcar #'(lambda (arg)
-			   (destructuring-bind (name type) arg
-			     `(,name ,(from-alien-form name type))))
-		       args))
-	,@body)
-      return-type)))
+  (let ((def-callback #+cmu'alien:def-callback 
+	              #+sbcl'sb-alien:define-alien-function))
+    `(,def-callback ,name 
+         (,(alien-type return-type) 
+	  ,@(mapcar #'(lambda (arg)
+			(destructuring-bind (name type) arg
+			  `(,name ,(alien-type type))))
+		    args))
+       ,(to-alien-form 
+	 `(let (,@(mapcar #'(lambda (arg)
+			      (destructuring-bind (name type) arg
+				`(,name ,(from-alien-form name type))))
+			  args))
+	    ,@body)
+	 return-type))))
 
+#+sbcl
+(defun callback (af)
+  (sb-alien:alien-function-sap af))
 
 
 ;;;; Definitons and translations of fundamental types
@@ -329,10 +336,10 @@
   (declare (ignore type))
   (destructuring-bind (&optional (size '*)) args
     (ecase size
-      (#.+bits-of-byte+ '(signed-byte 8))
-      (#.+bits-of-short+ 'c-call:short)
-      ((* #.+bits-of-int+) 'c-call:int)
-      (#.+bits-of-long+ 'c-call:long))))
+      (#.+bits-of-byte+ #+cmu'(alien:signed 8) #+sbcl'(sb-alien:signed 8))
+      (#.+bits-of-short+ #+cmu 'c-call:short #+sbcl 'sb-alien:short)
+      ((* #.+bits-of-int+) #+cmu 'c-call:int #+sbcl 'sb-alien:int)
+      (#.+bits-of-long+ #+cmu 'c-call:long #+sbcl 'sb-alien:long))))
 
 (defmethod size-of ((type (eql 'signed-byte)) &rest args)
   (declare (ignore type))
@@ -378,10 +385,13 @@
 (defmethod alien-type ((type (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (&optional (size '*)) args
     (ecase size
-      (#.+bits-of-byte+ '(unsigned #|-byte|# 8))
-      (#.+bits-of-short+ 'c-call:unsigned-short)
-      ((* #.+bits-of-int+) 'c-call:unsigned-int)
-      (#.+bits-of-long+ 'c-call:unsigned-long))))
+      (#.+bits-of-byte+ #+cmu'(alien:unsigned 8) #+sbcl'(sb-alien:unsigned 8))
+      (#.+bits-of-short+ #+cmu 'c-call:unsigned-short 
+			 #+sbcl 'sb-alien:unsigned-short)
+      ((* #.+bits-of-int+) #+cmu 'c-call:unsigned-int 
+                           #+sbcl 'sb-alien:unsigned-int)
+      (#.+bits-of-long+ #+cmu 'c-call:unsigned-long 
+			#+sbcl 'sb-alien:unsigned-long))))
 
 (defmethod size-of ((type (eql 'unsigned-byte)) &rest args)
   (apply #'size-of 'signed args))
@@ -443,7 +453,7 @@
 
 (defmethod alien-type ((type (eql 'single-float)) &rest args)
   (declare (ignore type args))
-  'alien:single-float)
+  #+cmu 'alien:single-float #+sbcl 'sb-alien:single-float)
 
 (defmethod size-of ((type (eql 'single-float)) &rest args)
   (declare (ignore type args))
@@ -462,7 +472,7 @@
 
 (defmethod alien-type ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
-  'alien:double-float)
+  #+cmu 'alien:double-float #+sbcl 'sb-alien:double-float)
 
 (defmethod size-of ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
@@ -481,7 +491,7 @@
 
 (defmethod alien-type ((type (eql 'base-char)) &rest args)
   (declare (ignore type args))
-  'c-call:char)
+  #+cmu 'c-call:char #+sbcl 'sb-alien:char)
 
 (defmethod size-of ((type (eql 'base-char)) &rest args)
   (declare (ignore type args))
@@ -511,14 +521,14 @@
   `(let ((string ,string))
      ;; Always copy strings to prevent seg fault due to GC
      (copy-memory
-      (make-pointer (1+ (kernel:get-lisp-obj-address string)))
+      (vector-sap (coerce string 'simple-base-string))
       (1+ (length string)))))
   
 (defmethod to-alien-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (string)
       (copy-memory
-       (make-pointer (1+ (kernel:get-lisp-obj-address string)))
+       (vector-sap (coerce string 'simple-base-string))
        (1+ (length string)))))
 
 (defmethod from-alien-form (string (type (eql 'string)) &rest args)
@@ -526,7 +536,7 @@
   `(let ((string ,string))
     (unless (null-pointer-p string)
       (prog1
-	  (c-call::%naturalize-c-string string)
+	  (%naturalize-c-string string)
 	(deallocate-memory string)))))
 
 (defmethod from-alien-function ((type (eql 'string)) &rest args)
@@ -534,7 +544,7 @@
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(prog1
-	    (c-call::%naturalize-c-string string)
+	    (%naturalize-c-string string)
 	  (deallocate-memory string)))))
 
 (defmethod cleanup-form (string (type (eql 'string)) &rest args)
@@ -553,13 +563,14 @@
   (declare (ignore type args))
   `(let ((string ,string))
     (unless (null-pointer-p string)
-      (c-call::%naturalize-c-string string))))
+      (%naturalize-c-string string))))
+
 
 (defmethod copy-from-alien-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (string)
       (unless (null-pointer-p string)
-	(c-call::%naturalize-c-string string))))
+	(%naturalize-c-string string))))
 
 (defmethod writer-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
@@ -567,14 +578,14 @@
       (assert (null-pointer-p (sap-ref-sap location offset)))
       (setf (sap-ref-sap location offset)
        (copy-memory
-	(make-pointer (1+ (kernel:get-lisp-obj-address string)))
+	(vector-sap (coerce string 'simple-base-string))
 	(1+ (length string))))))
 
 (defmethod reader-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (location &optional (offset 0))
       (unless (null-pointer-p (sap-ref-sap location offset))
-	(c-call::%naturalize-c-string (sap-ref-sap location offset)))))
+	(%naturalize-c-string (sap-ref-sap location offset)))))
 
 (defmethod destroy-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
@@ -756,7 +767,7 @@
 
 (defmethod alien-type ((type (eql 'nil)) &rest args)
   (declare (ignore type args))
-  'c-call:void)
+  'void)
 
 (defmethod from-alien-function ((type (eql 'nil)) &rest args)
   (declare (ignore type args))
@@ -796,5 +807,3 @@
 (defmethod writer-function ((type (eql 'copy-of)) &rest args)
   (declare (ignore type))
   (writer-function (first args)))
-
-(export 'copy-of)

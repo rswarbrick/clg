@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkaction.lisp,v 1.2 2004-12-17 00:13:33 espen Exp $
+;; $Id: gtkaction.lisp,v 1.3 2005-02-03 23:09:09 espen Exp $
 
 
 (in-package "GTK")
@@ -81,7 +81,7 @@
 
 (defmethod initialize-instance ((action radio-action) &key group value)
   (call-next-method)
-  (setf (slot-value action '%value) (system:sap-int (proxy-location action)))
+  (setf (slot-value action '%value) (sap-int (proxy-location action)))
   (setf (object-data action 'radio-action-value) value)
   (when group
     (radio-action-add-to-group action group)))

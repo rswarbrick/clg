@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.24 2005-01-30 14:26:41 espen Exp $
+;; $Id: glib.lisp,v 1.25 2005-02-03 23:09:04 espen Exp $
 
 
 (in-package "GLIB")
@@ -38,7 +38,9 @@
 ;;   (declare (ignore address)))
 
 (defun copy-memory (from length &optional (to (allocate-memory length)))
-  (kernel:system-area-copy from 0 to 0 (* 8 length))
+  (;#+cmu kernel:system-area-copy 
+   ;#+sbcl sb-impl::system-area-copy 
+   system-area-copy from 0 to 0 (* 8 length))
   to)
 
 
@@ -305,7 +307,7 @@
   (destructuring-bind (element-type) args
     `(map-glist 'list #'identity ,gslist ',element-type)))
 
-(defmethod from-alien-function ((type (eql 'gslist)) &rest args)
+(defmethod copy-from-alien-function ((type (eql 'gslist)) &rest args)
   (declare (ignore type))
   (destructuring-bind (element-type) args
     #'(lambda (gslist)

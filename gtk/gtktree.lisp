@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.5 2005-01-06 21:50:11 espen Exp $
+;; $Id: gtktree.lisp,v 1.6 2005-02-03 23:09:09 espen Exp $
 
 
 (in-package "GTK")
@@ -61,7 +61,7 @@
   (cell cell-renderer)
   ((callback %cell-layout-data-func) pointer)
   ((register-callback-function function) unsigned-int)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defbinding cell-layout-clear-attributes () nil
   (cell-layout cell-layout)
@@ -337,7 +337,7 @@
   (iter tree-iter))
 
 (defbinding tree-model-iter-nth-child
-    (tree-model parent &optional (iter (make-instance 'tree-iter))) boolean
+    (tree-model parent n &optional (iter (make-instance 'tree-iter))) boolean
   (tree-model tree-model)
   (iter tree-iter :return)
   (parent (or null tree-iter))
@@ -466,7 +466,7 @@
   (selection tree-selection)
   ((callback %tree-selection-func) pointer)
   ((register-callback-function function) unsigned-int)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defbinding tree-selection-get-selected 
     (selection &optional (iter (make-instance 'tree-iter))) boolean
@@ -589,7 +589,7 @@
   (parent (or null tree-iter))
   (sibling (or null tree-iter)))
 
-(defun tree-store-insert-after 
+(defun tree-store-insert-before 
     (store parent sibling &optional data (iter (make-instance 'tree-iter)))
   (%tree-store-insert-before store iter parent sibling)
   (when data (%tree-model-set store iter data))
@@ -685,7 +685,7 @@
   (tree-view tree-view)
   (tree-view-column tree-view-column))
 
-(defbinding tree-view-insert-column (view columnd position) int
+(defbinding tree-view-insert-column (view column position) int
   (view tree-view)
   (column tree-view-column)
   ((if (eq position :end) -1 position) int))

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.14 2005-01-12 13:31:57 espen Exp $
+;; $Id: gparam.lisp,v 1.15 2005-02-03 23:09:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -57,7 +57,7 @@
     (deallocate-memory gvalue)))
 
 (defun gvalue-type (gvalue)
-  (type-from-number (system:sap-ref-32 gvalue 0)))
+  (type-from-number (sap-ref-32 gvalue 0)))
 
 (defun gvalue-get (gvalue)
   (funcall (reader-function (gvalue-type gvalue))
@@ -96,8 +96,7 @@
   (defclass param-spec-class (ginstance-class)
     ())
 
-  (defmethod validate-superclass 
-      ((class param-spec-class) (super pcl::standard-class))
+  (defmethod validate-superclass  ((class param-spec-class) (super standard-class))
     t ;(subtypep (class-name super) 'param)
 ))
 

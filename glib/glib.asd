@@ -5,7 +5,11 @@
 (defpackage "GLIB-SYSTEM"
   (:use "COMMON-LISP" "ASDF" "PKG-CONFIG"))
 
-(ext:unlock-all-packages)
+#+cmu(ext:unlock-all-packages)
+#+sbcl
+(progn
+  (sb-ext:unlock-package "COMMON-LISP")
+  (sb-ext:unlock-package "SB-PCL"))
 
 ;;; Better put this in ~/.cmucl-init.lisp or some other file read at startup
 ;; (setf
@@ -22,28 +26,23 @@
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")
-		 (:file "pcl")
-		 ;; It is necessary to load this before libglib-2.0.so,
-		 ;; otherwise our implementation of g_logv won't be
-		 ;; used by the library
-		 (:unix-dso "alien"
-		  :components ((:c-source-file "callback"
-				:definitions ("CMUCL")
-				:include-paths (#.*cmucl-include-path*)
-				:cflags #.(pkg-cflags "glib-2.0"))
-			       (:c-source-file "gobject" 
-				:cflags #.(pkg-cflags "glib-2.0"))))
+		 #+cmu(:file "pcl")
 		 (:library "libglib-2.0" 
-			    :libdir #.(pkg-variable "glib-2.0" "libdir")
-			    :depends-on ("alien"))
+			    :libdir #.(pkg-variable "glib-2.0" "libdir"))
 		 (:library "libgobject-2.0" 
 			    :libdir #.(pkg-variable "glib-2.0" "libdir")
 			    :depends-on ("libglib-2.0"))
+		 (:unix-dso "alien"
+		  :components ((:c-source-file "callback"
+				:cflags #.(pkg-cflags "glib-2.0"))
+			       (:c-source-file "gobject" 
+				:cflags #.(pkg-cflags "glib-2.0")))
+		  :depends-on ("libgobject-2.0"))
 		 (:file "utils" :depends-on ("defpackage"))
 		 (:file "ffi" :depends-on ("utils"))
 		 (:file "glib" :depends-on ("ffi" "libglib-2.0"))
-		 (:file "proxy" :depends-on ("pcl" "glib"))
-		 (:file "gtype" :depends-on ("proxy" "libgobject-2.0"))
+		 (:file "proxy" :depends-on (#+cmu"pcl" "glib"))
+		 (:file "gtype" :depends-on ("proxy" "alien" "libgobject-2.0"))
 		 (:file "gboxed" :depends-on ("gtype"))
 		 (:file "genums" :depends-on ("gtype"))
 		 (:file "gparam" :depends-on ("genums"))

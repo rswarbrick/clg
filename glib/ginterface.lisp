@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.6 2005-02-01 15:24:52 espen Exp $
+;; $Id: ginterface.lisp,v 1.7 2005-02-03 23:09:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -65,8 +65,7 @@
   (call-next-method))
 
 
-(defmethod validate-superclass
-    ((class ginterface-class) (super pcl::standard-class))
+(defmethod validate-superclass ((class ginterface-class) (super standard-class))
   (subtypep (class-name super) 'ginterface))
 
 

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.24 2005-02-01 15:24:52 espen Exp $
+;; $Id: gtype.lisp,v 1.25 2005-02-03 23:09:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -56,13 +56,13 @@
       (type-from-number type-number)))
 
 (defmethod writer-function ((type (eql 'gtype)) &rest args)
-  (declare (ignore type))
+  (declare (ignore type args))
   (let ((writer (writer-function 'type-number)))
     #'(lambda (gtype location &optional (offset 0))
 	(funcall writer (find-type-number gtype t) location offset))))
 
 (defmethod reader-function ((type (eql 'gtype)) &rest args)
-  (declare (ignore type))
+  (declare (ignore type args))
   (let ((reader (reader-function 'type-number)))
     #'(lambda (location &optional (offset 0))
 	(type-from-number (funcall reader location offset)))))
@@ -131,7 +131,7 @@
        (or
 	type-number
 	(and error (error "Type not registered: ~A" type)))))
-    (pcl::class (find-type-number (class-name type) error))))
+    (class (find-type-number (class-name type) error))))
  
 (defun type-from-number (type-number &optional error)
   (multiple-value-bind (type found)
@@ -160,12 +160,12 @@
    (mklist init)))
 
 (defun %init-types-in-library (pathname prefix ignore)
-  (let ((process (ext:run-program
-		  "nm" (list "-D" (namestring (truename pathname)))
+  (let ((process (run-program
+		  "/usr/bin/nm" (list "--defined-only" "-D" (namestring (truename pathname)))
 		  :output :stream :wait nil))
 	(fnames ()))
     (labels ((read-symbols ()
-	       (let ((line (read-line (ext:process-output process) nil)))
+	       (let ((line (read-line (process-output process) nil)))
 		 (when line
 		   (let ((symbol (subseq line 11)))
 		     (when (and
@@ -176,7 +176,7 @@
 		       (push symbol fnames)))
 		   (read-symbols)))))
       (read-symbols)
-      (ext:process-close process)
+      (process-close process)
       `(init-type ',fnames))))
 
 (defmacro init-types-in-library (filename &key (prefix "") ignore)

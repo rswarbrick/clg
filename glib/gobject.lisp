@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.30 2005-02-01 15:24:52 espen Exp $
+;; $Id: gobject.lisp,v 1.31 2005-02-03 23:09:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -26,8 +26,7 @@
   (defclass gobject-class (ginstance-class)
     ())
 
-  (defmethod validate-superclass ((class gobject-class)
-				(super pcl::standard-class))
+  (defmethod validate-superclass ((class gobject-class) (super standard-class))
 ;  (subtypep (class-name super) 'gobject)
     t))
 
@@ -109,10 +108,8 @@
     (when (and (not (slot-boundp slotd 'getter)) (slot-readable-p slotd))
       (setf 
        (slot-value slotd 'getter)
-       (let ((reader nil))
+       (let ((reader (reader-function type)))
 	 #'(lambda (object)
-	     (unless reader
-	       (setq reader (reader-function type))) ;(type-from-number type-number))))
 	     (let ((gvalue (gvalue-new type-number)))
 	       (%object-get-property object pname gvalue)
 	       (unwind-protect
@@ -122,10 +119,8 @@
     (when (and (not (slot-boundp slotd 'setter)) (slot-writable-p slotd))
       (setf 
        (slot-value slotd 'setter)
-       (let ((writer nil))
+       (let ((writer (writer-function type)))
 	 #'(lambda (value object)
-	     (unless writer
-	       (setq writer (writer-function type))) ;(type-from-number type-number))))
 	     (let ((gvalue (gvalue-new type-number)))
 	       (funcall writer value gvalue +gvalue-value-offset+)
 	       (%object-set-property object pname gvalue)
@@ -277,9 +272,14 @@
   (data unsigned-long)
   (destroy-marshal pointer))
 
+(defcallback user-data-destroy-func (nil (id unsigned-int))
+  (destroy-user-data id))
+
+(export 'user-data-destroy-func)
+
 (defun (setf user-data) (data object key)
   (%object-set-qdata-full object (quark-intern key)
-   (register-user-data data) (callback %destroy-user-data))
+   (register-user-data data) (callback user-data-destroy-func))
   data)
 
 ;; deprecated

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.18 2005-01-30 14:23:20 espen Exp $
+;; $Id: gcallback.lisp,v 1.19 2005-02-03 23:09:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -27,9 +27,6 @@
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
   (register-user-data function))
-
-(defcallback %destroy-user-data (nil (id unsigned-int))
-  (destroy-user-data id))
 
 ;; Callback marshal for regular signal handlers
 (defcallback closure-marshal (nil
@@ -92,7 +89,7 @@
   (interval unsigned-int)
   ((callback source-callback-marshal) pointer)
   ((register-callback-function function) unsigned-long)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defun timeout-remove (timeout)
   (source-remove timeout))
@@ -102,7 +99,7 @@
   (priority int)
   ((callback source-callback-marshal) pointer)
   ((register-callback-function function) unsigned-long)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defun idle-remove (idle)
   (source-remove idle))
@@ -203,7 +200,7 @@
   (detail quark)
   ((callback signal-emission-hook) pointer)
   ((register-callback-function function) unsigned-int)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defbinding signal-remove-emission-hook (type signal hook-id) nil
   ((ensure-signal-id-from-type signal type) unsigned-int)
@@ -215,7 +212,7 @@
   (instance ginstance)
   ((ensure-signal-id signal-id instance) unsigned-int)
   ((or detail 0) quark)
-  (may-be-blocked boolean))
+  (blocked boolean))
     
 (defbinding %signal-connect-closure-by-id () unsigned-int
   (instance ginstance)
@@ -252,7 +249,7 @@
     (values
      (callback-closure-new 
       callback-id (callback closure-marshal) 
-      (callback %destroy-user-data))
+      (callback user-data-destroy-func))
      callback-id)))
 
 (defmethod create-callback-function ((gobject gobject) function arg1)
@@ -346,14 +343,13 @@ once."
   (apply #'signal-emit-with-detail object signal 0 args))
 
 
-
 ;;; Message logging
 
-;; TODO: define and signal conditions based on log-level
+TODO: define and signal conditions based on log-level
 
-(def-callback log-handler (c-call:void (domain c-call:c-string) 
-				       (log-level c-call:int) 
-				       (message c-call:c-string))
+(defcallback log-handler (nil (domain (copy-of string))
+			  (log-level int)
+			  (message (copy-of string)))
   (error "~A: ~A" domain message))
 
 (setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))

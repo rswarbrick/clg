@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.31 2005-01-13 00:17:55 espen Exp $
+;; $Id: gtk.lisp,v 1.32 2005-02-03 23:09:07 espen Exp $
 
 
 (in-package "GTK")
@@ -56,11 +56,10 @@
     (gtk-init)
     (prog1
 	(gdk:display-open display)
-      (system:add-fd-handler 
-       (gdk:display-connection-number) :input #'main-iterate-all)
-      (setq lisp::*periodic-polling-function* #'main-iterate-all)
-      (setq lisp::*max-event-to-sec* 0)
-      (setq lisp::*max-event-to-usec* 1000))))
+      (add-fd-handler (gdk:display-connection-number) :input #'main-iterate-all)
+      (setq *periodic-polling-function* #'main-iterate-all)
+      (setq *max-event-to-sec* 0)
+      (setq *max-event-to-usec* 1000))))
 
 
 ;;; Acccel group
@@ -117,7 +116,7 @@
 (defbinding accel-groups-from-object () (gslist accel-groups)
   (object gobject))
 
-(defbinding accelerator-valid-p (key &optional mask) boolean
+(defbinding accelerator-valid-p (key &optional modifiers) boolean
   (key unsigned-int)
   (modifiers gdk:modifier-type))
 
@@ -379,10 +378,6 @@
   (check-menu-item check-menu-item))
 
 
-
-;;; Clipboard
-
-
 ;;; Color selection
 
 (defbinding (color-selection-is-adjusting-p
@@ -622,7 +617,7 @@
   (completion entry-completion)
   ((callback %entry-completion-match-func) pointer)
   ((register-callback-function function) unsigned-int)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defbinding entry-completion-complete () nil
   (completion entry-completion))
@@ -762,12 +757,12 @@
 
 (def-callback-marshal %file-filter-func (boolean file-filter-info))
 
-(defbinding file-filter-add-custom () nil
+(defbinding file-filter-add-custom (filter needed function) nil
   (filter file-filter)
   (needed file-filter-flags)
   ((callback %file-filter-func) pointer)
   ((register-callback-function function) unsigned-int)
-  ((callback %destroy-user-data) pointer))
+  ((callback user-data-destroy-func) pointer))
 
 (defbinding file-filter-get-needed () file-filter-flags
   (filter file-filter))

@@ -11,9 +11,8 @@
 
 (defsystem pango
     :depends-on (glib)
-    :components ((:library "libpango-1.0"
-			   :libdir #.(pkg-variable "pango" "libdir"))
-		 (:file "defpackage")
-		 (:file "pango" :depends-on ("defpackage" "libpango-1.0"))
+    :components ((:library "libpango-1.0" :libdir #.(pkg-variable "pango" "libdir"))
+		 (:library "libpangoxft-1.0" :libdir #.(pkg-variable "pango" "libdir"))		 (:file "defpackage")
+		 (:file "pango" :depends-on ("defpackage" "libpango-1.0" "libpangoxft-1.0"))
 		 (:file "export" :depends-on ("pango"))))
 

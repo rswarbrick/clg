@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktext.lisp,v 1.4 2005-01-12 13:36:40 espen Exp $
+;; $Id: gtktext.lisp,v 1.5 2005-02-03 23:09:09 espen Exp $
 
 
 (in-package "GTK")
@@ -563,17 +563,17 @@
   (iter text-iter)
   ((%ensure-tag tag iter) text-tag))
 
-(def-callback-marshal %text-char-prediacte (boolean int))
+(def-callback-marshal %text-char-predicate (boolean int))
 
 (defbinding text-iter-forward-find-char (iter predicate &optional limit) boolean
   (iter text-iter)
-  ((callback %text-char-redicate) pointer)
+  ((callback %text-char-predicate) pointer)
   ((register-callback-function predicate) unsigned-int)
   (limit (or null text-iter)))
 
 (defbinding text-iter-backward-find-char (iter predicate &optional limit) boolean
   (iter text-iter)
-  ((callback %text-char-redicate) pointer)
+  ((callback %text-char-predicate) pointer)
   ((register-callback-function predicate) unsigned-int)
   (limit (or null text-iter)))
 

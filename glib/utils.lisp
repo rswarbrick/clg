@@ -15,16 +15,18 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: utils.lisp,v 1.2 2004-12-05 16:59:58 espen Exp $
+;; $Id: utils.lisp,v 1.3 2005-02-03 23:09:05 espen Exp $
 
 
 (in-package "GLIB")
 
 (defun type-expand-1 (form)
   (let ((def (cond ((symbolp form)
-		    (kernel::info type expander form))
+		    #+cmu(kernel::info type expander form)
+		    #+sbcl(sb-impl::info :type :expander form))
 		   ((and (consp form) (symbolp (car form)))
-		    (kernel::info type expander (car form)))
+		    #+cmu(kernel::info type expander (car form))
+		    #+sbcl(sb-impl::info :type :expander (car form)))
 		   (t nil))))
     (if def
 	(values (funcall def (if (consp form) form (list form))) t)
@@ -45,12 +47,13 @@
 (defmacro with-gc-disabled (&body body)
   (let ((gc-inhibit (make-symbol "GC-INHIBIT")))
     `(progn
-       (let ((,gc-inhibit lisp::*gc-inhibit*))
-	 (ext:gc-off)
+       (let ((,gc-inhibit #+cmu lisp::*gc-inhibit* 
+			  #+sbcl sb-impl::*gc-inhibit*))
+	 (gc-off)
 	 	 (unwind-protect
 	     ,@body
 	   (unless ,gc-inhibit
-	     (ext:gc-on)))))))
+	     (gc-on)))))))
 
 (defun mklist (obj)
   (if (and obj (atom obj)) (list obj) obj))
@@ -117,8 +120,6 @@
 
 (defun split-string (string delimiter)
   (declare (simple-string string) (character delimiter))
-  (check-type string string)
-  (check-type delimiter character)
   (let ((pos (position delimiter string)))
    (if (not pos)
         (list string)
@@ -128,8 +129,6 @@
 
 (defun split-string-if (string predicate)
   (declare (simple-string string))
-  (check-type string string)
-  (check-type predicate (or symbol function))
   (let ((pos (position-if predicate string :start 1)))
     (if (not pos)
         (list string)

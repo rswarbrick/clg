@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.11 2005-01-30 15:08:03 espen Exp $
+;; $Id: gdktypes.lisp,v 1.12 2005-02-03 23:09:07 espen Exp $
 
 (in-package "GDK")
 
@@ -83,103 +83,100 @@
   (:alien-name "GdkRectangle"))
 
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (define-types-by-introspection "Gdk"
-    ("GdkFunction" :type gc-function)
-    ("GdkWMDecoration" :type wm-decoration)
-    ("GdkWMFunction" :type wm-function)
-    ("GdkGC" :type gc)
-    ("GdkGCX11" :type gc-x11)
-    ("GdkGCValuesMask" :type gc-values-mask)
-    ("GdkDrawableImplX11" :ignore t)
-    ("GdkWindowImplX11" :ignore t)
-    ("GdkPixmapImplX11" :ignore t)
-    ("GdkGCX11" :ignore t)
-    ("GdkColor" :ignore t)
-    ("GdkEvent" :ignore t)
-    ("GdkRectngle" :ignore t)
-    ("GdkFont" :ignore t) ; deprecated
-
-    ("GdkDrawable"
-     :slots
-     ((display
-       :allocation :virtual
-       :getter "gdk_drawable_get_display"
-       :reader drawable-display
-       :type display)
-      (screen
-       :allocation :virtual
-       :getter "gdk_drawable_get_screen"
-       :reader drawable-screen
-       :type screen)
-      (visual
-       :allocation :virtual
-       :getter "gdk_drawable_get_visual"
-       :reader drawable-visual
-       :type visual)
-      (colormap
-       :allocation :virtual
-       :getter "gdk_drawable_get_colormap"
-       :setter "gdk_drawable_set_colormap"
-       :unbound nil
-       :accessor drawable-colormap
-       :initarg :colormap
-       :type colormap)
-      (depth
-       :allocation :virtual
-       :getter "gdk_drawable_get_depth"
-       :reader drawable-depth
-       :type int)
-      (with 
-       :allocation :virtual
-       :getter drawable-width)
-      (height
-       :allocation :virtual
-       :getter drawable-height)))
-
-    ("GdkWindow"
-     :slots
-     ((state
-       :allocation :virtual
-       :getter "gdk_window_get_state"
-       :reader window-state
-       :type window-state)
-      (parent
-       :allocation :virtual
-       :getter "gdk_window_get_parent"
-       :reader window-parent
-       :type window)
-      (toplevel
-       :allocation :virtual
-       :getter "gdk_window_get_toplevel"
-       :reader window-toplevel
-       :type window)
-      (children
-       :allocation :virtual
-       :getter "gdk_window_get_children"
-       :reader window-children
-       :type (glist window))
-      (events
-       :allocation :virtual
-       :getter "gdk_window_get_events"
-       :setter "gdk_window_set_events"
-       :accessor window-events
-       :type event-mask)
-      (group
-       :allocation :virtual
-       :getter "gdk_window_get_group"
-       :setter "gdk_window_set_group"
-       :unbound nil
-       :accessor window-group
-       :type window)
-
-      ))
-))
+(define-types-by-introspection "Gdk"
+  ("GdkFunction" :type gc-function)
+  ("GdkWMDecoration" :type wm-decoration)
+  ("GdkWMFunction" :type wm-function)
+  ("GdkGC" :type gc)
+  ("GdkGCX11" :type gc-x11)
+  ("GdkGCValuesMask" :type gc-values-mask)
+  ("GdkDrawableImplX11" :ignore t)
+  ("GdkWindowImplX11" :ignore t)
+  ("GdkPixmapImplX11" :ignore t)
+  ("GdkGCX11" :ignore t)
+  ("GdkColor" :ignore t)
+  ("GdkEvent" :ignore t)
+  ("GdkRectngle" :ignore t)
+  ("GdkCursor" :ignore t)
+  ("GdkFont" :ignore t) ; deprecated
+  
+  ("GdkDrawable"
+   :slots
+   ((display
+     :allocation :virtual
+     :getter "gdk_drawable_get_display"
+     :reader drawable-display
+     :type display)
+    (screen
+     :allocation :virtual
+     :getter "gdk_drawable_get_screen"
+     :reader drawable-screen
+     :type screen)
+    (visual
+     :allocation :virtual
+     :getter "gdk_drawable_get_visual"
+     :reader drawable-visual
+     :type visual)
+    (colormap
+     :allocation :virtual
+     :getter "gdk_drawable_get_colormap"
+     :setter "gdk_drawable_set_colormap"
+     :unbound nil
+     :accessor drawable-colormap
+     :initarg :colormap
+     :type colormap)
+    (depth
+     :allocation :virtual
+     :getter "gdk_drawable_get_depth"
+     :reader drawable-depth
+     :type int)
+    (with 
+     :allocation :virtual
+     :getter drawable-width)
+    (height
+     :allocation :virtual
+     :getter drawable-height)))
+  
+  ("GdkWindow"
+   :slots
+   ((state
+     :allocation :virtual
+     :getter "gdk_window_get_state"
+     :reader window-state
+     :type window-state)
+    (parent
+     :allocation :virtual
+     :getter "gdk_window_get_parent"
+     :reader window-parent
+     :type window)
+    (toplevel
+     :allocation :virtual
+     :getter "gdk_window_get_toplevel"
+     :reader window-toplevel
+     :type window)
+    (children
+     :allocation :virtual
+     :getter "gdk_window_get_children"
+     :reader window-children
+     :type (glist window))
+    (events
+     :allocation :virtual
+     :getter "gdk_window_get_events"
+     :setter "gdk_window_set_events"
+     :accessor window-events
+     :type event-mask)
+    (group
+     :allocation :virtual
+     :getter "gdk_window_get_group"
+     :setter "gdk_window_set_group"
+     :unbound nil
+     :accessor window-group
+     :type window))))
 
 
 (deftype bitmap () 'pixmap)
 
-(defclass cursor (struct)
+(defclass cursor (boxed)
   ((type
     :allocation :alien
     :reader cursor-type
@@ -192,11 +189,9 @@
     :getter "gdk_cursor_get_display"
     :reader cursor-display
     :type display))
-  (:metaclass struct-class))
+  (:metaclass boxed-class)
+  (:alien-name "GdkColor"))
 
-(defclass device (struct)
-  ()
-  (:metaclass struct-class))
 
 (defclass geometry (struct)
   ((min-width 

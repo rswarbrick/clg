@@ -12,7 +12,7 @@
      (concatenate-strings (rest strings) delimiter))))
 
 ;;; The following code is more or less copied frm sb-bsd-sockets.asd,
-;;; but extended to allow flags set in a general way
+;;; but extended to allow flags to be set in a general way
 
 (defclass unix-dso (module) ())
 (defun unix-name (pathname)
@@ -51,25 +51,10 @@
 			      (module-components dso)))))
       (error 'operation-error :operation operation :component dso))))
 
-;; Taken from foreign.lisp in the CMUCL tree, but modified to delay
-;; resolving of symbols until they are used
-(defun load-dso (file)
-  (system::ensure-lisp-table-opened)
-  ; rtld global: so it can find all the symbols previously loaded
-  ; rtld lazy: that way dlopen will not fail if not all symbols are defined.
-  (let ((filename (namestring file)))
-    (format t ";;; Loading shared library ~A ...~%" filename)
-    (let ((sap (system::dlopen filename (logior system::rtld-lazy system::rtld-global))))
-      (cond ((zerop (system:sap-int sap))
-	     (let ((err-string (system::dlerror)))
 
-	       ;; For some reason dlerror always seems to return NIL,
-	       ;; which isn't very informative.
-	       (error "Can't open object ~S: ~S" file err-string)))
-	    ((null (assoc sap system::*global-table* :test #'system:sap=))
-	     (setf system::*global-table* (acons sap file system::*global-table*))
-	     t)
-	    (t nil)))))
+(defun load-dso (filename)
+  #+sbcl(sb-alien:load-shared-object filename)
+  #+cmu(system::load-object-file filename))
 
 
 (defmethod perform ((o load-op) (c unix-dso))
@@ -87,9 +72,7 @@
 
 
 (defmethod output-files ((op compile-op) (c c-source-file))
-  (list 
-   (make-pathname :type "o" :defaults
-		  (component-pathname c))))
+  (list (make-pathname :type "o" :defaults (component-pathname c))))
 
 
 (defmethod perform ((op compile-op) (c c-source-file))

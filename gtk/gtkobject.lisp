@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.22 2005-02-01 15:24:56 espen Exp $
+;; $Id: gtkobject.lisp,v 1.23 2005-02-03 23:09:09 espen Exp $
 
 
 (in-package "GTK")
@@ -60,11 +60,11 @@
 (defbinding %object-sink () nil
   (object %object))
 
-;;;; Main loop, timeouts and idle functions
+;;;; Main loop and event handling
 
 (declaim (inline events-pending-p main-iteration))
 
-(defbinding (events-pending-p "gtk_events_pending") () boolean)
+(defbinding events-pending-p () boolean)
 
 (defbinding get-current-event () gdk:event)
 
@@ -82,9 +82,9 @@
 
 (defun main-iterate-all (&rest args)
   (declare (ignore args))
-  (when (events-pending-p)
-    (main-iteration-do nil)
-    (main-iterate-all)))
+  (loop
+   while (events-pending-p)
+   do (main-iteration-do nil)))
 
 
 ;;;; Metaclass for child classes
@@ -126,7 +126,8 @@
     (call-next-method)))
 
 (progn
-  (declaim (optimize (ext:inhibit-warnings 3)))
+  #+cmu(declaim (optimize (inhibit-warnings 3)))
+  #+sbcl(declaim (muffle-conditions compiler-note))
   (defun %container-child-get-property (parent child pname gvalue))
   (defun %container-child-set-property (parent child pname gvalue)))
 
@@ -158,7 +159,7 @@
   (call-next-method)))
 
 
-(defmethod pcl::add-reader-method ((class child-class) generic-function slot-name)
+(defmethod add-reader-method ((class child-class) generic-function slot-name)
   (add-method
    generic-function
    (make-instance 'standard-method
@@ -168,7 +169,7 @@
 		  (declare (ignore next-methods))
 		  (child-property-value (first args) slot-name)))))
 
-(defmethod pcl::add-writer-method
+(defmethod add-writer-method
     ((class child-class) generic-function slot-name)
   (add-method
    generic-function
@@ -181,7 +182,7 @@
 		    (setf (child-property-value widget slot-name) value))))))
 
 
-(defmethod validate-superclass ((class child-class) (super pcl::standard-class))
+(defmethod validate-superclass ((class child-class) (super standard-class))
   ;(subtypep (class-name super) 'container-child)
   t)
 

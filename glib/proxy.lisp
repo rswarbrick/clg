@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.18 2005-01-12 13:35:19 espen Exp $
+;; $Id: proxy.lisp,v 1.19 2005-02-03 23:09:04 espen Exp $
 
 (in-package "GLIB")
 
@@ -35,7 +35,7 @@
     ((setter :reader slot-definition-setter :initarg :setter)
      (getter :reader slot-definition-getter :initarg :getter)
      (unbound :reader slot-definition-unbound :initarg :unbound)
-     (boundp :reader slot-definition-boundp :initarg :boundp)))
+     (boundp :reader slot-definition-boundp :initarg :boundp))))
   
   (defvar *unbound-marker* (gensym "UNBOUND-MARKER-"))
 
@@ -47,7 +47,7 @@
 		   instances)))
       (if object
 	  (slot-value object slot)
-	  default))))
+	  default)));)
 
   
 
@@ -223,26 +223,26 @@
 
 (defun cache-instance (instance)
   (setf
-   (gethash (system:sap-int (proxy-location instance)) *instance-cache*)
-   (ext:make-weak-pointer instance)))
+   (gethash (sap-int (proxy-location instance)) *instance-cache*)
+   (make-weak-pointer instance)))
 
 (defun find-cached-instance (location)
-  (let ((ref (gethash (system:sap-int location) *instance-cache*)))
+  (let ((ref (gethash (sap-int location) *instance-cache*)))
     (when ref
-      (ext:weak-pointer-value ref))))
+      (weak-pointer-value ref))))
 
 (defun instance-cached-p (location)
-  (gethash (system:sap-int location) *instance-cache*))
+  (gethash (sap-int location) *instance-cache*))
 
 (defun remove-cached-instance (location)
-  (remhash (system:sap-int location) *instance-cache*))
+  (remhash (sap-int location) *instance-cache*))
 
 ;; For debuging
 (defun cached-instances ()
   (let ((instances ()))
     (maphash #'(lambda (location ref)
 		 (declare (ignore location))
-		 (push (ext:weak-pointer-value ref) instances))
+		 (push (weak-pointer-value ref) instances))
 	     *instance-cache*)
     instances))
 			
@@ -283,7 +283,7 @@
       (setf (slot-value instance 'location) location)      
     (call-next-method))
   (cache-instance instance)
-  (ext:finalize instance (instance-finalizer instance))
+  (finalize instance (instance-finalizer instance))
   instance)
 
 (defmethod instance-finalizer ((instance proxy))
@@ -298,6 +298,10 @@
 
 ;;;; Metaclass used for subclasses of proxy
 
+(defgeneric most-specific-proxy-superclass (class))
+(defgeneric direct-proxy-superclass (class))
+  
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass proxy-class (virtual-slots-class)
     ((size :reader proxy-instance-size)))
@@ -309,13 +313,12 @@
   (defclass effective-alien-slot-definition (effective-virtual-slot-definition)
     ((offset :reader slot-definition-offset :initarg :offset)))
 
-
   (defmethod most-specific-proxy-superclass ((class proxy-class))
     (find-if
      #'(lambda (class)
 	 (subtypep (class-name class) 'proxy))
      (cdr (compute-class-precedence-list class))))
-  
+
   (defmethod direct-proxy-superclass ((class proxy-class))
     (find-if
      #'(lambda (class)
@@ -448,7 +451,7 @@
   `(reference-foreign ',(class-name class) (proxy-location ,instance)))
 
 (defmethod copy-to-alien-function ((class proxy-class) &rest args)
-  (declare (ignore class args))
+  (declare (ignore args))
   #'(lambda (instance)
       (reference-foreign class (proxy-location instance))))
 
