@@ -1,6 +1,6 @@
 This package contains Common Lisp bindings to GTK+ v2.0. It currently
-only works with CMUCL 19a, but ports to other CL implementations may
-be added later.
+only works with CMUCL 19a and SBCL. Ports to other CL implementations
+may be added later.
 
 
 New versions
@@ -13,49 +13,104 @@ The most recent version of this package can be found: in CVS
 Build instructions
 ------------------
 
-1. When building for CMUCL, first obtain a matching binary and source
-   tree (the only source file you will actually need is lisp.h and a
-   couple of other header files). On ELF systems you may also have to
-   rebuild lisp with -rdynamic added to OS_LINK_FLAGS.
+1. When building for SBCL (at least 0.8.19 or earlier) you first need
+   to add callback support, since SBCL does not yet has a native
+   callback facility. The following instructions are borrowed from the
+   Common Music installation guide:
+
+   1. Download Thomas Burdick's Alien Function package¹ and restore it 
+      to a directory on your machine.
+   2. Compile the Alien Function package and save a new sbcl.core image:
+
+      $ cd sbcl-af
+      $ sbcl --load "system"
+      * (sb-ext:save-lisp-and-die "/tmp/sbcl.core")
+      $ cd /usr/local/lib/sbcl
+      $ cp sbcl.core sbcl.core.orig
+      $ mv /tmp/sbcl.core .
+
+
+   ¹ http://pinhead.music.uiuc.edu/~hkt/sbcl-af-2004-10-22.tgz
 
 
 2. Set up paths to reflect your system:
 
-   - Add a logical-pathname-translation to clg in ~/.cmucl-init.lisp
-     or some other startup file. Example:
+   - Add a logical-pathname-translation to the clg root directory in
+     ~/.cmucl-init.lisp, ~/.sbclrc or some other startup file. Example:
 
        (setf
          (logical-pathname-translations "clg")
          '(("**;*.*.*" "/home/espen/src/clg/**/")))
 
-   - Set the correct pkg-config search path if your gtk+ installation
+   - Set the correct pkg-config search path if your Gtk+ installation
      is in an unusual place, by adding it to the PKG_CONFIG_PATH
      environment variable before starting lisp.
 
-   - Set *cmucl-include-path* to point to the directory where the
-     lisp.h file resides, if it is not in the default place.  Try "locate 
-     'lisp/lisp.h'" if you don't know the location.
+   - Make sure ASDF finds the system definition files:
+     $ cd ~/.clc/systems
+     $ find <path to clg> -name '*.asd' -exec ln -s {} . \;
 
 
 3. Compile and load the system:
    
      (asdf:oos 'asdf:load-op :gtk)
 
-   Currently it will fail with:
+   In CMUCL this will currently fail with:
 
    Error in function KERNEL::%REDEFINE-DEFSTRUCT:
      Redefining class PCL::SLOT-INFO incompatibly with the current definition.
 
-   Just accept the redefinition (restart 1) to continue building or loading.
+   Just accept the redefinition (restart 1) to continue building or
+   loading. To avoid doing this every time clg is loaded, one may
+   compile and load glib/pcl.lisp in newly started CMUCL process and
+   save an new core image.
+
+   If you are running SBCL with Slime you need to put the following
+   line in ~/.swank.lisp to prevent Slime from spawning multiple
+   threads, since Gtk+ is not thread safe:
+
+     #+sbcl(setq swank:*communication-style* :fd-handler)
 
 
 4. If everything worked, try (load "hello-world") to see a small
    window pop up, and then run testgtk.lisp in the example directory.
 
 
+
+Guidelines for using the GTK+ API documentation 
+-----------------------------------------------
+
+Here are some brief guidelines for using the GTK+ API documentation. A
+lot of (both intentionally and unintentionally) inconsistencies
+exists, so it is also wise to check the source code.
+
+- library prefixes are stripped from all symbols
+
+- the get/set part are removed from regular accessors, but retained
+  in functions which set or retrieve multiple values
+
+- predicate functions follow the normal convention of ending
+  with '-P'
+
+- if there are multiple similar named functions which only differ in
+  the type of argument they accept, only one function accepting any
+  kind of valid argument types is provided
+
+- there are no gtk_*_new functions, use MAKE-INSTANCE to create widgets
+
+- all object properties are available as virtual slots. A lot of
+  "missing" properties are manually defined as slots
+
+- use CHILD-PROPERTY-VALUE or automatically defined accessors to
+  access child properties
+
+- use STYLE-PROPERTY-VALUE to access style properties
+
+- the only function used to connect signals is SIGNAL-CONNECT
+
+
+
+
+
 Send comments and patches to clg-devel@lists.sourceforge.net or
 espen@users.sourceforge.net.
-
-
-
-
