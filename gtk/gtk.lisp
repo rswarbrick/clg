@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.18 2004-11-19 13:09:00 espen Exp $
+;; $Id: gtk.lisp,v 1.19 2004-11-21 17:39:27 espen Exp $
 
 
 (in-package "GTK")
@@ -457,7 +457,7 @@
 
 ;;; Entry
 
-(defbinding  entry-get-layout () (copy-of pango:layout)
+(defbinding  entry-get-layout () pango:layout
   (entry entry))
 
 (defbinding entry-get-layout-offsets () nil
@@ -524,7 +524,7 @@
 (defbinding label-get-text () string
   (label label))
 
-(defbinding label-get-layout () (copy-of pango:layout)
+(defbinding label-get-layout () pango:layout
   (label label))
 
 (defbinding label-get-selection-bounds () boolean
