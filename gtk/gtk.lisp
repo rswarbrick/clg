@@ -15,14 +15,14 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.17 2004-11-07 17:55:29 espen Exp $
+;; $Id: gtk.lisp,v 1.18 2004-11-19 13:09:00 espen Exp $
 
 
 (in-package "GTK")
 
 ;;; Gtk version
 
-(defbinding check-version () string
+(defbinding check-version () (copy-of string)
   (required-major unsigned-int)
   (required-minor unsigned-int)
   (required-micro unsigned-int))
@@ -39,7 +39,7 @@
 	(format nil "Gtk+ v~A.~A" major minor) 
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
-(defbinding get-default-language () string)
+(defbinding get-default-language () (copy-of pango:language))
 
 
 ;;;; Initalization
@@ -271,7 +271,7 @@
   (unless model
     (setf 
      (combo-box-model combo-box) 
-     (make-instance 'list-store :columns '(string)))
+     (make-instance 'list-store :column-types '(string)))
     (unless (typep combo-box 'combo-box-entry)
       (let ((cell (make-instance 'cell-renderer-text)))
 	(cell-layout-pack combo-box cell :expand t)
@@ -457,7 +457,7 @@
 
 ;;; Entry
 
-(defbinding  entry-get-layout () pango:layout
+(defbinding  entry-get-layout () (copy-of pango:layout)
   (entry entry))
 
 (defbinding entry-get-layout-offsets () nil
@@ -524,7 +524,7 @@
 (defbinding label-get-text () string
   (label label))
 
-(defbinding label-get-layout () pango:layout
+(defbinding label-get-layout () (copy-of pango:layout)
   (label label))
 
 (defbinding label-get-selection-bounds () boolean
@@ -956,7 +956,7 @@
   ((%notebook-child notebook page) widget))
 
 (defbinding (notebook-tab-label-text "gtk_notebook_get_tab_label_text")
-    (notebook page) string
+    (notebook page) (copy-of string)
   (notebook notebook)
   ((%notebook-child notebook page) widget))
 
@@ -979,7 +979,7 @@
   ((%notebook-child notebook page) widget))
 
 (defbinding (notebook-menu-label-text "gtk_notebook_get_menu_label_text")
-    (notebook page) string
+    (notebook page) (copy-of string)
   (notebook notebook)
   ((%notebook-child notebook page) widget))
 
@@ -1499,7 +1499,7 @@
 
 (defbinding stock-lookup () boolean
   (stock-id string)
-  (stock-item stock-item :out))
+  ((make-instance 'stock-item) stock-item :return))
   
 
 
