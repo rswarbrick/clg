@@ -15,14 +15,14 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.16 2005-03-06 17:26:22 espen Exp $
+;; $Id: gdktypes.lisp,v 1.17 2005-03-11 10:56:56 espen Exp $
 
 (in-package "GDK")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library #.(concatenate 'string
 			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk-x11-2.0.so") :prefix ("gdk_" "_gdk_"))
+			    "/libgdk-x11-2.0.so") :prefix "gdk_")
   (init-types-in-library #.(concatenate 'string
 			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
 			    "/libgdk_pixbuf-2.0.so") :prefix "gdk_"))

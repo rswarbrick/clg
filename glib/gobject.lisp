@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.34 2005-03-06 17:26:23 espen Exp $
+;; $Id: gobject.lisp,v 1.35 2005-03-11 10:56:58 espen Exp $
 
 (in-package "GLIB")
 
@@ -332,7 +332,7 @@
       (nreverse properties))))
 
 (defun query-object-class-properties (type &optional inherited-p)
-  (let* ((type-number (find-type-number type))
+  (let* ((type-number (find-type-number type t))
 	 (class (type-class-ref type-number)))
     (unwind-protect
 	 (multiple-value-bind (array length)
@@ -364,8 +364,9 @@
       `(,slot-name
 	:allocation :property :pname ,name
 
-	,@(cond
-	   ((find :unbound args) (list :unbound (getf args :unbound))))
+	,@(when (find :unbound args) (list :unbound (getf args :unbound)))
+	,@(when (find :getter args) (list :getter (getf args :getter)))
+	,@(when (find :setter args) (list :setter (getf args :setter)))
 	
 	;; accessors
 	,@(cond
@@ -427,10 +428,10 @@
 	(class  (type-from-number type))
 	(slots (getf options :slots)))    
     `(defclass ,class ,supers
-       ,(unless forward-p
-	  (slot-definitions class (query-object-class-properties type) slots))
-      (:metaclass ,metaclass)
-      (:gtype ,(find-type-init-function type)))))
+	 ,(unless forward-p
+	    (slot-definitions class (query-object-class-properties type) slots))
+	 (:metaclass ,metaclass)
+	 (:gtype ,(register-type-as type)))))
 
 (defun gobject-dependencies (type)
   (delete-duplicates 

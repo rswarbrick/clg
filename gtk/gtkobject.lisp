@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.24 2005-03-06 17:26:23 espen Exp $
+;; $Id: gtkobject.lisp,v 1.25 2005-03-11 10:58:41 espen Exp $
 
 
 (in-package "GTK")
@@ -36,7 +36,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library 
    #.(concatenate 'string (pkg-config:pkg-variable "gtk+-2.0" "libdir") 
-		          "/libgtk-x11-2.0.so"))
+		          "/libgtk-x11-2.0.so") :prefix "gtk_")
 
   (defclass %object (gobject)
     ()

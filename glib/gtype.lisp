@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.27 2005-03-06 17:26:23 espen Exp $
+;; $Id: gtype.lisp,v 1.28 2005-03-11 10:56:58 espen Exp $
 
 (in-package "GLIB")
 
@@ -201,7 +201,7 @@
 	(process-close process)))))
 
 
-(defmacro init-types-in-library (filename &key (prefix "") ignore)
+(defmacro init-types-in-library (filename &key prefix ignore)
   (let ((names (%find-types-in-library filename prefix ignore)))
     `(progn
        ,@(mapcar #'(lambda (name)
@@ -212,12 +212,16 @@
 		 names))))
 
 (defun find-type-init-function (type-number)
-  (or
-   (loop
-    for type-init in *type-initializers*
-    when (= type-number (funcall type-init))
-    do (return type-init))
-   (error "Can't find init function for type number ~D" type-number)))
+  (loop
+   for type-init in *type-initializers*
+   when (= type-number (funcall type-init))
+   do (return type-init)))
+
+(defun register-type-as (type-number)
+  (or 
+   (find-type-init-function type-number)
+   (find-foreign-type-name type-number)
+   (error "Unknown type-number: ~A" type-number)))
 
 (defun default-type-init-name (type)
   (find-symbol (format nil "~A_~A_get_type" 
@@ -442,7 +446,7 @@
        (let ((name (find-foreign-type-name type-number)))
 	 (register-type
 	  (getf (type-options type-number) :type (default-type-name name))
-	  (find-type-init-function type-number))))
+	  (register-type-as type-number))))
 
      (let ((sorted-type-list (%sort-types-topologicaly type-list)))
        `(progn
