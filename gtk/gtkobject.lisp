@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.13 2002-03-19 19:09:18 espen Exp $
+;; $Id: gtkobject.lisp,v 1.14 2002-03-24 13:02:43 espen Exp $
 
 
 (in-package "GTK")
@@ -47,7 +47,7 @@
 			      &allow-other-keys)
   (declare (ignore names))
   (call-next-method)
-  (funcall (proxy-class-copy (class-of object)) nil (proxy-location object)) ; inc ref count before sinking
+  (object-ref object) ; inc ref count before sinking
   (%object-sink object)
   (dolist (signal-definition (get-all initargs :signal))
     (apply #'signal-connect object signal-definition)))
