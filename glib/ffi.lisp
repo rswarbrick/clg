@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.7 2004-12-04 00:28:47 espen Exp $
+;; $Id: ffi.lisp,v 1.8 2004-12-16 23:02:10 espen Exp $
 
 (in-package "GLIB")
 
@@ -47,15 +47,22 @@
 
 
 (defun default-alien-fname (lisp-name)
-  (let* ((lisp-name-string
-	  (if (char= (char (the simple-string (string lisp-name)) 0) #\%)
-	      (subseq (the simple-string (string lisp-name)) 1)
-	    (string lisp-name)))
-	 (prefix (package-prefix *package*))
-	 (name (substitute #\_ #\- (string-downcase lisp-name-string))))
+  (let* ((name (substitute #\_ #\- (string-downcase lisp-name)))
+	 (stripped-name
+	  (cond
+	   ((and 
+	     (char= (char name 0) #\%)
+	     (string= "_p" name :start2 (- (length name) 2)))
+	    (subseq name 1 (- (length name) 2)))
+	   ((char= (char name 0) #\%)
+	    (subseq name 1))
+	   ((string= "_p" name :start2 (- (length name) 2))
+	    (subseq name 0 (- (length name) 2)))
+	   (name)))
+	 (prefix (package-prefix *package*)))
     (if (or (not prefix) (string= prefix ""))
-	name
-      (format nil "~A_~A" prefix name))))
+	stripped-name
+      (format nil "~A_~A" prefix stripped-name))))
 
 (defun default-alien-type-name (type-name)
   (let ((prefix (package-prefix *package*)))
