@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.13 2002-03-19 17:03:42 espen Exp $
+;; $Id: gforeign.lisp,v 1.14 2002-04-02 14:52:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -375,7 +375,7 @@
 	    :type (alien::parse-alien-type ftype)
 	    :sap-form (system:foreign-symbol-address name))))
 	 (translate-arguments
-	  (mapcar #'intern-return-value-translator arg-types))
+	  (mapcar #'intern-argument-translator arg-types))
 	 (translate-return-value (intern-return-value-translator return-type))
 	 (cleanup-arguments (mapcar #'intern-cleanup-function arg-types)))
 	 
