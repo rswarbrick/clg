@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.14 2002-03-24 13:02:43 espen Exp $
+;; $Id: gtkobject.lisp,v 1.15 2002-04-02 15:07:33 espen Exp $
 
 
 (in-package "GTK")
@@ -235,8 +235,8 @@
 	       (with-slots (name flags value-type documentation) param
 	         (let* ((slot-name (default-slot-name name))
 			(slot-type (type-from-number value-type #|t|#))
-			(accessor
-			 (default-slot-accessor class slot-name slot-type)))
+			(accessor (default-slot-accessor
+				    child-class slot-name slot-type)))
 		   `(,slot-name
 		     :allocation :property
 		     :pname ,name
