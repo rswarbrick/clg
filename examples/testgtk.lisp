@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.5 2004-11-08 14:16:12 espen Exp $
+;; $Id: testgtk.lisp,v 1.6 2004-11-15 19:33:21 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -713,100 +713,40 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; List    
     
-;; (define-standard-dialog create-list "List"
-;;   (let ((scrolled-window (scrolled-window-new))
-;;         (list (list-new)))
-;;     (setf (container-border-width scrolled-window) 5)
-;;     (setf (scrolled-window-scrollbar-policy scrolled-window) :automatic)
-;;     (box-pack-start main-box scrolled-window t t 0)
-;;     (setf (widget-height scrolled-window) 300)
+(define-simple-dialog create-list (dialog "List" :default-height 400)
+  (let ((store (make-instance 'list-store 
+		:column-types '(string int boolean)
+		:column-names '(:foo :bar :baz)
+		:initial-content '(#("First" 12321 nil)
+				   (:foo "Yeah" :baz t)))))
 
-;;     (setf (list-selection-mode list) :extended)
-;;     (scrolled-window-add-with-viewport scrolled-window list)
-;;     (setf
-;;      (container-focus-vadjustment list)
-;;      (scrolled-window-vadjustment scrolled-window))
-;;     (setf
-;;      (container-focus-hadjustment list)
-;;      (scrolled-window-hadjustment scrolled-window))
-    
-;;     (with-open-file (file "clg:examples;gtktypes.lisp")
-;;       (labels ((read-file ()
-;; 	         (let ((line (read-line file nil nil)))
-;; 		   (when line
-;; 		     (container-add list (list-item-new line))
-;; 		     (read-file)))))
-;; 	(read-file)))
+    (loop
+     with iter = (make-instance 'tree-iter)
+     for i from 1 to 1000
+     do (list-store-append store (vector "Test" i (zerop (mod i 3))) iter))
 
-;;     (let ((hbox (hbox-new t 5)))
-;;       (setf (container-border-width hbox) 5)
-;;       (box-pack-start main-box hbox nil t 0)
+    (let ((tree (make-instance 'tree-view :model store)))
+      (let ((column (make-instance 'tree-view-column :title "Column 1"))
+	    (cell (make-instance 'cell-renderer-text)))
+	(cell-layout-pack column cell)
+	(cell-layout-add-attribute column cell 'text (column-index store :foo))
+	(tree-view-append-column tree column))
 
-;;       (let ((button (button-new "Insert Row"))
-;; 	    (i 0))
-;; 	(box-pack-start hbox button t t 0)
-;; 	(signal-connect
-;; 	 button 'clicked
-;; 	 #'(lambda ()
-;; 	     (let ((item
-;; 		    (list-item-new (format nil "added item ~A" (incf i)))))
-;; 	       (widget-show item)
-;; 	       (container-add list item)))))
-	
-;;       (let ((button (button-new "Clear List")))
-;; 	(box-pack-start hbox button t t 0)
-;; 	(signal-connect
-;; 	 button 'clicked #'(lambda () (list-clear-items list 0 -1))))
+      (let ((column (make-instance 'tree-view-column :title "Column 2"))
+	    (cell (make-instance 'cell-renderer-text :background "orange")))
+	(cell-layout-pack column cell)
+	(cell-layout-add-attribute column cell 'text (column-index store :bar))
+	(tree-view-append-column tree column))      
 
-;;       (let ((button (button-new "Remove Selection")))
-;; 	(box-pack-start hbox button t t 0)
-;; 	(signal-connect
-;; 	 button 'clicked
-;; 	 #'(lambda ()
-;; 	     (let ((selection (list-selection list)))
-;; 	       (if (eq (list-selection-mode list) :extended)
-;; 		   (let ((item (or
-;; 				(container-focus-child list)
-;; 				(first selection))))
-;; 		     (when item
-;; 		       (let* ((children (container-children list))
-;; 			      (sel-row
-;; 			       (or
-;; 				(find-if
-;; 				 #'(lambda (item)
-;; 				     (eq (widget-state item) :selected))
-;; 				 (member item children))
-;; 				(find-if
-;; 				 #'(lambda (item)
-;; 				     (eq (widget-state item) :selected))
-;; 				 (member item (reverse children))))))
-;; 			 (list-remove-items list selection)
-;; 			 (when sel-row
-;; 			   (list-select-child list sel-row)))))
-;; 		 (list-remove-items list selection)))))
-;; 	(box-pack-start hbox button t t 0)))
+      (let ((column (make-instance 'tree-view-column :title "Column 3"))
+	    (cell (make-instance 'cell-renderer-text)))
+	(cell-layout-pack column cell)
+	(cell-layout-add-attribute column cell 'text (column-index store :baz))
+	(tree-view-append-column tree column))      
 
-;;     (let ((cbox (hbox-new nil 0)))
-;;       (box-pack-start main-box cbox nil t 0)
-
-;;       (let ((hbox (hbox-new nil 5))
-;; 	    (option-menu
-;; 	     (create-option-menu
-;; 	      `(("Single"
-;; 		 ,#'(lambda () (setf (list-selection-mode list) :single)))
-;; 		("Browse"
-;; 		 ,#'(lambda () (setf (list-selection-mode list) :browse)))
-;; 		("Multiple"
-;; 		 ,#'(lambda () (setf (list-selection-mode list) :multiple)))
-;; 		("Extended"
-;; 		 ,#'(lambda () (setf (list-selection-mode list) :extended))))
-;; 	      3)))
-
-;; 	(setf (container-border-width hbox) 5)
-;; 	(box-pack-start cbox hbox t nil 0)
-;; 	(box-pack-start hbox (create-label "Selection Mode :") nil t 0)
-;; 	(box-pack-start hbox option-menu nil t 0)))))
-
+      (make-instance 'scrolled-window 
+       :parent dialog :child tree :show-all t :border-width 10 
+       :hscrollbar-policy :automatic))))
 
 
 ;; Menus
@@ -1718,9 +1658,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("buttons" create-buttons)
  	    ("calendar" create-calendar)
  	    ("check buttons" create-check-buttons)
-;; 	    ("clist" #|create-clist|#)
  	    ("color selection" create-color-selection)
-;; 	    ("ctree" #|create-ctree|#)
 ;; 	    ("cursors" #|create-cursors|#)
  	    ("dialog" create-dialog)
 ;; ;  	    ("dnd")
@@ -1733,7 +1671,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("item factory")
  	    ("labels" create-labels)
  	    ("layout" create-layout)
-;; 	    ("list" create-list)
+ 	    ("list" create-list)
 	    ("menus" create-menus)
 ;; 	    ("modal window")
  	    ("notebook" create-notebook)
