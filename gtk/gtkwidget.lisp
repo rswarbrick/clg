@@ -15,27 +15,27 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.15 2005-01-12 13:51:02 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.16 2005-02-22 23:12:06 espen Exp $
 
 (in-package "GTK")
 
 
-(defmethod shared-initialize ((widget widget) names &rest initargs &key parent)
-  (remf initargs :parent)
-  (prog1
-      (apply #'call-next-method widget names initargs)
-    (when parent
-      (when (slot-boundp widget 'parent)
-	(container-remove (widget-parent widget) widget))
-      (let ((parent-widget (first (mklist parent)))
-	    (args (rest (mklist parent))))
-	(apply #'container-add parent-widget widget args)))))
+(defmethod shared-initialize ((widget widget) names &key (visible nil visible-p))
+  (when (and visible-p (not visible)) ; widget explicit set as not visible
+    (setf (user-data widget 'hidden-p) t)
+    (signal-connect widget 'show 
+     #'(lambda () 
+	 (unset-user-data widget 'hidden-p))
+     :remove t))
+  (call-next-method))
 
-(defmethod shared-initialize :after ((widget widget) names &rest initargs
-				     &key show-all all-visible)
-  (declare (ignore initargs names))
-  (when (or all-visible show-all)
-    (widget-show-all widget)))
+(defmethod shared-initialize :after ((widget widget) names &key parent)
+  (declare (ignore names))
+  (when parent
+    (when (slot-boundp widget 'parent)
+      (container-remove (widget-parent widget) widget))
+    (destructuring-bind (parent &rest args)  (mklist parent)
+      (apply #'container-add parent widget args))))
 
 (defmethod slot-unbound ((class gobject-class) (object widget) 
 			 (slot (eql 'child-properties)))
@@ -55,8 +55,8 @@
     (slot-boundp object 'parent))
    (call-next-method)))
 
-(defmethod create-callback-function ((widget widget) function arg1)
-  (if (eq arg1 :parent)
+(defmethod compute-signal-function ((widget widget) signal function object)
+  (if (eq object :parent)
       #'(lambda (&rest args)
 	  (if (slot-boundp widget 'parent)
 	      (apply function (widget-parent widget) (rest args))
@@ -100,6 +100,10 @@
 
 (defbinding widget-hide () nil
   (widget widget))
+
+(defun widget-hidden-p (widget)
+  "Return T if WIDGET has been explicit hidden during construction."
+  (user-data widget 'hidden-p))
 
 (defbinding widget-show-all () nil
   (widget widget))

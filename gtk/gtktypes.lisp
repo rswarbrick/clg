@@ -15,8 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.31 2005-02-04 13:15:14 espen Exp $
-
+;; $Id: gtktypes.lisp,v 1.32 2005-02-22 23:12:02 espen Exp $
 
 (in-package "GTK")
 
@@ -133,15 +132,6 @@
   (declare (ignore type args))
   (reader-function 'int))
 
-;; Forward definitions
-(defclass widget (%object)
-  ()
-  (:metaclass gobject-class))
-(defclass container (widget)
-  ()
-  (:metaclass gobject-class))
-
-
 (define-types-by-introspection "Gtk"
   ;; Manually defined
   ("GtkObject" :ignore t)
@@ -163,6 +153,10 @@
      :getter "gtk_widget_get_window"
      :reader widget-window
      :type gdk:window)
+    (parent
+     :allocation :property :pname "parent"
+     :reader widget-parent
+     :type container)
     (parent-window
      :allocation :virtual
      :getter %widget-parent-window
@@ -1030,9 +1024,7 @@
   ;; What are these?
   ("GtkFileSystemModule" :ignore t)
   ("GtkIMModule" :ignore t)
-  ("GtkThemeEngine" :ignore t)
-
-  )
+  ("GtkThemeEngine" :ignore t))
 
 
 (defclass text-iter (boxed)
