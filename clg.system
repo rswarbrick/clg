@@ -3,13 +3,19 @@
 (setf
  (logical-pathname-translations "clg")
  '(("**;*.*.*" "/home/espen/src/clg/**/*.*.*")))
-(setq mk::*cmu-errors-to-file* nil)
-(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
+
+;; Uncomment and edit the next line if pkg-config needs to search for
+;; .pc files in directories other than the default (/usr/lib/pkgconfig)
+;(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
 
 (load "clg:tools;config")
 (load "clg:tools;sharedlib")
 
 (import 'alien:load-shared-library)
+
+(defvar gtk-library-path (pkg-variable "gtk+-2.0" "libdir"))
+(defvar cmucl-include-path "/usr/src/cmucl-2.4.20/src/lisp")
+
 
 ;; A hack to get around a bug in gdk's init code
 (defvar argc (alien:make-alien c-call:int))
@@ -21,9 +27,15 @@
 (setf (alien:deref argv0) progname)
 (setf (alien:deref argv) argv0)
 
+(setq mk::*cmu-errors-to-file* nil)
 
 (eval
  `(mk:defsystem clg
+    :initially-do
+    (progn
+      (pkg-exists-p "glib-2.0" :atleast-version "1.3.9")
+      (pkg-exists-p "pango" :atleast-version "0.20")
+      (pkg-exists-p "gtk+-2.0" :atleast-version "1.3.9"))
     :source-pathname "clg:"
     :binary-pathname "clg:"
     :components
@@ -33,16 +45,18 @@
      (:module glib
       :initially-do
       (progn
-	(load-shared-library "libglib-1.3.so.9")
-	(load-shared-library "libgobject-1.3.so.9" :init "g_type_init"))
+	(load-shared-library "libglib-1.3.so")
+	(load-shared-library "libgobject-1.3.so" :init "g_type_init"))
       :components
       ((:file "callback"
 	:language :c
+	:source-extension "c"
+	:binary-extension "o"
 	:compiler-options
 	(:cflags ,(pkg-cflags "glib-2.0")
 		 :optimize 2
 		 :definitions (#+cmu CMUCL)
-		 :include-paths ("/usr/src/cmucl-2.4.20/src/lisp")))
+		 :include-paths (,cmucl-include-path)))
        (:file "glib-package")
        (:file "gutils" :depends-on ("glib-package"))
        (:file "gforeign" :depends-on ("gutils"))
@@ -64,13 +78,15 @@
       :binary-pathname "gdk;"
       :initially-do
       (progn
-	(load-shared-library "libgdk_pixbuf-1.3.so.9")
-	(load-shared-library "libgdk-x11-1.3.so.9"
+	(load-shared-library "libgdk_pixbuf-1.3.so")
+	(load-shared-library "libgdk-x11-1.3.so"
 	 :init "gdk_init"
 	 :prototype '(function
 		      c-call:void (* c-call:int) (* (* (* char))))
 	 :initargs (list argc argv)))
       :language :c
+      :source-extension "c"
+      :binary-extension "o"
       :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
 			 :optimize 2))
      (:module gdk
@@ -82,7 +98,7 @@
 	(:file "gdk" :depends-on ("gdkevents")))
        :depends-on (glib "gdkglue"))
      (:module pango
-      :initially-do (load-shared-library "libpango-0.20.so")
+      :initially-do (load-shared-library "libpango.so")
        :components
        ((:file "pango-package")
         (:file "pango" :depends-on ("pango-package"))
@@ -94,7 +110,7 @@
       :initially-do
       (progn
 	(load-shared-library
-	 "libgtk-x11-1.3.so.9"
+	 "libgtk-x11-1.3.so"
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
@@ -102,10 +118,12 @@
 		      alien:system-area-pointer)
 	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
       :language :c
+      :source-extension "c"
+      :binary-extension "o"
       :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
 			 :optimize 2
 			 :definitions (#+cmu CMUCL)
-			 :include-paths ("/usr/lib/cmucl")))
+			 :include-paths (,cmucl-include-path)))
      (:module gtk
       :components
       ((:file "gtk-package")
