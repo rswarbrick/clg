@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.8 2005-03-03 10:05:32 espen Exp $
+;; $Id: gtktree.lisp,v 1.9 2005-03-13 18:12:24 espen Exp $
 
 
 (in-package "GTK")
@@ -47,12 +47,11 @@
 (defbinding cell-layout-clear () nil
   (cell-layout cell-layout))
 
-(defbinding cell-layout-add-attribute 
-    (cell-layout cell attribute column &optional model) nil
+(defbinding cell-layout-add-attribute (cell-layout cell attribute column) nil
   (cell-layout cell-layout)
   (cell cell-renderer)
   ((string-downcase attribute) string)
-  ((if model (column-index model column) column) int))
+  (column int))
 
 (def-callback-marshal %cell-layout-data-func 
     (nil cell-layout cell-renderer tree-model (copy-of tree-iter)))
@@ -60,9 +59,9 @@
 (defbinding cell-layout-set-cell-data-func (cell-layout cell function) nil
   (cell-layout cell-layout)
   (cell cell-renderer)
-  ((callback %cell-layout-data-func) pointer)
+  (%cell-layout-data-func callback)
   ((register-callback-function function) unsigned-int)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-func callback))
 
 (defbinding cell-layout-clear-attributes () nil
   (cell-layout cell-layout)
@@ -106,7 +105,7 @@
      (multiple-value-bind (valid iter) (tree-model-get-iter store row)
        (if valid
 	   (%list-store-remove store iter)
-	   (error "~A not poiniting to av valid iterator in ~A" row store))))
+	   (error "~A not poiniting to a valid iterator in ~A" row store))))
     (tree-row-reference 
      (let ((path (tree-row-reference-get-path row)))
        (if path
@@ -319,8 +318,15 @@
   (column int)
   (gvalue gvalue))
 
-(defun tree-model-column-value (model iter column)
-  (let ((index (column-index model column)))
+(defun tree-model-value (model row column)
+  (let ((index (column-index model column))
+	(iter (etypecase row
+		(tree-iter row)
+		(tree-path (multiple-value-bind (valid iter)
+			       (tree-model-get-iter model row)
+			     (if valid
+				 iter
+			       (error "Invalid tree path: ~A" row)))))))
     (with-gvalue (gvalue)
       (%tree-model-get-value model iter index gvalue))))
 
@@ -361,7 +367,7 @@
 
 (defbinding %tree-model-foreach () nil
   (tree-model tree-model)
-  ((callback %tree-model-foreach-func) pointer)
+  ((progn %tree-model-foreach-func) callback)
   (callback-id unsigned-int))
 
 (defun tree-model-foreach (model function)
@@ -410,6 +416,9 @@
 		   :test #'string=)))
    (error "~A has no column ~S" model column)))
 
+(defun column-name (model index)
+  (svref (object-data model 'column-names) index))
+
 (defun tree-model-column-value-setter (model column)
   (let ((setters (or
 		  (object-data model 'column-setters)
@@ -447,9 +456,16 @@
 			 (funcall setter value iter))
 		 row setters)))))))
 
-(defun (setf tree-model-column-value) (value model iter column)
-  (funcall (tree-model-column-value-setter model column) value iter)
-  value)
+(defun (setf tree-model-value) (value model row column)
+  (let ((iter (etypecase row
+		(tree-iter row)
+		(tree-path (multiple-value-bind (valid iter)
+			       (tree-model-get-iter model row)
+			     (if valid
+				 iter
+			       (error "Invalid tree path: ~A" row)))))))
+    (funcall (tree-model-column-value-setter model column) value iter)
+    value))
 
 (defun (setf tree-model-row-data) (data model iter)
   (funcall (tree-model-row-setter model) data iter)
@@ -461,7 +477,7 @@
     (cons 
      (loop
       as (column value . rest) = data then rest
-      do (setf (tree-model-column-value model iter column) value)
+      do (setf (tree-model-value model iter column) value)
       while rest))))
 
 
@@ -471,9 +487,9 @@
 
 (defbinding tree-selection-set-select-function (selection function) nil
   (selection tree-selection)
-  ((callback %tree-selection-func) pointer)
+  (%tree-selection-func callback)
   ((register-callback-function function) unsigned-int)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-func callback))
 
 (defbinding tree-selection-get-selected 
     (selection &optional (iter (make-instance 'tree-iter))) boolean
@@ -485,7 +501,7 @@
 
 (defbinding %tree-selection-selected-foreach () nil
   (tree-selection tree-selection)
-  ((callback %tree-selection-foreach-func) pointer)
+  ((progn %tree-selection-foreach-func) callback)
   (callback-id unsigned-int))
 
 (defun tree-selection-selected-foreach (selection function)
@@ -554,6 +570,73 @@
   (start tree-path)
   (end tree-path))
 
+
+;;; Tree Sortable
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-enum-type sort-column (:default -1) (:unsorted -2))
+  (define-enum-type sort-order (:before -1) (:equal 0) (:after 1)))
+
+
+(def-callback-marshal %tree-iter-compare-func 
+  ((or int sort-order) tree-model (a (copy-of tree-iter)) (b (copy-of tree-iter))))
+
+(defbinding tree-sortable-sort-column-changed () nil
+  (sortable tree-sortable))
+
+(defbinding %tree-sortable-get-sort-column-id () boolean
+  (sortable tree-sortable)
+  (column int :out)
+  (order sort-type :out))
+
+(defun tree-sortable-get-sort-column (sortable)
+  (multiple-value-bind (special-p column order) 
+      (%tree-sortable-get-sort-column-id sortable)
+    (values
+     (if special-p
+	 (int-to-sort-order column)
+       (column-name sortable column))
+     order)))
+
+(defbinding (tree-sortable-set-sort-column 
+	     "gtk_tree_sortable_set_sort_column_id") 
+    (sortable column order) nil
+  (sortable tree-sortable)
+  ((etypecase column
+     ((or integer sort-column) column)
+     (symbol (column-index sortable column))) 
+   (or sort-column int))
+  (order sort-type))
+
+(defbinding %tree-sortable-set-sort-func (sortable column function) nil
+  (sortable tree-sortable)
+  ((column-index sortable column) int)
+  (%tree-iter-compare-func callback)
+  ((register-callback-function function) unsigned-int)
+  (user-data-destroy-func callback))
+
+(defbinding %tree-sortable-set-default-sort-func () nil
+  (sortable tree-sortable)
+  (compare-func (or null pointer))
+  (callback-id unsigned-int)
+  (destroy-func (or null pointer)))
+
+(defun tree-sortable-set-sort-func (sortable column function)
+  "Sets the comparison function used when sorting to be FUNCTION. If
+the current sort column of SORTABLE is the same as COLUMN,
+then the model will sort using this function."
+  (cond
+   ((and (eq column :default) (not function))
+    (%tree-sortable-set-default-sort-func sortable nil 0 nil))
+   ((eq column :default) 
+    (%tree-sortable-set-default-sort-func sortable 
+     (callback %tree-iter-compare-func)
+     (register-callback-function function)
+     (callback user-data-destroy-func)))
+   ((%tree-sortable-set-sort-func sortable column function))))
+
+(defbinding tree-sortable-has-default-sort-func-p () boolean
+  (sortable tree-sortable))
 
 
 ;;; Tree Store
@@ -767,7 +850,7 @@
 
 (defbinding %tree-view-map-expanded-rows () nil
   (tree-view tree-view)
-  ((callback %tree-view-mapping-func) pointer)
+  ((progn %tree-view-mapping-func) callback)
   (callback-id unsigned-int))
 
 (defun map-expanded-rows (function tree-view)
@@ -807,5 +890,65 @@
 ;; and many more functions which we'll add later
 
 
-;;; Tree View Column
+;;;; Icon View
 
+#+gtk2.6
+(progn
+  (defbinding icon-view-get-path-at-pos () tree-path
+    (icon-view icon-view)
+    (x int) (y int))
+
+  (def-callback-marshal %icon-view-foreach-func 
+    (nil icon-view (path (copy-of tree-path))))
+
+  (defbinding %icon-view-selected-foreach () tree-path
+    (icon-view icon-view)
+    ((progn %icon-view-foreach-func) callback)
+    (callback-id unsigned-int))
+  
+  (defun icon-view-foreach (icon-view function)
+    (with-callback-function (id function)
+      (%icon-view-selected-foreach icon-view id)))
+
+  (defbinding icon-view-select-path () nil
+    (icon-view icon-view)
+    (path tree-path))
+
+  (defbinding icon-view-unselect-path () nil
+    (icon-view icon-view)
+    (path tree-path))
+
+  (defbinding icon-view-path-is-selected-p () boolean
+    (icon-view icon-view)
+    (path tree-path))
+
+  (defbinding icon-view-get-selected-items () (glist tree-path)
+    (icon-view icon-view))
+
+  (defbinding icon-view-select-all () nil
+    (icon-view icon-view))
+
+  (defbinding icon-view-unselect-all () nil
+    (icon-view icon-view))
+  
+  (defbinding icon-view-item-activated () nil
+    (icon-view icon-view)
+    (path tree-path))
+
+  (defbinding %icon-view-set-text-column (column icon-view) nil
+    (icon-view icon-view)
+    ((if (integerp column) 
+	 column 
+       (column-index (icon-view-model icon-view) column)) int))
+
+  (defbinding %icon-view-set-markup-column (column icon-view) nil
+    (icon-view icon-view)
+    ((if (integerp column) 
+	 column 
+       (column-index (icon-view-model icon-view) column)) int))
+
+  (defbinding %icon-view-set-pixbuf-column (column icon-view) nil
+    (icon-view icon-view)
+    ((if (integerp column) 
+	 column 
+       (column-index (icon-view-model icon-view) column)) int)))
