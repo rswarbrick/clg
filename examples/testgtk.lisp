@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.11 2004-12-17 00:45:00 espen Exp $
+;; $Id: testgtk.lisp,v 1.12 2004-12-20 00:56:11 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -303,91 +303,80 @@
   (declare (number n min-val max-val))
   (max (min n max-val) min-val))
 
+(defun set-cursor (spinner drawing-area label)
+  (let ((cursor
+	 (glib:int-enum
+	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
+	  'gdk:cursor-type)))
+    (setf (label-label label) (string-downcase cursor))
+    (setf (widget-cursor drawing-area) cursor)))
 
-;; (defun set-cursor (spinner drawing-area label)
-;;   (let ((cursor
-;; 	 (glib:int-enum
-;; 	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
-;; 	  'gdk:cursor-type)))	
-;;     (setf (label-text label) (string-downcase cursor))
-;;     (setf (widget-cursor drawing-area) cursor)))
-    
+(defun cursor-expose (drawing-area event)
+  (declare (ignore event))
+  (multiple-value-bind (width height)
+      (drawing-area-get-size drawing-area)
+    (let* ((window (widget-window drawing-area))
+	   (style (widget-style drawing-area))
+	   (white-gc (style-white-gc style))
+	   (gray-gc (style-bg-gc style :normal))
+	   (black-gc (style-black-gc style)))
+      (gdk:draw-rectangle window white-gc t 0 0 width (floor height 2))
+      (gdk:draw-rectangle window black-gc t 0 (floor height 2) width 
+			  (floor height 2))
+      (gdk:draw-rectangle window gray-gc t (floor width 3) 
+			  (floor height 3) (floor width 3) 
+			  (floor height 3))))
+  t)
 
-; (define-standard-dialog create-cursors "Cursors"
-;   (setf (container-border-width main-box) 10)
-;   (setf (box-spacing main-box) 5)
-;   (let* ((hbox (hbox-new nil 0))
-; 	 (label (create-label "Cursor Value : "))
-; 	 (adj (adjustment-new 0 0 152 2 10 0))
-; 	 (spinner (spin-button-new adj 0 0)))
-;     (setf (container-border-width hbox) 5)
-;     (box-pack-start main-box hbox nil t 0)
-;     (setf (misc-xalign label) 0)
-;     (setf (misc-yalign label) 0.5)
-;     (box-pack-start hbox label nil t 0)
-;     (box-pack-start hbox spinner t t 0)
+(define-simple-dialog create-cursors (dialog "Cursors")
+  (let ((spinner (make-instance 'spin-button 
+		  :adjustment (adjustment-new 
+			       0 0 
+			       (1- (enum-int :last-cursor 'gdk:cursor-type))
+			       2 10 0)))
+	(drawing-area (make-instance 'drawing-area
+		       :width-request 80 :height-request 80
+		       :events '(:exposure-mask :button-press-mask)))
+	(label (make-instance 'label :label "XXX")))
 
-;     (let ((frame (make-frame
-; 		  :shadow-type :etched-in
-; 		  :label-xalign 0.5
-; 		  :label "Cursor Area"
-; 		  :border-width 10
-; 		  :parent main-box
-; 		  :visible t))
-; 	  (drawing-area (drawing-area-new)))
-;       (setf (widget-width drawing-area) 80)
-;       (setf (widget-height drawing-area) 80)
-;       (container-add frame drawing-area)
-;       (signal-connect
-;        drawing-area 'expose-event
-;        #'(lambda (event)
-; 	   (declare (ignore event))
-; 	   (multiple-value-bind (width height)
-; 	       (drawing-area-size drawing-area)
-; 	     (let* ((drawable (widget-window drawing-area))
-; 		    (style (widget-style drawing-area))
-; 		    (white-gc (style-get-gc style :white))
-; 		    (gray-gc (style-get-gc style :background :normal))
-; 		    (black-gc (style-get-gc style :black)))
-; 	       (gdk:draw-rectangle
-; 		drawable white-gc t 0 0 width (floor height 2))
-; 	       (gdk:draw-rectangle
-; 		drawable black-gc t 0 (floor height 2) width (floor height 2))
-; 	       (gdk:draw-rectangle
-; 		drawable gray-gc t (floor width 3) (floor height 3)
-; 		(floor width 3) (floor height 3))))
-; 	     t))
-;       (setf (widget-events drawing-area) '(:exposure :button-press))
-;       (signal-connect
-;        drawing-area 'button-press-event
-;        #'(lambda (event)
-; 	   (when (and
-; 		  (eq (gdk:event-type event) :button-press)
-; 		  (or
-; 		   (= (gdk:event-button event) 1)
-; 		   (= (gdk:event-button event) 3)))
-; 	     (spin-button-spin
-; 	      spinner
-; 	      (if (= (gdk:event-button event) 1)
-; 		  :step-forward
-; 		:step-backward)
-; 	      0)
-; 	     t)))
-;       (widget-show drawing-area)
+    (signal-connect drawing-area 'expose-event #'cursor-expose :object t)
 
-;     (let ((label (make-label
-; 		  :visible t
-; 		  :label "XXX"
-; 		  :parent main-box)))
-;       (setf (box-child-expand-p #|main-box|# label) nil)
-;       (signal-connect
-;        spinner 'changed
-;        #'(lambda ()
-; 	   (set-cursor spinner drawing-area label)))
+    (signal-connect drawing-area 'button-press-event
+     #'(lambda (event)
+	 (case (gdk:event-button event)
+	   (1 (spin-button-spin spinner :step-forward 0.0))
+	   (3 (spin-button-spin spinner :step-backward 0.0)))
+	 t))
 
-;       (widget-realize drawing-area)
-;       (set-cursor spinner drawing-area label)))))
+    (signal-connect drawing-area 'scroll-event
+     #'(lambda (event)
+	 (case (gdk:event-direction event)
+	   (:up (spin-button-spin spinner :step-forward 0.0))
+	   (:down (spin-button-spin spinner :step-backward 0.0)))
+	 t))
 
+    (signal-connect spinner 'changed
+     #'(lambda ()
+	 (set-cursor spinner drawing-area label)))
+
+    (make-instance 'v-box
+     :parent dialog :border-width 10 :spacing 5 :show-all t
+     :child (list
+	     (make-instance 'h-box
+	      :border-width 5
+	      :child (list
+		      (make-instance 'label :label "Cursor Value : ")
+		      :expand nil)
+	      :child spinner)
+	     :expand nil)
+     :child (make-instance 'frame
+;	     :shadow-type :etched-in
+	     :label "Cursor Area" :label-xalign 0.5 :border-width 10
+	     :child drawing-area)
+     :child (list label :expand nil))
+
+    (widget-realize drawing-area)
+    (set-cursor spinner drawing-area label)))
 
 
 ;;; Dialog
@@ -665,38 +654,32 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Layout
 
-;; (defun layout-expose (layout event)
-;;   (with-slots (window x-offset y-offset) layout
-;;     (with-slots (x y width height) event
-;;       (let ((imin (truncate (+ x-offset x) 10))
-;; 	    (imax (truncate (+ x-offset x width 9) 10))
-;; 	    (jmin (truncate (+ y-offset y) 10))
-;; 	    (jmax (truncate (+ y-offset y height 9) 10)))
-;; 	(declare (fixnum imin imax jmin jmax))
-;; 	(gdk:window-clear-area window x y width height)
+(defun layout-expose (layout event)
+  (when (eq (gdk:event-window event) (layout-bin-window layout))
+    (with-slots (gdk:x gdk:y gdk:width gdk:height) event
+      (let ((imin (truncate gdk:x 10))
+	    (imax (truncate (+ gdk:x gdk:width 9) 10))
+	    (jmin (truncate gdk:y 10))
+	    (jmax (truncate (+ gdk:y gdk:height 9) 10)))
 
-;; 	(let ((window (layout-bin-window layout))
-;; 	      (gc (style-get-gc (widget-style layout) :black)))
-;; 	  (do ((i imin (1+ i)))
-;; 	      ((= i imax))
-;; 	    (declare (fixnum i))
-;; 	    (do ((j jmin (1+ j)))
-;; 		((= j jmax))
-;; 	      (declare (fixnum j))
-;; 	      (unless (zerop (mod (+ i j) 2))
-;; 		(gdk:draw-rectangle
-;; 		 window gc t
-;; 		 (- (* 10 i) x-offset) (- (* 10 j) y-offset)
-;; 		 (1+ (mod i 10)) (1+ (mod j 10))))))))))
-;;   t)
-
+	(let ((window (layout-bin-window layout))
+	      (gc (style-black-gc (widget-style layout))))
+	  (loop
+	   for i from imin below imax
+	   do (loop 
+	       for j from jmin below jmax
+	       unless (zerop (mod (+ i j) 2))
+	       do (gdk:draw-rectangle
+		   window gc t (* 10 i) (* 10 j) 
+		   (1+ (mod i 10)) (1+ (mod j 10)))))))))
+  nil)
 
 (define-toplevel create-layout (window "Layout" :default-width 200
 				                :default-height 200)
   (let ((layout (make-instance 'layout
 		 :parent (make-instance 'scrolled-window :parent window)
 		 :width 1600 :height 128000 :events '(:exposure-mask)
-;; 		 :signal (list 'expose-event #'layout-expose :object t)
+ 		 :signal (list 'expose-event #'layout-expose :object t)
 		 )))
 
     (with-slots (hadjustment vadjustment) layout
@@ -1850,7 +1833,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("calendar" create-calendar)
  	    ("check buttons" create-check-buttons)
  	    ("color selection" create-color-selection)
-;; 	    ("cursors" #|create-cursors|#)
+ 	    ("cursors" create-cursors)
  	    ("dialog" create-dialog)
 ;; ;  	    ("dnd")
  	    ("entry" create-entry)
