@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.1 2000-08-14 16:44:34 espen Exp $
+;; $Id: gtype.lisp,v 1.2 2000-08-15 14:42:34 espen Exp $
 
 (in-package "GLIB")
 
@@ -273,11 +273,6 @@
     (declare (ignore initargs))
     (call-next-method)
 
-    ;; For some reason I can't figure out, accessors for only the
-    ;; first direct slot in an alien class gets defined by
-    ;; PCL. Therefore it has to be done here.
-    (pcl::fix-slot-accessors class (class-direct-slots class) 'pcl::add)
-    
     (when alien-name
       (setf (alien-type-name (or name (class-name class))) (first alien-name)))
     (when size
@@ -397,7 +392,11 @@
     
       ;; Reverse the direct slot definitions so the effective slots
       ;; will be in correct order.
-      (setf direct-slots (nreverse direct-slots)))
+      (setf direct-slots (reverse direct-slots))
+      ;; This nreverse caused me so much frustration that I leave it
+      ;; here just as a reminder of what not to do.
+;      (setf direct-slots (nreverse direct-slots))
+      )
     (call-next-method))
 
 
