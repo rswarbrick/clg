@@ -15,45 +15,42 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.16 2004-12-05 13:54:10 espen Exp $
+;; $Id: gcallback.lisp,v 1.17 2005-01-03 16:37:16 espen Exp $
 
 (in-package "GLIB")
 
 (use-prefix "g")
 
 
-;;;; Callback mechanism
-
-(deftype gclosure () 'pointer)
-
-(defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
-  (callback-id unsigned-int) 
-  (callback pointer)
-  (destroy-notify pointer))
+;;;; Callback invokation
 
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
   (register-user-data function))
 
-(defcallback closure-callback-marshal (nil
-				       (gclosure pointer)
-				       (return-value gvalue)
-				       (n-params unsigned-int) 
-				       (param-values pointer)
-				       (invocation-hint pointer) 
-				       (callback-id unsigned-int))
-  (callback-trampoline callback-id n-params param-values return-value))
-
 (defcallback %destroy-user-data (nil (id unsigned-int))
   (destroy-user-data id))
- 
-(defun make-callback-closure (function)
-  (callback-closure-new 
-   (register-callback-function function)
-   (callback closure-callback-marshal) (callback %destroy-user-data)))
 
+;; Callback marshal for regular signal handlers
+(defcallback closure-marshal (nil
+			      (gclosure pointer)
+			      (return-value gvalue)
+			      (n-params unsigned-int) 
+			      (param-values pointer)
+			      (invocation-hint pointer) 
+			      (callback-id unsigned-int))
+  (callback-trampoline callback-id n-params param-values return-value))
 
-(defun callback-trampoline (callback-id n-params param-values return-value)
+;; Callback function for emission hooks
+(defcallback signal-emission-hook (nil
+				   (invocation-hint pointer)
+				   (n-params unsigned-int) 
+				   (param-values pointer)
+				   (callback-id unsigned-int))
+  (callback-trampoline callback-id n-params param-values))
+
+(defun callback-trampoline (callback-id n-params param-values &optional
+			    (return-value (make-pointer 0)))
   (let* ((return-type (unless (null-pointer-p return-value)
 			(gvalue-type return-value)))
 	 (args (loop
@@ -62,7 +59,6 @@
     (let ((result (apply #'invoke-callback callback-id return-type args)))
       (when return-type
 	(gvalue-set return-value result)))))
-
 
 (defun invoke-callback (callback-id return-type &rest args)
   (restart-case
@@ -88,7 +84,7 @@
   (tag unsigned-int))
 
 (defcallback source-callback-marshal (nil (callback-id unsigned-int))
-  (callback-trampoline callback-id 0 nil (make-pointer 0)))
+  (callback-trampoline callback-id 0 nil))
 
 (defbinding (timeout-add "g_timeout_add_full")
     (interval function &optional (priority +priority-default+)) unsigned-int 
@@ -112,84 +108,247 @@
   (source-remove idle))
 
 
-;;;; Signals
+;;;; Signal information querying
 
-(defbinding signal-lookup (name itype) unsigned-int
+(defbinding signal-lookup (name type) unsigned-int
   ((signal-name-to-string name) string)
-  (itype type-number))
+  ((find-type-number type t) type-number))
 
-(defbinding signal-name () string
+(defbinding signal-name () (copy-of string)
   (signal-id unsigned-int))
 
-(defun ensure-signal-id (signal-id instance)
+(defbinding signal-list-ids (type) (vector unsigned-int n-ids)
+  ((find-type-number type t) type-number)
+  (n-ids unsigned-int :out))
+
+(defun signal-list-names (type)
+  (map 'list #'signal-name (signal-list-ids type)))
+
+(defun ensure-signal-id-from-type (signal-id type)
   (etypecase signal-id
-    (integer signal-id)
-    (string (signal-lookup signal-id (type-number-of instance)))
-    (symbol (signal-lookup signal-id (type-number-of instance)))))
+    (integer (if (signal-name signal-id)
+		 signal-id
+	       (error "Invalid signal id: ~D" signal-id)))
+    ((or symbol string) 
+     (let ((numeric-id (signal-lookup signal-id type)))
+       (if (zerop numeric-id)
+	   (error "Invalid signal name for ~S: ~D" type signal-id)
+	 numeric-id)))))
+
+(defun ensure-signal-id (signal-id instance)
+  (ensure-signal-id-from-type signal-id (type-of instance)))
   
-(defbinding signal-stop-emission (instance signal-id) nil
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (deftype signal-flags () 
+    '(flags :run-first :run-last :run-cleanup :no-recurse 
+	    :detailed :action :no-hooks))
+
+  (defclass signal-query (struct)
+    ((id :allocation :alien :type unsigned-int)
+     (name :allocation :alien :type (copy-of string))
+     (type :allocation :alien :type type-number)
+     (flags :allocation :alien :type signal-flags)
+     (return-type :allocation :alien :type type-number)
+     (n-params :allocation :alien :type unsigned-int)
+     (param-types :allocation :alien :type pointer))
+    (:metaclass struct-class)))
+
+(defbinding signal-query 
+    (signal-id &optional (signal-query (make-instance 'signal-query))) nil
+  (signal-id unsigned-int)
+  (signal-query signal-query :return))
+
+(defun signal-param-types (info)
+  (with-slots (n-params param-types) info
+   (map-c-vector 'list 
+    #'(lambda (type-number) 
+	(type-from-number type-number))
+    param-types 'type-number n-params)))
+
+
+(defun describe-signal (signal-id &optional type)
+  (let ((info (signal-query (ensure-signal-id-from-type signal-id type))))
+    (with-slots (id name type flags return-type n-params) info
+      (format t "The signal with id ~D is named '~A' and may be emitted on instances of type ~S~%~%" id name (type-from-number type t))
+      (format t "Signal handlers should return ~A and take ~A~%"
+       (cond
+	((= return-type (find-type-number "void")) "no values")
+	((not (type-from-number return-type)) "values of unknown type")
+	((format nil "values of type ~S" (type-from-number return-type))))
+       (if (zerop n-params)
+	   "no arguments"
+	 (format nil "arguments with the following types: ~A"
+	  (signal-param-types info)))))))
+
+
+;;;; Signal connecting and controlling
+
+(defbinding %signal-stop-emission () nil
   (instance ginstance)
-  ((ensure-signal-id signal-id instance) unsigned-int))
+  (signal-id unsigned-int)
+  (detail quark))
 
-; (defbinding (signal-add-emisson-hook "g_signal_add_emission_hook_full")
-;     () unsigned-int
-;   (signal-id unsigned-int)
-;   (closure gclosure))
+(defvar *signal-stop-emission* nil)
+(declaim (special *signal-stop-emission*))
 
-; (defbinding signal-remove-emisson-hook () nil
-;   (signal-id unsigned-int)
-;   (hook-id unsigned-int))
+(defun signal-stop-emission ()
+  (if *signal-stop-emission*
+      (funcall *signal-stop-emission*)
+    (error "Not inside a signal handler")))
+
+
+(defbinding signal-add-emission-hook (type signal function &key (detail 0))
+    unsigned-int
+  ((ensure-signal-id-from-type signal type) unsigned-int)
+  (detail quark)
+  ((callback signal-emission-hook) pointer)
+  ((register-callback-function function) unsigned-int)
+  ((callback %destroy-user-data) pointer))
+
+(defbinding signal-remove-emission-hook (type signal hook-id) nil
+  ((ensure-signal-id-from-type signal type) unsigned-int)
+  (hook-id unsigned-int))
+
 
 (defbinding (signal-has-handler-pending-p "g_signal_has_handler_pending")
     (instance signal-id &key detail blocked) boolean
   (instance ginstance)
   ((ensure-signal-id signal-id instance) unsigned-int)
   ((or detail 0) quark)
-  (blocked boolean))
+  (may-be-blocked boolean))
     
-(defbinding (signal-connect-closure "g_signal_connect_closure_by_id")
-    (instance signal-id closure &key detail after) unsigned-int
+(defbinding %signal-connect-closure-by-id () unsigned-int
   (instance ginstance)
-  ((ensure-signal-id signal-id instance) unsigned-int)
-  ((or detail 0) quark)
-  (closure gclosure)
+  (signal-id unsigned-int)
+  (detail quark)
+  (closure pointer)
   (after boolean))
 
 (defbinding signal-handler-block () nil
   (instance ginstance)
-  (handler unsigned-int))
+  (handler-id unsigned-int))
 
 (defbinding signal-handler-unblock () nil
   (instance ginstance)
-  (handler unsigned-int))
+  (handler-id unsigned-int))
 
 (defbinding signal-handler-disconnect () nil
   (instance ginstance)
-  (handler unsigned-int))
+  (handler-id unsigned-int))
 
+(defbinding signal-handler-is-connected-p () boolean
+  (instance ginstance)
+  (handler-id unsigned-int))
 
-(defmethod signal-connect ((gobject gobject) signal function &key after object)
-"Connects a callback function to a signal for a particular object. If :OBJECT 
- is T, the object connected to is passed as the first argument to the callback 
- function, or if :OBJECT is any other non NIL value, it is passed as the first 
- argument instead. If :AFTER is non NIL, the handler will be called after the 
- default handler for the signal."
+(defbinding (callback-closure-new "clg_callback_closure_new") () pointer
+  (callback-id unsigned-int) 
+  (callback pointer)
+  (destroy-notify pointer))
+
+(defun make-callback-closure (function)
+  (let ((callback-id (register-callback-function function)))
+    (values
+     (callback-closure-new 
+      callback-id (callback closure-marshal) 
+      (callback %destroy-user-data))
+     callback-id)))
+
+(defmethod create-callback-function ((gobject gobject) function arg1)
+  (cond
+   ((or (eq arg1 t) (eq arg1 gobject)) function)
+   ((not arg1)
+    #'(lambda (&rest args) (apply function (rest args))))
+   (t
+    #'(lambda (&rest args) (apply function arg1 (rest args))))))
+
+(defmethod signal-connect ((gobject gobject) signal function
+			   &key (detail 0) after object remove)
+"Connects a callback function to a signal for a particular object. If
+:OBJECT is T, the object connected to is passed as the first argument
+to the callback function, or if :OBJECT is any other non NIL value, it
+is passed as the first argument instead. If :AFTER is non NIL, the
+handler will be called after the default handler for the signal. If
+:REMOVE is non NIL, the handler will be removed after beeing invoked
+once."
   (when function
-    (let ((callback-id
-	   (make-callback-closure
-	    (cond
-	      ((or (eq object t) (eq object gobject)) function)
-	      ((not object)
-	       #'(lambda (&rest args) (apply function (cdr args))))
-	      (t
-	       #'(lambda (&rest args) (apply function object (rest args))))))))
-      (signal-connect-closure gobject signal callback-id :after after))))
+    (let* ((signal-id (ensure-signal-id signal gobject))
+	   (signal-stop-emission
+	    #'(lambda ()
+		(%signal-stop-emission gobject signal-id detail)))
+	   (callback (create-callback-function gobject function object))
+	   (wrapper #'(lambda (&rest args)
+			(let ((*signal-stop-emission* signal-stop-emission))
+			  (apply callback args)))))
+      (multiple-value-bind (closure-id callback-id)
+	  (make-callback-closure wrapper)
+	(let ((handler-id (%signal-connect-closure-by-id 
+			   gobject signal-id detail closure-id after)))
+	  (when remove
+	    (update-user-data callback-id
+	     #'(lambda (&rest args)
+		 (unwind-protect
+		     (let ((*signal-stop-emission* signal-stop-emission))
+		       (apply callback args))
+		   (signal-handler-disconnect gobject handler-id)))))
+	  handler-id)))))
+
+
+;;;; Signal emission
+
+(defbinding %signal-emitv () nil
+  (gvalues pointer)
+  (signal-id unsigned-int)
+  (detail quark)
+  (return-value gvalue))
+
+(defvar *signal-emit-functions* (make-hash-table))
+
+(defun create-signal-emit-function (signal-id)
+  (let ((info (signal-query signal-id)))
+    (let* ((type (type-from-number (slot-value info 'type)))
+	   (param-types (cons type (signal-param-types info)))
+	   (return-type (type-from-number (slot-value info 'return-type)))
+	   (n-params (1+ (slot-value info 'n-params)))
+	   (params (allocate-memory (* n-params +gvalue-size+))))
+      #'(lambda (detail object &rest args)
+ 	  (unless (= (length args) (1- n-params))
+ 	    (error "Invalid number of arguments: ~A" (+ 2 (length args))))
+	  (unwind-protect
+	      (loop
+	       for arg in (cons object args)
+	       for type in param-types
+	       as tmp = params then (sap+ tmp +gvalue-size+)
+	       do (gvalue-init tmp type arg)	      
+	       finally 
+	       (if return-type
+		   (return 
+		    (with-gvalue (return-value)
+		      (%signal-emitv params signal-id detail return-value)))
+		 (%signal-emitv params signal-id detail (make-pointer 0))))
+	    (loop
+	     repeat n-params
+	     as tmp = params then (sap+ tmp +gvalue-size+)
+	     while (gvalue-p tmp)
+	     do (gvalue-unset tmp)))))))
+
+(defun signal-emit-with-detail (object signal detail &rest args)
+  (let* ((signal-id (ensure-signal-id signal object))
+	 (function (or 
+		    (gethash signal-id *signal-emit-functions*)
+		    (setf 
+		     (gethash signal-id *signal-emit-functions*)
+		     (create-signal-emit-function signal-id)))))
+    (apply function detail object args)))
+
+(defun signal-emit (object signal &rest args)
+  (apply #'signal-emit-with-detail object signal 0 args))
+
 
 
 ;;; Message logging
 
 ;; TODO: define and signal conditions based on log-level
-;(defun log-handler (domain log-level message)
+
 (def-callback log-handler (c-call:void (domain c-call:c-string) 
 				       (log-level c-call:int) 
 				       (message c-call:c-string))
@@ -216,5 +375,3 @@
     (unwind-protect
 	 (progn ,@body)
       (destroy-user-data ,id))))
-
-
