@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.14 2002-03-24 21:54:33 espen Exp $
+;; $Id: gtktypes.lisp,v 1.15 2002-04-02 15:03:47 espen Exp $
 
 
 (in-package "GTK")
@@ -119,6 +119,34 @@
     :type single-float))
   (:metaclass gobject-class)
   (:alien-name "GtkAdjustment"))
+
+(defclass stock-item (struct)
+  ((id
+    :allocation :alien
+    :accessor stock-item-id
+    :initarg :id
+    :type string)
+   (label
+    :allocation :alien
+    :accessor stock-item-label
+    :initarg :label
+    :type string)
+   (modifier
+    :allocation :alien
+    :accessor stock-item-modifier
+    :initarg :modifier
+    :type gdk:modifier-type)
+   (keyval
+    :allocation :alien
+    :accessor stock-item-keyval
+    :initarg :keyval
+    :type int)
+   (translation-domain
+    :allocation :alien
+    :accessor stock-item-translation-domain
+    :initarg :translation-domain
+    :type string))
+  (:metaclass proxy-class))
 
 
 
@@ -306,10 +334,7 @@
      :setter "gtk_window_set_transient_for"
      :accessor window-transient-for
      :initarg :transient-for
-     :type window)
-     
-    
-    ))
+     :type window)))
   
   ("GtkTooltips"
    :slots
@@ -329,7 +354,7 @@
      :setter (setf option-menu-menu)
      :reader option-menu-menu
      :initarg :menu
-     :type widget)
+     :type menu)
     (history
      :allocation :virtual
      :getter "gtk_option_menu_get_history"
@@ -342,30 +367,24 @@
    :slots
    ((label
      :allocation :virtual
-     :setter menu-item-label
+     :getter menu-item-label
+     :setter (setf menu-item-label)
      :initarg :label
      :type string)
+    (right-justified
+     :allocation :virtual
+     :getter "gtk_menu_item_get_right_justified"
+     :setter "gtk_menu_item_set_right_justified"
+     :accessor menu-item-right-justified-p
+     :initarg :right-justified
+     :type boolean)
     (submenu
      :allocation :virtual
      :getter "gtk_menu_item_get_submenu"
      :setter (setf menu-item-submenu)
      :reader menu-item-submenu
      :initarg :submenu
-     :type menu-item)
-    (placement
-     :allocation :virtual
-     :getter "gtk_menu_item_get_placement"
-     :setter "_gtk_menu_item_set_placement"  ; why underscore?
-     :accessor menu-item-placement
-     :initarg :placement
-     :type submenu-placement)
-    (submenu-indicator
-     :allocation :virtual
-     :getter "gtk_menu_item_get_show_submenu"
-     :setter "gtk_menu_item_set_show_submenu"
-     :accessor menu-item-submenu-indicator-p
-     :initarg :submenu-indicator
-     :type boolean)))
+     :type menu-item)))
 
   ("GtkColorSelectionDialog"
    :slots
@@ -421,6 +440,13 @@
      :accessor menu-accel-group
      :initarg :accel-group
      :type accel-group)
+    (title
+     :allocation :virtual
+     :getter "gtk_menu_get_title"
+     :setter "gtk_menu_set_title"
+     :accessor menu-title
+     :initarg :title
+     :type string)
     (active
      :allocation :virtual
      :getter "gtk_menu_get_active"
@@ -453,6 +479,15 @@
      :initarg :icon-size
      :type icon-size)))
 
+  ("GtkNotebook"
+   :slots
+   ((current-page
+     :allocation :virtual
+     :getter notebook-current-page
+     :setter (setf notebook-current-page)
+     :initarg :current-page)
+    (page :ignore t)))
+  
   ("GtkRuler"
    :slots
    ((metric
@@ -507,7 +542,7 @@
      :getter "gtk_combo_get_entry"
      :reader combo-entry
      :type entry)))
-
+  
   ("GtkRadioButton"
    :slots
    ((group
@@ -548,6 +583,15 @@
      :getter "gtk_layout_get_bin_window"
      :reader layout-bin-window
      :type gdk:window)))
+
+  ("GtkFixed"
+   :slots
+   ((has-window
+     :getter "gtk_fixed_get_has_window"
+     :setter "gtk_fixed_set_has_window"
+     :reader fixed-has-window-p
+     :initarg :has-window
+     :type boolean)))
      
   ;; Not needed
   ("GtkFundamentalType" :ignore t)

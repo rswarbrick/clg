@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.11 2002-03-25 09:24:55 espen Exp $
+;; $Id: gtk.lisp,v 1.12 2002-04-02 15:03:47 espen Exp $
 
 
 (in-package "GTK")
@@ -65,8 +65,6 @@
   (upper single-float))
 
 
-
-;;; Alignment -- no functions
 ;;; Arrow -- no functions
 
 
@@ -81,10 +79,6 @@
     (container-remove bin current-child))
   (container-add bin child)
   child)
-
-
-
-;;; Button box -- no functions
 
 
 ;;; Binding
@@ -107,10 +101,10 @@
   (fill boolean)
   (padding unsigned-int))
 
-(defun box-pack (box child &key (pack :start) (expand t) (fill t) (padding 0))
-  (if (eq pack :start)
-      (box-pack-start box child expand fill padding)
-    (box-pack-end box child expand fill padding)))
+(defun box-pack (box child &key from-end (expand t) (fill t) (padding 0))
+  (if from-end
+      (box-pack-end box child expand fill padding)
+    (box-pack-start box child expand fill padding)))
 
 (defbinding box-reorder-child () nil
   (box box)
@@ -242,16 +236,12 @@
 
 ;;; Combo
 
-(defbinding combo-set-value-in-list () nil
-  (combo combo)
-  (value boolean)
-  (ok-if-empty boolean))
-
-(defbinding combo-set-item-string () nil
-  (combo combo)
-  (item item)
-  (item-value string))
-
+(defmethod shared-initialize ((combo combo) names &rest initargs
+			      &key popdown-strings)
+  (call-next-method)
+  (when popdown-strings
+    (combo-set-popdown-strings combo popdown-strings)))
+			    
 (defbinding combo-set-popdown-strings () nil
   (combo combo)
   (strings (glist string)))
@@ -444,7 +434,7 @@
   (declare (ignore initargs))
   (call-next-method)
   (when group-with
-    (radio-button-add-to-group item group-with)))
+    (radio-button-add-to-group button group-with)))
 
 
 ;;; Option menu
@@ -485,6 +475,11 @@
    :visible t :parent menu-item)
   label)
 
+(defun menu-item-label (menu-item)
+  (with-slots (child) menu-item
+    (when (typep child 'label)
+      (label-label child))))
+
 (defbinding %menu-item-set-submenu () nil
   (menu-item menu-item)
   (submenu menu))
@@ -498,6 +493,10 @@
     (%menu-item-set-submenu menu-item submenu))
   submenu)
 
+(defbinding menu-item-set-accel-path () nil
+  (menu-item menu-item)
+  (accel-path string))
+
 (defbinding menu-item-select () nil
   (menu-item menu-item))
 
@@ -506,6 +505,14 @@
 
 (defbinding menu-item-activate () nil
   (menu-item menu-item))
+
+(defbinding menu-item-toggle-size-request () nil
+  (menu-item menu-item)
+  (requisition int :out))
+
+(defbinding menu-item-toggle-size-allocate () nil
+  (menu-item menu-item)
+  (allocation int))
 
 
 
@@ -525,9 +532,10 @@
 (defmethod initialize-instance ((item radio-menu-item)
 				&rest initargs &key group-with)
   (declare (ignore initargs))
-  (call-next-method)
-  (when group-with
-    (radio-menu-item-add-to-group item group-with)))
+  (prog1
+      (call-next-method)
+    (when group-with
+      (radio-menu-item-add-to-group item group-with))))
   
 
 
@@ -708,13 +716,6 @@
 
 
 
-
-
-
-
-
-
-
 ;;; Statusbar
 
 (defbinding (statusbar-context-id "gtk_statusbar_get_context_id")
@@ -743,62 +744,63 @@
 (defbinding fixed-put () nil
   (fixed fixed)
   (widget widget)
-  (x (signed 16))
-  (y (signed 16)))
+  (x int) (y int))
 
 (defbinding fixed-move () nil
   (fixed fixed)
   (widget widget)
-  (x (signed 16))
-  (y (signed 16)))
+  (x int) (y int))
 
 
 
 ;;; Notebook
 
-(defbinding (notebook-insert-page "gtk_notebook_insert_page_menu")
+(defun %notebook-position (notebook page)
+  (etypecase page
+    (int page)
+    (keyword (case page
+	       (:first 0)
+	       (:last -1)
+	       (error "Invalid position keyword: ~A" page)))
+    (widget (notebook-page-num notebook page t))))
+
+(defun %notebook-child (notebook position)
+  (typecase position
+     (widget position)
+     (t (notebook-nth-page-child notebook position))))
+
+
+(defbinding (notebook-insert "gtk_notebook_insert_page_menu")
     (notebook position child tab-label &optional menu-label) nil
   (notebook notebook)
   (child widget)
   ((if (stringp tab-label)
-       (label-new tab-label)
+       (make-instance 'label :label tab-label)
      tab-label) widget)
   ((if (stringp menu-label)
-       (label-new menu-label)
+       (make-instance 'label :label menu-label)
      menu-label) (or null widget))
-  (position int))
+  ((%notebook-position notebook position) int))
 
-(defun notebook-append-page (notebook child tab-label &optional menu-label)
-  (notebook-insert-page notebook -1 child tab-label menu-label))
+(defun notebook-append (notebook child tab-label &optional menu-label)
+  (notebook-insert notebook :last child tab-label menu-label))
 
-(defun notebook-prepend-page (notebook child tab-label &optional menu-label)
-  (notebook-insert-page notebook 0 child tab-label menu-label))
+(defun notebook-prepend (notebook child tab-label &optional menu-label)
+  (notebook-insert notebook :first child tab-label menu-label))
   
-(defbinding notebook-remove-page () nil
+(defbinding notebook-remove-page (notebook page) nil
   (notebook notebook)
-  (page-num int))
-
-; (defun notebook-current-page-num (notebook)
-;   (let ((page-num (notebook-current-page notebook)))
-;     (if (= page-num -1)
-; 	nil
-;       page-num)))
-
-(defbinding (notebook-nth-page-child "gtk_notebook_get_nth_page") () widget
-  (notebook notebook)
-  (page-num int))
-
-(defun notebook-page-child (notebook)
-  (notebook-nth-page-child notebook (notebook-page notebook)))
+  ((%notebook-position notebook position) int))
 
 (defbinding %notebook-page-num () int
   (notebook notebook)
   (child widget))
 
-(defun notebook-child-num (notebook child)
+(defun notebook-page-num (notebook child &optional error-p)
   (let ((page-num (%notebook-page-num notebook child)))
     (if (= page-num -1)
-	nil
+	(when error-p
+	  (error "~A is not a child of ~A" child notebook))
       page-num)))
 
 (defbinding notebook-next-page () nil
@@ -807,87 +809,100 @@
 (defbinding notebook-prev-page () nil
   (notebook notebook))
 
+(defbinding notebook-reorder-child (notebook child position) nil
+  (notebook notebook)
+  (child widget)
+  ((%notebook-position notebook position) int))
+
 (defbinding notebook-popup-enable () nil
   (notebook notebook))
 
 (defbinding notebook-popup-disable () nil
   (notebook notebook))
 
-; (defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
-;     (notebook ref) widget
-;   (notebook notebook)
-;   ((if (typep ref 'widget)
-;        ref
-;      (notebook-nth-page-child notebook ref))
-;    widget))
-
-; (defbinding %notebook-set-tab-label () nil
-;   (notebook notebook)
-;   (reference widget)
-;   (tab-label widget))
-
-; (defun (setf notebook-tab-label) (tab-label notebook reference)
-;   (let ((tab-label-widget (if (stringp tab-label)
-; 			      (label-new tab-label)
-; 			    tab-label)))
-;     (%notebook-set-tab-label
-;      notebook
-;      (if (typep reference 'widget)
-; 	 reference
-;        (notebook-nth-page-child notebook reference))
-;      tab-label-widget)
-;     tab-label-widget))
-   
-; (defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
-;     (notebook ref) widget
-;   (notebook notebook)
-;   ((if (typep ref 'widget)
-;        ref
-;      (notebook-nth-page-child notebook ref))
-;    widget))
-
-; (defbinding %notebook-set-menu-label () nil
-;   (notebook notebook)
-;   (reference widget)
-;   (menu-label widget))
-
-; (defun (setf notebook-menu-label) (menu-label notebook reference)
-;   (let ((menu-label-widget (if (stringp menu-label)
-; 			      (label-new menu-label)
-; 			    menu-label)))
-;     (%notebook-set-menu-label
-;      notebook
-;      (if (typep reference 'widget)
-; 	 reference
-;        (notebook-nth-page-child notebook reference))
-;      menu-label-widget)
-;     menu-label-widget))
-
-(defbinding notebook-query-tab-label-packing (notebook ref) nil
+(defbinding (notebook-nth-page-child "gtk_notebook_get_nth_page")
+    (notebook page) widget
   (notebook notebook)
-  ((if (typep ref 'widget)
-       ref
-     (notebook-nth-page-child notebook ref))
-   widget)
+  ((case page
+     (:first 0)
+     (:last -1)
+     (t page)) int))
+
+(defbinding (notebook-current-page-num "gtk_notebook_get_current_page") () int
+  (notebook notebook))
+
+(defun notebook-current-page (notebook)
+  (notebook-nth-page-child notebook (notebook-current-page-num notebook)))
+
+(defbinding  %notebook-set-current-page () nil
+  (notebook notebook)
+  (page-num int))
+
+(defun (setf notebook-current-page) (page notebook)
+  (%notebook-set-current-page notebook (%notebook-position notebook page))
+  page)
+
+
+;; (defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
+;;     (notebook page) widget
+;;   (notebook notebook)
+;;   ((%notebook-child notebook page) widget))
+
+;; (defbinding (notebook-tab-label-text "gtk_notebook_get_tab_label_text")
+;;     (notebook page) string
+;;   (notebook notebook)
+;;   ((%notebook-child notebook page) widget))
+
+;; (defbinding %notebook-set-tab-label () nil
+;;   (notebook notebook)
+;;   (page widget)
+;;   (tab-label widget))
+
+;; (defun (setf notebook-tab-label) (tab-label notebook page)
+;;   (let ((widget (if (stringp tab-label)
+;; 		    (make-instance 'label :label tab-label)
+;; 		  tab-label)))
+;;     (%notebook-set-tab-label notebook (%notebook-child notebook page) widget)
+;;     widget))
+
+
+;; (defbinding (notebook-menu-label "gtk_notebook_get_menu_label")
+;;     (notebook page) widget
+;;   (notebook notebook)
+;;   ((%notebook-child notebook page) widget))
+
+;; (defbinding (notebook-menu-label-text "gtk_notebook_get_menu_label_text")
+;;     (notebook page) string
+;;   (notebook notebook)
+;;   ((%notebook-child notebook page) widget))
+
+;; (defbinding %notebook-set-menu-label () nil
+;;   (notebook notebook)
+;;   (page widget)
+;;   (menu-label widget))
+
+;; (defun (setf notebook-menu-label) (menu-label notebook page)
+;;   (let ((widget (if (stringp menu-label)
+;; 		    (make-instance 'label :label menu-label)
+;; 		  menu-label)))
+;;     (%notebook-set-menu-label notebook (%notebook-child notebook page) widget)
+;;     widget))
+
+
+(defbinding notebook-query-tab-label-packing (notebook page) nil
+  (notebook notebook)
+  ((%notebook-child notebook page) widget)
   (expand boolean :out)
   (fill boolean :out)
   (pack-type pack-type :out))
 
-(defbinding
-    notebook-set-tab-label-packing (notebook ref expand fill pack-type) nil
+(defbinding notebook-set-tab-label-packing
+    (notebook page expand fill pack-type) nil
   (notebook notebook)
-  ((if (typep ref 'widget)
-       ref
-     (notebook-nth-page-child notebook ref))
-   widget)
+  ((%notebook-child notebook page) widget)
   (expand boolean)
   (fill boolean)
   (pack-type pack-type))
-
-(defbinding notebook-reorder-child () nil
-  (notebook notebook)
-  (child widget)
-  (position int))
 
 
 
@@ -905,23 +920,25 @@
   (resize boolean)
   (shrink boolean))
 
-;; gtkglue.c
+(defun (setf paned-child1) (child paned)
+  (paned-pack1 paned child nil t)
+  child)
+
+(defun (setf paned-child2) (child paned)
+  (paned-pack2 paned child t t)
+  child)
+
+;; Defined in gtkglue.c
 (defbinding paned-child1 () widget
   (paned paned)
   (resize boolean :out)
   (shrink boolean :out))
 
-;; gtkglue.c
+;; Defined in gtkglue.c
 (defbinding paned-child2 () widget
   (paned paned)
   (resize boolean :out)
   (shrink boolean :out))
-
-(defun (setf paned-child1) (child paned)
-  (paned-pack1 paned child nil t))
-
-(defun (setf paned-child2) (child paned)
-  (paned-pack2 paned child t t))
 
 
 
@@ -939,30 +956,23 @@
   (x int)
   (y int))
 
-(defbinding layout-set-size () nil
-  (layout layout)
-  (width int)
-  (height int))
-
-(defbinding layout-get-size () nil
-  (layout layout)
-  (width int :out)
-  (height int :out))
-
 
 
 ;;; Menu shell
 
-(defbinding menu-shell-insert () nil
+(defbinding menu-shell-insert (menu-shell menu-item position) nil
   (menu-shell menu-shell)
   (menu-item menu-item)
-  (position int))
+  ((case position
+     (:first 0)
+     (:last -1)
+     (t position)) int))
 
 (defun menu-shell-append (menu-shell menu-item)
-  (menu-shell-insert menu-shell menu-item -1))
+  (menu-shell-insert menu-shell menu-item :last))
 
 (defun menu-shell-prepend (menu-shell menu-item)
-  (menu-shell-insert menu-shell menu-item 0))
+  (menu-shell-insert menu-shell menu-item :fisrt))
 
 (defbinding menu-shell-deactivate () nil
   (menu-shell menu-shell))
@@ -981,24 +991,50 @@
 
 
 
-; ;;; Menu bar
+;;; Menu
 
-; (defbinding menu-bar-insert () nil
-;   (menu-bar menu-bar)
-;   (menu menu)
-;   (position int))
-
-; (defun menu-bar-append (menu-bar menu)
-;   (menu-bar-insert menu-bar menu -1))
-
-; (defun menu-bar-prepend (menu-bar menu)
-;   (menu-bar-insert menu-bar menu 0))
+(defun %menu-position (menu child)
+  (etypecase child
+    (int child)
+    (keyword (case child
+	       (:first 0)
+	       (:last -1)
+	       (error "Invalid position keyword: ~A" child)))
+    (widget (menu-child-position menu child))))
 
 
+(defbinding menu-reorder-child (menu menu-item position) nil
+  (menu menu)
+  (menu-item menu-item)
+  ((%menu-position menu position) int))
 
-; ;;; Menu
+(defvar *menu-position-callback-marshal*
+  (system:foreign-symbol-address "gtk_menu_position_callback_marshal"))
 
-;(defun menu-popup ...)
+(defbinding %menu-popup () nil
+  (menu menu)
+  (parent-menu-shell (or null menu-shell))
+  (parent-menu-item (or null menu-item))
+  (callback-func (or null pointer))
+  (callback-id unsigned-int)
+  (button unsigned-int)
+  (activate-time (unsigned 32)))
+
+(defun menu-popup (menu button activate-time &key callback parent-menu-shell
+		   parent-menu-item)
+  (if callback
+      (let ((callback-id (register-callback-function callback)))
+	(unwind-protect
+	    (%menu-popup
+	     menu parent-menu-shell parent-menu-item
+	     *menu-position-callback-marshal* callback-id button activate-time)
+	  (destroy-user-data callback-id)))
+    (%menu-popup
+     menu parent-menu-shell parent-menu-item nil 0 button activate-time)))
+ 
+(defbinding menu-set-accel-path () nil
+  (menu menu)
+  (accel-path string))
 
 (defbinding menu-reposition () nil
   (menu menu))
@@ -1006,17 +1042,20 @@
 (defbinding menu-popdown () nil
   (menu menu))
 
+(defun menu-child-position (menu child)
+  (position child (container-children menu)))
+
+(defun menu-active-num (menu)
+  (menu-child-position menu (menu-active menu)))
+
 (defbinding %menu-set-active () nil
   (menu menu)
   (index unsigned-int))
 
-(defun (setf menu-active) (menu index)
-  (%menu-set-active menu index))
+(defun (setf menu-active) (menu child)
+  (%menu-set-active menu (%menu-position menu child))
+  child)
   
-(defbinding menu-reorder-child () nil
-  (menu menu)
-  (menu-item menu-item)
-  (position int))
 
 
 ;;; Table
@@ -1027,9 +1066,9 @@
   (columns unsigned-int))
 
 (defbinding table-attach (table child left right top bottom
-			       &key (x-options '(:expand :fill))
-			            (y-options '(:expand :fill))
-			            (x-padding 0) (y-padding 0)) nil
+			  &key (x-options '(:expand :fill))
+			       (y-options '(:expand :fill))
+			       (x-padding 0) (y-padding 0)) nil
   (table table)
   (child widget)
   (left unsigned-int)
@@ -1101,18 +1140,6 @@
 
 ;;; Toolbar
 
-;; gtkglue.c
-(defbinding toolbar-num-children () int
-  (toolbar toolbar))
-
-(defun %toolbar-position-num (toolbar position)
-  (case position
-    (:prepend 0)
-    (:append (toolbar-num-children toolbar))
-    (t
-     (assert (and (>= position 0) (< position (toolbar-num-children toolbar))))
-     position)))
-
 (defbinding %toolbar-insert-element () widget
   (toolbar toolbar)
   (type toolbar-child-type)
@@ -1125,80 +1152,77 @@
   (nil null)
   (position int))
 
-(defun toolbar-insert-element (toolbar position
-			       &key tooltip-text tooltip-private-text
-			       type widget icon text callback)
-  (let* ((icon-widget (typecase icon
-		       ((or null widget) icon)
-		       (t (pixmap-new icon))))
-	 (toolbar-child
-	  (%toolbar-insert-element
-	   toolbar (or type (and widget :widget) :button)
-	   widget text tooltip-text tooltip-private-text icon-widget
-	   (%toolbar-position-num toolbar position))))
+(defbinding %toolbar-insert-stock () widget
+  (toolbar toolbar)
+  (stock-id string)
+  (tooltip-text string)
+  (tooltip-private-text string)
+  (nil null)
+  (nil null)
+  (position int))
+
+(defun toolbar-insert (toolbar position element
+		       &key tooltip-text tooltip-private-text
+		       type icon group callback object)
+  (let* ((numpos (case position
+		   (:first 0)
+		   (:last -1)
+		   (t position)))
+	 (widget
+	  (cond
+	   ((or
+	     (eq type :space)
+	     (and (not type) (eq element :space)))
+	    (%toolbar-insert-element
+	     toolbar :space nil nil
+	     tooltip-text tooltip-private-text nil numpos))
+	   ((or
+	     (eq type :widget)
+	     (and (not type) (typep element 'widget)))
+	    (%toolbar-insert-element
+	     toolbar :widget element nil
+	     tooltip-text tooltip-private-text nil numpos))
+	   ((or
+	     (eq type :stock)
+	     (and
+	      (not type)
+	      (typep element 'string)
+	      (stock-lookup element)))
+	    (%toolbar-insert-stock
+	     toolbar element tooltip-text tooltip-private-text numpos))
+	   ((typep element 'string)
+	    (%toolbar-insert-element
+	     toolbar (or type :button) (when (eq type :radio-button) group)
+	     element tooltip-text tooltip-private-text icon numpos))
+	   ((error "Invalid element type: ~A" element)))))
     (when callback
-      (signal-connect toolbar-child 'clicked callback))
-    toolbar-child))
+      (signal-connect widget 'clicked callback :object object))
+    widget))
 
-(defun toolbar-append-element (toolbar &key tooltip-text tooltip-private-text
-			       type widget icon text callback)
-  (toolbar-insert-element
-   toolbar :append :type type :widget widget :icon icon :text text
+(defun toolbar-append (toolbar element &key tooltip-text tooltip-private-text
+		       type icon group callback object)
+  (toolbar-insert
+   toolbar :first element :type type :icon icon :group group
    :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text
-   :callback callback))
+   :callback callback :object object))
 
-(defun toolbar-prepend-element (toolbar &key tooltip-text tooltip-private-text
-			        type widget icon text callback)
-  (toolbar-insert-element
-   toolbar :prepend :type type :widget widget :icon icon :text text
+(defun toolbar-prepend (toolbar element &key tooltip-text tooltip-private-text
+			type icon group callback object)
+  (toolbar-insert
+   toolbar :last element :type type :icon icon :group group
    :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text
-   :callback callback))
+   :callback callback :object object))
+
 
 (defun toolbar-insert-space (toolbar position)
-  (toolbar-insert-element toolbar position :type :space))
+  (toolbar-insert toolbar position :space))
 
 (defun toolbar-append-space (toolbar)
-  (toolbar-insert-space toolbar :append))
+  (toolbar-append toolbar :space))
 
 (defun toolbar-prepend-space (toolbar)
-  (toolbar-insert-space toolbar :prepend))
+  (toolbar-prepend toolbar :space))
 
-(defun toolbar-insert-widget (toolbar widget position &key tooltip-text
-			      tooltip-private-text callback)
-  (toolbar-insert-element
-   toolbar position :widget widget :tooltip-text tooltip-text
-   :tooltip-private-text tooltip-private-text :callback callback))
- 
-(defun toolbar-append-widget (toolbar widget &key tooltip-text
-			      tooltip-private-text callback)
-  (toolbar-insert-widget
-   toolbar widget :append :tooltip-text tooltip-text
-   :tooltip-private-text tooltip-private-text :callback callback))
-
-(defun toolbar-prepend-widget (toolbar widget &key tooltip-text
-			       tooltip-private-text callback)
-  (toolbar-insert-widget
-   toolbar widget :prepend :tooltip-text tooltip-text
-   :tooltip-private-text tooltip-private-text :callback callback))
-
-(defun toolbar-insert-item (toolbar text icon position &key tooltip-text
-			    tooltip-private-text callback)
-  (toolbar-insert-element
-   toolbar position :text text :icon icon :callback callback
-   :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text))
-
-(defun toolbar-append-item (toolbar text icon &key tooltip-text
-			    tooltip-private-text callback)
-  (toolbar-insert-item
-   toolbar text icon :append :callback callback
-   :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text))
-
-		       
-(defun toolbar-prepend-item (toolbar text icon &key tooltip-text
-			     tooltip-private-text callback)
-  (toolbar-insert-item
-   toolbar text icon :prepend :callback callback
-   :tooltip-text tooltip-text :tooltip-private-text tooltip-private-text))
 
 (defun toolbar-enable-tooltips (toolbar)
   (setf (toolbar-tooltips-p toolbar) t))
@@ -1207,10 +1231,15 @@
   (setf (toolbar-tooltips-p toolbar) nil))
 
 
+(defbinding toolbar-remove-space () nil
+  (toolbar toolbar)
+  (position int))
 
+(defbinding toolbar-unset-icon-size () nil
+  (toolbar toolbar))
 
-
-
+(defbinding toolbar-unset-style () nil
+  (toolbar toolbar))
 
 
 ;;; Editable
@@ -1375,6 +1404,13 @@
   (progress-bar progress-bar))
 
 
+
+;;; Stock items
+
+(defbinding stock-lookup () boolean
+  (stock-id string)
+  (stock-item stock-item :out))
+  
 
 
 
