@@ -1,5 +1,5 @@
 /* Common Lisp bindings for GTK+ v2.0
- * Copyright (C) 1999-2000 Espen S. Johnsen <espejohn@online.no>
+ * Copyright (C) 1999-2002 Espen S. Johnsen <espen@users.sourceforge.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.7 2002-03-19 17:12:18 espen Exp $ */
+/* $Id: callback.c,v 1.8 2002-03-24 12:49:18 espen Exp $ */
 
 #include <glib-object.h>
 
@@ -95,7 +95,8 @@ gboolean source_callback_marshal (gpointer data)
 {
   GValue return_value;  
   
-  return_value.g_type = G_TYPE_BOOLEAN;
+  memset (&return_value, 0, sizeof (GValue));
+  g_value_init (&return_value, G_TYPE_BOOLEAN);
   callback_marshal ((guint)data, &return_value, 0, NULL);
 
   return g_value_get_boolean (&return_value);
