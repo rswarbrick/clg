@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.7 2005-02-26 10:44:09 espen Exp $
+;; $Id: gdkevents.lisp,v 1.8 2005-02-26 17:55:27 espen Exp $
 
 (in-package "GDK")
 
@@ -43,6 +43,8 @@
   :substructure
   :scroll
   (:all-events #x3FFFFE))
+
+(register-type 'event-mask "GdkEventMask")
 
 
 ;;;; Metaclass for event classes
