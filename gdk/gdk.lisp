@@ -1,5 +1,5 @@
-;; Common Lisp bindings for GTK+ v1.2.x
-;; Copyright (C) 1999 Espen S. Johnsen <espejohn@online.no>
+;; Common Lisp bindings for GTK+ v2.0
+;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.5 2000-10-05 17:19:26 espen Exp $
+;; $Id: gdk.lisp,v 1.6 2001-05-11 16:19:07 espen Exp $
 
 
 (in-package "GDK")
@@ -23,123 +23,50 @@
 
 ;;; Events
 
-; (defmethod initialize-instance ((event event) &rest initargs &key)
-;   (declare (ignore initargs))
-;   (call-next-method)
-;   )
+(defbinding event-poll-fd () int)
 
-(defun find-event-class (event-type)
-  (find-class
-   (ecase event-type
-     (:delete 'delete-event)
-     (:destroy  'destroy-event)
-     (:expose 'expose-event)
-     (:motion-notify 'motion-notify-event)
-     (:button-press 'button-press-event)
-     (:2button-press '2-button-press-event)
-     (:3button-press '3-button-press-event)
-     (:button-release 'button-release-event)
-     (:key-press 'key-press-event)
-     (:key-release 'key-release-event)
-     (:enter-notify 'enter-notify-event)
-     (:leave-notify 'leave-notify-event)
-     (:focus-change 'focus-change-event)
-     (:configure 'configure-event)
-     (:map 'map-event)
-     (:unmap 'unmap-event)
-     (:property-notify 'property-notify-event)
-     (:selection-clear 'selection-clear-event)
-     (:selection-request 'selection-request-event)
-     (:selection-notify 'selection-notify-event)
-     (:proximity-in 'proximity-in-event)
-     (:proximity-out 'proximity-out-event)
-     (:drag-enter 'drag-enter-event)
-     (:drag-leave 'drag-leave-event)
-     (:drag-motion 'drag-motion-event)
-     (:drag-status 'drag-status-event)
-     (:drop-start 'drop-start-event)
-     (:drop-finished 'drop-finished-event)
-     (:client-event 'client-event-event)
-     (:visibility-notify 'visibility-notify-event)
-     (:no-expose 'no-expose-event)
-     (:scroll 'scroll-event))))
+(defbinding (events-pending-p "gdk_events_pending") () boolean)
 
+(defbinding event-get () event)
 
-(deftype-method alien-copier event (type-spec)
-  (declare (ignore type-spec))
-  '%event-copy)
+(defbinding event-peek () event)
 
-(deftype-method alien-deallocator event (type-spec)
-  (declare (ignore type-spec))
-  '%event-free)
-
-(deftype-method translate-from-alien
-    event (type-spec location &optional (alloc :reference))
-  `(let ((location ,location))
-     (unless (null-pointer-p location)
-       (let ((event-class
-	      (find-event-class
-	       (funcall (get-reader-function 'event-type) location 0))))
-	 ,(ecase alloc
-	    (:copy '(ensure-alien-instance event-class location))
-	    (:static '(ensure-alien-instance event-class location :static t))
-	    (:reference '(ensure-alien-instance
-			  event-class (%event-copy location))))))))
-
-
-(define-foreign event-poll-fd () int)
-
-(define-foreign ("gdk_events_pending" events-pending-p) () boolean)
-
-(define-foreign event-get () event)
-
-(define-foreign event-peek () event)
-
-(define-foreign event-get-graphics-expose () event
+(defbinding event-get-graphics-expose () event
   (window window))
 
-(define-foreign event-put () event
+(defbinding event-put () event
   (event event))
 
-(define-foreign %event-copy (event &optional size) pointer
-  (event (or event pointer)))
+;(defbinding event-handler-set () ...)
 
-(define-foreign %event-free () nil
-  (event (or event pointer)))
-
-(define-foreign event-get-time () (unsigned 32)
-  (event event))
-
-;(define-foreign event-handler-set () ...)
-
-(define-foreign set-show-events () nil
+(defbinding set-show-events () nil
   (show-events boolean))
 
 ;;; Misc
 
-(define-foreign set-use-xshm () nil
+(defbinding set-use-xshm () nil
   (use-xshm boolean))
 
-(define-foreign get-show-events () boolean)
+(defbinding get-show-events () boolean)
 
-(define-foreign get-use-xshm () boolean)
+(defbinding get-use-xshm () boolean)
 
-(define-foreign get-display () string)
+(defbinding get-display () string)
 
-; (define-foreign time-get () (unsigned 32))
+; (defbinding time-get () (unsigned 32))
 
-; (define-foreign timer-get () (unsigned 32))
+; (defbinding timer-get () (unsigned 32))
 
-; (define-foreign timer-set () nil
+; (defbinding timer-set () nil
 ;   (milliseconds (unsigned 32)))
 
-; (define-foreign timer-enable () nil)
+; (defbinding timer-enable () nil)
 
-; (define-foreign timer-disable () nil)
+; (defbinding timer-disable () nil)
 
 ; input ...
 
-(define-foreign pointer-grab () int
+(defbinding pointer-grab () int
   (window window)
   (owner-events boolean)
   (event-mask event-mask)
@@ -147,52 +74,48 @@
   (cursor (or null cursor))
   (time (unsigned 32)))
 
-(define-foreign pointer-ungrab () nil
+(defbinding pointer-ungrab () nil
   (time (unsigned 32)))
 
-(define-foreign keyboard-grab () int
+(defbinding keyboard-grab () int
   (window window)
   (owner-events boolean)
   (time (unsigned 32)))
 
-(define-foreign keyboard-ungrab () nil
+(defbinding keyboard-ungrab () nil
   (time (unsigned 32)))
 
-(define-foreign ("gdk_pointer_is_grabbed" pointer-is-grabbed-p) () boolean)
+(defbinding (pointer-is-grabbed-p "gdk_pointer_is_grabbed") () boolean)
 
-(define-foreign screen-width () int)
-(define-foreign screen-height () int)
+(defbinding screen-width () int)
+(defbinding screen-height () int)
 
-(define-foreign screen-width-mm () int)
-(define-foreign screen-height-mm () int)
+(defbinding screen-width-mm () int)
+(defbinding screen-height-mm () int)
 
-(define-foreign flush () nil)
-(define-foreign beep () nil)
-
-(define-foreign key-repeat-disable () nil)
-(define-foreign key-repeat-restore () nil)
+(defbinding flush () nil)
+(defbinding beep () nil)
 
 
 
 ;;; Visuals
 
-(define-foreign visual-get-best-depth () int)
+(defbinding visual-get-best-depth () int)
 
-(define-foreign visual-get-best-type () visual-type)
+(defbinding visual-get-best-type () visual-type)
 
-(define-foreign visual-get-system () visual)
+(defbinding visual-get-system () visual)
 
 
-(define-foreign
-  ("gdk_visual_get_best" %visual-get-best-with-nothing) () visual)
+(defbinding (%visual-get-best-with-nothing "gdk_visual_get_best") () visual)
 
-(define-foreign %visual-get-best-with-depth () visual
+(defbinding %visual-get-best-with-depth () visual
   (depth int))
 
-(define-foreign %visual-get-best-with-type () visual
+(defbinding %visual-get-best-with-type () visual
   (type visual-type))
 
-(define-foreign %visual-get-best-with-both () visual
+(defbinding %visual-get-best-with-both () visual
   (depth int)
   (type visual-type))
 
@@ -203,69 +126,69 @@
    (type (%visual-get-best-with-type type))
    (t (%visual-get-best-with-nothing))))
 
-;(define-foreign query-depths ..)
+;(defbinding query-depths ..)
 
-;(define-foreign query-visual-types ..)
+;(defbinding query-visual-types ..)
 
-(define-foreign list-visuals () (glist visual))
+(defbinding list-visuals () (glist visual))
 
 
 ;;; Windows
 
-; (define-foreign window-new ... )
+; (defbinding window-new ... )
 
-(define-foreign window-destroy () nil
+(defbinding window-destroy () nil
   (window window))
 
 
-; (define-foreign window-at-pointer () window
+; (defbinding window-at-pointer () window
 ;   (window window)
 ;   (x int :in-out)
 ;   (y int :in-out))
 
-(define-foreign window-show () nil
+(defbinding window-show () nil
   (window window))
 
-(define-foreign window-hide () nil
+(defbinding window-hide () nil
   (window window))
 
-(define-foreign window-withdraw () nil
+(defbinding window-withdraw () nil
   (window window))
 
-(define-foreign window-move () nil
+(defbinding window-move () nil
   (window window)
   (x int)
   (y int))
 
-(define-foreign window-resize () nil
+(defbinding window-resize () nil
   (window window)
   (width int)
   (height int))
 
-(define-foreign window-move-resize () nil
+(defbinding window-move-resize () nil
   (window window)
   (x int)
   (y int)
   (width int)
   (height int))
 
-(define-foreign window-reparent () nil
+(defbinding window-reparent () nil
   (window window)
   (new-parent window)
   (x int)
   (y int))
 
-(define-foreign window-clear () nil
+(defbinding window-clear () nil
   (window window))
 
 (unexport
  '(window-clear-area-no-e window-clear-area-e))
 
-(define-foreign ("gdk_window_clear_area" window-clear-area-no-e) () nil
+(defbinding (window-clear-area-no-e "gdk_window_clear_area") () nil
   (window window)
   (x int) (y int) (width int) (height int))
 
-(define-foreign window-clear-area-e () nil
+(defbinding window-clear-area-e () nil
   (window window)
   (x int) (y int) (width int) (height int))
 
@@ -274,7 +197,7 @@
       (window-clear-area-e window x y width height)
     (window-clear-area-no-e window x y width height)))
 
-; (define-foreign window-copy-area () nil
+; (defbinding window-copy-area () nil
 ;   (window window)
 ;   (gc gc)
 ;   (x int)
@@ -285,60 +208,52 @@
 ;   (width int)
 ;   (height int))
 
-(define-foreign window-raise () nil
+(defbinding window-raise () nil
   (window window))
 
-(define-foreign window-lower () nil
+(defbinding window-lower () nil
   (window window))
 
-; (define-foreign window-set-user-data () nil
+; (defbinding window-set-user-data () nil
 
-(define-foreign window-set-override-redirect () nil
+(defbinding window-set-override-redirect () nil
   (window window)
   (override-redirect boolean))
 
-; (define-foreign window-add-filter () nil
+; (defbinding window-add-filter () nil
 
-; (define-foreign window-remove-filter () nil
+; (defbinding window-remove-filter () nil
 
-(define-foreign window-shape-combine-mask () nil
+(defbinding window-shape-combine-mask () nil
   (window window)
   (shape-mask bitmap)
   (offset-x int)
   (offset-y int))
 
-(define-foreign window-set-child-shapes () nil
+(defbinding window-set-child-shapes () nil
   (window window))
 
-(define-foreign window-merge-child-shapes () nil
+(defbinding window-merge-child-shapes () nil
   (window window))
 
-(define-foreign ("gdk_window_is_visible" window-is-visible-p) () boolean
+(defbinding (window-is-visible-p "gdk_window_is_visible") () boolean
   (window window))
 
-(define-foreign ("gdk_window_is_viewable" window-is-viewable-p) () boolean
+(defbinding (window-is-viewable-p "gdk_window_is_viewable") () boolean
   (window window))
 
-(define-foreign window-set-static-gravities () boolean
+(defbinding window-set-static-gravities () boolean
   (window window)
   (use-static boolean))
 
-; (define-foreign add-client-message-filter ...
+; (defbinding add-client-message-filter ...
 
 
 ;;; Drag and Drop
 
-(define-foreign drag-context-new () drag-context)
-
-(define-foreign drag-context-ref () nil
-  (context drag-context))
-
-(define-foreign drag-context-unref () nil
-  (context drag-context))
-
 ;; Destination side
 
-(define-foreign drag-status () nil
+(defbinding drag-status () nil
   (context drag-context)
   (action drag-action)
   (time (unsigned 32)))
@@ -346,23 +261,23 @@
 
 
 
-(define-foreign window-set-cursor () nil
+(defbinding window-set-cursor () nil
   (window window)
   (cursor cursor))
 
-(define-foreign window-get-pointer () window
+(defbinding window-get-pointer () window
   (window window)
   (x int :out)
   (y int :out)
   (mask modifier-type :out))
 
-(define-foreign get-root-window () window)
+(defbinding get-root-window () window)
 
 
 
 ;;
 
-(define-foreign rgb-init () nil)
+(defbinding rgb-init () nil)
 
 
 
@@ -378,56 +293,40 @@
   '%cursor-unref)
 
 
-(define-foreign cursor-new () cursor
+(defbinding cursor-new () cursor
   (cursor-type cursor-type))
 
-(define-foreign cursor-new-from-pixmap () cursor
+(defbinding cursor-new-from-pixmap () cursor
   (source pixmap)
   (mask bitmap)
   (foreground color)
   (background color)
   (x int) (y int))
 
-(define-foreign %cursor-ref () pointer
+(defbinding %cursor-ref () pointer
   (cursor (or cursor pointer)))
 
-(define-foreign %cursor-unref () nil
+(defbinding %cursor-unref () nil
   (cursor (or cursor pointer)))
 
 
 
 ;;; Pixmaps
-
-;; See the class definition for an explanation of this
-(deftype-method alien-ref bitmap (type-spec)
-  (declare (ignore type-spec))
-  '%drawable-ref)
-
-(deftype-method alien-unref bitmap (type-spec)
-  (declare (ignore type-spec))
-  '%drawable-unref)
-
-(define-foreign %drawable-ref () pointer
-  (object (or bitmap pointer)))
-
-(define-foreign %drawable-unref () nil
-  (object (or bitmap pointer)))
-
-
-(define-foreign pixmap-new (width height depth &key window) pixmap
+#|
+(defbinding pixmap-new (width height depth &key window) pixmap
   (width int)
   (height int)
   (depth int)
   (window (or null window)))
 					
-(define-foreign %pixmap-colormap-create-from-xpm () pixmap
+(defbinding %pixmap-colormap-create-from-xpm () pixmap
   (window (or null window))
   (colormap (or null colormap))
   (mask bitmap :out)
   (color (or null color))
   (filename string))
 
-(define-foreign %pixmap-colormap-create-from-xpm-d () pixmap
+(defbinding %pixmap-colormap-create-from-xpm-d () pixmap
   (window (or null window))
   (colormap (or null colormap))
   (mask bitmap :out)
@@ -449,7 +348,7 @@
       (unreference-instance pixmap)
       (unreference-instance mask)
       (values pixmap mask))))
-    
+|#  
 
 
 ;;; Color
@@ -469,7 +368,6 @@
      %green (%scale-value green)
      %blue (%scale-value blue))))
 
-
 (defun ensure-color (color)
   (etypecase color
     (null nil)
@@ -481,94 +379,9 @@
        
 
   
-;;; Fonts
-
-(define-foreign font-load () font
-  (font-name string))
-
-(defun ensure-font (font)
-  (etypecase font
-    (null nil)
-    (font font)
-    (string (font-load font))))
-
-(define-foreign fontset-load () font
-  (fontset-name string))
-
-(define-foreign font-ref () font
-  (font font))
-
-(define-foreign font-unref () nil
-  (font font))
-
-(defun font-maybe-unref (font1 font2)
-  (unless (eq font1 font2)
-    (font-unref font1)))
-
-(define-foreign font-id () int
-  (font font))
-
-(define-foreign ("gdk_font_equal" font-equalp) () boolean
-  (font-a font)
-  (font-b font))
-
-(define-foreign string-width () int
-  (font font)
-  (string string))
-
-(define-foreign text-width
-    (font text &aux (length (length text))) int
-  (font font)
-  (text string)
-  (length int))
-
-; (define-foreign ("gdk_text_width_wc" text-width-wc)
-;     (font text &aux (length (length text))) int
-;   (font font)
-;   (text string)
-;   (length int))
-
-(define-foreign char-width () int
-  (font font)
-  (char char))
-
-; (define-foreign ("gdk_char_width_wc" char-width-wc) () int
-;   (font font)
-;   (char char))
-
-
-(define-foreign string-measure () int
-  (font font)
-  (string string))
-
-(define-foreign text-measure
-    (font text &aux (length (length text))) int
-  (font font)
-  (text string)
-  (length int))
-
-(define-foreign char-measure () int
-  (font font)
-  (char char))
-
-(define-foreign string-height () int
-  (font font)
-  (string string))
-
-(define-foreign text-height
-    (font text &aux (length (length text))) int
-  (font font)
-  (text string)
-  (length int))
-
-(define-foreign char-height () int
-  (font font)
-  (char char))
-
-
 ;;; Drawing functions
 
-(define-foreign draw-rectangle () nil
+(defbinding draw-rectangle () nil
   (drawable (or window pixmap bitmap))
   (gc gc) (filled boolean)
   (x int) (y int) (width int) (height int))
@@ -576,21 +389,21 @@
 
 ;;; Key values
 
-(define-foreign keyval-name () string
+(defbinding keyval-name () string
   (keyval unsigned-int))
 
-(define-foreign keyval-from-name () unsigned-int
+(defbinding keyval-from-name () unsigned-int
   (name string))
 
-(define-foreign keyval-to-upper () unsigned-int
+(defbinding keyval-to-upper () unsigned-int
   (keyval unsigned-int))
 
-(define-foreign keyval-to-lower ()unsigned-int
+(defbinding keyval-to-lower ()unsigned-int
   (keyval unsigned-int))
 
-(define-foreign ("gdk_keyval_is_upper" keyval-is-upper-p) () boolean
+(defbinding (keyval-is-upper-p "gdk_keyval_is_upper") () boolean
   (keyval unsigned-int))
 
-(define-foreign ("gdk_keyval_is_lower" keyval-is-lower-p) () boolean
+(defbinding (keyval-is-lower-p "gdk_keyval_is_lower") () boolean
   (keyval unsigned-int))
 
