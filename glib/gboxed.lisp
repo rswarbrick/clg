@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.13 2004-11-09 10:10:59 espen Exp $
+;; $Id: gboxed.lisp,v 1.14 2005-02-01 15:24:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -76,9 +76,10 @@
 
 ;;;; 
 
-(defun expand-boxed-type (type-number &optional slots)
+(defun expand-boxed-type (type-number forward-p slots)
   `(defclass ,(type-from-number type-number) (boxed)
-     ,slots
+     ,(unless forward-p
+	slots)
      (:metaclass boxed-class)
      (:alien-name ,(find-type-name type-number))))
 

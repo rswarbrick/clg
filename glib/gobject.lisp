@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.29 2005-01-30 14:30:30 espen Exp $
+;; $Id: gobject.lisp,v 1.30 2005-02-01 15:24:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -354,7 +354,7 @@
 (defun slot-definition-from-property (class property &optional slot-name args)
   (with-slots (name flags value-type documentation) property
     (let* ((slot-name (or slot-name (default-slot-name name)))
-	   (slot-type (or (getf args :type) (type-from-number value-type) value-type))
+	   (slot-type (or (getf args :type) (type-from-number value-type) 'pointer))
 	   (accessor (default-slot-accessor class slot-name slot-type)))
       
       `(,slot-name
@@ -415,17 +415,21 @@
   (delete-if #'(lambda (slot) (getf (rest slot) :ignore)) slots))
 
 
-(defun expand-gobject-type (type &optional options (metaclass 'gobject-class))
+(defun expand-gobject-type (type forward-p options &optional (metaclass 'gobject-class))
   (let ((supers (cons (supertype type) (implements type)))
 	(class  (type-from-number type))
 	(slots (getf options :slots)))    
     `(defclass ,class ,supers
-      ,(slot-definitions class (query-object-class-properties type) slots)
+       ,(unless forward-p
+	  (slot-definitions class (query-object-class-properties type) slots))
       (:metaclass ,metaclass)
       (:alien-name ,(find-type-name type)))))
 
+(defun gobject-dependencies (type)
+  (delete-duplicates (mapcar #'param-value-type (query-object-class-properties type))))
 
-(register-derivable-type 'gobject "GObject" 'expand-gobject-type)
+
+(register-derivable-type 'gobject "GObject" 'expand-gobject-type 'gobject-dependencies)
 
 
 ;;; Pseudo type for gobject instances which have their reference count

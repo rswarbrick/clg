@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.21 2004-12-20 20:09:53 espen Exp $
+;; $Id: gtkobject.lisp,v 1.22 2005-02-01 15:24:56 espen Exp $
 
 
 (in-package "GTK")
@@ -208,17 +208,19 @@
 (defun default-container-child-name (container-class)
   (intern (format nil "~A-CHILD" container-class)))
 
-(defun expand-container-type (type &optional options)
+(defun expand-container-type (type forward-p options)
   (let* ((class (type-from-number type))
 	 (super (supertype type))
 	 (child-class (default-container-child-name class)))
-    `(progn
-       ,(expand-gobject-type type options)
-       (defclass ,child-class (,(default-container-child-name super))
-	 ,(slot-definitions child-class 
-	   (query-container-class-child-properties type) nil)
-	 (:metaclass child-class)
-	 (:container ,class)))))
+    (if forward-p 
+	(expand-gobject-type type t options)
+      `(progn
+	 ,(expand-gobject-type type nil options)
+	 (defclass ,child-class (,(default-container-child-name super))
+	   ,(slot-definitions child-class 
+	     (query-container-class-child-properties type) nil)
+	   (:metaclass child-class)
+	   (:container ,class))))))
 
 
-(register-derivable-type 'container "GtkContainer" 'expand-container-type)
+(register-derivable-type 'container "GtkContainer" 'expand-container-type 'gobject-dependencies)

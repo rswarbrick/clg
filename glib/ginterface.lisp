@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.5 2004-11-07 15:54:15 espen Exp $
+;; $Id: ginterface.lisp,v 1.6 2005-02-01 15:24:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -136,14 +136,17 @@
       )))
 
 
-(defun expand-ginterface-type (type options &rest args)
+(defun expand-ginterface-type (type forward-p options &rest args)
   (declare (ignore args))
   (let ((class (type-from-number type))
-	(slots (getf options :slots)))    
+	(slots (getf options :slots))) 
     `(defclass ,class (,(supertype type))
-      ,(slot-definitions class (query-object-interface-properties type) slots)
+       ,(unless forward-p
+	  (slot-definitions class (query-object-interface-properties type) slots))
       (:metaclass ginterface-class)
       (:alien-name ,(find-type-name type)))))
 
+(defun ginterface-dependencies (type)
+  (delete-duplicates (mapcar #'param-value-type (query-object-interface-properties type))))
 
-(register-derivable-type 'ginterface "GInterface" 'expand-ginterface-type)
+(register-derivable-type 'ginterface "GInterface" 'expand-ginterface-type 'ginterface-dependencies)

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.23 2005-01-12 13:33:06 espen Exp $
+;; $Id: gtype.lisp,v 1.24 2005-02-01 15:24:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -260,23 +260,25 @@
 (register-type 'string "gchararray")
 
 
-;;;; 
+;;;; Introspection of type information
 
 (defvar *derivable-type-info* (make-hash-table))
 
-(defun register-derivable-type (type id expander)
+(defun register-derivable-type (type id expander &optional dependencies)
   (register-type type id)
   (let ((type-number (register-type type id)))
-    (setf (gethash type-number *derivable-type-info*) expander)))
+    (setf 
+     (gethash type-number *derivable-type-info*) 
+     (list expander dependencies))))
 
 (defun find-type-info (type)
   (dolist (super (cdr (type-hierarchy type)))
     (let ((info (gethash super *derivable-type-info*)))
       (return-if info))))
 
-(defun expand-type-definition (type options)
-  (let ((expander (find-type-info type)))
-    (funcall expander (find-type-number type t) options)))
+(defun expand-type-definition (type forward-p options)
+  (let ((expander (first (find-type-info type))))
+    (funcall expander (find-type-number type t) forward-p options)))
 
 (defbinding type-parent (type) type-number
   ((find-type-number type t) type-number))
@@ -337,24 +339,37 @@
      *derivable-type-info*)
     type-list))
 
-(defun %sort-types-topologicaly (unsorted)
-  (let ((sorted ()))
-    (loop while unsorted do
-      (dolist (type unsorted)
-	(let ((dependencies
-	       (append (rest (type-hierarchy type)) (type-interfaces type))))
+(defun find-type-dependencies (type)
+  (let ((list-dependencies (second (find-type-info type))))
+    (when list-dependencies
+      (funcall list-dependencies (find-type-number type t)))))
+
+(defun %sort-types-topologicaly (types)
+  (let ((unsorted (mapcar 
+		   #'(lambda (type)
+		       (cons type (remove-if #'(lambda (dep)
+						 (not (find dep types)))
+					     (find-type-dependencies type))))
+		   types))
+	(forward-define ())
+	(sorted ()))
+
+    (loop
+     as tmp = unsorted then (or (rest tmp) unsorted)
+     while tmp
+     do (destructuring-bind (type . dependencies) (first tmp)
 	  (cond
-	   ((null dependencies)
+	   ((every #'(lambda (dep)
+		       (or (find dep forward-define) (find dep sorted)))
+		   dependencies)
 	    (push type sorted)
-	    (setq unsorted (delete type unsorted)))
-	   (t
-	    (unless (dolist (dep dependencies)
-		      (when (find type (rest (type-hierarchy dep)))
-			(error "Cyclic type dependencie"))
-		      (return-if (find dep unsorted)))
-	      (push type sorted)
-	      (setq unsorted (delete type unsorted))))))))
-    (nreverse sorted)))
+	    (setq unsorted (delete type unsorted :key #'first)))
+	   ((some #'(lambda (dep)
+		      (find type (find-type-dependencies dep)))
+		  dependencies)
+	    (push type forward-define)))))
+
+    (values (nreverse sorted) forward-define)))
 
 
 (defun expand-type-definitions (prefix &optional args)
@@ -385,15 +400,18 @@
 	 (register-type
 	  (getf (type-options type-number) :type (default-type-name name))
 	  type-number)))
-    
-     `(progn
-	,@(mapcar
-	   #'(lambda (type)
-	       (expand-type-definition type (type-options type)))
-	   (%sort-types-topologicaly type-list))))))
+     
+     (multiple-value-bind  (sorted-type-list forward-define)
+	 (%sort-types-topologicaly type-list)
+       `(progn
+	  ,@(mapcar
+	     #'(lambda (type)
+		 (expand-type-definition type t (type-options type)))
+	     forward-define)
+	  ,@(mapcar
+	     #'(lambda (type)
+		 (expand-type-definition type nil (type-options type)))
+	     sorted-type-list))))))
 
 (defmacro define-types-by-introspection (prefix &rest args)
   (expand-type-definitions prefix args))
-
-
-

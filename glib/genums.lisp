@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.5 2004-12-19 18:18:05 espen Exp $
+;; $Id: genums.lisp,v 1.6 2005-02-01 15:24:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -213,7 +213,8 @@
 
 ;;;;
 
-(defun expand-enum-type (type-number &optional options)
+(defun expand-enum-type (type-number forward-p options)
+  (declare (ignore forward))
   (let* ((super (supertype type-number))
 	 (type (type-from-number type-number))
 	 (mappings (getf options :mappings))
