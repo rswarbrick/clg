@@ -1,32 +1,40 @@
 ;;; -*- Mode: lisp -*-
 
-(setf
- (logical-pathname-translations "clg")
- '(("**;*.*.*" "/home/espen/src/clg/**/*.*.*")))
+(defpackage "CLG-SYSTEM"
+  (:use "COMMON-LISP" "EXTENSIONS" "ALIEN")
+  (:export "*GTK-LIBRARY-PATH*"))
+
+(in-package "CLG-SYSTEM")
+
+;; We used to do this, but I think it's better if everybody puts such
+;; definitions in his/her own Lisp startup files so that clg.system
+;; can be used without local modifications.
+;(setf
+; (logical-pathname-translations "clg")
+; '(("**;*.*.*" "/home/espen/src/clg/**/*.*.*")))
 
 ;; Uncomment and edit the next line if pkg-config needs to search for
 ;; .pc files in directories other than the default (/usr/lib/pkgconfig)
-:(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
+;(push '(:PKG_CONFIG_PATH . "/opt/gnome/lib/pkgconfig") ext:*environment-list*)
 
 (load "clg:tools;config")
 (load "clg:tools;sharedlib")
 
-(import 'alien:load-shared-library)
-
-(defvar gtk-library-path (pkg-variable "gtk+-2.0" "libdir"))
-(defvar cmucl-include-path "/usr/src/cmucl-2.4.20/src/lisp")
-
+(defvar *gtk-library-path* (pkg-variable "gtk+-2.0" "libdir"))
+(defvar *cmucl-include-path* (ext:unix-namestring "target:lisp"))
 
 ;; A hack to get around a bug in gdk's init code
-(defvar argc (alien:make-alien c-call:int))
-(defvar progname (alien:make-alien c-call:char))
-(defvar argv0 (alien:make-alien (* c-call:char)))
-(defvar argv (alien:make-alien (* (* c-call:char))))
-(setf (alien:deref argc) 1)
-(setf (alien:deref progname) 0)
-(setf (alien:deref argv0) progname)
-(setf (alien:deref argv) argv0)
+(defvar argc (make-alien c-call:int))
+(defvar progname (make-alien c-call:char))
+(defvar argv0 (make-alien (* c-call:char)))
+(defvar argv (make-alien (* (* c-call:char))))
+(setf (deref argc) 1)
+(setf (deref progname) 0)
+(setf (deref argv0) progname)
+(setf (deref argv) argv0)
 
+;; Without this, MAKE uses "CLG:glib;.err" as a namestring, which fails.
+;; TODO: Find and fix the bug, then remove this.
 (setq mk::*cmu-errors-to-file* nil)
 
 (eval
@@ -56,7 +64,7 @@
 	(:cflags ,(pkg-cflags "glib-2.0")
 		 :optimize 2
 		 :definitions (#+cmu CMUCL)
-		 :include-paths (,cmucl-include-path)))
+		 :include-paths (,*cmucl-include-path*)))
        (:file "glib-package")
        (:file "gutils" :depends-on ("glib-package"))
        (:file "gforeign" :depends-on ("gutils"))
@@ -114,8 +122,8 @@
 	 :init "gtk_init"
 	 :prototype '(function
 		      c-call:void
-		      alien:system-area-pointer
-		      alien:system-area-pointer)
+		      system-area-pointer
+		      system-area-pointer)
 	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
       :language :c
       :source-extension "c"
@@ -123,7 +131,7 @@
       :compiler-options (:cflags ,(pkg-cflags "gtk+-2.0")
 			 :optimize 2
 			 :definitions (#+cmu CMUCL)
-			 :include-paths (,cmucl-include-path)))
+			 :include-paths (,*cmucl-include-path*)))
      (:module gtk
       :components
       ((:file "gtk-package")
