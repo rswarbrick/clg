@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktext.lisp,v 1.3 2005-01-07 00:28:36 espen Exp $
+;; $Id: gtktext.lisp,v 1.4 2005-01-12 13:36:40 espen Exp $
 
 
 (in-package "GTK")
@@ -308,7 +308,7 @@
 
 (defbinding text-buffer-get-selection-bounds 
     (buffer &optional (start (make-instance 'text-iter))
-     (end (make-instance 'text-iter))) nil
+     (end (make-instance 'text-iter))) boolean
   (buffer text-buffer)
   (start text-iter :return)
   (end text-iter :return))
