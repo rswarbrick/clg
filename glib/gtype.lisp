@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.15 2002-01-20 14:09:52 espen Exp $
+;; $Id: gtype.lisp,v 1.16 2002-03-24 12:56:03 espen Exp $
 
 (in-package "GLIB")
 
@@ -332,7 +332,11 @@
 		   #'(lambda (options)
 		       (and
 			(string-prefix-p (first options) name)
-			(getf (cdr options) :ignore-prefix)))
+			(getf (cdr options) :ignore-prefix)
+			(not (some
+			      #'(lambda (exception)
+				  (string= name exception))
+			      (getf (cdr options) :except)))))
 		   args))))
 	   (find-types prefix))))
              
