@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.3 2004-10-31 12:10:54 espen Exp $
+;; $Id: testgtk.lisp,v 1.4 2004-11-06 16:36:34 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -303,13 +303,13 @@
   (max (min n max-val) min-val))
 
 
-; (defun set-cursor (spinner drawing-area label)
-;   (let ((cursor
-; 	 (glib:int-enum
-; 	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
-; 	  'gdk:cursor-type)))	
-;     (setf (label-text label) (string-downcase (symbol-name cursor)))
-;     (setf (widget-cursor drawing-area) cursor)))
+(defun set-cursor (spinner drawing-area label)
+  (let ((cursor
+	 (glib:int-enum
+	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
+	  'gdk:cursor-type)))	
+    (setf (label-text label) (string-downcase cursor))
+    (setf (widget-cursor drawing-area) cursor)))
     
 
 ; (define-standard-dialog create-cursors "Cursors"
@@ -1336,7 +1336,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	       :child (create-date-spinner "Day : " 
 		       (adjustment-new 1.0 1.0 31.0 1.0 5.0 0.0) :out)
 	       :child (create-date-spinner "Month : " 
-		       (adjustment-new 1.0 1.0 31.0 1.0 5.0 0.0) :etched-in)
+		       (adjustment-new 1.0 1.0 12.0 1.0 5.0 0.0) :etched-in)
 	       :child (create-date-spinner "Year : " 
 		       (adjustment-new 1998.0 0.0 2100.0 1.0 100.0 0.0) :in))))
 
@@ -1413,48 +1413,43 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		       :padding 5 :expand nil))))
     (widget-show-all main)))
 
+
 ;;; Statusbar
 
-;; (define-test-window create-statusbar "Statusbar"
-;;   (let ((statusbar (make-instance 'statusbar))
-;; 	(statusbar-counter 0)
-;; 	(close-button
-;; 	 (create-button '("close" :can-default t) #'widget-destroy window)))
+(define-toplevel create-statusbar (window "Statusbar")
+  (let ((statusbar (make-instance 'statusbar :has-resize-grip t))
+	(close-button (create-button '("close" :can-default t)
+		       #'widget-destroy :object window))
+	(counter 0))
 
-;;     (signal-connect
-;;      statusbar 'text-popped
-;;      #'(lambda (context-id text)
-;; 	 (declare (ignore context-id))
-;; 	 (format nil "Popped: ~A~%" text)))
+    (signal-connect statusbar 'text-popped
+     #'(lambda (context-id text)
+	 (declare (ignore context-id))
+	 (format nil "Popped: ~A~%" text)))
+   
+    (make-instance 'v-box
+     :parent window
+     :child (make-instance 'v-box
+             :border-width 10 :spacing 10
+	     :child (create-button "push something"
+		     #'(lambda ()
+			 (statusbar-push statusbar 1
+			  (format nil "something ~D" (incf counter)))))
+	     :child (create-button "pop" 
+                     #'(lambda ()
+			 (statusbar-pop statusbar 1)))
+	     :child (create-button "steal #4" 
+		     #'(lambda ()
+			 (statusbar-remove statusbar 1 4)))
+	     :child (create-button "dump stack")
+	     :child (create-button "test contexts"))
+     :child (list (make-instance 'h-separator) :expand nil)
+     :child (list 
+	     (make-instance 'v-box :border-width 10 :child close-button)
+	     :expand nil)
+     :child (list statusbar :expand nil))
 
-;;     (make-instance 'v-box
-;;      :parent window
-;;      :children
-;;      (list
-;;       (make-instance 'v-box
-;;        :border-width 10 :spacing 10
-;;        :children
-;;        (list
-;; 	(create-button
-;; 	 "push something"
-;; 	 #'(lambda ()
-;; 	     (statusbar-push
-;; 	      statusbar 1
-;; 	      (format nil "something ~D" (incf statusbar-counter)))))
-;; 	(create-button "pop" #'statusbar-pop statusbar 1)
-;; 	(create-button "steal #4" #'statusbar-remove statusbar 1 4)
-;; 	(create-button "dump stack")
-;; 	(create-button "test contexts")))
-;;       (list (make-instance 'hseparator) :expand nil)
-;;       (list
-;;        (make-instance 'v-box
-;;         :border-width 10
-;; 	:children (list (list close-button :expand nil)))
-;;        :expand nil)
-;;        statusbar))
-    
-;;     (widget-grab-default close-button)))
-
+    (widget-grab-focus close-button)))
 
 
 ;;; Idle test
@@ -1779,7 +1774,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("scrolled windows" create-scrolled-windows)
 ;; 	    ("shapes" create-shapes)
  	    ("spinbutton" create-spins)
-;; 	    ("statusbar" create-statusbar)
+ 	    ("statusbar" create-statusbar)
 ;; 	    ("test idle" create-idle-test)
 ;; 	    ("test mainloop")
 ;; 	    ("test scrolling")
