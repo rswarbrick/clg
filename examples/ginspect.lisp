@@ -22,23 +22,23 @@
  	  (object (make-instance 'cell-renderer-text)))	  
       (tree-view-append-column view column)
       (cell-layout-pack column name :expand nil)
-      (cell-layout-add-attribute column name 'text 'name store)
+      (cell-layout-add-attribute column name 'text (column-index store 'name))
       (cell-layout-pack column object :expand t)
-      (cell-layout-add-attribute column object 'text 'pprinted store))
+      (cell-layout-add-attribute column object 'text (column-index store 'pprinted)))
 
     (insert-object object store nil)
 
     (signal-connect view 'row-expanded 
      #'(lambda (iter path)
 	 (when (setf 
-		(tree-model-column-value store iter 'expanded)
-		(not (tree-model-column-value store iter 'expanded)))
+		(tree-model-value store iter 'expanded)
+		(not (tree-model-value store iter 'expanded)))
 	   (multiple-value-bind (valid child-iter) 
 	       (tree-model-iter-children store iter)
 	     ;; Remove old children
 	     (when valid
 	       (loop while (tree-store-remove store child-iter))))
-	   (let ((gobject (tree-model-column-value store iter 'object)))
+	   (let ((gobject (tree-model-value store iter 'object)))
 	     (insert-parts (object-data gobject 'object) store iter))
 	   (tree-view-expand-row view path nil))))
 
