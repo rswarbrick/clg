@@ -1,4 +1,4 @@
-* Enable building without opening display
+* Enable building without opening display -- done
 
 * Complete bindings of all widgets
 
@@ -9,7 +9,7 @@
 * Create all foreign function bindings at compile time (necessary for
   CLisp port and to improve startup time)
 
-* Add documentation and examples
+* Add documentation and more examples
 
 * Make sub classing of gobjects possible
 
