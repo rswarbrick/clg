@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.16 2005-02-22 17:27:25 espen Exp $
+;; $Id: ffi.lisp,v 1.17 2005-02-25 23:55:06 espen Exp $
 
 (in-package "GLIB")
 
@@ -461,6 +461,15 @@
   (declare (ignore type args))
   +size-of-float+)
 
+(defmethod to-alien-form (form (type (eql 'single-float)) &rest args)
+  (declare (ignore type args))
+  `(coerce ,form 'single-float))
+
+(defmethod to-alien-function ((type (eql 'single-float)) &rest args)
+  (declare (ignore type args))
+  #'(lambda (number)
+      (coerce number 'single-float)))
+
 (defmethod writer-function ((type (eql 'single-float)) &rest args)
   (declare (ignore type args))
   #'(lambda (value location &optional (offset 0))
@@ -479,6 +488,15 @@
 (defmethod size-of ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
   +size-of-double+)
+
+(defmethod to-alien-form (form (type (eql 'double-float)) &rest args)
+  (declare (ignore type args))
+  `(coerce ,form 'double-float))
+
+(defmethod to-alien-function ((type (eql 'double-float)) &rest args)
+  (declare (ignore type args))
+  #'(lambda (number)
+      (coerce number 'double-float)))
 
 (defmethod writer-function ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
