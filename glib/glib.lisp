@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.25 2005-02-03 23:09:04 espen Exp $
+;; $Id: glib.lisp,v 1.26 2005-02-10 00:12:04 espen Exp $
 
 
 (in-package "GLIB")
@@ -489,3 +489,104 @@
 	    (destroy-c-vector 
 	     (sap-ref-sap location offset) element-type length)
 	    (setf (sap-ref-sap location offset) (make-pointer 0)))))))
+
+
+;;;; Null terminated vector
+
+(defun make-0-vector (type content &optional location)
+  (let* ((size-of-type (size-of type))
+	 (location (or 
+		    location 
+		    (allocate-memory (* size-of-type (1+ (length content))))))
+	 (writer (writer-function type)))
+    (etypecase content
+      (vector
+       (loop
+	for element across content
+	as offset = 0 then (+ offset size-of-type)
+	do (funcall writer element location offset)
+	finally (setf (sap-ref-sap location offset) (make-pointer 0))))
+      (list
+       (loop
+	for element in content
+	as offset = 0 then (+ offset size-of-type)
+	do (funcall writer element location offset)
+	finally (setf (sap-ref-sap location (+ offset size-of-type)) (make-pointer 0)))))
+    location))
+
+
+(defun map-0-vector (seqtype function location element-type)
+  (let ((reader (reader-function element-type))
+	(size-of-element (size-of element-type)))
+    (case seqtype 
+     ((nil)
+      (loop
+       as offset = 0 then (+ offset size-of-element)
+       until (null-pointer-p (sap-ref-sap location offset))
+       do (funcall function (funcall reader location offset))))
+     (list
+      (loop
+       as offset = 0 then (+ offset size-of-element)
+       until (null-pointer-p (sap-ref-sap location offset))
+       collect (funcall function (funcall reader location offset))))
+     (t
+      (coerce 
+       (loop
+	as offset = 0 then (+ offset size-of-element)
+	until (null-pointer-p (sap-ref-sap location offset))
+	collect (funcall function (funcall reader location offset)))
+       seqtype)))))
+
+
+(defun destroy-0-vector (location element-type)
+  (loop
+   with destroy = (destroy-function element-type)
+   with element-size = (size-of element-type)
+   as offset = 0 then (+ offset element-size)
+   until (null-pointer-p (sap-ref-sap location offset))
+   do (funcall destroy location offset))
+  (deallocate-memory location))
+
+
+(defmethod alien-type ((type (eql 'vector-null)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'pointer))
+
+(defmethod size-of ((type (eql 'vector-null)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'pointer))
+
+(defmethod writer-function ((type (eql 'vector-null)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (unless (eq (alien-type element-type) (alien-type 'pointer))
+      (error "Elements in null-terminated vectors need to be of pointer types"))
+    #'(lambda (vector location &optional (offset 0))
+	(setf 
+	 (sap-ref-sap location offset)
+	 (make-0-vector element-type vector)))))
+
+(defmethod reader-function ((type (eql 'vector-null)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (unless (eq (alien-type element-type) (alien-type 'pointer))
+      (error "Elements in null-terminated vectors need to be of pointer types"))
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (map-0-vector 'vector #'identity (sap-ref-sap location offset) 
+	   element-type)))))
+
+(defmethod destroy-function ((type (eql 'vector-null)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (unless (eq (alien-type element-type) (alien-type 'pointer))
+      (error "Elements in null-terminated vectors need to be of pointer types"))
+    #'(lambda (location &optional (offset 0))
+	  (unless (null-pointer-p (sap-ref-sap location offset))
+	    (destroy-c-vector 
+	     (sap-ref-sap location offset) element-type)
+	    (setf (sap-ref-sap location offset) (make-pointer 0))))))
+
+(defmethod unbound-value ((type (eql 'vector-null)) &rest args)
+  (declare (ignore args))
+  (values t nil))
