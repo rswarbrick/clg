@@ -23,13 +23,23 @@
 	(load-shared-library "libglib-1.3.so.1")
 	(load-shared-library "libgobject-1.3.so.1" :init "g_type_init"))
       :components
-      ((:file "glib-package")
+      ((:file "callback"
+	:language :c
+	:compiler-options
+	(:cflags ,(configure-cflags "glib-config-2.0")
+		 :optimize 2
+		 :definitions (#+cmu CMUCL)
+		 :include-paths ("/usr/src/cmucl-2.4.20/src/lisp")))
+       (:file "glib-package")
        (:file "gutils" :depends-on ("glib-package"))
        (:file "gforeign" :depends-on ("gutils"))
        (:file "glib" :depends-on ("gforeign"))
        (:file "gtype" :depends-on ("glib"))
+       (:file "gparam" :depends-on ("glib"))
+       (:file "gcallback" :depends-on ("gtype" "gparam" "callback"))
        (:file "gobject" :depends-on ("gtype"))
-       (:file "glib-export" :depends-on ("gutils" "glib" "gtype" "gobject")))
+       (:file "glib-export"
+	:depends-on ("gutils" "glib" "gtype" "gparam" "gcallback" "gobject")))
       :depends-on (tools))
      (:file "gdkglue"
       :source-pathname "gdk;"
@@ -50,7 +60,7 @@
 	 :initargs (list (system:int-sap 0) (system:int-sap 0))))
       :language :c
       :compiler-options (:cflags ,(configure-cflags "gtk-config-2.0")
-			 :optimize 2))
+				 :optimize 2))
      (:module gdk
       :components
       ((:file "gdk-package")
