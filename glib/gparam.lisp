@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.3 2001-05-11 16:06:02 espen Exp $
+;; $Id: gparam.lisp,v 1.4 2001-10-21 21:55:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -71,22 +71,28 @@
       :allocation :alien
       :reader param-name
       :type string)
-     (nickname
-      :allocation :alien
-      :reader param-nickname
-      :type string)
-     (documentation
-      :allocation :alien
-      :reader param-documentation
-      :type string)
      (flags
       :allocation :alien
       :reader param-flags
       :type param-flag-type)
-     (type
+     (value-type
       :allocation :alien
-      :reader param-type
-      :type type-number))
+      :reader param-value-type
+      :type type-number)
+     (owner-type
+      :allocation :alien
+      :reader param-owner-type
+      :type type-number)
+     (nickname
+      :allocation :virtual
+      :getter "g_param_get_nick"
+      :reader param-nickname
+      :type string)
+     (documentation
+      :allocation :virtual
+      :getter "g_param_get_blurb"
+      :reader param-documentation
+      :type string))
     (:metaclass ginstance-class)
     (:ref "g_param_spec_ref")
     (:unref "g_param_spec_unref")))
