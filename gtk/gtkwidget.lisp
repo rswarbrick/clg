@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.10 2004-11-06 21:39:58 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.11 2004-12-17 00:27:01 espen Exp $
 
 (in-package "GTK")
 
@@ -25,17 +25,16 @@
   (prog1
       (apply #'call-next-method widget names initargs)
     (when parent
-      (let ((old-parent (widget-parent widget))
-	    (parent (first (mklist parent)))
+      (when (slot-boundp widget 'parent)
+	(container-remove (widget-parent widget) widget))
+      (let ((parent-widget (first (mklist parent)))
 	    (args (rest (mklist parent))))
-	(when old-parent
-	  (container-remove old-parent widget))
-	(apply #'container-add parent widget args)))))
+	(apply #'container-add parent-widget widget args)))))
 
 (defmethod shared-initialize :after ((widget widget) names &rest initargs
-				     &key show-all)
+				     &key show-all all-visible)
   (declare (ignore initargs names))
-  (when show-all
+  (when (or all-visible show-all)
     (widget-show-all widget)))
 
 
@@ -156,8 +155,7 @@
 (defbinding %widget-intersect () boolean
   (widget widget)
   (area gdk:rectangle)
-  (intersection pointer))
-
+  (intersection (or null gdk:rectangle)))
 
 (defun widget-intersection (widget area)
   (let ((intersection (make-instance 'gdk:rectangle)))
@@ -165,10 +163,10 @@
       intersection)))
 
 (defun widget-intersect-p (widget area)
-  (%widget-intersect widget area (make-pointer 0)))
+  (%widget-intersect widget area nil))
 
-(defbinding (widget-is-focus-p "gtk_widget_is_focus") () boolean
-  (widget widget))
+;; (defbinding (widget-is-focus-p "gtk_widget_is_focus") () boolean
+;;   (widget widget))
 
 (defbinding widget-grab-focus () nil
   (widget widget))
@@ -374,7 +372,7 @@ received."
 
 ;;; Additional bindings and functions
 
-(defbinding widget-mapped-p () boolean
+(defbinding (widget-mapped-p "gtk_widget_mapped_p") () boolean
   (widget widget))
 
 (defbinding widget-get-size-allocation () nil
