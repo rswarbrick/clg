@@ -76,6 +76,9 @@
        (:file "gtktypes" :depends-on ("gtkenums" "gtkobject"))
        (:file "gtkwidget" :depends-on ("gtktypes"))
        (:file "gtkcontainer" :depends-on ("gtktypes"))
-       (:file "gtk" :depends-on ("gtkcontainer")))
+       (:file "gtk" :depends-on ("gtktypes"))
+       (:file "gtkutils" :depends-on ("gtk")))
       :depends-on (glib gdk "gtkglue")))))
+
+
 
