@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.17 2005-02-25 23:55:06 espen Exp $
+;; $Id: ffi.lisp,v 1.18 2005-03-13 18:06:51 espen Exp $
 
 (in-package "GLIB")
 
@@ -207,10 +207,14 @@
 			  `(,name ,(alien-type type))))
 		    args))
        ,(to-alien-form 
-	 `(let (,@(mapcar #'(lambda (arg)
-			      (destructuring-bind (name type) arg
-				`(,name ,(from-alien-form name type))))
-			  args))
+	 `(let (,@(delete nil
+		     (mapcar #'(lambda (arg)
+				 (destructuring-bind (name type) arg
+				   (let ((from-alien 
+					  (from-alien-form name type)))
+				     (unless (eq name from-alien)
+				       `(,name ,from-alien)))))
+		      args)))
 	    ,@body)
 	 return-type))))
 
@@ -218,6 +222,8 @@
 (defun callback (af)
   (sb-alien:alien-function-sap af))
 
+#+sbcl
+(deftype callback () 'sb-alien:alien-function)
 
 ;;;; Definitons and translations of fundamental types
 
