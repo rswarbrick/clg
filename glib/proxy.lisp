@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.4 2001-05-11 16:01:41 espen Exp $
+;; $Id: proxy.lisp,v 1.5 2001-05-29 15:43:44 espen Exp $
 
 (in-package "GLIB")
 
@@ -189,11 +189,11 @@
   (if weak-ref
       `(proxy-location ,instance)
     `(funcall
-      (proxy-class-copy (find-class ',type-spec))
+      ',(proxy-class-copy (find-class type-spec))
       ',type-spec (proxy-location ,instance))))
 
 (deftype-method unreference-alien proxy (type-spec location)
-  `(funcall (proxy-class-free (find-class ',type-spec)) ',type-spec ,location))
+  `(funcall ',(proxy-class-free (find-class type-spec)) ',type-spec ,location))
 
 (defun proxy-instance-size (proxy)
   (proxy-class-size (class-of proxy)))
