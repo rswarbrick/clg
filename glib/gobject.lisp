@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.9 2001-10-21 21:52:53 espen Exp $
+;; $Id: gobject.lisp,v 1.10 2002-01-20 14:09:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -201,7 +201,7 @@
 
 (defun expand-gobject-type (type-number &optional options
 			    (metaclass 'gobject-class))
-  (let* ((super (supertype type-number))
+  (let* ((supers (cons (supertype type-number) (implements type-number)))
 	 (class  (type-from-number type-number))
 	 (override-slots (getf options :slots))
 	 (expanded-slots
@@ -251,7 +251,7 @@
 	  (push slot-def expanded-slots))))
     
     `(progn
-       (defclass ,class (,super)
+       (defclass ,class ,supers
 	 ,expanded-slots
 	 (:metaclass ,metaclass)
 	 (:alien-name ,(find-type-name type-number))))))

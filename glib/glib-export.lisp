@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-export.lisp,v 1.5 2001-05-11 16:11:07 espen Exp $
+;; $Id: glib-export.lisp,v 1.6 2002-01-20 14:09:52 espen Exp $
 
 
 ;;; Autogenerating exported symbols
@@ -44,5 +44,6 @@
 (export-from-file #p"clg:glib;gtype.lisp")
 (export-from-file #p"clg:glib;gparam.lisp")
 (export-from-file #p"clg:glib;gcallback.lisp")
+(export-from-file #p"clg:glib;ginterface.lisp")
 (export-from-file #p"clg:glib;gobject.lisp")
 (export-from-file #p"clg:glib;genums.lisp")

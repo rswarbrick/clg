@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.14 2002-01-14 01:16:08 espen Exp $
+;; $Id: gtype.lisp,v 1.15 2002-01-20 14:09:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -244,6 +244,19 @@
 (defun supertype (type)
   (type-from-number (type-parent type)))
 
+(defbinding %type-interfaces (type) pointer
+  ((find-type-number type t) type-number)
+  (n-interfaces unsigned-int :out))
+
+(defun type-interfaces (type)
+  (multiple-value-bind (array length) (%type-interfaces type)
+    (unwind-protect
+	(map-c-array 'list #'identity array 'type-number length)
+      (deallocate-memory array))))
+
+(defun implements (type)
+  (mapcar #'type-from-number (type-interfaces type)))
+
 (defun type-hierarchy (type)
   (let ((type-number (find-type-number type t)))
     (unless (= type-number 0)
@@ -288,7 +301,8 @@
   (let ((sorted ()))
     (loop while unsorted do
       (dolist (type unsorted)
-	(let ((dependencies (rest (type-hierarchy type))))
+	(let ((dependencies
+	       (append (rest (type-hierarchy type)) (type-interfaces type))))
 	  (cond
 	   ((null dependencies)
 	    (push type sorted)
