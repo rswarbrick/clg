@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.3 2004-11-07 01:23:38 espen Exp $
+;; $Id: ffi.lisp,v 1.4 2004-11-09 10:04:35 espen Exp $
 
 (in-package "GLIB")
 
@@ -90,11 +90,11 @@
 	    (push doc/arg docs)
 	  (progn
 	    (destructuring-bind (expr type &optional (style :in)) doc/arg
-	      (unless (member style '(:in :out :in-out))
+	      (unless (member style '(:in :out :in-out :return))
 		(error "Bogus argument style ~S in ~S." style doc/arg))
 	      (when (and
 		     (not supplied-lambda-list)
-		     (namep expr) (member style '(:in :in-out)))
+		     (namep expr) (member style '(:in :in-out :return)))
 		(push expr lambda-list))
 	      (push
 	       (list (if (namep expr) 
@@ -109,30 +109,36 @@
 #+cmu
 (defun %defbinding (foreign-name lisp-name lambda-list return-type docs args)
   (ext:collect ((alien-types) (alien-bindings) (alien-parameters) 
-		(alien-values) (cleanup-forms))
+		(return-values) (cleanup-forms))
     (dolist (arg args)
       (destructuring-bind (var expr type style) arg
 	(let ((declaration (alien-type type))
 	      (cleanup (cleanup-form var type)))
 
 	  (cond
-	   ((member style '(:out :in-out))
-	    (alien-types `(* ,declaration))
-	    (alien-parameters `(addr ,var))
-	    (alien-bindings
-	     `(,var ,declaration
-	       ,@(when (eq style :in-out)
-		   (list (to-alien-form expr type)))))
-	    (alien-values (from-alien-form var type)))
-	  (cleanup
-	   (alien-types declaration)
-	   (alien-bindings
-	    `(,var ,declaration ,(to-alien-form expr type)))
-	   (alien-parameters var)
-	   (cleanup-forms cleanup))
-	  (t
-	   (alien-types declaration)
-	   (alien-parameters (to-alien-form expr type)))))))
+	    ((member style '(:out :in-out))
+	     (alien-types `(* ,declaration))
+	     (alien-parameters `(addr ,var))
+	     (alien-bindings
+	      `(,var ,declaration
+		,@(when (eq style :in-out)
+		    (list (to-alien-form expr type)))))
+	     (return-values (from-alien-form var type)))
+	    ((eq style :return)
+	     (alien-types declaration)
+	     (alien-bindings
+	      `(,var ,declaration ,(to-alien-form expr type)))
+	     (alien-parameters var)
+	     (return-values (from-alien-form var type)))
+	    (cleanup
+	     (alien-types declaration)
+	     (alien-bindings
+	      `(,var ,declaration ,(to-alien-form expr type)))
+	     (alien-parameters var)
+	     (cleanup-forms cleanup))
+	    (t
+	     (alien-types declaration)
+	     (alien-parameters (to-alien-form expr type)))))))
 
     (let* ((alien-name (make-symbol (string lisp-name)))
 	   (alien-funcall `(alien-funcall ,alien-name ,@(alien-parameters))))
@@ -150,12 +156,12 @@
 		  (unwind-protect 
 		      ,(from-alien-form alien-funcall return-type)
 		    ,@(cleanup-forms))
-		  ,@(alien-values))
+		  ,@(return-values))
 	      `(progn
 		(unwind-protect 
 		     ,alien-funcall
 		  ,@(cleanup-forms))
-		(values ,@(alien-values)))))))))
+		(values ,@(return-values)))))))))
 
 
 ;;; Creates bindings at runtime
