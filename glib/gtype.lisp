@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.7 2001-01-28 14:11:20 espen Exp $
+;; $Id: gtype.lisp,v 1.8 2001-04-29 20:17:07 espen Exp $
 
 (in-package "GLIB")
 
@@ -26,22 +26,52 @@
 
 (deftype type-number () '(unsigned 32))
 
-(define-foreign ("g_type_name" alien-type-name) (type) (static string)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass type-query (alien-structure)
+    ((type-number :allocation :alien :type type-number)
+     (name :allocation :alien :type string)
+     (class-size :allocation :alien :type unsigned-int)
+     (instance-size :allocation :alien :type unsigned-int))
+    (:metaclass proxy-class)))
+
+
+(defbinding ("g_type_name" alien-type-name) (type) (static string)
   ((find-type-number type) type-number))
 
-(define-foreign %type-from-name () type-number
+(defbinding %type-from-name () type-number
   (name string))
 
-;(define-foreign type-parent () type-number
-;  (type type-number))
+(defbinding type-parent () type-number
+  (type type-number))
 
-(define-foreign type-instance-size (type) int
+(defbinding %type-query () nil
+  (type type-number)
+  (query type-query))
+
+(defun type-query (type)
+  (let ((query (make-instance 'type-query)))
+    (%type-query (find-type-number type) query)
+    query))
+
+(defun type-instance-size (type)
+  (slot-value (type-query type) 'instance-size))
+
+(defun type-class-size (type)
+  (slot-value (type-query type) 'class-size))
+
+(defbinding type-class-ref () pointer
+  (type type-number))
+
+(defbinding type-class-unref () nil
+  (type type-number))
+
+(defbinding type-class-peek () pointer
+  (type type-number))
+
+(defbinding type-create-instance (type) pointer
   ((find-type-number type) type-number))
 
-; (define-foreign type-create-instance (type) pointer
-;   ((find-type-number type) type-number))
-
-(define-foreign type-free-instance () nil
+(defbinding type-free-instance () nil
   (instance pointer))
 
 
@@ -79,552 +109,137 @@
 (defun type-number-of (object)
   (find-type-number (type-of object)))
 
+(defun alien-function (name return-type &rest arg-types)
+  (let ((alien
+	 (alien::%heap-alien
+	  (alien::make-heap-alien-info
+	   :type (alien::parse-alien-type
+		  `(function ,@(cons return-type arg-types)))
+	   :sap-form (system:foreign-symbol-address name)))))
+    #'(lambda (&rest args)
+	(apply #'alien:alien-funcall alien args))))
 
 
-;;;; Superclass for all metaclasses implementing some sort of virtual slots
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass virtual-class (pcl::standard-class))
-
-  (defclass direct-virtual-slot-definition (standard-direct-slot-definition)
-    ((location
-      :reader slot-definition-location
-      :initarg :location)))
-  
-  (defclass effective-virtual-slot-definition
-    (standard-effective-slot-definition)))
-  
-
-(defmethod direct-slot-definition-class ((class virtual-class) initargs)
-  (if (eq (getf initargs :allocation) :virtual)
-      (find-class 'direct-virtual-slot-definition)
-    (call-next-method)))
+(defun type-init (name &optional init-fname)
+  (funcall
+   (alien-function
+    (or
+     init-fname
+     (default-alien-fname (format nil "~A_get_type" name)))
+    '(unsigned 32))))
 
 
-(defmethod effective-slot-definition-class ((class virtual-class) initargs)
-  (if (eq (getf initargs :allocation) :virtual)
-      (find-class 'effective-virtual-slot-definition)
-    (call-next-method)))
-
-
-(defun %direct-slot-definitions-slot-value (slotds slot &optional default)
-  (let ((slotd
-	 (find-if
-	  #'(lambda (slotd)
-	      (and
-	       (slot-exists-p slotd slot)
-	       (slot-boundp slotd slot)))
-	  slotds)))
-    (if slotd
-	(slot-value slotd slot)
-      default)))
-  
-
-(defgeneric compute-virtual-slot-location (class slotd direct-slotds))
-
-(defmethod compute-virtual-slot-location
-    ((class virtual-class)
-     (slotd effective-virtual-slot-definition)
-     direct-slotds)
-    (let ((location
-	   (%direct-slot-definitions-slot-value direct-slotds 'location)))
-      (if (and location (symbolp location))
-	  (list location `(setf ,location))
-	location)))
-
-
-(defmethod compute-effective-slot-definition
-    ((class virtual-class) direct-slotds)
-  (let ((slotd (call-next-method)))
-    (when (typep slotd 'effective-virtual-slot-definition)
-      (setf
-       (slot-value slotd 'pcl::location)
-       (compute-virtual-slot-location class slotd direct-slotds)))
-    slotd))
-
-
-(defmethod slot-value-using-class
-    ((class virtual-class) (object standard-object)
-     (slotd effective-virtual-slot-definition))
-  (let ((reader (first (slot-definition-location slotd))))
-    (if reader
-	(funcall reader object)
-      (slot-unbound class object (slot-definition-name slotd)))))
-
-
-(defmethod slot-boundp-using-class
-    ((class virtual-class) (object standard-object)
-     (slotd effective-virtual-slot-definition))
-   (and (first (slot-definition-location slotd)) t))
-    
-
-
-(defmethod (setf slot-value-using-class)
-    (value (class virtual-class) (object standard-object)
-     (slotd effective-virtual-slot-definition))
-  (let ((writer (second (slot-definition-location slotd))))
-    (cond
-     ((null writer)
-      (error
-       "Can't set read-only slot ~A in ~A"
-       (slot-definition-name slotd)
-       object))
-     ((or (functionp writer) (symbolp writer))
-      (funcall writer value object)
-      value)
-     (t
-      (funcall (fdefinition writer) value object)
-      value))))
-	
-
-(defmethod validate-superclass
-    ((class virtual-class) (super pcl::standard-class))
-  t)
-
-
-
-;;;; Superclass for wrapping of C structures
+;;;; Superclass for wrapping types in the glib type system
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass alien-instance ()
-    ((location
-      :reader alien-instance-location
-      :type system-area-pointer)))
+  (defclass ginstance (proxy)
+    ()
+    (:metaclass proxy-class)
+    (:size 4 #|(size-of 'pointer|#)))
 
-  (defgeneric allocate-alien-storage (class))
-  (defgeneric reference-instance (object))
-  (defgeneric unreference-instance (object))
-  (defgeneric from-alien-initialize-instance (object &rest initargs))
-  (defgeneric instance-finalizer (object)))
-
-
-(internal *instance-cache*)
-(defvar *instance-cache* (make-hash-table :test #'eql))
-
-(defun cache-instance (object)
-  (setf
-   (gethash (system:sap-int (alien-instance-location object)) *instance-cache*)
-   (ext:make-weak-pointer object)))
-
-(defun find-cached-instance (location)
-  (let ((ref (gethash (system:sap-int location) *instance-cache*)))
-    (when ref
-      (ext:weak-pointer-value ref))))
-
-(defun remove-cached-instance (location)
-  (remhash (system:sap-int location) *instance-cache*))
-
-
-(defmethod initialize-instance :before ((instance alien-instance)
-					&rest initargs &key)
+(defmethod initialize-proxy ((instance ginstance) &rest initargs &key location)
   (declare (ignore initargs))
-  (setf
+  (setf 
    (slot-value instance 'location)
-   (allocate-alien-storage (class-of instance)))
-  (cache-instance instance)
-  (ext:finalize instance (instance-finalizer instance)))
+   (funcall (ginstance-class-ref (class-of instance)) location))
+  (call-next-method))
 
-
-(defmethod from-alien-initialize-instance ((instance alien-instance)
-					   &rest initargs &key location)
-  (declare (ignore initargs))
-  (setf (slot-value instance 'location) location)
-  (cache-instance instance))
-
-
-(deftype-method translate-type-spec alien-instance (type-spec)
-  (declare (ignore type-spec))
-  (translate-type-spec 'pointer))
-
-(deftype-method size-of alien-instance (type-spec)
-  (declare (ignore type-spec))
-  (size-of 'pointer))
-
-
-
-;;;; Metaclass used for subclasses of alien-instance
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass alien-class (virtual-class)
-    ((size
-      :reader alien-class-size)))
-
-  (defclass direct-alien-slot-definition (direct-virtual-slot-definition)
-    ((allocation
-      :initform :alien)
-     (offset
-      :reader slot-definition-offset
-      :initarg :offset
-      :initform 0)))
-  
-  (defclass effective-alien-slot-definition (effective-virtual-slot-definition)
-    ((offset
-      :reader slot-definition-offset)))
-  
-  (defclass effective-virtual-alien-slot-definition
-    (effective-virtual-slot-definition))
- 
-
-  (defmethod alien-class-superclass ((class alien-class))
-    (find-if
-     #'(lambda (class)
-	 (subtypep (class-name class) 'alien-instance))
-     (pcl::class-direct-superclasses class)))
-
-
-  (defmethod shared-initialize ((class alien-class) names
-				&rest initargs &key size alien-name name)
-    (declare (ignore initargs))
-    (call-next-method)
-
-    (when alien-name
-      (setf (alien-type-name (or name (class-name class))) (first alien-name)))
-    (when size
-      (setf (slot-value class 'size) (first size))))
-    
-
-  (defmethod shared-initialize :after ((class alien-class) names
-				       &rest initargs &key)
-    (declare (ignore initargs names))
-    (let* ((super (alien-class-superclass class))
-	   (actual-size
-	    (if (eq (class-name super) 'alien-instance)
-		0
-	      (alien-class-size super))))
-      (dolist (slotd (class-slots class))
-	(when (eq (slot-definition-allocation slotd) :alien)
-	  (with-slots (offset type) slotd
-	    (setq actual-size (max actual-size (+ offset (size-of type)))))))
-      (cond
-       ((not (slot-boundp class 'size))
-	(setf (slot-value class 'size) actual-size))
-       ((> actual-size (slot-value class 'size))
-	(warn "The actual size of class ~A is lager than specified" class)))))
-
-
-  (defmethod direct-slot-definition-class ((class alien-class) initargs)
-    (case (getf initargs :allocation)
-      ((nil :alien) (find-class 'direct-alien-slot-definition))
-;      (:instance (error "Allocation :instance not allowed in class ~A" class))
-      (t (call-next-method))))
-
-
-  (defmethod effective-slot-definition-class ((class alien-class) initargs)
-    (case (getf initargs :allocation)
-      (:alien (find-class 'effective-alien-slot-definition))
-      (:virtual (find-class 'effective-virtual-alien-slot-definition))
-      (t (call-next-method))))
-  
-  
-  (defmethod compute-virtual-slot-location
-      ((class alien-class) (slotd effective-alien-slot-definition)
-       direct-slotds)
-    (with-slots (offset type) slotd
-      (setf offset (%direct-slot-definitions-slot-value direct-slotds 'offset))
-      (let ((reader (get-reader-function type))
-	    (writer (get-writer-function type))
-	    (destroy (get-destroy-function type)))
-	(list
-	 #'(lambda (object)
-	     (funcall reader (alien-instance-location object) offset))
-	 #'(lambda (value object)
-	     (let ((location (alien-instance-location object)))
-	       (funcall destroy location offset)
-	       (funcall writer value location offset)))))))
-	     
-  
-  (defmethod compute-virtual-slot-location
-      ((class alien-class)
-       (slotd effective-virtual-alien-slot-definition)
-       direct-slotds)
-    (let ((location (call-next-method)))
-      (if (or (stringp location) (consp location))
-	  (destructuring-bind (reader &optional writer) (mklist location)
-	    (with-slots (type) slotd
-              (list
-	       (if (stringp reader)
-		   (let* ((alien-type (translate-type-spec type))
-			  (alien
-			   (alien::%heap-alien
-			    (alien::make-heap-alien-info
-			     :type (alien::parse-alien-type
-				    `(function ,alien-type system-area-pointer))
-			     :sap-form (system:foreign-symbol-address reader))))
-			  (from-alien (get-from-alien-function type)))
-		     #'(lambda (object)
-			 (funcall
-			  from-alien
-			  (alien-funcall
-			   alien (alien-instance-location object)))))
-		 reader)
-	       (if (stringp writer)
-		   (let* ((alien-type (translate-type-spec type))
-			  (alien
-			   (alien::%heap-alien
-			    (alien::make-heap-alien-info
-			     :type (alien::parse-alien-type
-				    `(function
-				      void system-area-pointer ,alien-type))
-			     :sap-form (system:foreign-symbol-address writer))))
-			  (to-alien (get-to-alien-function type))
-			  (cleanup  (get-cleanup-function type)))
-		     #'(lambda (value object)
-			 (let ((alien-value (funcall to-alien value))
-			       (location (alien-instance-location object)))
-			   (alien-funcall alien location alien-value)
-			   (funcall cleanup alien-value))))
-		 writer))))
-	location)))
-
-
-  (defmethod compute-slots ((class alien-class))
-    ;; Translating the user supplied relative (to previous slot) offsets
-    ;; to absolute offsets.
-    ;; This code is broken and have to be fixed for real use.
-    (with-slots (direct-slots) class
-      (let* ((super (alien-class-superclass class))
-	     (slot-offset
-	      (if (eq (class-name super) 'alien-instance)
-		  0
-		(alien-class-size super))))
-	(dolist (slotd direct-slots)
-	  (when (eq (slot-definition-allocation slotd) :alien)
-	    (with-slots (offset type) slotd
-	      (setf
-	       offset (+ slot-offset offset)
-	       slot-offset (+ offset (size-of type)))))))
-    
-      ;; Reverse the direct slot definitions so the effective slots
-      ;; will be in correct order.
-      (setf direct-slots (reverse direct-slots))
-      ;; This nreverse caused me so much frustration that I leave it
-      ;; here just as a reminder of what not to do.
-;      (setf direct-slots (nreverse direct-slots))
-      )
-    (call-next-method))
-
-
-  (defmethod validate-superclass ((class alien-class)
-				  (super pcl::standard-class))
-     (subtypep (class-name super) 'alien-instance))
-
-  (defgeneric make-instance-from-alien (class location &rest initargs &key)))
-
-(defmethod make-instance-from-alien ((class symbol) location
-				     &rest initargs &key)
-  (apply #'make-instance-from-alien (find-class class) location initargs))
-
-(defmethod make-instance-from-alien ((class alien-class) location
-				     &rest initargs &key)
-  (let ((instance (allocate-instance class)))
-    (apply
-     #'from-alien-initialize-instance
-     instance :location location initargs)
-    instance))
-
-(defun ensure-alien-instance (class location &rest initargs)
-  (or
-   (find-cached-instance location)
-   (apply #'make-instance-from-alien class location initargs)))
-
-(defmethod allocate-alien-storage ((class alien-class))
-  (allocate-memory (alien-class-size class)))
-
-
-
-;;;; Superclass for wrapping structures with reference counting
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass alien-object (alien-instance)
-    ()
-    (:metaclass alien-class)
-    (:size 0)))
-
-(define-type-method-fun alien-ref (type-spec))
-(define-type-method-fun alien-unref (type-spec))
-
-(defmethod from-alien-initialize-instance ((object alien-object)
-					   &rest initargs &key)
-  (declare (ignore initargs))
-  (call-next-method)
-  (reference-instance object))
-
-(defmethod instance-finalizer ((object alien-object))
-  (let ((location (alien-instance-location object))
-	(unref (fdefinition (alien-unref (class-of object)))))
-    (declare (type system-area-pointer location) (type function unref))
-    #'(lambda ()
-	(remove-cached-instance location)
-	(funcall unref location))))
-
-(defmethod reference-instance ((object alien-object))
-  (funcall (alien-ref (class-of object)) object)
-  object)
-
-(defmethod unreference-instance ((object alien-object))
-  (funcall (alien-unref (class-of object)) object)
-  nil)
-
-(deftype-method translate-to-alien
-    alien-object (type-spec object &optional copy)
-  (if copy
-      `(,(alien-ref type-spec) ,object)
-    `(alien-instance-location ,object)))
-
-(deftype-method translate-from-alien
-    alien-object (type-spec location &optional alloc)
-  ;; Reference counted objects are always treated as if alloc were :reference
-  (declare (ignore alloc)) 
-  `(let ((location ,location))
-     (unless (null-pointer-p location)
-       (ensure-alien-instance ',type-spec location))))
-
-(deftype-method
-    cleanup-alien alien-object (type-spec sap &optional copied)
-  (when copied
-    `(let ((sap ,sap))
-       (unless (null-pointer-p sap)
-	 (,(alien-unref type-spec) sap)))))
-
-
-
-;;;; Superclass for wrapping of non-refcounted structures
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass alien-structure (alien-instance)
-    ((static
-      :allocation :instance
-      :reader alien-structure-static-p
-      :initform nil
-      :type boolean))
-    (:metaclass alien-class)
-    (:size 0)))
-
-(define-type-method-fun alien-copier (type-spec))
-(define-type-method-fun alien-deallocator (type-spec))
-
-(defmethod from-alien-initialize-instance ((structure alien-structure)
-					   &rest initargs &key static)
-  (declare (ignore initargs))
-  (call-next-method)
-  (setf (slot-value structure 'static) static))
-
-(defmethod instance-finalizer ((structure alien-structure))
-  (let ((location (alien-instance-location structure)))
+(defmethod instance-finalizer ((instance ginstance))
+  (let ((location (proxy-location instance))
+	(unref (ginstance-class-unref (class-of instance))))
     (declare (type system-area-pointer location))
-    (if (alien-structure-static-p structure)
-	#'(lambda ()
-	    (remove-cached-instance location))
-      (let ((deallocator
-	     (fdefinition (alien-deallocator (class-of structure)))))
-	(declare (type function deallocator))
-	#'(lambda ()
-	    (remove-cached-instance location)
-	    (funcall deallocator location))))))
+    #'(lambda ()
+	(funcall unref location)
+	(remove-cached-instance location))))
 
-
-(deftype-method alien-copier alien-structure (type-spec)
-  (declare (ignore type-spec))
-  'copy-memory)
-
-(deftype-method alien-deallocator alien-structure (type-spec)
-  (declare (ignore type-spec))
-  'deallocate-memory)
-
-(deftype-method translate-to-alien
-    alien-structure (type-spec object &optional copy)
-  `(let ((object ,object))
-     (if (and ,copy (not (alien-structure-static-p object)))
-	 (,(alien-copier type-spec)
-	  `(alien-instance-location object)
-	  ,(alien-class-size (find-class type-spec)))
-       (alien-instance-location object))))
+(defun %type-of-ginstance (location)
+  (let ((class (sap-ref-sap location 0)))
+    (type-from-number (sap-ref-unsigned class 0))))
 
 (deftype-method translate-from-alien
-    alien-structure (type-spec location &optional (alloc :reference))
+    ginstance (type-spec location &optional weak-ref)
+  (declare (ignore type-spec))
   `(let ((location ,location))
      (unless (null-pointer-p location)
-       ,(ecase alloc
-	  (:copy `(ensure-alien-instance ',type-spec location))
-	  (:static `(ensure-alien-instance ',type-spec location :static t))
-	  (:reference
-	   `(ensure-alien-instance
-	     ',type-spec
-	     (,(alien-copier type-spec)
-	      location ,(alien-class-size (find-class type-spec)))))))))
+       (ensure-proxy-instance
+	(%type-of-ginstance location) location ,weak-ref))))
 
-(deftype-method cleanup-alien alien-structure (type-spec sap &optional copied)
-  (when copied
-    `(let ((sap ,sap))
-       (unless (or
-		(null-pointer-p sap)
-		(alien-structure-static-p (find-cached-instance sap)))
-	 (,(alien-deallocator type-spec) sap)))))
+(deftype-method translate-to-alien
+    ginstance (type-spec object &optional weak-ref)
+  (declare (ignore type-spec))
+  (if weak-ref
+      `(proxy-location ,object)
+    `(let ((object ,object))
+       (funcall
+	(ginstance-class-ref (class-of object)) (proxy-location object)))))
 
-
-
-;;;; Superclass for static structures such as gdk:visual
-
-(defclass static-structure (alien-structure)
-  ()
-  (:metaclass alien-class)
-  (:size 0))
-
-
-(defmethod from-alien-initialize-instance ((structure alien-structure)
-				      &rest initargs)
-  (declare (ignore initargs))
-  (call-next-method)
-  (setf (slot-value structure 'static) t))
+(deftype-method unreference-alien ginstance (type-spec location)
+  (declare (ignore type-spec))
+  `(let* ((location ,location)
+	  (class (find-class (%type-of-ginstance location))))
+     (funcall (ginstance-class-unref class) location)))
 
 
 
-;;;; Superclass wrapping types in the glib type system
+;;;; Metaclass for subclasses of ginstance
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginstance (alien-object)
-    ()
-    (:metaclass alien-class)
-    (:size 4 #|(size-of 'pointer)|#)))
-
-
-(defun %alien-instance-type-number (location)
-  (let ((class (sap-ref-sap location 0)))
-    (sap-ref-unsigned class 0)))
-
-
-(deftype-method translate-from-alien ginstance (type-spec location &optional alloc)
-  (declare (ignore type-spec alloc))
-  `(let ((location ,location))
-     (unless (null-pointer-p location)
-       (ensure-alien-instance
-	(type-from-number (%alien-instance-type-number location))
-	location))))
-
-
-
-;;;; Metaclass for subclasses of ginstance-class
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginstance-class (alien-class)))
+  (defclass ginstance-class (proxy-class)
+    ((ref :reader ginstance-class-ref)
+     (unref :reader ginstance-class-unref))))
 
 
 (defmethod shared-initialize ((class ginstance-class) names
-			      &rest initargs &key name)
+			      &rest initargs
+			      &key name alien-name size
+			      ref unref type-init)
   (declare (ignore initargs names))
   (call-next-method)
-  (setf
-   (slot-value class 'size)
-   (type-instance-size (find-type-number (or name (class-name class))))))
+
+  (let* ((class-name (or name (class-name class)))
+	 (type-number
+	  (cond
+	   ((and alien-name type-init)
+	    (error
+	     "Specify either :type-init or :alien-name for class ~A"
+	     class-name))
+	   (alien-name (type-number-from-alien-name (first alien-name)))
+	   (type-init (type-init class-name (first type-init)))
+	   (t
+	    (or
+	     (type-number-from-alien-name
+	      (default-alien-type-name class-name) nil)
+	     (type-init class-name))))))
+    (setf (find-type-number class) type-number)
+    (unless size
+      (setf
+       (slot-value class 'size)
+       (type-instance-size (find-type-number class-name))))
+    (when ref
+      (setf
+       (slot-value class 'ref)
+       (alien-function (first ref) 'system-area-pointer 'system-area-pointer)))
+    (when unref
+      (setf
+       (slot-value class 'unref)
+       (alien-function (first unref) 'void 'system-area-pointer)))))
+
+(defmethod shared-initialize :after ((class ginstance-class) names
+				     &rest initargs)
+  (declare (ignore names initargs))
+  (unless (slot-boundp class 'ref)
+    (setf
+     (slot-value class 'ref)
+     (ginstance-class-ref (most-specific-proxy-superclass class))))
+  (unless (slot-boundp class 'unref)
+    (setf
+     (slot-value class 'unref)
+     (ginstance-class-unref (most-specific-proxy-superclass class)))))
 
 
 (defmethod validate-superclass
     ((class ginstance-class) (super pcl::standard-class))
   (subtypep (class-name super) 'ginstance))
-
-
-; (defmethod allocate-alien-storage ((class ginstance-class))
-;   (type-create-instance (find-type-number class)))
 
 
 ;;;; Initializing type numbers
@@ -637,9 +252,7 @@
 (setf (alien-type-name 'unsigned-int) "guint")
 (setf (alien-type-name 'long) "glong")
 (setf (alien-type-name 'unsigned-long) "gulong")
-(setf (alien-type-name 'enum) "GEnum")
-(setf (alien-type-name 'flags) "GFlags")
 (setf (alien-type-name 'single-float) "gfloat")
 (setf (alien-type-name 'double-float) "gdouble")
-(setf (alien-type-name 'string) "gstring")
+(setf (alien-type-name 'string) "GString")
 (setf (find-type-number 'fixnum) (find-type-number 'int))
