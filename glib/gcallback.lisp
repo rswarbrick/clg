@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.15 2004-12-04 00:29:57 espen Exp $
+;; $Id: gcallback.lisp,v 1.16 2004-12-05 13:54:10 espen Exp $
 
 (in-package "GLIB")
 
@@ -78,24 +78,38 @@
 
 ;;;; Timeouts and idle functions
 
+(defconstant +priority-high+ -100)
+(defconstant +priority-default+ 0)
+(defconstant +priority-high-idle+ 100)
+(defconstant +priority-default-idle+ 200)
+(defconstant +priority-low+ 300)
+
+(defbinding source-remove () boolean
+  (tag unsigned-int))
+
 (defcallback source-callback-marshal (nil (callback-id unsigned-int))
   (callback-trampoline callback-id 0 nil (make-pointer 0)))
 
 (defbinding (timeout-add "g_timeout_add_full")
-    (function interval &optional (priority 0)) unsigned-int 
+    (interval function &optional (priority +priority-default+)) unsigned-int 
   (priority int)
   (interval unsigned-int)
-  (*source-callback-marshal* pointer)
+  ((callback source-callback-marshal) pointer)
   ((register-callback-function function) unsigned-long)
   ((callback %destroy-user-data) pointer))
+
+(defun timeout-remove (timeout)
+  (source-remove timeout))
 
 (defbinding (idle-add "g_idle_add_full")
-    (function &optional (priority 0)) unsigned-int 
+    (function &optional (priority +priority-default-idle+)) unsigned-int 
   (priority int)
-  (*source-callback-marshal* pointer)
+  ((callback source-callback-marshal) pointer)
   ((register-callback-function function) unsigned-long)
   ((callback %destroy-user-data) pointer))
 
+(defun idle-remove (idle)
+  (source-remove idle))
 
 
 ;;;; Signals
@@ -159,7 +173,7 @@
  is T, the object connected to is passed as the first argument to the callback 
  function, or if :OBJECT is any other non NIL value, it is passed as the first 
  argument instead. If :AFTER is non NIL, the handler will be called after the 
- default handler of the signal."
+ default handler for the signal."
   (when function
     (let ((callback-id
 	   (make-callback-closure
