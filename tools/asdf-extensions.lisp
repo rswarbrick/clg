@@ -1,5 +1,7 @@
 (in-package :asdf)
 
+(export 'load-dso)
+
 (defun concatenate-strings (strings &optional delimiter)
   (if (not (rest strings))
       (first strings)
@@ -19,7 +21,7 @@
      (logical-pathname (translate-logical-pathname pathname))
      (t pathname))))
 
-(defmethod asdf::input-files ((operation compile-op) (dso unix-dso))
+(defmethod input-files ((operation compile-op) (dso unix-dso))
   (mapcar #'component-pathname (module-components dso)))
 
 (defmethod output-files ((operation compile-op) (dso unix-dso))
@@ -49,11 +51,31 @@
 			      (module-components dso)))))
       (error 'operation-error :operation operation :component dso))))
 
+;; Taken from foreign.lisp in the CMUCL tree, but modified to delay
+;; resolving of symbols until they are used
+(defun load-dso (file)
+  (system::ensure-lisp-table-opened)
+  ; rtld global: so it can find all the symbols previously loaded
+  ; rtld lazy: that way dlopen will not fail if not all symbols are defined.
+  (let ((filename (namestring file)))
+    (format t ";;; Loading shared library ~A ...~%" filename)
+    (let ((sap (system::dlopen filename (logior system::rtld-lazy system::rtld-global))))
+      (cond ((zerop (system:sap-int sap))
+	     (let ((err-string (system::dlerror)))
+
+	       ;; For some reason dlerror always seems to return NIL,
+	       ;; which isn't very informative.
+	       (error "Can't open object ~S: ~S" file err-string)))
+	    ((null (assoc sap system::*global-table* :test #'system:sap=))
+	     (setf system::*global-table* (acons sap file system::*global-table*))
+	     t)
+	    (t nil)))))
+
+
 (defmethod perform ((o load-op) (c unix-dso))
   (let ((co (make-instance 'compile-op)))
     (let ((filename (car (output-files co c))))
-      #+cmu (ext:load-foreign filename)
-      #+sbcl (sb-alien:load-shared-object filename))))
+      (load-dso filename))))
 
 
 
@@ -95,3 +117,22 @@
   t)
   
 
+
+(defclass library (static-file) 
+  ((libdir :initarg :libdir)))
+
+
+(defun relative-pathname (path)
+  (etypecase path
+    (cons path)
+    (string (if (char= #\/ (char path 0))
+		(subseq path 1)
+	      path))))
+
+(defmethod component-pathname ((lib library))
+  (make-pathname :type "so"
+		 :name (component-name lib)
+		 :directory (relative-pathname (slot-value lib 'libdir))))
+
+(defmethod perform ((o load-op) (c library))
+  (load-dso (component-pathname c)))
