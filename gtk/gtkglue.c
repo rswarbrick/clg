@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.4 2000-11-09 20:30:16 espen Exp $ */
+/* $Id: gtkglue.c,v 1.5 2001-04-29 20:12:12 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -125,15 +125,6 @@ gboolean
 gtk_check_menu_item_get_show_toggle (GtkCheckMenuItem* check_menu_item)
 {
   return check_menu_item->always_show_toggle;
-}
-
-
-/* Tree item */
-
-GtkWidget*
-gtk_tree_item_get_subtree (GtkTreeItem* tree_item)
-{
-  return GTK_TREE_ITEM_SUBTREE (tree_item);
 }
 
 
@@ -441,39 +432,6 @@ gint
 gtk_toolbar_get_tooltips (GtkToolbar *toolbar)
 {
   return toolbar->tooltips->enabled;
-}
-
-
-/* Tree */
-
-GtkSelectionMode
-gtk_tree_get_selection_mode (GtkTree *tree)
-{
-  return tree->selection_mode;
-}
-
-GtkSelectionMode
-gtk_tree_get_view_mode (GtkTree *tree)
-{
-  return tree->view_mode;
-}
-
-GtkSelectionMode
-gtk_tree_get_view_lines (GtkTree *tree)
-{
-  return tree->view_mode;
-}
-
-GtkTree*
-gtk_tree_get_root_tree (GtkTree *tree)
-{
-  return GTK_TREE_ROOT_TREE (tree);
-}
-
-GList*
-gtk_tree_selection (GtkTree *tree)
-{
-  return GTK_TREE_SELECTION (tree);
 }
 
 

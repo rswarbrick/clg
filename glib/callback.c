@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: callback.c,v 1.2 2001-02-11 21:53:03 espen Exp $ */
+/* $Id: callback.c,v 1.3 2001-04-29 20:11:21 espen Exp $ */
 
 #include <gobject/gobject.h>
 
@@ -71,7 +71,7 @@ g_lisp_callback_closure_new (guint callback_id)
 
   closure = g_closure_new_simple (sizeof (GClosure), (gpointer)callback_id);
   g_closure_set_marshal (closure, lisp_callback_marshal);
-  g_closure_add_fnotify (closure, (gpointer)callback_id, closure_destroy_notify);
+  g_closure_add_finalize_notifier (closure, (gpointer)callback_id, closure_destroy_notify);
   
   return closure;
 }
@@ -83,3 +83,42 @@ destroy_notify_address ()
   return (void*)destroy_notify;
 }
 #endif
+
+
+GList*
+g_object_class_properties (GObjectClass *class)
+{
+  GList *list = NULL;
+  int i;
+
+  for (i = 0; i < class->n_property_specs; i++)
+    list = g_list_append (list, class->property_specs[i]);
+
+  return list;
+}
+
+#include        <gobject/genums.h>
+GList*
+g_enum_class_values (GEnumClass *class)
+{
+  GList *list = NULL;
+  int i;
+
+  for (i = 0; i < class->n_values; i++)
+    list = g_list_append (list, &class->values[i]);
+
+  return list;
+}
+
+GList*
+g_flags_class_values (GFlagsClass *class)
+{
+  GList *list = NULL;
+  int i;
+
+  for (i = 0; i < class->n_values; i++)
+    list = g_list_append (list, &class->values[i]);
+
+  return list;
+}
+
