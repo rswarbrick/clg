@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.10 2005-02-14 00:43:43 espen Exp $
+;; $Id: genums.lisp,v 1.11 2005-02-25 17:20:25 espen Exp $
 
 (in-package "GLIB")
   
@@ -23,7 +23,7 @@
 
 (defun %map-enum (mappings op)
   (loop
-   as value = 1 then (1+ value)
+   as value = 0 then (1+ value)
    for mapping in mappings
    collect (let ((symbol (if (atom mapping) mapping (first mapping))))
 	     (unless (atom mapping)
