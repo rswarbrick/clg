@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.13 2001-11-12 22:24:29 espen Exp $
+;; $Id: gtype.lisp,v 1.14 2002-01-14 01:16:08 espen Exp $
 
 (in-package "GLIB")
 
@@ -139,7 +139,7 @@
 
 (defmacro init-types-in-library (filename &key ignore)
   (%init-types-in-library
-   (format nil "~A/~A" user::gtk-library-path filename) ignore))
+   (format nil "~A/~A" *gtk-library-path* filename) ignore))
 
 
 
