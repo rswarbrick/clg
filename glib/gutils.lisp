@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.4 2001-04-29 20:01:54 espen Exp $
+;; $Id: gutils.lisp,v 1.5 2001-05-04 16:54:35 espen Exp $
 
 
 (in-package "KERNEL")
@@ -30,6 +30,21 @@
 	(values (funcall def (if (consp form) form (list form))) t)
       (values form nil))))
 
+(in-package "PCL")
+
+(defmethod finalize-inheritance ((class std-class))
+  (update-cpl class (compute-class-precedence-list class))
+  (update-slots class (compute-slots class))
+  (update-gfs-of-class class)
+  (update-inits class (compute-default-initargs class))
+  (update-make-instance-function-table class)
+  (dolist (sub (class-direct-subclasses class))
+    (update-class sub)))
+
+(defun update-class (class &optional finalizep)  
+    (declare (ignore finalizep))
+    (unless (class-has-a-forward-referenced-superclass-p class)
+      (finalize-inheritance class)))
 
 (in-package "GLIB")
 
@@ -50,7 +65,7 @@
     `(progn
        (let ((,gc-inhibit lisp::*gc-inhibit*))
 	 (ext:gc-off)
-	 (unwind-protect
+	 	 (unwind-protect
 	     ,@body
 	   (unless ,gc-inhibit
 	     (ext:gc-on)))))))
