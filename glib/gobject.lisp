@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.8 2001-05-29 15:50:31 espen Exp $
+;; $Id: gobject.lisp,v 1.9 2001-10-21 21:52:53 espen Exp $
 
 (in-package "GLIB")
 
@@ -33,7 +33,10 @@
   (setf 
    (slot-value object 'location)
    (%gobject-new (type-number-of object)))
-  (call-next-method))
+;  (funcall (proxy-class-copy (class-of object)) nil (proxy-location object))
+  (call-next-method)
+;  (funcall (proxy-class-free (class-of object)) nil (proxy-location object))
+  )
 
 (defbinding (%gobject-new "g_object_new") () pointer
   (type type-number)
@@ -41,7 +44,7 @@
 
 
 
-;;;; Parameter stuff
+;;;; Property stuff
 
 (defbinding %object-set-property () nil
   (object gobject)
@@ -94,7 +97,7 @@
   (defclass gobject-class (ginstance-class))
 
   (defclass direct-gobject-slot-definition (direct-virtual-slot-definition)
-    ((param :reader slot-definition-param)))
+    ((pname :reader slot-definition-pname)))
 
   (defclass effective-gobject-slot-definition
     (effective-virtual-slot-definition)))
@@ -112,35 +115,35 @@
 
 
 (defmethod initialize-instance :after ((slotd direct-gobject-slot-definition)
-				       &rest initargs &key param)
+				       &rest initargs &key pname)
   (declare (ignore initargs))
-  (when param
+  (when pname
     (setf
-     (slot-value slotd 'param)
+     (slot-value slotd 'pname)
      (signal-name-to-string (slot-definition-name slotd)))))
 
 (defmethod direct-slot-definition-class ((class gobject-class) initargs)
   (case (getf initargs :allocation)
-    (:param (find-class 'direct-gobject-slot-definition))
+    (:property (find-class 'direct-gobject-slot-definition))
     (t (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class gobject-class) initargs)
   (case (getf initargs :allocation)
-    (:param (find-class 'effective-gobject-slot-definition))
+    (:property (find-class 'effective-gobject-slot-definition))
     (t (call-next-method))))
 
 (defmethod compute-virtual-slot-accessors
     ((class gobject-class) (slotd effective-gobject-slot-definition)
      direct-slotds)
   (with-slots (type) slotd
-    (let ((param-name (slot-definition-param (first direct-slotds)))
+    (let ((pname (slot-definition-pname (first direct-slotds)))
 	  (type-number (find-type-number type)))
       (list
        #'(lambda (object)
 	   (with-gc-disabled
 	     (let ((gvalue (gvalue-new type-number)))
-	       (%object-get-property object param-name gvalue)
-	       (prog1
+	       (%object-get-property object pname gvalue)
+	       (unwind-protect
 		   (funcall
 		    (intern-reader-function type) gvalue +gvalue-value-offset+)
 		 (gvalue-free gvalue t)))))
@@ -150,7 +153,7 @@
 	       (funcall
 		(intern-writer-function type)
 		value gvalue +gvalue-value-offset+)
-	       (%object-set-property object param-name gvalue)
+	       (%object-set-property object pname gvalue)
 	       (funcall
 		(intern-destroy-function type)
 		gvalue +gvalue-value-offset+)
@@ -166,29 +169,25 @@
 
 ;;;;
 
-(defbinding %object-class-properties () pointer
+(defbinding %object-class-list-properties () pointer
   (class pointer)
   (n-properties unsigned-int :out))
 
-(defun query-object-class-properties (type-number)
+(defun query-object-class-properties (type-number &optional
+				      inherited-properties)
   (let ((class (type-class-ref type-number)))
     (multiple-value-bind (array length)
-	(%object-class-properties class)
-      (map-c-array 'list #'identity array 'param length))))
-
-(defun query-object-type-dependencies (type-number)
-  (delete-duplicates
-   (reduce
-    #'nconc
-    (mapcar
-     #'(lambda (param)
-	 ;; A gobject does not depend on it's supertypes due to forward
-	 ;; referenced superclasses
-  	 (delete-if
-  	  #'(lambda (type)
-  	      (type-is-p type-number type))
-	  (type-hierarchy (param-type param))))
-     (query-object-class-properties type-number)))))
+	(%object-class-list-properties class)
+      (unwind-protect
+	  (let ((all-properties
+		 (map-c-array 'list #'identity array 'param length)))
+	    (if (not inherited-properties)
+		(delete-if
+		 #'(lambda (param)
+		     (not (eql type-number (param-owner-type param))))
+		 all-properties)
+	      all-properties))
+	(deallocate-memory array)))))
 
 
 (defun default-slot-name (name)
@@ -200,21 +199,22 @@
     nil "~A-~A~A" class-name slot-name
     (if (eq 'boolean type) "-P" ""))))
 
-(defun expand-gobject-type (type-number &optional slots
+(defun expand-gobject-type (type-number &optional options
 			    (metaclass 'gobject-class))
   (let* ((super (supertype type-number))
 	 (class  (type-from-number type-number))
+	 (override-slots (getf options :slots))
 	 (expanded-slots
 	  (mapcar
 	   #'(lambda (param)
-	       (with-slots (name flags type documentation) param
+	       (with-slots (name flags value-type documentation) param
 	         (let* ((slot-name (default-slot-name name))
-			(slot-type (type-from-number type #|t|#))
+			(slot-type (type-from-number value-type #|t|#))
 			(accessor
 			 (default-slot-accessor class slot-name slot-type)))
 		   `(,slot-name
-		     :allocation :param
-		     :param ,name
+		     :allocation :property
+		     :pname ,name
 		     ,@(cond
 			((and
 			  (member :writable flags)
@@ -233,13 +233,29 @@
 			 (list :documentation documentation))))))
 	   (query-object-class-properties type-number))))
 
-    `(defclass ,class (,super)
-       ,expanded-slots
-       (:metaclass ,metaclass)
-       (:alien-name ,(find-type-name type-number)))))
+    (dolist (slot-def override-slots)
+      (let ((name (car slot-def))
+	    (pname (getf (cdr slot-def) :pname)))
+	(setq
+	 expanded-slots
+	 (delete-if
+	  #'(lambda (expanded-slot-def)
+	      (or
+	       (eq name (car expanded-slot-def))
+	       (and
+		pname
+		(string= pname (getf (cdr expanded-slot-def) :pname)))))
+	  expanded-slots))
+
+	(unless (getf (cdr slot-def) :ignore)
+	  (push slot-def expanded-slots))))
     
-(register-derivable-type
- 'gobject "GObject"
- :query 'query-object-type-dependencies
- :expand 'expand-gobject-type)
+    `(progn
+       (defclass ,class (,super)
+	 ,expanded-slots
+	 (:metaclass ,metaclass)
+	 (:alien-name ,(find-type-name type-number))))))
+
+
+(register-derivable-type 'gobject "GObject" 'expand-gobject-type)
 
