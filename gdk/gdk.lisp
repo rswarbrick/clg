@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.3 2000-09-04 22:12:45 espen Exp $
+;; $Id: gdk.lisp,v 1.4 2000-10-01 17:24:05 espen Exp $
 
 
 (in-package "GDK")
@@ -31,8 +31,39 @@
 (defun find-event-class (event-type)
   (find-class
    (ecase event-type
+     (:delete 'delete-event)
+     (:destroy  'destroy-event)
      (:expose 'expose-event)
-     (:delete 'delete-event))))
+     (:motion-notify 'motion-notify-event)
+     (:button-press 'button-press-event)
+     (:2button-press '2-button-press-event)
+     (:3button-press '3-button-press-event)
+     (:button-release 'button-release-event)
+     (:key-press 'key-press-event)
+     (:key-release 'key-release-event)
+     (:enter-notify 'enter-notify-event)
+     (:leave-notify 'leave-notify-event)
+     (:focus-change 'focus-change-event)
+     (:configure 'configure-event)
+     (:map 'map-event)
+     (:unmap 'unmap-event)
+     (:property-notify 'property-notify-event)
+     (:selection-clear 'selection-clear-event)
+     (:selection-request 'selection-request-event)
+     (:selection-notify 'selection-notify-event)
+     (:proximity-in 'proximity-in-event)
+     (:proximity-out 'proximity-out-event)
+     (:drag-enter 'drag-enter-event)
+     (:drag-leave 'drag-leave-event)
+     (:drag-motion 'drag-motion-event)
+     (:drag-status 'drag-status-event)
+     (:drop-start 'drop-start-event)
+     (:drop-finished 'drop-finished-event)
+     (:client-event 'client-event-event)
+     (:visibility-notify 'visibility-notify-event)
+     (:no-expose 'no-expose-event)
+     (:scroll 'scroll-event))))
+
 
 (deftype-method alien-copier event (type-spec)
   (declare (ignore type-spec))
@@ -429,21 +460,24 @@
     (float (truncate (* value 65535)))))
 
 (defmethod initialize-instance ((color color) &rest initargs
-				&key (colors #(0 0 0)) red green blue)
+				&key red green blue)
   (declare (ignore initargs))
   (call-next-method)
   (with-slots ((%red red) (%green green) (%blue blue)) color
     (setf
-     %red (%scale-value (or red (svref colors 0)))
-     %green (%scale-value (or green (svref colors 1)))
-     %blue (%scale-value (or blue (svref colors 2))))))
+     %red (%scale-value red)
+     %green (%scale-value green)
+     %blue (%scale-value blue))))
 
 
 (defun ensure-color (color)
   (etypecase color
     (null nil)
     (color color)
-    (vector (make-instance 'color :colors color))))
+    (vector
+     (make-instance
+      'color :red (svref color 0) :green (svref color 1)
+      :blue (svref color 2)))))
        
 
   
