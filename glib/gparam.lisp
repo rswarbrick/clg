@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.2 2001-04-29 20:17:52 espen Exp $
+;; $Id: gparam.lisp,v 1.3 2001-05-11 16:06:02 espen Exp $
 
 (in-package "GLIB")
 
@@ -24,7 +24,7 @@
 (defconstant +gvalue-size+ (+ (size-of 'type-number) (* 4 (size-of 'double-float))))
 (defconstant +gvalue-value-offset+ (size-of 'type-number))
 
-(define-foreign ("g_value_init" gvalue-init) () nil
+(defbinding (gvalue-init "g_value_init") () nil
   (type type-number))
 
 (defun gvalue-new (type)
@@ -58,12 +58,12 @@
 
 (deftype param-flag-type ()
   '(flags
-    :readable
-    :writable
-    :construct
-    :construct-only
-    :lax-validation
-    :private))
+    (:readable 1)
+    (:writable 2)
+    (:construct 4)
+    (:construct-only 8)
+    (:lax-validation 16)
+    (:private 32)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass param (ginstance)
