@@ -15,46 +15,9 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.1 2000-08-14 16:45:02 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.2 2000-10-05 17:21:04 espen Exp $
 
 (in-package "GTK")
-
-(defclass container (widget)
-  ((border-width
-    :allocation :arg
-    :accessor container-border-width
-    :initarg :border-width
-    :type unsigned-long)
-   (resize-mode
-    :allocation :arg
-    :accessor container-resize-mode
-    :initarg :resize-mode
-    :type resize-mode)
-   (children
-    :allocation :virtual
-    :location container-children
-;    :initarg :children
-    )
-   (focus-child
-    :allocation :virtual
-    :location ("gtk_container_get_focus_child" "gtk_container_set_focus_child")
-    :accessor container-focus-child
-    :initarg :focus-child
-    :type widget)
-   (focus-hadjustment
-    :allocation :virtual
-    :location (nil "gtk_container_set_focus_hadjustment")
-    :writer (setf container-focus-hadjustment)
-    :initarg :focus-hadjustment
-    :type adjustment)   
-   (focus-vadjustment
-    :allocation :virtual
-    :location (nil "gtk_container_set_focus_vadjustment")
-    :writer (setf container-focus-vadjustment)
-    :initarg :focus-vadjustment
-    :type adjustment))
-  (:metaclass widget-class)
-  (:alien-name "GtkContainer"))
 
 
 (defmethod initialize-instance ((container container) &rest initargs
@@ -164,7 +127,7 @@
 		(setq ,continue t)))))
        ,result)))
 
-(define-foreign container-children () (double-list widget)
+(define-foreign container-children () (glist widget)
   (container container))
 
 (defun (setf container-children) (children container)

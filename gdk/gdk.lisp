@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.4 2000-10-01 17:24:05 espen Exp $
+;; $Id: gdk.lisp,v 1.5 2000-10-05 17:19:26 espen Exp $
 
 
 (in-package "GDK")
@@ -207,7 +207,7 @@
 
 ;(define-foreign query-visual-types ..)
 
-(define-foreign list-visuals () (double-list visual))
+(define-foreign list-visuals () (glist visual))
 
 
 ;;; Windows
