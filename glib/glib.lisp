@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.20 2004-11-21 17:37:24 espen Exp $
+;; $Id: glib.lisp,v 1.21 2004-12-09 23:31:50 espen Exp $
 
 
 (in-package "GLIB")
@@ -429,3 +429,32 @@
       (deallocate-memory ,(if (eq length '*) 
 			      `(sap+ location  ,(- +size-of-int+))
 			    'location)))))
+
+(defmethod writer-function ((type (eql 'vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    #'(lambda (vector location &optional (offset 0))
+	(setf 
+	 (sap-ref-sap location offset)
+	 (make-c-vector element-type length vector)))))
+
+(defmethod reader-function ((type (eql 'vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (if (eq length '*)
+	(error "Can't create reader function for vector of variable size")
+      #'(lambda (location &optional (offset 0))
+	  (unless (null-pointer-p (sap-ref-sap location offset))
+	    (map-c-vector 'vector #'identity (sap-ref-sap location offset) 
+	     element-type length))))))
+
+(defmethod destroy-function ((type (eql 'vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (if (eq length '*)
+	(error "Can't create destroy function for vector of variable size")
+      #'(lambda (location &optional (offset 0))
+	  (unless (null-pointer-p (sap-ref-sap location offset))
+	    (destroy-c-vector 
+	     (sap-ref-sap location offset) element-type length)
+	    (setf (sap-ref-sap location offset) (make-pointer 0)))))))
