@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.4 2000-09-04 22:07:32 espen Exp $
+;; $Id: gforeign.lisp,v 1.5 2000-10-01 17:19:11 espen Exp $
 
 (in-package "GLIB")
 
@@ -579,7 +579,8 @@
      (unless (null-pointer-p sap)
        (prog1
 	   (c-call::%naturalize-c-string sap)
-	 ,(when (eq alloc :copy) `(deallocate-memory ,sap))))))
+	 ;,(when (eq alloc :copy) `(deallocate-memory ,sap))
+	 ))))
 
 (deftype-method cleanup-alien string (type-spec sap &optional copied)
   (declare (ignore type-spec))
@@ -625,9 +626,9 @@
        (etypecase value
 	 ,@(map
 	    'list
-	    #'(lambda (type-spec)
-		(list type-spec (translate-to-alien type-spec 'value copy)))
-	    type-specs)))))
+	      #'(lambda (type-spec)
+		  (list type-spec (translate-to-alien type-spec 'value copy)))
+	      type-specs)))))
 
 
 (deftype-method translate-type-spec system-area-pointer (type-spec)
@@ -722,11 +723,8 @@
 (deftype-method translate-to-alien enum (type-spec expr &optional copy)
   (declare (ignore copy))
   (let ((args (cdr (type-expand-to 'enum type-spec))))
-    `(let ((expr ,expr))
-       (if (integerp expr)
-	   expr
-	 (ecase expr
-	   ,@(map-mappings args :enum-int))))))
+    `(ecase ,expr
+       ,@(map-mappings args :enum-int))))
 
 (deftype-method translate-from-alien enum (type-spec expr &optional alloc)
   (declare (ignore alloc))
@@ -759,17 +757,19 @@
   (declare (ignore copy))
   (destructuring-bind (name &rest args) (type-expand-to 'flags type-spec)
     (declare (ignore name))
-    (let ((mappings (map-mappings args :flags-int)))
-      `(let ((value 0))
-	 (dolist (flag ,expr value)
-	   (setq value (logior value (second (assoc flag ',mappings)))))))))
+    (let ((mappings (map-mappings args :flags-int))
+	  (value (make-symbol "VALUE")))
+      `(let ((,value 0))
+	 (dolist (flag ,expr ,value)
+	   (setq ,value (logior ,value (second (assoc flag ',mappings)))))))))
 
 (deftype-method translate-from-alien flags (type-spec expr &optional alloc)
   (declare (ignore alloc))
   (destructuring-bind (name &rest args) (type-expand-to 'flags type-spec)
     (declare (ignore name))
-    (let ((mappings (map-mappings args :int-flags)))
-      `(let ((result nil))
-	 (dolist (mapping ',mappings result)
+    (let ((mappings (map-mappings args :int-flags))
+	  (result (make-symbol "RESULT")))
+      `(let ((,result nil))
+	 (dolist (mapping ',mappings ,result)
 	   (unless (zerop (logand ,expr (first mapping)))
-	     (push (second mapping) result)))))))
+	     (push (second mapping) ,result)))))))
