@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.27 2004-12-26 11:51:21 espen Exp $
+;; $Id: gtk.lisp,v 1.28 2004-12-29 21:17:36 espen Exp $
 
 
 (in-package "GTK")
@@ -73,13 +73,19 @@
   (accel-label accel-label))
 
 
+;;; Accessible
+
+(defbinding accessible-connect-widget-destroyed () nil
+  (accessible accessible))
+
+
 ;;; Adjustment
 
-(defmethod shared-initialize ((adjustment adjustment) names &key value)
+(defmethod initialize-instance ((adjustment adjustment) &key value)
   (prog1
       (call-next-method)
     ;; we need to make sure that the value is set last, otherwise it
-    ;; may be outside current limits
+    ;; may be outside current limits and ignored
     (when value
       (setf (slot-value adjustment 'value) value))))
 
@@ -94,10 +100,6 @@
   (adjustment adjustment)
   (lower single-float)
   (upper single-float))
-
-
-;;; Arrow -- no functions
-
 
 
 ;;; Aspect frame
@@ -132,7 +134,7 @@
   (fill boolean)
   (padding unsigned-int))
 
-(defun box-pack (box child &key end expand fill (padding 0))
+(defun box-pack (box child &key end (expand t) (fill t) (padding 0))
   (if end
       (box-pack-end box child expand fill padding)
     (box-pack-start box child expand fill padding)))
@@ -161,6 +163,12 @@
 
 
 ;;; Button
+
+(defmethod initialize-instance ((button button) &rest initargs &key stock)
+  (if stock
+      (apply #'call-next-method button :label stock :use-stock t initargs)
+    (call-next-method)))
+
 
 (defbinding button-pressed () nil
   (button button))
@@ -201,11 +209,7 @@
 (defbinding calendar-clear-marks () nil
   (calendar calendar))
 
-(defbinding calendar-display-options () nil
-  (calendar calendar)
-  (options calendar-display-options))
-
-(defbinding (calendar-date "gtk_calendar_get_date") () nil
+(defbinding calendar-get-date () nil
   (calendar calendar)
   (year unsigned-int :out)
   (month unsigned-int :out)
@@ -216,31 +220,6 @@
 
 (defbinding calendar-thaw () nil
   (calendar calendar))
-
-
-
-;;; Cell editable
-
-
-
-;;; Cell renderer
-
-
-
-;;; Cell renderer pixbuf -- no functions
-
-
-
-;;; Cell renderer text
-
-
-
-;;; Cell renderer toggle -- no functions
-
-
-
-;;; Check button -- no functions
-
 
 
 ;;; Check menu item
@@ -267,20 +246,26 @@
 
 ;;;; Combo Box
 
-(defmethod shared-initialize ((combo-box combo-box) names &key model content)
-  (unless model
-    (setf 
-     (combo-box-model combo-box) 
-     (make-instance 'list-store :column-types '(string)))
-    (unless (typep combo-box 'combo-box-entry)
-      (let ((cell (make-instance 'cell-renderer-text)))
-	(cell-layout-pack combo-box cell :expand t)
-	(cell-layout-add-attribute combo-box cell :text 0)))
-    (when content
-      (map 'nil #'(lambda (text)
-		    (combo-box-append-text combo-box text))
-	   content)))
-    (call-next-method))
+(defmethod initialize-instance ((combo-box combo-box) &rest initargs 
+				&key model content active)
+  (remf initargs :active)
+  (if model
+      (apply #'call-next-method combo-box initargs)
+    (progn
+      (apply #'call-next-method combo-box 
+       :model (make-instance 'list-store :column-types '(string))
+       initargs)
+      (unless (typep combo-box 'combo-box-entry)
+	(let ((cell (make-instance 'cell-renderer-text)))
+	  (cell-layout-pack combo-box cell :expand t)
+	  (cell-layout-add-attribute combo-box cell :text 0)))))
+  (when content
+    (mapc #'(lambda (text)
+	      (combo-box-append-text combo-box text))
+	  content))
+  (when active
+    (setf (combo-box-active combo-box) active)))
+
 
 ;; (defmethod shared-initialize :after ((combo-box combo-box) names &key active)
 ;;   (when active
@@ -313,7 +298,7 @@
 
 ;;;; Combo Box Entry
 
-(defmethod shared-initialize ((combo-box-entry combo-box-entry) names &key model)
+(defmethod initialize-instance ((combo-box-entry combo-box-entry) &key model)
   (call-next-method)
   (unless model
     (setf (combo-box-entry-text-column combo-box-entry) 0)))
@@ -461,24 +446,20 @@
   (setf (container-children (dialog-vbox dialog)) children))
 
 
-
-;;; Drawing area
-
-(defbinding drawing-area-get-size () nil
-  (drawing-area drawing-area)
-  (width int :out)
-  (height int :out))
-
-
 ;;; Entry
-
-(defbinding  entry-get-layout () pango:layout
-  (entry entry))
 
 (defbinding entry-get-layout-offsets () nil
   (entry entry)
   (x int :out)
   (y int :out))
+
+(defbinding entry-layout-index-to-text-index () int
+  (entry entry)
+  (layout-index int))
+
+(defbinding entry-text-index-to-layout-index () int
+  (entry entry)
+  (text-index int))
 
 
 ;;; Entry Completion
@@ -520,41 +501,44 @@
   (image image)
   (filename pathname))
 
-(defbinding image-set-from-pixmap () nil
-  (image image)
-  (pixmap gdk:pixmap)
-  (mask gdk:bitmap))
+(defmethod (setf image-pixmap) ((data vector) (image image))
+  (multiple-value-bind (pixmap mask) (gdk:pixmap-create data)
+    (setf (image-pixmap image) pixmap)
+    (setf (image-mask image) mask)))
 
-(defbinding image-set-from-stock () nil
-  (image image)
-  (stock-id string)
-  (icon-size icon-size))
+(defmethod initialize-instance ((image image) &rest initargs &key pixmap file)
+  (cond
+   ((typep pixmap 'vector)
+    (multiple-value-bind (pixmap mask) (gdk:pixmap-create pixmap)
+      (apply #'call-next-method image :pixmap pixmap :mask mask initargs)))
+   (file
+    (prog1
+	(call-next-method)
+      (image-set-from-file image file)))
+   ((call-next-method))))
 
-(defun image-set-from-pixmap-data (image pixmap-data)
-  (multiple-value-bind (pixmap mask) (gdk:pixmap-create pixmap-data)
-    (image-set-from-pixmap image pixmap mask)))
-
-(defun image-set-from-source (image source)
+(defun create-image (source &optional mask)
   (etypecase source
-    (pathname (image-set-from-file image source))
-    (string (if (stock-lookup source)
-		(setf (image-stock image) source)
-	      (image-set-from-file image source)))
-    (vector (image-set-from-pixmap-data image source))))
+    (gdk:pixbuf (make-instance 'image :pixbuf source))
+    (string (make-instance 'image :stock source))
+    (pathname (make-instance 'image :file source))
+    ((or list vector) (make-instance 'image :pixmap source))
+    (gdk:pixmap (make-instance 'image :pixmap source :mask mask))))
 
 
-(defmethod shared-initialize ((image image) names &rest initargs 
-			      &key file pixmap source)
-  (prog1
-      (if (vectorp pixmap)
-	  (progn
-	    (remf initargs :pixmap)
-	    (apply #'call-next-method image names initargs))
-	(call-next-method))
-    (cond
-      (file (image-set-from-file image file))
-      ((vectorp pixmap) (image-set-from-pixmap-data image pixmap))
-      (source (image-set-from-source image source)))))
+;;; Image menu item
+
+(defmethod initialize-instance ((item image-menu-item) &rest initargs &key image)
+  (if (and image (not (typep image 'widget)))
+      (apply #'call-next-method item :image (create-image image) initargs) 
+    (call-next-method)))
+
+
+(defmethod (setf image-menu-item-image) ((widget widget) (item image-menu-item))
+  (setf (slot-value item 'image) widget))
+
+(defmethod (setf image-menu-item-image) (image (item image-menu-item))
+  (setf (image-menu-item-image item) (create-image image)))
 
 
 ;;; Label
@@ -568,12 +552,6 @@
   (label label)
   (start int)
   (end int))
-
-(defbinding label-get-text () string
-  (label label))
-
-(defbinding label-get-layout () pango:layout
-  (label label))
 
 (defbinding label-get-selection-bounds () boolean
   (label label)
@@ -596,12 +574,11 @@
   (%radio-button-set-group button1 (%radio-button-get-group button2)))
 
 
-(defmethod initialize-instance ((button radio-button)
-				&rest initargs &key group-with)
-  (declare (ignore initargs))
-  (call-next-method)
-  (when group-with
-    (radio-button-add-to-group button group-with)))
+(defmethod initialize-instance ((button radio-button) &key group)
+  (prog1
+      (call-next-method)
+    (when group
+      (radio-button-add-to-group button group))))
 
 
 ;;; Item
@@ -619,29 +596,27 @@
 
 ;;; Menu item
 
+(defmethod initialize-instance ((item menu-item) &key label)
+  (prog1
+      (call-next-method)
+    (when label
+      (setf (menu-item-label item) label))))
+
+
 (defun (setf menu-item-label) (label menu-item)
   (make-instance 'accel-label
    :label label :xalign 0.0 :yalign 0.5 :accel-widget menu-item
-   :visible t :parent menu-item)
+   :use-underline (menu-item-use-underline-p menu-item)
+   :visible t  :parent menu-item)
   label)
 
 (defun menu-item-label (menu-item)
-  (with-slots (child) menu-item
-    (when (typep child 'label)
-      (label-label child))))
+  (when (and (slot-boundp menu-item 'child) 
+	     (typep (bin-child menu-item) 'label))
+    (label-label (bin-child menu-item))))
 
-(defbinding %menu-item-set-submenu () nil
-  (menu-item menu-item)
-  (submenu menu))
-
-(defbinding %menu-item-remove-submenu () nil
+(defbinding menu-item-remove-submenu () nil
   (menu-item menu-item))
-
-(defun (setf menu-item-submenu) (submenu menu-item)
-  (if (not submenu)
-      (%menu-item-remove-submenu menu-item)
-    (%menu-item-set-submenu menu-item submenu))
-  submenu)
 
 (defbinding menu-item-set-accel-path () nil
   (menu-item menu-item)
@@ -663,6 +638,16 @@
 (defbinding menu-item-toggle-size-allocate () nil
   (menu-item menu-item)
   (allocation int))
+
+
+;;; Menu tool button
+
+#+gtk2.6
+(defbinding menu-tool-button-set-arrow-tip () nil
+  (menu-tool-button menu-tool-button)
+  (tooltips tooltips)
+  (tip-text string)
+  (tip-private string))
 
 
 ;;; Message dialog
@@ -721,21 +706,38 @@
   "Add ITEM1 to the group which ITEM2 belongs to."
   (%radio-menu-item-set-group item1 (%radio-menu-item-get-group item2)))
 
-(defmethod initialize-instance ((item radio-menu-item)
-				&rest initargs &key group-with)
-  (declare (ignore initargs))
+(defmethod initialize-instance ((item radio-menu-item) &key group)
   (prog1
       (call-next-method)
-    (when group-with
-      (radio-menu-item-add-to-group item group-with))))
+    (when group
+      (radio-menu-item-add-to-group item group))))
   
+
+;;; Radio tool button
+
+(defbinding %radio-tool-button-get-group () pointer
+  (radio-tool-button radio-tool-button))
+
+(defbinding %radio-tool-button-set-group () nil
+  (radio-tool-button radio-tool-button)
+  (group pointer))
+
+(defun radio-tool-button-add-to-group (button1 button2)
+  "Add BUTTON1 to the group which BUTTON2 belongs to."
+  (%radio-tool-button-set-group button1 (%radio-tool-button-get-group button2)))
+
+
+(defmethod initialize-instance ((button radio-tool-button) &key group)
+  (prog1
+      (call-next-method)
+    (when group
+      (radio-tool-button-add-to-group button group))))
 
 
 ;;; Toggle button
 
 (defbinding toggle-button-toggled () nil
   (toggle-button toggle-button))
-
 
 
 ;;; Window
@@ -1023,16 +1025,17 @@
    (scrolled-window scrolled-window)
    (child widget))
 
-
-
-
-
+(defmethod initialize-instance ((window scrolled-window) &rest initargs 
+				&key policy)
+  (if policy
+      (apply #'call-next-method window 
+       :vscrollbar-policy policy :hscrollbar-policy policy initargs)
+    (call-next-method)))
 
 
 ;;; Statusbar
 
-(defbinding (statusbar-context-id "gtk_statusbar_get_context_id")
-    () unsigned-int
+(defbinding statusbar-get-context-id () unsigned-int
   (statusbar statusbar)
   (context-description string))
 
@@ -1281,6 +1284,10 @@
   (menu-shell menu-shell)
   (menu-item menu-item))
 
+(defbinding menu-shell-select-first () nil
+  (menu-shell menu-shell)
+  (search-sensitive boolean))
+
 (defbinding menu-shell-deselect () nil
   (menu-shell menu-shell))
 
@@ -1289,6 +1296,8 @@
   (menu-item menu-item)
   (fore-deactivate boolean))
 
+(defbinding menu-shell-cancel () nil
+  (menu-shell menu-shell))
 
 
 ;;; Menu
@@ -1308,7 +1317,15 @@
   (menu-item menu-item)
   ((%menu-position menu position) int))
 
-(def-callback-marshal %menu-popup-callback (nil (x int) (y int) (push-in boolean)))
+(defbinding menu-attach () nil
+  (menu menu)
+  (menu-item menu-item)
+  (left-attach unsigned-int)
+  (right-attach unsigned-int)
+  (top-attach unsigned-int)
+  (bottom-attach unsigned-int))
+
+(def-callback-marshal %menu-position-func (nil (menu menu) (x int) (y int) (push-in boolean)))
 
 (defbinding %menu-popup () nil
   (menu menu)
@@ -1325,7 +1342,7 @@
       (with-callback-function (id callback)
 	(%menu-popup 
 	 menu parent-menu-shell parent-menu-item 
-	 (callback %menu-popup-callback) id button activate-time))
+	 (callback %menu-position-func) id button activate-time))
     (%menu-popup
      menu parent-menu-shell parent-menu-item nil 0 button activate-time)))
  
@@ -1353,6 +1370,28 @@
   (%menu-set-active menu (%menu-position menu child))
   child)
   
+(defcallback %menu-detach-func (nil (widget widget) (menu menu))
+  (funcall (object-data menu 'detach-func) widget menu))
+
+(defbinding %menu-attach-to-widget () nil
+  (menu menu)
+  (widget widget)
+  ((callback %menu-detach-func) pointer))
+
+(defun menu-attach-to-widget (menu widget function)
+  (setf (object-data menu 'detach-func) function)
+  (%menu-attach-to-widget menu widget))
+
+(defbinding menu-detach () nil
+  (menu menu))
+
+#+gtk2.6
+(defbinding menu-get-for-attach-widget () (copy-of (glist widget))
+  (widget widget))
+
+(defbinding menu-set-monitor () nil
+  (menu menu)
+  (monitor-num int))
 
 
 ;;; Table
@@ -1493,9 +1532,11 @@
 	     (etypecase icon
 	       (null nil)
 	       (widget icon)
-	       ((or pathname string vector)
+	       (string (make-instance 'image :stock icon))
+	       (pathname (make-instance 'image :file icon))
+	       ((or list vector)
 		(make-instance 'image 
-		 :source icon ; :icon-size (toolbar-icon-size toolbar)
+		 :pixmap icon ; :icon-size (toolbar-icon-size toolbar)
 		 )))
 	     numpos))
 	   ((error "Invalid element type: ~A" element)))))
@@ -1546,6 +1587,30 @@
   (toolbar toolbar))
 
 
+;;; Tool item
+
+(defbinding tool-item-retrieve-proxy-menu-item () widget
+  (tool-item tool-item))
+
+(defbinding (tool-item-proxy-menu-item 
+	     "gtk_tool_item_get_proxy_menu_item") () menu-item
+  (tool-item tool-item)
+  (menu-item-id string))
+
+(defbinding %tool-item-set-proxy-menu-item () nil
+  (tool-item tool-item)
+  (menu-item-id string)
+  (menu-item menu-item))
+
+(defun (setf tool-item-proxy-menu-item) (menu-item menu-item-id tool-item)
+  (%tool-item-set-proxy-menu-item menu-item-id tool-item menu-item)
+   menu-item)
+
+#+gtk2.6
+(defbinding tool-item-rebuild-menu () nil
+  (tool-item tool-item))
+
+
 ;;; Editable
 
 (defbinding editable-select-region (editable &optional (start 0) end) nil
@@ -1558,12 +1623,11 @@
   (start int :out)
   (end int :out))
 
-(defbinding editable-insert-text
-    (editable text &optional (position 0)) nil
+(defbinding editable-insert-text (editable text &optional (position 0)) nil
   (editable editable)
   (text string)
   ((length text) int)
-  ((or position -1) int :in-out))
+  (position editable-position :in-out))
 
 (defun editable-append-text (editable text)
   (editable-insert-text editable text nil))
@@ -1605,6 +1669,22 @@
 
 
 ;;; Spin button
+
+(defbinding spin-button-configure () nil
+  (spin-button spin-button)
+  (adjustment adjustment)
+  (climb-rate double-float)
+  (digits unsigned-int))
+
+(defbinding spin-button-set-range () nil
+  (spin-button spin-button)
+  (min double-float)
+  (max double-float))
+
+(defbinding spin-button-get-range () nil
+  (spin-button spin-button)
+  (min double-float :out)
+  (max double-float :out))
 
 (defun spin-button-value-as-int (spin-button)
   (round (spin-button-value spin-button)))
@@ -1758,9 +1838,16 @@
   (tip-text string)
   (tip-private string))
 
+(defbinding tooltips-data-get () tooltips-data
+  (widget widget))
+
 (defbinding tooltips-force-window () nil
   (tooltips tooltips))
 
+(defbinding tooltips-get-info-from-tip-window () boolean
+  (tip-window window)
+  (tooltips tooltips :out)
+  (current-widget widget :out))
 
 
 ;;; Rc

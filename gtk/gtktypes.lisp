@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.26 2004-12-26 11:51:21 espen Exp $
+;; $Id: gtktypes.lisp,v 1.27 2004-12-29 21:17:37 espen Exp $
 
 
 (in-package "GTK")
@@ -126,6 +126,16 @@
 (deftype tree-path () '(vector integer))
 (register-type 'tree-path "GtkTreePath")
 
+(deftype editable-position () '(or int (enum (:start 0) (:end -1))))
+
+;; Forward definitions
+(defclass widget (%object)
+  ()
+  (:metaclass gobject-class))
+(defclass container (widget)
+  ()
+  (:metaclass gobject-class))
+
 
 (define-types-by-introspection "Gtk"
   ;; Manually defined
@@ -200,12 +210,22 @@
      
   ("GtkContainer"
    :slots
-   ((child
-     :ignore t)
+   ((child :ignore t)
     (children
      :allocation :virtual
      :getter container-children
-     :setter (setf container-children))
+     :setter (setf container-children)
+     ;; The following doesn't work because gtk_container_get_children doesn't
+     ;; increase the reference count of the children
+;     :getter "gtk_container_get_children"
+;     :reader container-children
+;     :type (glist widget)
+     )
+    (child-type
+     :allocation :virtual
+     :getter "gtk_containerchild_type"
+     :reader container-child-type
+     :type gtype)
     (focus-child
      :allocation :virtual
      :getter "gtk_container_get_focus_child"
@@ -230,7 +250,14 @@
      :setter "gtk_container_set_focus_vadjustment"
      :accessor container-focus-vadjustment
      :initarg :focus-vadjustment
-     :type adjustment)))
+     :type adjustment)
+    (reallocate-redraws
+     :allocation :virtual
+     :getter "gtk_container_get_reallocate_redraws"
+     :setter "gtk_container_set_reallocate_redraws"
+     :accessor container-reallocate-redraws
+     :initarg :reallocate-redraws
+     :type boolean)))
       
   ("GtkBin"
    :slots
@@ -312,31 +339,18 @@
      :initarg :enabled
      :type boolean)))
   
-  ("GtkOptionMenu"
-   :slots
-   ((menu
-     :allocation :virtual
-     :getter "gtk_option_menu_get_menu"
-     :setter (setf option-menu-menu)
-     :reader option-menu-menu
-     :initarg :menu
-     :type menu)
-    (history
-     :allocation :virtual
-     :getter "gtk_option_menu_get_history"
-     :setter "gtk_option_menu_set_history"
-     :accessor option-menu-history
-     :initarg :history
-     :type unsigned-int)))
-
   ("GtkMenuItem"
    :slots
    ((label
      :allocation :virtual
      :getter menu-item-label
      :setter (setf menu-item-label)
-     :initarg :label
      :type string)
+    (use-underline
+     :allocation :user-data
+     :initform nil
+     :initarg :use-underline
+     :accessor menu-item-use-underline-p)
     (right-justified
      :allocation :virtual
      :getter "gtk_menu_item_get_right_justified"
@@ -347,10 +361,10 @@
     (submenu
      :allocation :virtual
      :getter "gtk_menu_item_get_submenu"
-     :setter (setf menu-item-submenu)
-     :reader menu-item-submenu
+     :setter "gtk_menu_item_set_submenu"
+     :accessor menu-item-submenu
      :initarg :submenu
-     :type menu-item)))
+     :type widget)))
 
   ("GtkColorSelectionDialog"
    :slots
@@ -408,13 +422,6 @@
      :accessor menu-accel-group
      :initarg :accel-group
      :type accel-group)
-    (title
-     :allocation :virtual
-     :getter "gtk_menu_get_title"
-     :setter "gtk_menu_set_title"
-     :accessor menu-title
-     :initarg :title
-     :type string)
     (active
      :allocation :virtual
      :getter "gtk_menu_get_active"
@@ -422,12 +429,25 @@
      :reader menu-active
      :initarg :active
      :type widget)
-    (tornoff
+    (screen
+     :allocation :virtual
+     :getter "gtk_menu_get_screen"
+     :setter "gtk_menu_set_screen"
+     :accessor menu-screen
+     :initarg :screen
+     :type gdk:screen)
+    (attach-widget
+     :allocation :virtual
+     :getter "gtk_menu_get_attach_widget"
+     :reader menu-attach-widget
+     :type widget)
+    #-gtk2.6
+    (tearoff-state
      :allocation :virtual
      :getter "gtk_menu_get_tearoff_state"
      :setter "gtk_menu_set_tearoff_state"
-     :accessor menu-tornoff-p
-     :initarg :tearoff
+     :accessor menu-tearoff-state-p
+     :initarg :tearoff-state
      :type boolean)))
 
   ("GtkToolbar"
@@ -452,6 +472,34 @@
      :initarg :toolbar-style
      :accessor toolbar-style
      :type toolbar-style)))
+
+  ("GtkToolItem"
+   :slots
+   ((drag-window
+     :allocation :virtual
+     :getter "gtk_tool_item_get_drag_window"
+     :setter "gtk_tool_item_set_drag_window"
+     :accessor tool-item-drag-window
+     :initarg :drag-window
+     :type boolean)))
+
+  ("GtkToggleToolButton"
+   :slots
+   ((active
+     :allocation :virtual
+     :getter "gtk_toggle_tool_button_get_active"
+     :setter "gtk_toggle_tool_button_get_active"
+     :accessor toggle-tool-button-active-p
+     :initarg :active
+     :type boolean)))
+
+  ("GtkRadioToolButton"
+   :slots
+   ((group
+     :allocation :virtual
+     :getter "gtk_radio_tool_button_get_group"
+     :reader radio-tool-button-group
+     :type (copy-of (gslist widget)))))
 
   ("GtkNotebook"
    :slots
@@ -481,6 +529,16 @@
     (activity-blocks :ignore t)
     (discrete-blocks :ignore t)))
 
+  ("GtkHandleBox"
+   :slots
+   ; deprecated property
+   ((shadow :ignore t)))
+
+  ("GtkFrame"
+   :slots
+   ; deprecated property
+   ((shadow :ignore t)))
+
   ("GtkTable"
    :slots
    ((column-spacing
@@ -509,14 +567,23 @@
      :reader dialog-action-area
      :type widget)))
 
-  ("GtkCombo"
+  ("GtkEntry"
    :slots
-   ((entry
+   ((layout
      :allocation :virtual
-     :getter "gtk_combo_get_entry"
-     :reader combo-entry
-     :type entry)))
-  
+     :getter "gtk_entry_get_layout"
+     :reader entry-layout
+     :type pango:layout)
+    (completion
+     :getter "gtk_entry_get_completion"
+     :setter "gtk_entry_set_completion"
+     :initarg :completion
+     :accessor entry-completion
+     :type entry-completion)
+    (max-length :merge t :unbound 0)
+    #+gtk2.6
+    (with-chars :merge t :unbound -1)))
+
   ("GtkEntryCompletion"
    :slots
    ((entry
@@ -524,11 +591,9 @@
      :getter "gtk_entry_completion_get_entry"
      :reader entry-completion-entry
      :type entry)
-    (minimum-key-length
-     :merge t :unbound -1)
+    (minimum-key-length :merge t :unbound -1)
     #+gtk2.6
-    (text-column
-     :merge t :unbound -1)))
+    (text-column :merge t :unbound -1)))
 
   ("GtkRadioButton"
    :slots
@@ -544,7 +609,7 @@
      :allocation :virtual
      :getter "gtk_radio_menu_item_get_group"
      :reader radio-menu-item-group
-     :type (static (gslist widget)))))
+     :type (copy-of (gslist widget)))))
 
   ("GtkFileSelection"
    :slots
@@ -614,8 +679,18 @@
 
   ("GtkImage"
    :slots
-   ((file :ignore t)))
-       
+   ((file :ignore t)
+    #+gtk2.6
+    (pixel-size :merge t :unbound -1)))
+
+  ("GtkLabel"
+   :slots
+   ((layout
+     :allocation :virtual
+     :getter "gtk_label_get_layout"
+     :reader label-layout
+     :type pango:layout)))
+
   ("GtkEditable"
    :slots
    ((editable
@@ -631,7 +706,7 @@
      :setter "gtk_editable_set_position"
      :reader editable-position
      :initarg :position
-     :type int)
+     :type editable-position)
     (text
      :allocation :virtual
      :getter editable-text
@@ -804,7 +879,7 @@
    ((group
      :allocation :virtual
      :getter "gtk_radio_button_get_group"
-     :reader radio-button-group
+     :reader radio-action-group
      :type (copy-of (gslist widget)))
     (%value
      :allocation :property  :pname "value"
@@ -894,3 +969,23 @@
   (:metaclass boxed-class 
    ;; I am pretty sure this was working in older versons on CMUCL
    :size #.(* 14 (size-of 'pointer))))
+
+
+(defclass tooltips-data (struct)
+  ((tooltips
+    :allocation :alien
+    :reader tooltips-data-tooltips
+    :type tooltips)
+   (widget
+    :allocation :alien
+    :reader tooltips-data-widget
+    :type widget)
+   (tip-text
+    :allocation :alien
+    :reader tooltips-data-tip-text
+    :type string)
+   (tip-private
+    :allocation :alien
+    :reader tooltips-data-tip-private
+    :type string))
+  (:metaclass struct-class))

@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.5 2004-12-26 11:51:21 espen Exp $ */
+/* $Id: glue.c,v 1.6 2004-12-29 21:17:37 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -73,6 +73,12 @@ gtk_container_get_focus_child (GtkContainer *container)
   return container->focus_child;
 }
 
+gboolean
+gtk_container_get_reallocate_redraws (GtkContainer *container)
+{
+  return container->reallocate_redraws;
+}
+
 
 /* Dialog */
 
@@ -106,25 +112,22 @@ gtk_window_get_group (GtkWindow *window)
 
 
 
+/* Window */
+
+GdkScreen*
+gtk_menu_get_screen (GtkMenu *menu)
+{
+  return (GdkScreen*)g_object_get_data (G_OBJECT (menu), "gtk-menu-explicit-screen");
+}
+
+
+
 /* Layout */
 
 GdkWindow*
 gtk_layout_get_bin_window (GtkLayout *layout)
 {
   return layout->bin_window;
-}
-
-
-/* Drawing area */
-
-void
-gtk_drawing_area_get_size (GtkDrawingArea *darea, gint *width, gint *height)
-{
-  GtkWidget *widget;
-
-  widget = GTK_WIDGET (darea);
-  *width = widget->allocation.width;
-  *height = widget->allocation.height;
 }
 
 
