@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.26 2004-12-29 21:07:46 espen Exp $
+;; $Id: gobject.lisp,v 1.27 2005-01-03 16:40:45 espen Exp $
 
 (in-package "GLIB")
 
@@ -136,18 +136,21 @@
 
 (defmethod initialize-internal-slot-functions ((slotd effective-user-data-slot-definition))
   (let ((slot-name (slot-definition-name slotd)))
-    (setf 
-     (slot-value slotd 'getter)
-     #'(lambda (object)
-	 (prog1 (user-data object slot-name))))
-    (setf 
-     (slot-value slotd 'setter)
-     #'(lambda (value object)
-	 (setf (user-data object slot-name) value)))
-    (setf 
-     (slot-value slotd 'boundp)
-     #'(lambda (object)
-	 (user-data-p object slot-name))))
+    (unless (slot-boundp slotd 'getter)
+      (setf 
+       (slot-value slotd 'getter)
+       #'(lambda (object)
+	   (prog1 (user-data object slot-name)))))
+    (unless (slot-boundp slotd 'setter)
+      (setf 
+       (slot-value slotd 'setter)
+       #'(lambda (value object)
+	   (setf (user-data object slot-name) value))))
+    (unless (slot-boundp slotd 'boundp)
+      (setf 
+       (slot-value slotd 'boundp)
+       #'(lambda (object)
+	   (user-data-p object slot-name)))))
   (call-next-method))
 
 
@@ -380,6 +383,8 @@
 		    (member :construct-only flags)
 		    (member :writable flags))
 	    (list :initarg (intern (string slot-name) "KEYWORD")))
+	,@(cond
+	   ((find :initarg args) (list :initarg (getf args :initarg))))
 	
 	:type ,slot-type
 	:documentation ,documentation))))
