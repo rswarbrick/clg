@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.3 2000-10-05 17:18:28 espen Exp $
+;; $Id: gutils.lisp,v 1.4 2001-04-29 20:01:54 espen Exp $
 
 
 (in-package "KERNEL")
@@ -83,7 +83,7 @@
   
 (defun null-pointer-p (pointer)
   (zerop (sap-int pointer)))
-
+  
 
 (defmacro when-bind ((var expr) &body body)
   `(let ((,var ,expr))
@@ -112,3 +112,34 @@
       (fdefinition object)
     object))
 
+
+(defun split-string (string delimiter)
+  (declare (simple-string string) (character delimiter))
+  (check-type string string)
+  (check-type delimiter character)
+  (let ((pos (position delimiter string)))
+   (if (not pos)
+        (list string)
+      (cons
+       (subseq string 0 pos)
+       (split-string (subseq string (1+ pos)) delimiter)))))
+
+(defun split-string-if (string predicate)
+  (declare (simple-string string))
+  (check-type string string)
+  (check-type predicate (or symbol function))
+  (let ((pos (position-if predicate string :start 1)))
+    (if (not pos)
+        (list string)
+      (cons
+       (subseq string 0 pos)
+       (split-string-if (subseq string pos) predicate)))))
+
+(defun concatenate-strings (strings &optional delimiter)
+  (if (not (rest strings))
+      (first strings)
+    (concatenate
+     'string
+     (first strings)
+     (if delimiter (string delimiter) "")
+     (concatenate-strings (rest strings)))))
