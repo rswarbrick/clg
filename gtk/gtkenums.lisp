@@ -507,34 +507,34 @@
 
 ; enumerations from "gtktextview.h"
 
-(deftype (text-view-movement-step "GtkTextViewMovementStep") ()
-  '(enum
-   :char
-   :positions
-   :word
-   :line
-   :paragraph
-   :paragraph-ends
-   :buffer-ends))
+; (deftype (text-view-movement-step "GtkTextViewMovementStep") ()
+;   '(enum
+;    :char
+;    :positions
+;    :word
+;    :line
+;    :paragraph
+;    :paragraph-ends
+;    :buffer-ends))
 
-(deftype (text-view-scroll-type "GtkTextViewScrollType") ()
-  '(enum
-   :to-top
-   :to-bottom
-   :page-down
-   :page-up))
+; (deftype (text-view-scroll-type "GtkTextViewScrollType") ()
+;   '(enum
+;    :to-top
+;    :to-bottom
+;    :page-down
+;    :page-up))
 
-(deftype (text-view-delete-type "GtkTextViewDeleteType") ()
-  '(enum
-   :char
-   :half-word
-   :whole-word
-   :half-line
-   :whole-line
-   :half-paragraph
-   :whole-paragraph
-   :whitespace
-   :whitespace-leave-one))
+; (deftype (text-view-delete-type "GtkTextViewDeleteType") ()
+;   '(enum
+;    :char
+;    :half-word
+;    :whole-word
+;    :half-line
+;    :whole-line
+;    :half-paragraph
+;    :whole-paragraph
+;    :whitespace
+;    :whitespace-leave-one))
 
 ; enumerations from "gtktoolbar.h"
 
