@@ -15,13 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.5 2001-12-12 20:24:41 espen Exp $
+;; $Id: gparam.lisp,v 1.6 2002-03-19 17:01:42 espen Exp $
 
 (in-package "GLIB")
 
 (deftype gvalue () 'pointer)
 
-(defconstant +gvalue-size+ (+ (size-of 'type-number) (* 4 (size-of 'double-float))))
+(defconstant +gvalue-size+ (+ (size-of 'type-number) (* 2 (size-of 'double-float))))
 (defconstant +gvalue-value-offset+ (size-of 'type-number))
 
 (defbinding (gvalue-init "g_value_init") () nil
