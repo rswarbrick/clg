@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.23 2005-01-03 16:38:57 espen Exp $
+;; $Id: glib.lisp,v 1.24 2005-01-30 14:26:41 espen Exp $
 
 
 (in-package "GLIB")
@@ -46,8 +46,6 @@
 
 (internal *user-data* *user-data-count*)
 
-(declaim (fixnum *user-data-count*))
-
 (defvar *user-data* (make-hash-table))
 (defvar *user-data-count* 0)
 
@@ -63,6 +61,9 @@
   (check-type id fixnum)
   (multiple-value-bind (user-data p) (gethash id *user-data*)
     (values (car user-data) p)))
+
+(defun user-data-exists-p (id)
+  (nth-value 1 (find-user-data id)))
 
 (defun update-user-data (id object)
   (check-type id fixnum)
@@ -84,49 +85,21 @@
 
 ;;;; Quarks
 
-(internal *quark-counter* *quark-from-object* *quark-to-object*)
-
 (deftype quark () 'unsigned)
-
-;(defbinding %quark-get-reserved () quark)
 
 (defbinding %quark-from-string () quark
   (string string))
 
-(defvar *quark-counter* 0)
+(defun quark-intern (object)
+  (etypecase object
+    (quark object)
+    (string (%quark-from-string object))
+    (symbol (%quark-from-string (format nil "clg-~A:~A" 
+				 (package-name (symbol-package object)) 
+				 object)))))
 
-(defun %quark-get-reserved ()
-  ;; The string is just a dummy
-  (%quark-from-string (format nil "#@£$%&-quark-~D" (incf *quark-counter*))))
-
-(defvar *quark-from-object* (make-hash-table))
-(defvar *quark-to-object* (make-hash-table))
-
-(defun quark-from-object (object &key (test #'eq))
-  (let ((hash-code (sxhash object)))
-    (or
-     (assoc-ref object (gethash hash-code *quark-from-object*) :test test)
-     (let ((quark (%quark-get-reserved)))
-       (setf
-	(gethash hash-code *quark-from-object*)
-	(append
-	 (gethash hash-code *quark-from-object*)
-	 (list (cons object quark))))
-       (setf (gethash quark *quark-to-object*) object)
-       quark))))
-
-(defun quark-to-object (quark) 
-  (gethash quark *quark-to-object*))
-  
-(defun remove-quark (quark)
-  (let* ((object (gethash quark *quark-to-object*))
-	 (hash-code (sxhash object)))
-    (remhash quark *quark-to-object*)
-    (unless (setf
-	     (gethash hash-code *quark-from-object*)
-	     (assoc-delete object (gethash hash-code *quark-from-object*)))
-      (remhash hash-code *quark-from-object*))))
-
+(defbinding quark-to-string () (copy-of string)
+  (quark quark))
 
 
 ;;;; Linked list (GList)
