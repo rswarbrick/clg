@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: pixbuf.lisp,v 1.1 2004-12-28 20:26:01 espen Exp $
+;; $Id: pixbuf.lisp,v 1.2 2005-02-14 00:46:31 espen Exp $
 
 
 (in-package "GDK")
@@ -26,13 +26,13 @@
 
 (defbinding %pixbuf-new-from-file () (referenced pixbuf)
   (filename pathname)
-  (nil null))
+  (nil gerror :out))
 
 (defbinding %pixbuf-new-from-file-at-size () (referenced pixbuf)
   (filename pathname)
   (width int)
   (height int)
-  (nil null))
+  (nil gerror :out))
 
 #+gtk2.6
 (defbinding %pixbuf-new-from-file-at-scale () (referenced pixbuf)
@@ -40,23 +40,27 @@
   (width int)
   (height int)
   (preserve-aspect-ratio boolean)
-  (nil null))
+  (nil gerror :out))
 
 (defun pixbuf-load (filename &key width height size (preserve-aspect-ratio t))
   #-gtk2.6
   (unless preserve-aspect-ratio 
     (warn ":preserve-aspect-ratio not supported with this version of Gtk"))
 
-  (cond
-   (size 
-    #-gtk2.6(%pixbuf-new-from-file-at-size filename size size)
-    #+gtk2.6(%pixbuf-new-from-file-at-scale filename size size preserve-aspect-ratio))
-   ((and width height)
-    #-gtk2.6(%pixbuf-new-from-file-at-size filename width height)
-    #+gtk2.6(%pixbuf-new-from-file-at-scale filename width height preserve-aspect-ratio))
-   ((or width height)
-    (error "Both :width and :height must be specified"))
-   ((%pixbuf-new-from-file filename))))
+  (multiple-value-bind (pixbuf gerror)
+      (cond
+       (size 
+	#-gtk2.6(%pixbuf-new-from-file-at-size filename size size)
+	#+gtk2.6(%pixbuf-new-from-file-at-scale filename size size preserve-aspect-ratio))
+       ((and width height)
+	#-gtk2.6(%pixbuf-new-from-file-at-size filename width height)
+	#+gtk2.6(%pixbuf-new-from-file-at-scale filename width height preserve-aspect-ratio))
+       ((or width height)
+	(error "Both :width and :height must be specified"))
+       (t (%pixbuf-new-from-file filename)))
+    (if gerror
+	(signal-gerror gerror)
+      pixbuf)))
 
 
 ;; (defbinding pixbuf-get-file-info () (copy-of pixbuf-format)
@@ -68,9 +72,9 @@
   (pixbuf pixbuf)
   (filename pathname)
   (type string)
-  (keys (vector (or null string)))
-  (values (vector (or null string)))
-  (nil null))
+  (keys strings)
+  (values string)
+  (nil gerror :out))
 
 (defun pixbuf-save (pixbuf filename type &rest options)
   (let ((keys (make-array 0 :adjustable t :fill-pointer t))
@@ -84,9 +88,10 @@
 	   (symbol (string-downcase value))
 	   (number (format nil "~A" value)))
 	 values))
-    (vector-push-extend nil keys)
-    (vector-push-extend nil values)
-    (%pixbuf-savev pixbuf filename type keys values)))
+    (multiple-value-bind (ok-p gerror)
+	(%pixbuf-savev pixbuf filename type keys values)
+      (unless ok-p
+	(signal-gerror gerror)))))
 
 (defbinding pixbuf-new-from-xpm-data () (referenced pixbuf)
   (data (vector string)))
