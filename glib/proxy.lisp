@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.14 2004-11-19 13:02:51 espen Exp $
+;; $Id: proxy.lisp,v 1.15 2004-12-16 23:19:17 espen Exp $
 
 (in-package "GLIB")
 
@@ -28,14 +28,19 @@
   (defclass direct-virtual-slot-definition (standard-direct-slot-definition)
     ((setter :reader slot-definition-setter :initarg :setter)
      (getter :reader slot-definition-getter :initarg :getter)
+     (unbound :reader slot-definition-unbound :initarg :unbound)
      (boundp :reader slot-definition-boundp :initarg :boundp)))
   
   (defclass effective-virtual-slot-definition (standard-effective-slot-definition)
     ((setter :reader slot-definition-setter :initarg :setter)
      (getter :reader slot-definition-getter :initarg :getter)
+     (unbound :reader slot-definition-unbound :initarg :unbound)
      (boundp :reader slot-definition-boundp :initarg :boundp)))
+  
+  (defvar *unbound-marker* (gensym "UNBOUND-MARKER-"))
 
-  (defun most-specific-slot-value (instances slot &optional default)
+  (defun most-specific-slot-value (instances slot &optional 
+				   (default *unbound-marker*))
     (let ((object (find-if
 		   #'(lambda (ob)
 		       (and (slot-exists-p ob slot) (slot-boundp ob slot)))
@@ -58,72 +63,121 @@
 
 
 (defmethod initialize-internal-slot-functions ((slotd effective-virtual-slot-definition))
-  (with-slots (getter setter boundp) slotd
-    (unless (slot-boundp slotd 'reader-function)
-      (setf 
+  (if (not (slot-boundp slotd 'getter))
+      (setf
        (slot-value slotd 'reader-function)
-       (etypecase getter
-	 (function getter)
-	 (null #'(lambda (object)
-		   (declare (ignore object))
-		   (error "Can't read slot: ~A" (slot-definition-name slotd))))
-	 (symbol #'(lambda (object)
-		     (funcall getter object)))
-	 (string ;(let ()(reader  (mkbinding getter 
-;; 				(slot-definition-type slotd) 'pointer)))
-		   (setf (slot-value slotd 'reader-function)
-			 #'(lambda (object)
-			     (let ((reader
-				(mkbinding getter 
-				 (slot-definition-type slotd) 'pointer)))
-			     (funcall reader (proxy-location object)))))))))
+       #'(lambda (object)
+	   (declare (ignore object))
+	   (error "Can't read slot: ~A" (slot-definition-name slotd)))
+       (slot-value slotd 'boundp-function)
+       #'(lambda (object) (declare (ignore object)) nil))
 
-    (unless (slot-boundp slotd 'writer-function)
-      (setf 
-       (slot-value slotd 'writer-function)
-       (etypecase setter
-	 (function setter)
-	 (null #'(lambda (object)
-		   (declare (ignore object))
-		   (error "Can't set slot: ~A" (slot-definition-name slotd))))
-	 ((or symbol cons) #'(lambda (value object)
-			       (funcall (fdefinition setter) value object)))
-	 (string
-	  (let ((writer ()));; (mkbinding setter 'nil 'pointer 
-;; 			 (slot-definition-type slotd))))
-	    (setf (slot-value slotd 'writer-function)
-		  #'(lambda (value object)
-		      (unless writer
-			(setq writer
-			 (mkbinding setter 'nil 'pointer 
- 			  (slot-definition-type slotd))))
-		      (funcall writer (proxy-location object) value))))))))
+    (let ((getter-function
+	   (let ((getter (slot-value slotd 'getter)))
+	     (etypecase getter
+	       (function getter)
+	       (symbol 
+		#'(lambda (object)
+		    (funcall getter object)))
+	       (string 
+		(let ((reader nil))
+		  (setf (slot-value slotd 'reader-function)
+			#'(lambda (object)
+			    (unless reader
+			    (setq reader
+			     (mkbinding getter 
+			      (slot-definition-type slotd) 'pointer)))
+			    (funcall reader (proxy-location object))))))))))
 
-    (unless (slot-boundp slotd 'boundp-function)
       (setf 
        (slot-value slotd 'boundp-function)
-       (etypecase boundp
-	 (function boundp)
-	 (null #'(lambda (object)
-		   (declare (ignore object))
-		   t))
-	 (symbol #'(lambda (object)
-		     (funcall boundp object)))))))
+       (cond
+	((and 
+	  (not (slot-boundp slotd 'unbound))
+	  (not (slot-boundp slotd 'boundp)))
+	 #'(lambda (object) (declare (ignore object)) t))  
+	((slot-boundp slotd 'unbound)
+	 (let ((unbound-value (slot-value slotd 'unbound)))
+	   (lambda (object)
+	     (not (eq (funcall getter-function object) unbound-value)))))
+	((let ((boundp (slot-value slotd 'boundp)))
+	   (etypecase boundp
+	     (function boundp)
+	     (symbol #'(lambda (object)
+			 (funcall boundp object)))
+	     (string (let ((reader ()))
+		       #'(lambda (object)
+			   (unless reader
+			     (setq reader
+			      (mkbinding boundp
+			       (slot-definition-type slotd) 'pointer)))
+			   (funcall reader (proxy-location object))))))))))
+
+      (setf
+       (slot-value slotd 'reader-function)
+       (cond
+	((slot-boundp slotd 'unbound)
+	 (let ((unbound (slot-value slotd 'unbound))
+	       (slot-name (slot-definition-name slotd)))
+	   (lambda (object)
+	     (let ((value (funcall getter-function object)))
+	       (if (eq value unbound)
+		   (slot-unbound (class-of object) object slot-name)
+		 value)))))
+	((slot-boundp slotd 'boundp)
+	 (let ((boundp-function (slot-value slotd 'boundp-function)))
+	   (lambda (object)
+	     (and
+	      (funcall boundp-function object)
+	      (funcall getter-function object)))))
+	(getter-function)))))
+
+  (setf 
+   (slot-value slotd 'writer-function)
+   (if (not (slot-boundp slotd 'setter))
+       #'(lambda (object)
+	   (declare (ignore object))
+	   (error "Can't set slot: ~A" (slot-definition-name slotd)))
+     (with-slots (setter) slotd
+       (etypecase setter
+	 (function setter)
+	 ((or symbol cons) 
+	  #'(lambda (value object)
+	      (funcall (fdefinition setter) value object)))
+	 (string
+	  (let ((writer ()))
+	    (setf
+	     (slot-value slotd 'writer-function)
+	     #'(lambda (value object)
+		 (unless writer
+		   (setq writer
+		    (mkbinding setter 'nil 'pointer 
+		     (slot-definition-type slotd))))
+		 (funcall writer (proxy-location object) value)))))))))
+
   (initialize-internal-slot-gfs (slot-definition-name slotd)))
 
 
 
-(defmethod compute-slot-accessor-info ((slotd effective-virtual-slot-definition)
-					    type gf)
+(defmethod compute-slot-accessor-info ((slotd effective-virtual-slot-definition) type gf)
   nil)
 
 (defmethod compute-effective-slot-definition-initargs ((class virtual-slots-class) direct-slotds)
-  (if (eq (most-specific-slot-value direct-slotds 'allocation) :virtual)
-      (nconc 
-       (list :getter (most-specific-slot-value direct-slotds 'getter)
-	     :setter (most-specific-slot-value direct-slotds 'setter)
-	     :boundp (most-specific-slot-value direct-slotds 'boundp))
-       (call-next-method))
+  (if (typep (first direct-slotds) 'direct-virtual-slot-definition)
+      (let ((initargs ()))
+	(let ((getter (most-specific-slot-value direct-slotds 'getter)))
+	  (unless (eq getter *unbound-marker*)
+	    (setf (getf initargs :getter) getter)))
+	(let ((setter (most-specific-slot-value direct-slotds 'setter)))
+	  (unless (eq setter *unbound-marker*)
+	    (setf (getf initargs :setter) setter)))
+	(let ((unbound (most-specific-slot-value direct-slotds 'unbound)))
+	  (unless (eq unbound *unbound-marker*)
+	    (setf (getf initargs :unbound) unbound)))
+	(let ((boundp (most-specific-slot-value direct-slotds 'boundp)))
+	  (unless (eq boundp *unbound-marker*)
+	    (setf (getf initargs :boundp) boundp)))
+	(nconc initargs (call-next-method)))
     (call-next-method)))
 
 
@@ -203,12 +257,8 @@
 
 (defmethod print-object ((instance proxy) stream)
   (print-unreadable-object (instance stream :type t :identity nil)
-    (format stream "at 0x~X" (sap-int (proxy-location instance)))))
-
-(defmethod print-object ((instance proxy) stream)
-  (print-unreadable-object (instance stream :type t :identity nil)
-    (format stream "at 0x~X" (sap-int (proxy-location instance)))))
-
+    (when (slot-boundp instance 'location)
+      (format stream "at 0x~X" (sap-int (proxy-location instance))))))
 
 (defmethod initialize-instance :around ((instance proxy) &key location)
   (if location
@@ -254,9 +304,7 @@
 	 (subtypep (class-name class) 'proxy))
      (class-direct-superclasses class)))
   
-  (defmethod shared-initialize ((class proxy-class) names
-				&rest initargs &key size)
-    (declare (ignore initargs))
+  (defmethod shared-initialize ((class proxy-class) names &key size)
     (call-next-method)
     (cond
       (size (setf (slot-value class 'size) (first size)))
@@ -284,29 +332,23 @@
   (defmethod initialize-internal-slot-functions ((slotd effective-alien-slot-definition))
     (with-slots (offset) slotd
       (let ((type (slot-definition-type slotd)))
-	(unless (slot-boundp slotd 'reader-function)
+	(unless (slot-boundp slotd 'getter)
 	  (let ((reader (reader-function type)))
 	    (setf 
-	     (slot-value slotd 'reader-function)
+	     (slot-value slotd 'getter)
 	     #'(lambda (object)
 		 (funcall reader (proxy-location object) offset)))))
 
-	(unless (slot-boundp slotd 'writer-function)
+	(unless (slot-boundp slotd 'setter)
 	  (let ((writer (writer-function type))
 		(destroy (destroy-function type)))
 	    (setf 
-	     (slot-value slotd 'writer-function)
+	     (slot-value slotd 'setter)
 	     #'(lambda (value object)
 		 (let ((location (proxy-location object)))
 		   (funcall destroy location offset) ; destroy old value
-		   (funcall writer value location offset))))))
+		   (funcall writer value location offset))))))))
 
-	(unless (slot-boundp slotd 'boundp-function)
-	  (setf 
-	   (slot-value slotd 'boundp-function)
-	   #'(lambda (object)
-	       (declare (ignore object))
-	       t)))))
     (call-next-method))
   
 

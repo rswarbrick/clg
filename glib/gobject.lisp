@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.22 2004-11-12 14:24:17 espen Exp $
+;; $Id: gobject.lisp,v 1.23 2004-12-16 23:19:17 espen Exp $
 
 (in-package "GLIB")
 
@@ -82,7 +82,7 @@
     (t (call-next-method))))
 
 (defmethod compute-effective-slot-definition-initargs ((class gobject-class) direct-slotds)
-  (if (eq (most-specific-slot-value direct-slotds 'allocation) :property)
+  (if (typep (first direct-slotds) 'direct-property-slot-definition)
       (nconc 
        (list :pname (signal-name-to-string 
 		     (most-specific-slot-value direct-slotds 'pname))
@@ -97,42 +97,32 @@
   (let* ((type (slot-definition-type slotd))
 	 (pname (slot-definition-pname slotd))
 	 (type-number (find-type-number type)))
-    (unless (slot-boundp slotd 'reader-function)
+    (when (and (not (slot-boundp slotd 'getter)) (slot-readable-p slotd))
       (setf 
-       (slot-value slotd 'reader-function)
-       (if (slot-readable-p slotd)
-	   (let () ;(reader (reader-function (type-from-number type-number))))
-	     #'(lambda (object)
-		 (let ((gvalue (gvalue-new type-number)))
-		   (%object-get-property object pname gvalue)
-		   (unwind-protect
-			(funcall #|reader|# (reader-function (type-from-number type-number))  gvalue +gvalue-value-offset+)
-		     (gvalue-free gvalue t)))))
-	   #'(lambda (value object)
-	       (error "Slot is not readable: ~A" (slot-definition-name slotd))))))
+       (slot-value slotd 'getter)
+       (let ((reader nil))
+	 #'(lambda (object)
+	     (unless reader
+	       (setq reader (reader-function (type-from-number type-number))))
+	     (let ((gvalue (gvalue-new type-number)))
+	       (%object-get-property object pname gvalue)
+	       (unwind-protect
+		 (funcall reader  gvalue +gvalue-value-offset+)
+		 (gvalue-free gvalue t)))))))
     
-    (unless (slot-boundp slotd 'writer-function)
+    (when (and (not (slot-boundp slotd 'setter)) (slot-writable-p slotd))
       (setf 
-       (slot-value slotd 'writer-function)
-       (if (slot-writable-p slotd)
-	   (let ();; (writer (writer-function (type-from-number type-number)))
-;; 		 (destroy (destroy-function (type-from-number type-number))))
-	     #'(lambda (value object)
-		 (let ((gvalue (gvalue-new type-number)))
-		   (funcall #|writer|# (writer-function (type-from-number type-number)) value gvalue +gvalue-value-offset+)
-		   (%object-set-property object pname gvalue)
-;		   (funcall #|destroy|#(destroy-function (type-from-number type-number)) gvalue +gvalue-value-offset+)
-		   (gvalue-free gvalue t)
-		   value)))
- 	   #'(lambda (value object)
- 	       (error "Slot is not writable: ~A" (slot-definition-name slotd))))))
-    
-    (unless (slot-boundp slotd 'boundp-function)
-      (setf 
-       (slot-value slotd 'boundp-function)
-       #'(lambda (object)
-	   (declare (ignore object))
-	   t))))
+       (slot-value slotd 'setter)
+       (let ((writer nil))
+	 #'(lambda (value object)
+	     (unless writer
+	       (setq writer (writer-function (type-from-number type-number))))
+	     (let ((gvalue (gvalue-new type-number)))
+	       (funcall writer value gvalue +gvalue-value-offset+)
+	       (%object-set-property object pname gvalue)
+	       (gvalue-free gvalue t)
+	       value))))))
+
   (call-next-method))
 
 
@@ -143,6 +133,23 @@
     ()
     (:metaclass gobject-class)
     (:alien-name "GObject")))
+
+
+(defun initial-add (object function initargs key pkey)
+  (loop 
+   as (initarg value . rest) = initargs then rest
+   do (cond
+       ((eq initarg key) (funcall function object value))
+       ((eq initarg pkey) (mapc #'(lambda (value)
+				    (funcall function object value))
+				value)))
+       while rest))
+
+(defun initial-apply-add (object function initargs key pkey)
+  (initial-add object #'(lambda (object value)
+			  (apply function object (mklist value)))
+	       initargs key pkey))
+
 
 (defmethod initialize-instance ((object gobject) &rest initargs)
   ;; Extract initargs which we should pass directly to the GObeject
@@ -297,14 +304,19 @@
     (if (eq type 'boolean) "-P" ""))))
 
 
-(defun slot-definition-from-property (class property)
+(defun slot-definition-from-property (class property &optional args)
   (with-slots (name flags value-type documentation) property
     (let* ((slot-name (default-slot-name name))
-	   (slot-type (or (type-from-number value-type) value-type))
+	   (slot-type (or (getf args :type) (type-from-number value-type) value-type))
 	   (accessor (default-slot-accessor class slot-name slot-type)))
       
       `(,slot-name
 	:allocation :property :pname ,name
+
+	;; temporary hack
+	,@(cond
+	   ((find :unbound args) (list :unbound (getf args :unbound)))
+	   ((type-is-p slot-type 'gobject) (list :unbound nil)))
 	
 	;; accessors
 	,@(cond
@@ -339,16 +351,20 @@
 
 (defun slot-definitions (class properties slots)
   (loop 
-   with manual-slots = slots
    for property in properties
-   unless (find-if 
-	   #'(lambda (slot)
-	       (destructuring-bind (name &rest args) slot
-		 (or 
-		  (equal (param-name property) (getf args :pname))
-		  (eq (default-slot-name (param-name property)) name))))
-	   manual-slots)
-   do (push (slot-definition-from-property class property) slots))
+   as slot = (or
+	      (find (param-name property) slots 
+	       :key #'(lambda (slot) (getf (rest slot) :pname)) 
+	       :test #'string=)
+	      (find (param-name property) slots 
+	       :key #'first :test #'string-equal))
+   do (cond
+       ((not slot) 
+	(push (slot-definition-from-property class property) slots))
+       ((getf (rest slot) :merge)
+	(setf 
+	 (rest slot) 
+	 (rest (slot-definition-from-property class property (rest slot)))))))
   (delete-if #'(lambda (slot) (getf (rest slot) :ignore)) slots))
 
 
