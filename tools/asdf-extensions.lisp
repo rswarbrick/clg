@@ -54,7 +54,7 @@
 
 (defun load-dso (filename)
   #+sbcl(sb-alien:load-shared-object filename)
-  #+cmu(system::load-object-file filename))
+  #+cmu(ext:load-foreign filename))
 
 
 (defmethod perform ((o load-op) (c unix-dso))
