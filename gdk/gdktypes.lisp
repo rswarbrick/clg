@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.9 2004-12-20 00:31:01 espen Exp $
+;; $Id: gdktypes.lisp,v 1.10 2004-12-26 11:47:24 espen Exp $
 
 (in-package "GDK")
 
@@ -196,4 +196,62 @@
 
 (defclass device (struct)
   ()
+  (:metaclass struct-class))
+
+(defclass geometry (struct)
+  ((min-width 
+    :allocation :alien
+    :accessor geometry-min-width
+    :initarg :min-width
+    :type int)
+   (min-height 
+    :allocation :alien
+    :accessor geometry-min-height
+    :initarg :min-height
+    :type int)
+   (max-width 
+    :allocation :alien
+    :accessor geometry-max-width
+    :initarg :max-width
+    :type int)
+   (max-height 
+    :allocation :alien
+    :accessor geometry-max-height
+    :initarg :max-height
+    :type int)
+   (base-width 
+    :allocation :alien
+    :accessor geometry-base-width
+    :initarg :base-width
+    :type int)
+   (base-height 
+    :allocation :alien
+    :accessor geometry-base-height
+    :initarg :base-height
+    :type int)
+   (width-inc
+    :allocation :alien
+    :accessor geometry-width-inc
+    :initarg :width-inc
+    :type int)
+   (height-inc
+    :allocation :alien
+    :accessor geometry-height-inc
+    :initarg :height-inc
+    :type int)
+   (min-aspect
+    :allocation :alien
+    :accessor geometry-min-aspect
+    :initarg :min-aspect
+    :type double-float)
+   (max-aspect
+    :allocation :alien
+    :accessor geometry-max-aspect
+    :initarg :max-aspect
+    :type double-float)
+   (gravity
+    :allocation :alien
+    :accessor geometry-gravity
+    :initarg :gravity
+    :type gravity))
   (:metaclass struct-class))
