@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-export.lisp,v 1.4 2001-04-29 20:20:39 espen Exp $
+;; $Id: glib-export.lisp,v 1.5 2001-05-11 16:11:07 espen Exp $
 
 
 ;;; Autogenerating exported symbols
@@ -23,19 +23,7 @@
 (in-package "GLIB")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defexport define-foreign (name &rest args)
-    (declare (ignore args))
-    (if (symbolp name)
-	name
-      (second name)))
-
   (defexport defbinding (name &rest args)
-    (declare (ignore args))
-    (if (symbolp name)
-	name
-      (second name)))
-
-  (defexport deftype (name &rest args)
     (declare (ignore args))
     (if (symbolp name)
 	name
@@ -43,7 +31,11 @@
 
   (defexport define-type-method-fun (name lambda-list)
     (declare (ignore lambda-list))
-    name))
+    name)
+
+  (defexport define-types-by-introspection (prefix &rest args)
+    (list-autoexported-symbols (expand-type-definitions prefix args))))
+  
 
 (export-from-file #p"clg:glib;gutils.lisp")
 (export-from-file #p"clg:glib;glib.lisp")
