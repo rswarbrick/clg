@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.9 2004-10-27 14:58:59 espen Exp $
+;; $Id: gcallback.lisp,v 1.10 2004-10-30 19:26:02 espen Exp $
 
 (in-package "GLIB")
 
@@ -67,16 +67,6 @@
 		 (re-invoke nil :report "Re-invoke callback function"
 		  (invoke-callback)))))
       (invoke-callback))))
-
-(defun after-gc-hook ()
-  (setf
-   (extern-alien "callback_trampoline" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'callback-trampoline))
-   (extern-alien "destroy_user_data" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'destroy-user-data))))
-
-(pushnew 'after-gc-hook ext:*after-gc-hooks*)
-(after-gc-hook)
 
 
 ;;;; Timeouts and idle functions
@@ -174,3 +164,26 @@
 	   (t
 	    #'(lambda (&rest args) (apply function object (rest args))))))))
     (signal-connect-closure gobject signal callback-id :after after)))
+
+
+;;; Message logging
+
+;; TODO: define and signal conditions based on log-level
+(defun log-handler (domain log-level message)
+  (declare (ignore log-level))
+  (error "~A: ~A" domain message))
+
+
+;;;
+
+(defun after-gc-hook ()
+  (setf
+   (extern-alien "callback_trampoline" system-area-pointer)
+   (make-pointer (kernel:get-lisp-obj-address #'callback-trampoline))
+   (extern-alien "destroy_user_data" system-area-pointer)
+   (make-pointer (kernel:get-lisp-obj-address #'destroy-user-data))
+   (extern-alien "log_handler" system-area-pointer)
+   (make-pointer (kernel:get-lisp-obj-address #'log-handler))))
+
+(pushnew 'after-gc-hook ext:*after-gc-hooks*)
+(after-gc-hook)
