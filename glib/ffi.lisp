@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.8 2004-12-16 23:02:10 espen Exp $
+;; $Id: ffi.lisp,v 1.9 2004-12-19 15:31:26 espen Exp $
 
 (in-package "GLIB")
 
@@ -459,7 +459,7 @@
 
 (defmethod size-of ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
-  +size-of-float+)
+  +size-of-double+)
 
 (defmethod writer-function ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
