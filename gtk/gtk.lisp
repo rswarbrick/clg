@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.33 2005-02-04 13:15:15 espen Exp $
+;; $Id: gtk.lisp,v 1.34 2005-02-10 00:15:51 espen Exp $
 
 
 (in-package "GTK")
@@ -1883,7 +1883,7 @@
   (editable editable)
   (text string)
   ((length text) int)
-  (position position-type :in-out))
+  (position position :in-out))
 
 (defun editable-append-text (editable text)
   (editable-insert-text editable text nil))
