@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.16 2005-02-22 23:12:06 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.17 2005-02-27 15:39:18 espen Exp $
 
 (in-package "GTK")
 
@@ -29,8 +29,10 @@
      :remove t))
   (call-next-method))
 
-(defmethod shared-initialize :after ((widget widget) names &key parent)
+(defmethod shared-initialize :after ((widget widget) names &key parent visible)
   (declare (ignore names))
+  (when visible
+    (widget-show widget))
   (when parent
     (when (slot-boundp widget 'parent)
       (container-remove (widget-parent widget) widget))
