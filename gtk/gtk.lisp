@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.20 2004-12-04 00:34:49 espen Exp $
+;; $Id: gtk.lisp,v 1.21 2004-12-16 23:49:53 espen Exp $
 
 
 (in-package "GTK")
@@ -321,11 +321,12 @@
 
 ;;;; Dialog
 
-(defmethod shared-initialize ((dialog dialog) names &rest initargs &key button)
-  (declare (ignore button))
-  (call-next-method)
-  (dolist (button-definition (get-all initargs :button))
-    (apply #'dialog-add-button dialog (mklist button-definition))))
+(defmethod shared-initialize ((dialog dialog) names &rest initargs 
+			      &key button buttons)
+  (declare (ignore button buttons))
+  (prog1
+      (call-next-method)
+    (initial-apply-add dialog #'dialog-add-button initargs :button :buttons)))
   
 
 (defvar %*response-id-key* (gensym))
@@ -650,12 +651,13 @@
 
 ;;; Window
 
-(defmethod initialize-instance ((window window) &rest initargs &key accel-group)
-  (declare (ignore accel-group))
-  (call-next-method)
-  (mapc #'(lambda (accel-group)
-	    (window-add-accel-group window accel-group))
-        (get-all initargs :accel-group)))
+(defmethod initialize-instance ((window window) &rest initargs 
+				&key accel-group accel-groups)
+  (declare (ignore accel-group accel-groups))
+  (prog1
+      (call-next-method)
+    (initial-add window #'window-add-accel-group 
+     initargs :accel-group :accel-groups)))
 
 
 (defbinding window-set-wmclass () nil
@@ -1179,17 +1181,16 @@
   (columns unsigned-int))
 
 (defbinding table-attach (table child left right top bottom
-			  &key (x-options '(:expand :fill))
-			       (y-options '(:expand :fill))
-			       (x-padding 0) (y-padding 0)) nil
+			  &key options x-options y-options
+			  (x-padding 0) (y-padding 0)) nil
   (table table)
   (child widget)
   (left unsigned-int)
   (right unsigned-int)
   (top unsigned-int)
   (bottom unsigned-int)
-  (x-options attach-options)
-  (y-options attach-options)
+  ((append (mklist options) (mklist x-options)) attach-options)
+  ((append (mklist options) (mklist y-options)) attach-options)
   (x-padding unsigned-int)
   (y-padding unsigned-int))
 
@@ -1503,6 +1504,25 @@
   (progress-bar progress-bar))
 
 
+;;; Size group
+
+(defmethod initialize-instance ((size-group size-group) &rest initargs 
+				&key widget widgets)
+  (declare (ignore widget widgets))
+  (prog1
+      (call-next-method)
+    (initial-add size-group #'size-group-add-widget 
+     initargs :widget :widgets)))
+
+
+(defbinding size-group-add-widget () nil
+  (size-group size-group)
+  (widget widget))
+
+(defbinding size-group-remove-widget () nil
+  (size-group size-group)
+  (widget widget))
+
 
 ;;; Stock items
 
@@ -1581,22 +1601,6 @@
 
 ;;; Accelerator Groups
 #|
-(defbinding accel-group-get-default () accel-group)
-
-(deftype-method alien-ref accel-group (type-spec)
-  (declare (ignore type-spec))
-  '%accel-group-ref)
-
-(deftype-method alien-unref accel-group (type-spec)
-  (declare (ignore type-spec))
-  '%accel-group-unref)
-
-(defbinding %accel-group-ref () accel-group
-  (accel-group (or accel-group pointer)))
-
-(defbinding %accel-group-unref () nil
-  (accel-group (or accel-group pointer)))
-
 (defbinding accel-group-activate (accel-group key modifiers) boolean
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
