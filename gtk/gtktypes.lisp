@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.11 2002-03-19 19:09:18 espen Exp $
+;; $Id: gtktypes.lisp,v 1.12 2002-03-24 13:00:12 espen Exp $
 
 
 (in-package "GTK")
@@ -33,6 +33,29 @@
     :type int))
   (:metaclass boxed-class)
   (:alien-name "GtkTypeRequisition"))
+
+(defclass allocation (struct)
+  ((x
+    :allocation :alien
+    :accessor allocation-width
+    :initarg :x
+    :type int)
+   (y
+    :allocation :alien
+    :accessor allocation-width
+    :initarg :width
+    :type int)
+   (width
+    :allocation :alien
+    :accessor allocation-width
+    :initarg :width
+    :type int)
+   (height
+    :allocation :alien
+    :accessor allocation-height
+    :initarg :height
+    :type int))
+  (:metaclass proxy-class))
 
 (defclass border (boxed)
   ((left
@@ -114,13 +137,12 @@
     :allocation :instance
     :accessor widget-child-slots
     :type container-child)
-    (parent
+    (parent-window
      :allocation :virtual
-     :getter "gtk_widget_get_parent"
-     :setter "gtk_widget_set_parent"
-     :accessor widget-parent
-     :type container
-     :documentation "The parent widget of this widget. Must be a container widget.")
+     :getter "gtk_widget_get_parent_window"
+     :setter "gtk_widget_set_parent_window"
+     :accessor widget-parent-window
+     :type gdk:window)
     (window
      :allocation :virtual
      :getter "gtk_widget_get_window"
@@ -136,14 +158,42 @@
     (colormap
      :allocation :virtual
      :getter "gtk_widget_get_colormap"
-     :reader widget-colormap
+     :setter "gtk_widget_set_colormap"
+     :initarg :colormap
+     :accessor widget-colormap
      :type gdk:colormap)
     (visual
      :allocation :virtual
      :getter "gtk_widget_get_visual"
      :reader widget-visual
-     :type gdk:visual)))
-
+     :type gdk:visual)
+    (direction
+     :allocation :virtual
+     :getter "gtk_widget_get_direction"
+     :setter "gtk_widget_set_direction"
+     :accessor widget-direction
+     :initarg :direction
+     :type text-direction)
+    (composite-name
+     :allocation :virtual
+     :getter "gtk_widget_get_composite_name"
+     :setter "gtk_widget_set_composite_name"
+     :accessor widget-composite-name
+     :initarg :composite-name
+     :type string)
+    (settings
+     :allocation :virtual
+     :getter "gtk_widget_get_settings"
+     :accessor widget-settings
+     :type settings)
+    (child-visible
+     :allocation :virtual
+     :getter "gtk_widget_get_child_visible"
+     :setter "gtk_widget_set_child_visible"
+     :accessor widget-child-visible-p
+     :initarg :child-visible
+     :type boolean)))
+     
   ("GtkContainer"
    :slots
    ((child
@@ -159,6 +209,10 @@
      :accessor container-focus-child
      :initarg :focus-child
      :type widget)
+    (focus-chain
+     :allocation :virtual
+     :getter container-focus-chain
+     :setter (setf container-focus-chain))
     (focus-hadjustment
      :allocation :virtual
      :getter "gtk_container_get_focus_hadjustment"
@@ -432,7 +486,7 @@
   ("GtkList" :ignore-prefix t)
   ("GtkTree" :ignore t)
   ("GtkTreeItem" :ignore t)
-  ("GtkText" :ignore-prefix t)
+  ("GtkText" :ignore-prefix t :except ("GtkTextDirection"))
   ("GtkPacker" :ignore-prefix t)
   ("GtkPixmap" :ignore t)
   ("GtkPreview" :ignore-prefix t)
