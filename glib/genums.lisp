@@ -15,45 +15,23 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.8 2005-02-10 20:27:54 espen Exp $
+;; $Id: genums.lisp,v 1.9 2005-02-11 19:09:38 espen Exp $
 
 (in-package "GLIB")
-
-
-(defun %map-enum (args op)
-  (let ((current-value 0))
-    (mapcar
-     #'(lambda (mapping)
-	 (destructuring-bind (symbol &optional (value current-value))
-	     (mklist mapping)
-	   (setf current-value (1+ value))
-	   (case op
-	     (:enum-int (list symbol value))
-	     (:flags-int (list symbol value))
-	     (:int-enum (list value symbol))
-	     (:int-flags (list value symbol))
-	     (:symbols symbol))))
-     args)))
-
-(defun %query-enum-or-flags-values (query-function class type)
-  (multiple-value-bind (sap length)
-      (funcall query-function (type-class-ref type))
-    (let ((values nil)
-	  (size (proxy-instance-size (find-class class)))
-	  (proxy (make-instance class :location sap)))
-      (dotimes (i length)
-	(with-slots (location nickname value) proxy
-	  (setf location sap)
-	  (setq sap (sap+ sap size))
-	  (push
-	   (list
-	    (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD")
-	    value)
-	   values)))
-      values)))
-   
   
 ;;;; Generic enum type
+
+(defun %map-enum (mappings op)
+  (loop
+   as value = 1 then (1+ value)
+   for mapping in mappings
+   collect (let ((symbol (if (atom mapping) mapping (first mapping))))
+	     (unless (atom mapping)
+	       (setq value (second mapping)))
+	     (ecase op
+	       (:symbol-int (list symbol value))
+	       (:int-symbol (list value symbol))
+	       (:symbols symbol)))))
 
 (deftype enum (&rest args)
   `(member ,@(%map-enum args :symbols)))
@@ -68,24 +46,27 @@
 
 (defmethod to-alien-form (form (type (eql 'enum)) &rest args)
   (declare (ignore type))
-  `(ecase ,form
-    ,@(%map-enum args :enum-int)))
+  `(case ,form
+    ,@(%map-enum args :symbol-int)
+    (t (error 'type-error :datum ,form :expected-type '(enum ,@args)))))
+
 
 (defmethod from-alien-form (form (type (eql 'enum)) &rest args)
   (declare (ignore type))
   `(ecase ,form
-    ,@(%map-enum args :int-enum)))
+    ,@(%map-enum args :int-symbol)))
 
 (defmethod to-alien-function ((type (eql 'enum)) &rest args)
-  (let ((mappings (%map-enum args :enum-int)))
+  (declare (ignore type))
+  (let ((mappings (%map-enum args :symbol-int)))
     #'(lambda (enum)
 	(or
 	 (second (assoc enum mappings))
-	 (error "~S is not of type ~S" enum (cons type args))))))
+	 (error 'type-error :datum enum :expected-type (cons 'enum args))))))
 
 (defmethod from-alien-function ((type (eql 'enum)) &rest args)
   (declare (ignore type))
-  (let ((mappings (%map-enum args :int-enum)))
+  (let ((mappings (%map-enum args :int-symbol)))
     #'(lambda (int)
 	(second (assoc int mappings)))))
 
@@ -102,21 +83,6 @@
 	(function (apply #'from-alien-function 'enum args)))
     #'(lambda (location &optional (offset 0))
 	(funcall function (funcall reader location offset)))))
-
-
-
-(defclass %enum-value (struct)
-  ((value :allocation :alien :type int)
-   (name :allocation :alien :type string)
-   (nickname :allocation :alien :type string))
-  (:metaclass static-struct-class))
-
-(defbinding %enum-class-values () pointer
-  (class pointer)
-  (n-values unsigned-int :out))
-
-(defun query-enum-values (type)
-  (%query-enum-or-flags-values #'%enum-class-values '%enum-value type))
 
 (defun enum-int (enum type)
   (funcall (to-alien-function type) enum))
@@ -135,12 +101,13 @@
 	(int-enum (intern (format nil "INT-TO-~A" name))))
     `(progn
        (deftype ,name () '(enum ,@args))
-       (defun ,enum-int (value)
-	 (ecase value
-	   ,@(%map-enum args :enum-int)))
+       (defun ,enum-int (enum)
+	 (case enum
+	   ,@(%map-enum args :symbol-int)
+	   (t (error 'type-error :datum enum :expected-type ',name))))
        (defun ,int-enum (value)
 	 (ecase value
-	   ,@(%map-enum args :int-enum)))
+	   ,@(%map-enum args :int-symbol)))
        (defmethod to-alien-form (form (type (eql ',name)) &rest args)
 	 (declare (ignore type args))
 	 (list ',enum-int form))
@@ -167,8 +134,20 @@
 
 ;;;;  Generic flags type
 
+(defun %map-flags (mappings op)
+  (loop
+   as value = 1 then (ash value 1)
+   for mapping in mappings
+   collect (let ((symbol (if (atom mapping) mapping (first mapping))))
+	     (unless (atom mapping)
+	       (setq value (second mapping)))
+	     (ecase op
+	       (:symbol-int (list symbol value))
+	       (:int-symbol (list value symbol))
+	       (:symbols symbol)))))
+
 (deftype flags (&rest args)
-  `(or null (cons (member ,@(%map-enum args :symbols)) list)))
+  `(or (member ,@(%map-flags args :symbols)) list))
 
 (defmethod alien-type ((type (eql 'flags)) &rest args)
   (declare (ignore type args))
@@ -179,39 +158,34 @@
   (size-of 'unsigned))
 
 (defmethod to-alien-form (flags (type (eql 'flags)) &rest args)
-  `(loop
-    with value = 0
-    with flags = ,flags
-    for flag in (mklist flags)
-    do (let ((flagval
-	      (or
-	       (second (assoc flag ',(%map-enum args :flags-int)))
-	       (error "~S is not of type ~S" flags '(,type ,@args)))))
-	 (setq value (logior value flagval)))
-    finally (return value)))
+  `(reduce #'logior (mklist ,flags)
+    :key #'(lambda (flag)
+	     (case flag
+	       ,@(%map-flags args :symbol-int)
+	       (t (error 'type-error :datum ,flags 
+		   :expected-type '(,type ,@args)))))))
 
 (defmethod from-alien-form (int (type (eql 'flags)) &rest args)
   (declare (ignore type))
   `(loop
-    for mapping in ',(%map-enum args :int-flags)
+    for mapping in ',(%map-flags args :int-symbol)
     unless (zerop (logand ,int (first mapping)))
     collect (second mapping)))
 
 (defmethod to-alien-function ((type (eql 'flags)) &rest args)
-  (let ((mappings (%map-enum args :flags-int)))
-    #'(lambda (flags)	
-	(loop
-	 with value = 0
-	 for flag in (mklist flags)
-	 do (let ((flagval (or
-		    (second (assoc flag mappings))
-		    (error "~S is not of type ~S" flags (cons type args)))))
-	      (setq value (logior value flagval)))
-	 finally (return value)))))
+  (declare (ignore type))
+  (let ((mappings (%map-flags args :symbol-int)))
+    #'(lambda (flags)
+	(reduce #'logior (mklist flags)
+	 :key #'(lambda (flag)
+		  (or
+		   (second (assoc flag mappings))
+		   (error 'type-error :datum flags 
+		    :expected-type (cons 'flags args))))))))
 
 (defmethod from-alien-function ((type (eql 'flags)) &rest args)
   (declare (ignore type))
-  (let ((mappings (%map-enum args :int-flags)))
+  (let ((mappings (%map-flags args :int-symbol)))
     #'(lambda (int)
 	(loop
 	 for mapping in mappings
@@ -233,34 +207,38 @@
 	(funcall function (funcall reader location offset)))))
 
 
-
-(defclass %flags-value (struct)
-  ((value :allocation :alien :type unsigned-int)
-   (name :allocation :alien :type string)
-   (nickname :allocation :alien :type string))
-  (:metaclass static-struct-class))
-
-(defbinding %flags-class-values () pointer
-  (class pointer)
-  (n-values unsigned-int :out))
-
-(defun query-flags-values (type)
-  (%query-enum-or-flags-values #'%flags-class-values '%flags-value type))
-
-
 ;;;; Named flags types
 
 (defmacro define-flags-type (name &rest args)
   (let ((flags-int (intern (format nil "~A-TO-INT" name)))
-	(int-flags (intern (format nil "INT-TO-~A" name))))
+	(int-flags (intern (format nil "INT-TO-~A" name)))
+	(satisfies  (intern (format nil "~A-P" name))))
     `(progn
-       (deftype ,name () '(flags ,@args))
-       (defun ,flags-int (value)
-	 (ecase value
-	   ,@(%map-enum args :flags-int)))
+       (deftype ,name () '(satisfies ,satisfies))
+       (defun ,satisfies (object)
+	 (flet ((valid-p (ob)
+		  (find ob ',(%map-flags args :symbols))))
+	   (typecase object
+	     (symbol (valid-p object))
+	     (list (every #'valid-p object)))))
+       (defun ,flags-int (flags)
+	 (reduce #'logior (mklist flags)
+	  :key #'(lambda (flag)
+		   (case flag
+		     ,@(%map-flags args :symbol-int)
+		     (t (error 'type-error :datum flags 
+		         :expected-type ',name))))))
        (defun ,int-flags (value)
-	 (ecase value
-	   ,@(%map-enum args :int-flags)))
+	 (loop
+	  for mapping in ',(%map-flags args :int-symbol)
+	  unless (zerop (logand value (first mapping)))
+	  collect (second mapping)))
+       (defmethod alien-type ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (alien-type 'flags))
+       (defmethod size-of ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (size-of 'flags))
        (defmethod to-alien-form (form (type (eql ',name)) &rest args)
 	 (declare (ignore type args))
 	 (list ',flags-int form))
@@ -287,6 +265,52 @@
 
 
 ;;;; Type definition by introspection
+
+(defun %query-enum-or-flags-values (query-function class type)
+  (multiple-value-bind (sap length)
+      (funcall query-function (type-class-ref type))
+    (let ((values nil)
+	  (size (proxy-instance-size (find-class class)))
+	  (proxy (make-instance class :location sap)))
+      (dotimes (i length)
+	(with-slots (location nickname value) proxy
+	  (setf location sap)
+	  (setq sap (sap+ sap size))
+	  (push
+	   (list
+	    (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD")
+	    value)
+	   values)))
+      values)))
+
+
+(defclass %enum-value (struct)
+  ((value :allocation :alien :type int)
+   (name :allocation :alien :type string)
+   (nickname :allocation :alien :type string))
+  (:metaclass static-struct-class))
+
+(defbinding %enum-class-values () pointer
+  (class pointer)
+  (n-values unsigned-int :out))
+
+(defun query-enum-values (type)
+  (%query-enum-or-flags-values #'%enum-class-values '%enum-value type))
+
+
+(defclass %flags-value (struct)
+  ((value :allocation :alien :type unsigned-int)
+   (name :allocation :alien :type string)
+   (nickname :allocation :alien :type string))
+  (:metaclass static-struct-class))
+
+(defbinding %flags-class-values () pointer
+  (class pointer)
+  (n-values unsigned-int :out))
+
+(defun query-flags-values (type)
+  (%query-enum-or-flags-values #'%flags-class-values '%flags-value type))
+
 
 (defun expand-enum-type (type-number forward-p options)
   (declare (ignore forward-p))
