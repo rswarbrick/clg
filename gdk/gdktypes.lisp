@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.13 2005-02-10 00:22:35 espen Exp $
+;; $Id: gdktypes.lisp,v 1.14 2005-02-26 10:44:09 espen Exp $
 
 (in-package "GDK")
 
@@ -99,7 +99,8 @@
   ("GdkRectngle" :ignore t)
   ("GdkCursor" :ignore t)
   ("GdkFont" :ignore t) ; deprecated
-  
+  ("GdkEventMask" :ignore t) ; manually defined
+
   ("GdkDrawable"
    :slots
    ((display

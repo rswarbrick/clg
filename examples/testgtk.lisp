@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.18 2005-02-25 23:58:56 espen Exp $
+;; $Id: testgtk.lisp,v 1.19 2005-02-26 10:44:11 espen Exp $
 
 
 ;(use-package "GTK")
@@ -327,7 +327,7 @@
 			       2 10 0)))
 	(drawing-area (make-instance 'drawing-area
 		       :width-request 80 :height-request 80
-		       :events '(:exposure-mask :button-press-mask)))
+		       :events '(:exposure :button-press)))
 	(label (make-instance 'label :label "XXX")))
 
     (signal-connect drawing-area 'expose-event #'cursor-expose :object t)
@@ -565,7 +565,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 				                :default-height 200)
   (let ((layout (make-instance 'layout
 		 :parent (make-instance 'scrolled-window :parent window)
-		 :width 1600 :height 128000 :events '(:exposure-mask)
+		 :width 1600 :height 128000 :events '(:exposure)
  		 :signal (list 'expose-event #'layout-expose :object t))))
 
     (with-slots (hadjustment vadjustment) layout
@@ -1039,13 +1039,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 (define-toplevel create-rulers (window "Rulers" 
 				:default-width 300 :default-height 300
-;;  				:events '(:pointer-motion-mask 
-;;  					  :pointer-motion-hint-mask)
-				)
-  (setf 
-   (widget-events window) 
-   '(:pointer-motion-mask :pointer-motion-hint-mask))
-
+  				:events '(:pointer-motion :pointer-motion-hint))
   (let ((table (make-instance 'table :n-rows 2 :n-columns 2 :parent window))
 	(h-ruler (make-instance 'h-ruler
 		  :metric :centimeters :lower 100.0d0 :upper 0.0d0

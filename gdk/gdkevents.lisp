@@ -15,15 +15,39 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdkevents.lisp,v 1.6 2004-12-20 00:09:57 espen Exp $
+;; $Id: gdkevents.lisp,v 1.7 2005-02-26 10:44:09 espen Exp $
 
 (in-package "GDK")
 
 
-(defvar *event-classes* (make-hash-table))
+(define-flags-type event-mask
+  (:exposure 2)
+  :pointer-motion
+  :pointer-motion-hint
+  :button-motion
+  :button1-motion
+  :button2-motion
+  :button3-motion
+  :button-press
+  :button-release
+  :key-press
+  :key-release
+  :enter-notify
+  :leave-notify
+  :focus-change
+  :structure
+  :property-change
+  :visibility-notify
+  :proximity-in
+  :proximity-out
+  :substructure
+  :scroll
+  (:all-events #x3FFFFE))
 
 
 ;;;; Metaclass for event classes
+
+(defvar *event-classes* (make-hash-table))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass event-class (boxed-class)
