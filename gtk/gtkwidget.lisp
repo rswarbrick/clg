@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkwidget.lisp,v 1.12 2004-12-20 00:53:48 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.13 2004-12-20 20:09:53 espen Exp $
 
 (in-package "GTK")
 
@@ -40,24 +40,24 @@
 
 (defmethod slot-unbound ((class gobject-class) (object widget) slot)
   (cond
-   ((and (eq slot 'child-slots) (slot-value object 'parent))
-    (with-slots (parent child-slots) object
+   ((and (eq slot 'child-properties) (slot-value object 'parent))
+    (with-slots (parent child-properties) object
       (setf
-       child-slots
+       child-properties
        (make-instance
 	(gethash (class-of parent) *container-to-child-class-mappings*)
 	:parent parent :child object))))
    (t (call-next-method))))
 
 
-(defun child-slot-value (widget slot)
-  (slot-value (widget-child-slots widget) slot))
+(defun child-property-value (widget slot)
+  (slot-value (widget-child-properties widget) slot))
 
-(defun (setf child-slot-value) (value widget slot)
-  (setf (slot-value (widget-child-slots widget) slot) value))
+(defun (setf child-property-value) (value widget slot)
+  (setf (slot-value (widget-child-properties widget) slot) value))
 
-(defmacro with-child-slots (slots widget &body body)
-  `(with-slots ,slots (widget-child-slots ,widget)
+(defmacro with-child-properties (slots widget &body body)
+  `(with-slots ,slots (widget-child-properties ,widget)
      ,@body))
 
 

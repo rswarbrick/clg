@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.23 2004-12-20 20:00:07 espen Exp $
+;; $Id: gtktypes.lisp,v 1.24 2004-12-20 20:09:53 espen Exp $
 
 
 (in-package "GTK")
@@ -139,9 +139,9 @@
   ;; Manual override
   ("GtkWidget"
    :slots
-   ((child-slots
+   ((child-properties
      :allocation :instance
-     :accessor widget-child-slots
+     :accessor widget-child-properties
      :type container-child)
     (window
      :allocation :virtual

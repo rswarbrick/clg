@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.13 2004-12-17 00:15:16 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.14 2004-12-20 20:09:54 espen Exp $
 
 (in-package "GTK")
 
@@ -38,7 +38,7 @@
   (%container-add container widget)
   (when args
     (setf
-     (slot-value widget 'child-slots)
+     (slot-value widget 'child-properties)
      (apply
       #'make-instance
       (gethash (class-of container) *container-to-child-class-mappings*)
@@ -51,7 +51,7 @@
 
 (defmethod container-remove ((container container) (widget widget))
   (%container-remove container widget)
-  (slot-makunbound widget 'child-slots))
+  (slot-makunbound widget 'child-properties))
 
 
 (defbinding %container-child-get-property () nil

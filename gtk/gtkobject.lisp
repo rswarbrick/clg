@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.20 2004-12-17 00:21:34 espen Exp $
+;; $Id: gtkobject.lisp,v 1.21 2004-12-20 20:09:53 espen Exp $
 
 
 (in-package "GTK")
@@ -162,25 +162,23 @@
   (add-method
    generic-function
    (make-instance 'standard-method
-		  :specializers (list (find-class 'widget))
-		  :lambda-list '(widget)
-		  :function #'(lambda (args next-methods)
-				(declare (ignore next-methods))
-				(child-slot-value (first args) slot-name)))))
+    :specializers (list (find-class 'widget))
+    :lambda-list '(widget)
+    :function #'(lambda (args next-methods)
+		  (declare (ignore next-methods))
+		  (child-property-value (first args) slot-name)))))
 
 (defmethod pcl::add-writer-method
     ((class child-class) generic-function slot-name)
   (add-method
    generic-function
    (make-instance 'standard-method
-		  :specializers (list (find-class t) (find-class 'widget))
-		  :lambda-list '(value widget)
-		  :function #'(lambda (args next-methods)
-				(declare (ignore next-methods))
-				(destructuring-bind (value widget) args
-				  (setf
-				   (child-slot-value widget slot-name)
-				   value))))))
+    :specializers (list (find-class t) (find-class 'widget))
+    :lambda-list '(value widget)
+    :function #'(lambda (args next-methods)
+		  (declare (ignore next-methods))
+		  (destructuring-bind (value widget) args
+		    (setf (child-property-value widget slot-name) value))))))
 
 
 (defmethod validate-superclass ((class child-class) (super pcl::standard-class))
