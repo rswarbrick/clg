@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.28 2005-01-06 21:05:46 espen Exp $
+;; $Id: gtktypes.lisp,v 1.29 2005-01-07 00:28:36 espen Exp $
 
 
 (in-package "GTK")
@@ -873,6 +873,35 @@
      :type int)
     (weight
      :merge t :type pango:weight)))
+
+  ("GtkTextMark"
+   :slots
+   ((buffer
+     :allocation :virtual
+     :getter "gtk_text_mark_get_buffer"
+     :reader text-mark-buffer
+     :type text-buffer)
+    (name
+     :allocation :virtual
+     :getter "gtk_text_mark_get_name"
+     :reader text-mark-name
+     :type string)
+    (visible
+     :allocation :virtual
+     :getter "gtk_text_mark_get_visible"
+     :setter "gtk_text_mark_set_visible"
+     :accessor text-mark-visible-p
+     :type boolean)
+    (deleted
+     :allocation :virtual
+     :getter "gtk_text_mark_get_deleted"
+     :reader text-mark-deleted-p
+     :type boolean)
+    (left-gravity
+     :allocation :virtual
+     :getter "gtk_text_mark_get_left_gravity"
+     :reader text-mark-left-gravity-p
+     :type boolean)))
 
   ("GtkUIManager"
    :type ui-manager

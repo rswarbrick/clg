@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktext.lisp,v 1.2 2004-12-17 00:37:50 espen Exp $
+;; $Id: gtktext.lisp,v 1.3 2005-01-07 00:28:36 espen Exp $
 
 
 (in-package "GTK")
@@ -615,6 +615,17 @@
   (second text-iter))
 
 
+
+;;; Text Tag
+
+(defbinding text-tag-event () boolean
+  (tag text-tag)
+  (event-object gobject)
+  (event gdk:event)
+  (iter text-iter))
+
+
+
 ;;; Text Tag Table
 
 (defbinding text-tag-table-add () nil
@@ -635,12 +646,6 @@
   (table text-tag-table)
   ((callback %text-tag-table-foreach) pointer)
   ((register-callback-function function) unsigned-int))
-
-;; (defbinding text-tag-event () boolean
-;;   (tag text-tag)
-;;   (event-object object)
-;;   (event gdk:event)
-;;   (iter text-iter))
 
 
 ;;; Text View
