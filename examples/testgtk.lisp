@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.13 2004-12-26 12:01:10 espen Exp $
+;; $Id: testgtk.lisp,v 1.14 2004-12-29 21:21:31 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -183,10 +183,9 @@
    :label frame-label
    :child (make-instance class
 	   :border-width 5 :layout-style layout :spacing spacing
-;	   :child-min-width width :child-min-height height
-	   :child (make-instance 'button :label "gtk-ok" :use-stock t)
-	   :child (make-instance 'button :label "gtk-cancel" :use-stock t)
-	   :child (make-instance 'button :label "gtk-help" :use-stock t))))
+	   :child (make-instance 'button :stock "gtk-ok")
+	   :child (make-instance 'button :stock "gtk-cancel")
+	   :child (make-instance 'button :stock "gtk-help"))))
 
 (define-toplevel create-button-box (window "Button Boxes")
   (make-instance 'v-box
@@ -314,7 +313,7 @@
 (defun cursor-expose (drawing-area event)
   (declare (ignore event))
   (multiple-value-bind (width height)
-      (drawing-area-get-size drawing-area)
+      (widget-get-size-allocation drawing-area)
     (let* ((window (widget-window drawing-area))
 	   (style (widget-style drawing-area))
 	   (white-gc (style-white-gc style))
@@ -821,7 +820,9 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	    (menu-shell-append menu menu-item)
 	    (when (= i 3)
 	      (setf (widget-sensitive-p menu-item) nil))
-	    (setf (menu-item-submenu menu-item) (create-menu (1- depth) t)))))
+	    (let ((submenu (create-menu (1- depth) t)))
+	      (when submenu
+		(setf (menu-item-submenu menu-item) submenu))))))
       menu)))
 
 
@@ -858,7 +859,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Notebook
 
-(defun create-notebook-page (notebook page-num)
+(defun create-notebook-page (notebook page-num book-closed)
   (let* ((title (format nil "Page ~D" page-num))
 	 (page (make-instance 'frame :label title :border-width 10))
  	 (v-box (make-instance 'v-box 
@@ -900,12 +901,12 @@ This one is underlined (こんにちは) in quite a funky fashion"
     (let ((label-box (make-instance 'h-box 
 		      :show-all t
 		      :child-args '(:expand nil)
-		      :child (make-instance 'image :pixmap book-closed-xpm)
+		      :child (make-instance 'image :pixbuf book-closed)
 		      :child (make-instance 'label :label title)))
 	  (menu-box (make-instance 'h-box 
 		     :show-all t
 		     :child-args '(:expand nil)
-		     :child (make-instance 'image :pixmap book-closed-xpm)
+		     :child (make-instance 'image :pixbuf book-closed)
 		     :child (make-instance 'label :label title))))
 
       (widget-show-all page)
@@ -914,24 +915,26 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 (define-simple-dialog create-notebook (dialog "Notebook")
   (let ((main (make-instance 'v-box :parent dialog)))
-    (let ((notebook (make-instance 'notebook 
+    (let ((book-open (gdk:pixbuf-new-from-xpm-data book-open-xpm))
+	  (book-closed (gdk:pixbuf-new-from-xpm-data book-closed-xpm))
+	  (notebook (make-instance 'notebook 
 		     :border-width 10 :tab-pos :top :parent main)))
-      (flet ((set-image (page func xpm)
-	       (image-set-from-pixmap-data 
-		(first (container-children (funcall func notebook page)))
-		xpm)))	     
+      (flet ((set-image (page func pixbuf)
+	       (setf
+		(image-pixbuf 
+		 (first (container-children (funcall func notebook page))))
+		pixbuf)))
 	(signal-connect notebook 'switch-page
 	 #'(lambda (pointer page)
 	     (declare (ignore pointer))
 	     (unless (eq page (notebook-current-page-num notebook))
-	       (set-image page #'notebook-menu-label book-open-xpm)
-	       (set-image page #'notebook-tab-label book-open-xpm)
-	     
+	       (set-image page #'notebook-menu-label book-open)
+	       (set-image page #'notebook-tab-label book-open)
 	       (let ((curpage (notebook-current-page notebook)))
-		 (when curpage
-		   (set-image curpage #'notebook-menu-label book-closed-xpm)
-		   (set-image curpage #'notebook-tab-label book-closed-xpm)))))))	  
-      (loop for i from 1 to 5 do (create-notebook-page notebook i))
+ 		 (when curpage
+ 		   (set-image curpage #'notebook-menu-label book-closed)
+ 		   (set-image curpage #'notebook-tab-label book-closed)))))))
+      (loop for i from 1 to 5 do (create-notebook-page notebook i book-closed))
 
       (make-instance 'h-separator :parent (list main :expand nil :padding 10))
 	
@@ -962,7 +965,6 @@ This one is underlined (こんにちは) in quite a funky fashion"
        :child-args '(:expand nil)
        :child (make-instance 'label :label "Notebook Style: ")
        :child (let ((scrollable-p nil)) 
-		;; option menu is deprecated, we should use combo-box
 		(make-instance 'combo-box
 		 :content '("Standard" "No tabs" "Scrollable") :active 0
 		 :signal (list 'changed
@@ -988,7 +990,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 				   (setf (notebook-show-tabs-p notebook) t)
 				   (setf (notebook-scrollable-p notebook) t)
 				   (loop for i from 6 to 15 
-				    do (create-notebook-page notebook i))))))
+				    do (create-notebook-page notebook i book-closed))))))
 			  :object t)))
        :child (make-instance 'button
 	       :label "Show all Pages"
@@ -1074,7 +1076,29 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 ;;; Progress bar
 
- 
+(define-simple-dialog create-progress-bar (dialog "Progress Bar")
+  (let* ((progress (make-instance 'progress-bar :pulse-step 0.05))
+	 (activity-mode-button (make-instance 'check-button 
+				:label "Activity mode"))
+	 (timer (timeout-add 100
+		 #'(lambda ()
+		     (if (toggle-button-active-p activity-mode-button)
+			 (progress-bar-pulse progress)
+		       (let ((fract (+ (progress-bar-fraction progress) 0.01)))
+			 (setf		      
+			  (progress-bar-fraction progress)
+			  (if (> fract 1.0)
+			      0.0
+			    fract))))
+		     t))))
+
+    (make-instance 'v-box
+     :parent dialog :border-width 10 :spacing 10 :show-all t
+     :child progress
+     :child activity-mode-button)
+
+    (signal-connect dialog 'destroy 
+     #'(lambda () (when timer (timeout-remove timer))))))
 
 
 ;;; Radio buttons
@@ -1103,7 +1127,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 (define-simple-dialog create-reparent (dialog "Reparent")
   (let ((main (make-instance 'h-box 
 	       :homogeneous t :spacing 10 :border-width 10 :parent dialog))
-	(label (make-instance 'label :label "Hellow World")))
+	(label (make-instance 'label :label "Hello World")))
 
     (flet ((create-frame (title)
 	     (let* ((frame (make-instance 'frame :label title :parent main))
@@ -1826,7 +1850,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;; 	    ("modal window")
  	    ("notebook" create-notebook)
  	    ("panes" create-panes)
-;; 	    ("progress bar" #|create-progress-bar|#)
+ 	    ("progress bar" create-progress-bar)
  	    ("radio buttons" create-radio-buttons)
  	    ("range controls" create-range-controls)
 ;; 	    ("rc file")
@@ -1863,7 +1887,10 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		       :signal (list 'clicked #'widget-destroy 
 				     :object main-window)))) 
 
-    (setf (window-icon main-window) #p"clg:examples;gtk.png")
+    (let ((icon (gdk:pixbuf-load #p"clg:examples;gtk.png")))
+      (setf 
+       (window-icon main-window) 
+       (gdk:pixbuf-add-alpha icon t 254 254 252)))
 
     ;; Main box
     (make-instance 'v-box
