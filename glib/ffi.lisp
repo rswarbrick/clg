@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.4 2004-11-09 10:04:35 espen Exp $
+;; $Id: ffi.lisp,v 1.5 2004-11-12 11:34:14 espen Exp $
 
 (in-package "GLIB")
 
@@ -391,6 +391,14 @@
 (defmethod size-of ((type (eql 'integer)) &rest args)
   (declare (ignore type args))
   (size-of 'signed-byte))
+
+(defmethod writer-function ((type (eql 'integer)) &rest args)
+  (declare (ignore type args))
+  (writer-function 'signed-byte))
+
+(defmethod reader-function ((type (eql 'integer)) &rest args)
+  (declare (ignore type args))
+  (reader-function 'signed-byte))
 
 
 (defmethod alien-type ((type (eql 'fixnum)) &rest args)
