@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.14 2004-12-29 21:21:31 espen Exp $
+;; $Id: testgtk.lisp,v 1.15 2005-01-06 21:59:51 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -1106,7 +1106,9 @@ This one is underlined (こんにちは) in quite a funky fashion"
 (define-simple-dialog create-radio-buttons (dialog "Radio buttons")
   (make-instance 'v-box
    :parent dialog :border-width 10 :spacing 10 :show-all t
-   :children (create-radio-button-group '("button1" "button2" "button3") 1)))
+   :children (make-radio-group 'radio-button
+	      '((:label "button1") (:label "button2") (:label "button3"))
+	      nil)))
 
 
 ;;; Rangle controls
@@ -1472,11 +1474,10 @@ This one is underlined (こんにちは) in quite a funky fashion"
      :child (make-instance 'frame
 	     :label "Label Container" :border-width 5
 	     :child(make-instance 'v-box
-		   :children (create-radio-button-group
-			      '(("Resize-Parent" :parent)
-				("Resize-Queue" :queue)
-				("Resize-Immediate" :immediate))
-			      0
+		   :children (make-radio-group 'radio-button
+			      '((:label "Resize-Parent" :value :parent :active t)
+				(:label "Resize-Queue" :value :queue)
+				(:label "Resize-Immediate" :value :immediate))
 			      #'(lambda (mode)
  				  (setf 
  				   (container-resize-mode (dialog-action-area dialog)) mode))))))
@@ -1626,107 +1627,90 @@ This one is underlined (こんにちは) in quite a funky fashion"
 ;;; Toolbar test
 
 (define-toplevel create-toolbar (window "Toolbar test" :resizable nil)
-  (let ((toolbar (make-instance 'toolbar :parent window)))
+  (make-instance 'toolbar 
+   :show-tooltips t :show-arrow nil :parent window
 
-    ;; Insert a stock item
-    (toolbar-append toolbar "gtk-quit"
-     :tooltip-text "Destroy toolbar"
-     :tooltip-private-text "Toolbar/Quit"
-     :callback #'(lambda () (widget-destroy window)))
+   ;; Insert a stock item
+   :child (make-instance 'tool-button 
+	   :stock  "gtk-quit"
+	   :tip-text "Destroy toolbar"
+	   :tip-private "Toolbar/Quit"
+	   :signal (list 'clicked #'(lambda () (widget-destroy window))))
 
-    ;; Image widge as icon
-    (toolbar-append toolbar "Horizontal"
-     :icon (make-instance 'image :file #p"clg:examples;test.xpm")
-     :tooltip-text "Horizontal toolbar layout"
-     :tooltip-private-text "Toolbar/Horizontal"
-     :callback #'(lambda () (setf (toolbar-orientation toolbar) :horizontal)))
+   :child (make-instance 'separator-tool-item)
 
-    ;; Icon from file
-    (toolbar-append toolbar "Vertical"
-     :icon #p"clg:examples;test.xpm"
-     :tooltip-text "Vertical toolbar layout"
-     :tooltip-private-text "Toolbar/Vertical"
-     :callback #'(lambda () (setf (toolbar-orientation toolbar) :vertical)))
+   :child (make-instance 'tool-button
+	   :label "Horizontal" :stock "gtk-go-forward"
+	   :tip-text "Horizontal toolbar layout"
+	   :tip-private "Toolbar/Horizontal"
+	   :signal (list 'clicked 
+		    #'(lambda (toolbar) 
+			(setf (toolbar-orientation toolbar) :horizontal))
+		    :object :parent))
 
-    (toolbar-append toolbar :space)
-    
-    ;; Stock icon
-    (toolbar-append toolbar "Icons"
-     :icon "gtk-execute"
-     :tooltip-text "Only show toolbar icons"
-     :tooltip-private-text "Toolbar/IconsOnly"
-     :callback #'(lambda () (setf (toolbar-style toolbar) :icons)))
-    
-    ;; Icon from pixmap data
-    (toolbar-append toolbar "Text" 
-     :icon gtk-mini-xpm
-     :tooltip-text "Only show toolbar text"
-     :tooltip-private-text "Toolbar/TextOnly"
-     :callback #'(lambda () (setf (toolbar-style toolbar) :text)))
-  
-    (toolbar-append toolbar "Both"
-     :tooltip-text "Show toolbar icons and text"
-     :tooltip-private-text "Toolbar/Both"
-     :callback #'(lambda () (setf (toolbar-style toolbar) :both)))
+   :child (make-instance 'tool-button
+	   :label "Vertical" :stock "gtk-go-down"
+	   :tip-text "Vertical toolbar layout"
+	   :tip-private "Toolbar/Vertical"
+	   :signal (list 'clicked 
+		    #'(lambda (toolbar) 
+			(setf (toolbar-orientation toolbar) :vertical))
+		    :object :parent))
 
-    (toolbar-append toolbar :space)
+   :child (make-instance 'separator-tool-item)
 
-    (toolbar-append toolbar (make-instance 'entry)
-     :tooltip-text "This is an unusable GtkEntry"
-     :tooltip-private-text "Hey don't click me!")
+   :children (make-radio-group 'radio-tool-button
+	      '((:label "Icons" :stock "gtk-justify-left"
+		 :tip-text "Only show toolbar icons"
+	         :tip-private "Toolbar/IconsOnly"
+		 :value :icons)
+		(:label "Both" :stock "gtk-justify-center"
+		 :tip-text "Show toolbar icons and text"
+		 :tip-private "Toolbar/Both"
+		 :value :both :active t)
+		(:label "Text" :stock "gtk-justify-right"
+	         :tip-text "Show toolbar text"
+	         :tip-private "Toolbar/TextOnly"
+		 :value :text))
+	      (list
+	       #'(lambda (toolbar style) 
+		   (setf (toolbar-style toolbar) style))
+	       :object :parent))
 
-    (toolbar-append toolbar :space)
-    
-;;     (toolbar-append-item
-;;      toolbar "Small" ;(pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Use small spaces"
-;;      :tooltip-private-text "Toolbar/Small"
-;;      :callback #'(lambda () (setf (toolbar-space-size toolbar) 5)))
-    
-;;     (toolbar-append-item
-;;      toolbar "Big" ;(pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Use big spaces"
-;;      :tooltip-private-text "Toolbar/Big"
-;;      :callback #'(lambda () (setf (toolbar-space-size toolbar) 10)))
-    
-;;     (toolbar-append toolbar :space)
+   :child (make-instance 'separator-tool-item)
 
-    (toolbar-append
-     toolbar "Enable"
-     :tooltip-text "Enable tooltips"
-     :callback #'(lambda () (toolbar-enable-tooltips toolbar)))
+   :child (make-instance 'tool-item
+	   :child (make-instance 'entry)
+	   :tip-text "This is an unusable GtkEntry"
+	   :tip-private "Hey don't click me!")
 
-    (toolbar-append
-     toolbar "Disable"
-     :tooltip-text "Disable tooltips"
-     :callback #'(lambda () (toolbar-disable-tooltips toolbar)))
+   :child (make-instance 'separator-tool-item)
 
-    (toolbar-append toolbar :space)
+   :child (make-instance 'tool-button
+	   :label "Enable" :stock "gtk-add"
+	   :tip-text "Enable tooltips"
+	   :tip-private "Toolbar/EnableTooltips"
+	   :signal (list 'clicked 
+		    #'(lambda (toolbar) 
+			(setf (toolbar-show-tooltips-p toolbar) t))
+		    :object :parent))
 
-;;     (toolbar-append-item
-;;      toolbar "Borders" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Show borders"
-;;      :callback #'(lambda () (setf (toolbar-relief toolbar) :normal)))
-    
-;;     (toolbar-append-item
-;;      toolbar
-;;      "Borderless" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Hide borders"
-;;      :callback #'(lambda () (setf (toolbar-relief toolbar) :none)))
+   :child (make-instance 'tool-button
+	   :label "Disable" :stock "gtk-remove"
+	   :tip-text "Disable tooltips"
+	   :tip-private "Toolbar/DisableTooltips"
+	   :signal (list 'clicked 
+		    #'(lambda (toolbar) 
+			(setf (toolbar-show-tooltips-p toolbar) nil))
+		    :object :parent))
 
-;;     (toolbar-append toolbar :space)
+;;    :child (make-instance 'separator-tool-item)
 
-;;     (toolbar-append-item
-;;      toolbar "Empty" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Empty spaces"
-;;      :callback #'(lambda () (setf (toolbar-space-style toolbar) :empty)))
-
-;;     (toolbar-append-item
-;;      toolbar "Lines" (pixmap-new "clg:examples;test.xpm")
-;;      :tooltip-text "Lines in spaces"
-;;      :callback #'(lambda () (setf (toolbar-space-style toolbar) :line)))
-    
-    ))
+;;    :child (make-instance 'tool-button
+;; 	   :label "GTK" :icon #p"clg:examples;gtk.png"
+;; 	   :tip-text "GTK+ Logo"
+;; 	   :tip-private "Toolbar/GTK+")
+   ))
 
 
 
