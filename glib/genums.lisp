@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: genums.lisp,v 1.7 2005-02-03 22:59:35 espen Exp $
+;; $Id: genums.lisp,v 1.8 2005-02-10 20:27:54 espen Exp $
 
 (in-package "GLIB")
 
@@ -127,6 +127,44 @@
 (defun enum-mapping (type)
   (rest (type-expand-to 'enum type)))
 
+
+;;;; Named enum types
+
+(defmacro define-enum-type (name &rest args)
+  (let ((enum-int (intern (format nil "~A-TO-INT" name)))
+	(int-enum (intern (format nil "INT-TO-~A" name))))
+    `(progn
+       (deftype ,name () '(enum ,@args))
+       (defun ,enum-int (value)
+	 (ecase value
+	   ,@(%map-enum args :enum-int)))
+       (defun ,int-enum (value)
+	 (ecase value
+	   ,@(%map-enum args :int-enum)))
+       (defmethod to-alien-form (form (type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (list ',enum-int form))
+       (defmethod from-alien-form (form (type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (list ',int-enum form))
+       (defmethod to-alien-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 #',enum-int)
+       (defmethod from-alien-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 #',int-enum)
+       (defmethod writer-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (let ((writer (writer-function 'signed)))
+	   #'(lambda (enum location &optional (offset 0))
+	       (funcall writer (,enum-int enum) location offset))))    
+       (defmethod reader-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (let ((reader (reader-function 'signed)))
+	   #'(lambda (location &optional (offset 0))
+	       (,int-enum (funcall reader location offset))))))))
+
+
 ;;;;  Generic flags type
 
 (deftype flags (&rest args)
@@ -210,8 +248,45 @@
   (%query-enum-or-flags-values #'%flags-class-values '%flags-value type))
 
 
+;;;; Named flags types
 
-;;;;
+(defmacro define-flags-type (name &rest args)
+  (let ((flags-int (intern (format nil "~A-TO-INT" name)))
+	(int-flags (intern (format nil "INT-TO-~A" name))))
+    `(progn
+       (deftype ,name () '(flags ,@args))
+       (defun ,flags-int (value)
+	 (ecase value
+	   ,@(%map-enum args :flags-int)))
+       (defun ,int-flags (value)
+	 (ecase value
+	   ,@(%map-enum args :int-flags)))
+       (defmethod to-alien-form (form (type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (list ',flags-int form))
+       (defmethod from-alien-form (form (type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (list ',int-flags form))
+       (defmethod to-alien-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 #',flags-int)
+       (defmethod from-alien-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 #',int-flags)
+       (defmethod writer-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (let ((writer (writer-function 'signed)))
+	   #'(lambda (flags location &optional (offset 0))
+	       (funcall writer (,flags-int flags) location offset))))    
+       (defmethod reader-function ((type (eql ',name)) &rest args)
+	 (declare (ignore type args))
+	 (let ((reader (reader-function 'signed)))
+	   #'(lambda (location &optional (offset 0))
+	       (,int-flags (funcall reader location offset))))))))
+
+
+
+;;;; Type definition by introspection
 
 (defun expand-enum-type (type-number forward-p options)
   (declare (ignore forward-p))
@@ -232,7 +307,9 @@
 	    #'(lambda (mapping) (eq (second mapping) nil)) mappings))))
     `(progn
        (register-type ',type ,(find-type-name type-number))
-       (deftype ,type () '(,super ,@expanded-mappings)))))
+       ,(ecase super
+	  (enum `(define-enum-type ,type ,@expanded-mappings))
+	  (flags `(define-flags-type ,type ,@expanded-mappings))))))
 
 
 (register-derivable-type 'enum "GEnum" 'expand-enum-type)
