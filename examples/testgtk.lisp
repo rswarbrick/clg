@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.10 2004-12-05 13:57:10 espen Exp $
+;; $Id: testgtk.lisp,v 1.11 2004-12-17 00:45:00 espen Exp $
 
 
 ;;; Some of the code in this file are really outdatet, but it is
@@ -238,7 +238,8 @@
 			      (if (widget-visible-p button+1)
 				  (widget-hide button+1)
 				(widget-show button+1))))
-	  (table-attach table button column (1+ column) row (1+ row)))))
+	  (table-attach table button column (1+ column) row (1+ row)
+			:options '(:expand :fill)))))
     (widget-show-all table)))
 
 
@@ -1062,25 +1063,25 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	 (table (make-instance 'table :n-rows 3 :n-columns 2 :homogeneous t 
 			              :parent frame)))
 
-    (table-attach table (create-label label1) 0 1 0 1)
+    (table-attach table (create-label label1) 0 1 0 1 :options '(:expand :fill))
     (let ((check-button (make-instance 'check-button :label "Resize")))
-      (table-attach table check-button 0 1 1 2)
+      (table-attach table check-button 0 1 1 2 :options '(:expand :fill))
       (signal-connect
        check-button 'toggled #'toggle-resize :object (paned-child1 paned)))
     (let ((check-button (make-instance 'check-button :label "Shrink")))
-      (table-attach table check-button 0 1 2 3)
+      (table-attach table check-button 0 1 2 3 :options '(:expand :fill))
       (setf (toggle-button-active-p check-button) t)
       (signal-connect
        check-button 'toggled #'toggle-shrink :object (paned-child1 paned)))
 
-    (table-attach table (create-label label2) 1 2 0 1)
+    (table-attach table (create-label label2) 1 2 0 1 :options '(:expand :fill))
     (let ((check-button (make-instance 'check-button :label "Resize")))
-      (table-attach table check-button 1 2 1 2)
+      (table-attach table check-button 1 2 1 2 :options '(:expand :fill))
       (setf (toggle-button-active-p check-button) t)
       (signal-connect
        check-button 'toggled #'toggle-resize :object (paned-child2 paned)))
     (let ((check-button (make-instance 'check-button :label "Shrink")))
-      (table-attach table check-button 1 2 2 3)
+      (table-attach table check-button 1 2 2 3 :options '(:expand :fill))
       (setf (toggle-button-active-p check-button) t)
       (signal-connect
        check-button 'toggled #'toggle-shrink :object (paned-child2 paned)))
@@ -1170,18 +1171,19 @@ This one is underlined (こんにちは) in quite a funky fashion"
    (widget-events window) 
    '(:pointer-motion-mask :pointer-motion-hint-mask))
 
-  (let ((table (make-instance 'table :n-rows 2 :n-columns 2 :parent window)))
-    (let ((ruler (make-instance 'h-ruler
+  (let ((table (make-instance 'table :n-rows 2 :n-columns 2 :parent window))
+	(h-ruler (make-instance 'h-ruler
 		  :metric :centimeters :lower 100.0d0 :upper 0.0d0
-		  :position 0.0d0 :max-size 20.0d0)))
-      (signal-connect window 'motion-notify-event #'widget-event :object ruler)
-      (table-attach table ruler 1 2 0 1 :y-options '(:fill)))
-    (let ((ruler (make-instance 'v-ruler
+		  :position 0.0d0 :max-size 20.0d0))
+	(v-ruler (make-instance 'v-ruler
 	          :lower 5.0d0 :upper 15.0d0 
 		  :position 0.0d0 :max-size 20.0d0)))
-      (signal-connect window 'motion-notify-event #'widget-event :object ruler)
-      (table-attach table ruler 0 1 1 2 :x-options '(:fill)))))
-
+    (signal-connect window 'motion-notify-event
+     #'(lambda (event)
+	 (widget-event h-ruler event)
+	 (widget-event v-ruler event)))
+    (table-attach table h-ruler 1 2 0 1 :options :fill :x-options :expand)
+    (table-attach table v-ruler 0 1 1 2 :options :fill :y-options :expand)))
 
 
 ;;; Scrolled window
@@ -1208,6 +1210,42 @@ This one is underlined (こんにちは) in quite a funky fashion"
 		  :label (format nil "button (~D,~D)~%" i j))))
 	    (table-attach table button i (1+ i) j (1+ j)))))
       (widget-show-all scrolled-window)))
+
+
+;;; Size group
+
+(define-simple-dialog create-size-group (dialog "Size Group" :resizable nil)
+  (let ((size-group (make-instance 'size-group)))
+    (flet ((create-frame (label rows)
+	     (let ((table (make-instance 'table 
+			   :n-rows (length rows) :n-columns 2 :homogeneous nil
+			   :row-spacing 5 :column-spacing 10 :border-width 5)))
+	       (loop
+		for row in rows
+		for i from 0
+		do (table-attach table 
+		    (create-label (first row) :xalign 0 :yalign 1)
+		    0 1 i (1+ i) :x-options '(:expand :fill))
+		   (let ((combo (make-instance 'combo-box 
+				 :content (rest row) :active 0)))
+		     (size-group-add-widget size-group combo)
+		     (table-attach table combo 1 2 i (1+ i))))
+	       (make-instance 'frame :label label :child table))))
+
+      (make-instance 'v-box
+       :parent dialog :border-width 5 :spacing 5 :show-all t
+       :child (create-frame "Color Options"
+	       '(("Foreground" "Red" "Green" "Blue")
+		 ("Background" "Red" "Green" "Blue")))
+       :child (create-frame "Line Options"
+	       '(("Dashing" "Solid" "Dashed" "Dotted")
+		 ("Line ends" "Square" "Round" "Arrow")))
+       :child (create-check-button "Enable grouping"
+	       #'(lambda (active)
+		   (setf 
+		    (size-group-mode size-group) 
+		    (if active :horizontal :none)))
+	       t)))))
 
 
 ;;; Shapes
@@ -1507,7 +1545,86 @@ This one is underlined (こんにちは) in quite a funky fashion"
 
 (define-simple-dialog create-text (dialog "Text" :default-width 400
 					         :default-height 400)
-  (make-instance 'text-view :border-width 10  :parent dialog :visible t))  
+  (let* ((text-view (make-instance 'text-view 
+		     :border-width 10 :visible t :wrap-mode :word))
+	 (buffer (text-view-buffer text-view))
+	 (active-tags ()))
+
+    (text-buffer-create-tag buffer "Bold" :weight :bold)
+    (text-buffer-create-tag buffer "Italic" :style :italic)
+    (text-buffer-create-tag buffer "Underline" :underline :single)
+    
+    (flet ((create-toggle-callback (tag-name)
+	     (let ((tag (text-tag-table-lookup 
+			 (text-buffer-tag-table buffer) tag-name)))
+	       #'(lambda (active)
+		   (unless (eq (and (find tag active-tags) t) active)
+		     ;; user activated
+		     (if active 
+			 (push tag active-tags)
+		       (setq active-tags (delete tag active-tags)))
+		     (multiple-value-bind (start end)
+			 (text-buffer-get-selection-bounds buffer)
+		       (if active 
+			   (text-buffer-apply-tag buffer tag start end)
+			 (text-buffer-remove-tag buffer tag start end))))))))
+
+      (let* ((actions 
+	      (make-instance 'action-group 
+	       :action (create-toggle-action 
+			"Bold" "gtk-bold" "Bold" "<control>B" "Bold" nil
+			(create-toggle-callback "Bold"))
+	       :action (create-toggle-action 
+			"Italic" "gtk-italic" "Italic" "<control>I" "Italic" nil
+			(create-toggle-callback "Italic"))
+	       :action (create-toggle-action 
+			"Underline" "gtk-underline" "Underline" "<control>U" "Underline" nil
+			(create-toggle-callback "Underline"))))
+	     (ui (make-instance 'ui-manager)))
+      
+	(ui-manager-insert-action-group ui actions)
+	(ui-manager-add-ui ui 
+	 '((:toolbar "ToolBar"
+	    (:toolitem "Bold")
+	    (:toolitem "Italic")
+	    (:toolitem "Underline"))))
+
+	;; Callback to activate/deactivate toolbar buttons when cursor
+	;; is moved
+	(signal-connect buffer 'mark-set
+	 #'(lambda (location mark)
+	     (declare (ignore mark))
+	     (text-tag-table-foreach (text-buffer-tag-table buffer)
+	      #'(lambda (tag)
+		  (let ((active
+			 (or 
+			  (and
+			   (text-iter-has-tag-p location tag)
+			   (not (text-iter-begins-tag-p location tag)))
+			  (text-iter-ends-tag-p location tag))))
+		    (unless (eq active (and (find tag active-tags) t))
+		      (if active 
+			  (push tag active-tags)
+			(setq active-tags (delete tag active-tags)))
+		      (setf 
+		       (toggle-action-active-p
+			(action-group-get-action actions (text-tag-name tag)))
+		       active)))))))
+
+	;; Callback to apply active tags when a character is inserted
+	(signal-connect buffer 'insert-text
+         #'(lambda (iter &rest args)
+	     (declare (ignore args))
+	     (let ((before (text-buffer-get-iter-at-offset buffer 
+			    (1- (text-iter-offset iter)))))
+	       (loop
+		for tag in active-tags
+		do (text-buffer-apply-tag buffer tag before iter))))
+	 :after t)
+	
+	(container-add dialog (ui-manager-get-widget ui "/ToolBar") :expand nil)
+	(container-add dialog text-view)))))
+
 
 ;;; Toggle buttons
 
@@ -1641,11 +1758,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
       (make-instance 'v-box
        :parent dialog :border-width 10 :spacing 10 :show-all t
        :child (create-button "button1" "This is button 1" "ContextHelp/button/1")
-       :child (create-button "button2" "This is button 2. This is also a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")))
-
-    (let ((close-button (first (container-children (dialog-action-area dialog)))))
-    (tooltips-set-tip tooltips close-button "Push this button to close window"
- 	 "ContextHelp/buttons/Close"))))
+       :child (create-button "button2" "This is button 2. This is also a really long tooltip which probably won't fit on a single line and will therefore need to be wrapped. Hopefully the wrapping will work correctly." "ContextHelp/button/2")))))
 
 
 ;;; UI Manager
@@ -1677,7 +1790,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
      (:separator "Sep1")
      (:toolitem "Logo"))))
 
-(define-simple-dialog create-ui-manager (dialog "UI Manager")
+(define-toplevel create-ui-manager (window "UI Manager")
   (let ((actions 
 	 (make-instance 'action-group 
 	  :name "Actions"
@@ -1687,10 +1800,10 @@ This one is underlined (こんにちは) in quite a funky fashion"
 	  :action (create-action "ShapeMenu" nil "_Shape")
 	  :action (create-action "HelpMenu" nil "_Help")
 	  :action (create-action "New" "gtk-new" "_New" "<control>N" "Create a new file")
-	  :action (create-action "Open" "gtk-open" "_Open" "<control>O" "Open a file")
+	  :action (create-action "Open" "gtk-open" "_Open" "<control>O" "Open a file" #'create-file-chooser)
 	  :action (create-action "Save" "gtk-save" "_Save" "<control>S" "Save current file")
 	  :action (create-action "SaveAs" "gtk-save" "Save _As..." "" "Save to a file")
-	  :action (create-action "Quit" "gtk-quit" "_Quit" "<control>Q" "Quit")
+	  :action (create-action "Quit" "gtk-quit" "_Quit" "<control>Q" "Quit" (list #'widget-destroy :object window))
 	  :action (create-action "About" nil "_About" "<control>A" "About")
 	  :action (create-action "Logo" "demo-gtk-logo" "" nil "GTK+")
 	  :action (create-toggle-action "Bold" "gtk-bold" "_Bold" "<control>B" "Bold" t)
@@ -1708,10 +1821,10 @@ This one is underlined (こんにちは) in quite a funky fashion"
     (ui-manager-insert-action-group ui actions)
     (ui-manager-add-ui ui *ui-description*)
 
-    (window-add-accel-group dialog (ui-manager-accel-group ui))
+    (window-add-accel-group window (ui-manager-accel-group ui))
     
     (make-instance 'v-box 
-     :parent dialog :show-all t
+     :parent window :show-all t
      :child (list 
 	     (ui-manager-get-widget ui "/MenuBar")
 	     :expand nil :fill nil)
@@ -1763,6 +1876,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("rulers" create-rulers)
 ;; 	    ("saved position")
  	    ("scrolled windows" create-scrolled-windows)
+	    ("size group" create-size-group)
 ;; 	    ("shapes" create-shapes)
  	    ("spinbutton" create-spins)
  	    ("statusbar" create-statusbar)
