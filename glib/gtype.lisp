@@ -15,11 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.16 2002-03-24 12:56:03 espen Exp $
+;; $Id: gtype.lisp,v 1.17 2004-10-27 14:59:00 espen Exp $
 
 (in-package "GLIB")
 
 (use-prefix "g")
+
+;(load-shared-library "libgobject-2.0" :init "g_type_init")
 
 ;;;; 
 
@@ -68,9 +70,11 @@
   (let ((type-number
 	 (etypecase id
 	   (integer id)
-	   (string (find-type-number id t)))))
+	   (string (find-type-number id t))
+	   (symbol (gethash id *type-to-number-hash*)))))
     (setf (gethash type *type-to-number-hash*) type-number)
-    (setf (gethash type-number *number-to-type-hash*) type)
+    (unless (symbolp id)
+      (setf (gethash type-number *number-to-type-hash*) type))
     type-number))
 
 (defbinding %type-from-name () type-number
@@ -167,21 +171,23 @@
 ;;;; Metaclass for subclasses of ginstance
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginstance-class (proxy-class)))
+  (defclass ginstance-class (proxy-class)
+    ()))
 
 
 (defmethod shared-initialize ((class ginstance-class) names
 			      &rest initargs &key name alien-name
-			      size ref unref)
+			      ref unref)
   (declare (ignore initargs names))
   (let* ((class-name (or name (class-name class)))
 	 (type-number
 	  (find-type-number
 	   (or (first alien-name) (default-alien-type-name class-name)) t)))
     (register-type class-name type-number)
-    (let ((size (or size (type-instance-size type-number))))
-      (declare (special size))
-      (call-next-method)))
+    (if (getf initargs :size)
+	(call-next-method)
+      (let ((size (type-instance-size type-number)))
+	(apply #'call-next-method class names :size (list size) initargs))))
 
   (when ref
     (let ((ref (mkbinding (first ref) 'pointer 'pointer)))
@@ -189,7 +195,7 @@
        (slot-value class 'copy)
        #'(lambda (type location)
 	   (declare (ignore type))
-	   (funcall ref location)))))     
+	   (funcall ref location)))))
   (when unref
     (let ((unref (mkbinding (first unref) 'nil 'pointer)))
       (setf

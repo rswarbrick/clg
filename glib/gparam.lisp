@@ -15,22 +15,29 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.6 2002-03-19 17:01:42 espen Exp $
+;; $Id: gparam.lisp,v 1.7 2004-10-27 14:59:00 espen Exp $
 
 (in-package "GLIB")
 
 (deftype gvalue () 'pointer)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defbinding (size-of-gvalue "size_of_gvalue") () unsigned-int))
+
 (defconstant +gvalue-size+ (+ (size-of 'type-number) (* 2 (size-of 'double-float))))
+(defconstant +gvalue-size+ #.(size-of-gvalue))
+
 (defconstant +gvalue-value-offset+ (size-of 'type-number))
 
 (defbinding (gvalue-init "g_value_init") () nil
+  (value gvalue)
   (type type-number))
 
-(defun gvalue-new (type)
+(defun gvalue-new (type &optional (value nil value-p))
   (let ((gvalue (allocate-memory +gvalue-size+)))
-    (setf (system:sap-ref-32 gvalue 0) type)
-;    (gvalue-init (type-number-of type))
+    (gvalue-init gvalue (find-type-number type))
+    (when value-p
+      (gvalue-set gvalue value))
     gvalue))
 
 (defun gvalue-free (gvalue free-content)
@@ -56,6 +63,11 @@
   value)
 
 
+(deftype-method unreference-alien gvalue (type-spec location)
+  `(gvalue-free ,location nil))
+
+
+
 (deftype param-flag-type ()
   '(flags
     (:readable 1)
@@ -65,7 +77,8 @@
     (:lax-validation 16)
     (:private 32)))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+;(eval-when (:compile-toplevel :load-toplevel :execute)
+;; TODO: rename to param-spec
   (defclass param (ginstance)
     ((name
       :allocation :alien
@@ -95,7 +108,7 @@
       :type string))
     (:metaclass ginstance-class)
     (:ref "g_param_spec_ref")
-    (:unref "g_param_spec_unref")))
+    (:unref "g_param_spec_unref"));)
 
 
 (defclass param-char (param)
@@ -303,6 +316,3 @@
 (defclass param-object (param)
   ()
   (:metaclass ginstance-class))
-
-
-

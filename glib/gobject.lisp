@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.12 2002-04-02 14:57:19 espen Exp $
+;; $Id: gobject.lisp,v 1.13 2004-10-27 14:58:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -28,22 +28,52 @@
     (:copy %object-ref)
     (:free %object-unref)))
 
+
 (defmethod initialize-instance ((object gobject) &rest initargs)
-  (declare (ignore initargs))
-  (setf  (slot-value object 'location) (%gobject-new (type-number-of object)))
-  (call-next-method))
+  (let ((slotds (class-slots (class-of object)))
+	(names (make-array 0 :adjustable t :fill-pointer t))
+	(values (make-array 0 :adjustable t :fill-pointer t)))
+
+    (loop 
+     as tmp = initargs then (cddr tmp) while tmp
+     as key = (first tmp)
+     as value = (second tmp)
+     as slotd = (find-if
+		 #'(lambda (slotd)
+		     (member key (slot-definition-initargs slotd)))
+		 slotds)
+     when (and (typep slotd 'effective-gobject-slot-definition)
+	       (slot-value slotd 'construct))
+     do (let ((type (find-type-number (slot-definition-type slotd))))
+	  (vector-push-extend (slot-definition-pname slotd) names)
+	  (vector-push-extend (gvalue-new type value) values)
+	  (remf initargs key)))
+
+    (setf  
+     (slot-value object 'location) 
+     (if (zerop (length names))
+	 (%gobject-new (type-number-of object))
+       (%gobject-newvv (type-number-of object) (length names) names values))))
+  (apply #'call-next-method object initargs))
+
+
 
 (defbinding (%gobject-new "g_object_new") () pointer
   (type type-number)
   (nil null))
 
+(defbinding (%gobject-newvv "g_object_newvv") () pointer
+  (type type-number)
+  (n-parameters unsigned-int)
+  (names (vector string))
+  (values (vector gvalue)))
+
 
 (defbinding %object-ref (type location) pointer
   (location pointer))
 
-(defbinding %object-unref (type location) nil
-  (location pointer))
-
+ (defbinding %object-unref (type location) nil
+   (location pointer))
 
 (defun object-ref (object)
   (%object-ref nil (proxy-location object)))
@@ -103,15 +133,22 @@
 ;;;; Metaclass used for subclasses of gobject
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass gobject-class (ginstance-class))
+  (defclass gobject-class (ginstance-class)
+    ())
 
   (defclass direct-gobject-slot-definition (direct-virtual-slot-definition)
-    ((pname :reader slot-definition-pname)))
+    ((pname :reader slot-definition-pname :initarg :pname)
+     (readable :initform t :reader slot-readable-p :initarg :readable)
+     (writable :initform t :reader slot-writable-p :initarg :writable)
+     (construct :initform nil :initarg :construct)))
 
-  (defclass effective-gobject-slot-definition
-    (effective-virtual-slot-definition)))
+  (defclass effective-gobject-slot-definition (effective-virtual-slot-definition)
+    ((pname :reader slot-definition-pname :initarg :pname)
+     (readable :reader slot-readable-p :initarg :readable)
+     (writable :reader slot-writable-p :initarg :writable)
+     (construct :initarg :construct))))
 
-  
+
 
 ; (defbinding object-class-install-param () nil
 ;   (class pointer)
@@ -125,51 +162,75 @@
 (defun signal-name-to-string (name)
   (substitute #\_ #\- (string-downcase (string name))))
 
-(defmethod initialize-instance :after ((slotd direct-gobject-slot-definition)
-				       &rest initargs &key pname)
-  (declare (ignore initargs))
-  (when pname
-    (setf
-     (slot-value slotd 'pname)
-     (signal-name-to-string (slot-definition-name slotd)))))
 
-(defmethod direct-slot-definition-class ((class gobject-class) initargs)
+(defmethod direct-slot-definition-class ((class gobject-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'direct-gobject-slot-definition))
     (t (call-next-method))))
 
-(defmethod effective-slot-definition-class ((class gobject-class) initargs)
+(defmethod effective-slot-definition-class ((class gobject-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'effective-gobject-slot-definition))
     (t (call-next-method))))
 
-(defmethod compute-virtual-slot-accessors
-    ((class gobject-class) (slotd effective-gobject-slot-definition)
-     direct-slotds)
-  (with-slots (type) slotd
-    (let ((pname (slot-definition-pname (first direct-slotds)))
-	  (type-number (find-type-number type)))
-      (list
+(defmethod compute-effective-slot-definition-initargs ((class gobject-class) direct-slotds)
+  (if (eq (most-specific-slot-value direct-slotds 'allocation) :property)
+      (nconc 
+       (list :pname (signal-name-to-string 
+		     (most-specific-slot-value direct-slotds 'pname))
+	     :readable (most-specific-slot-value direct-slotds 'readable)
+	     :writable (most-specific-slot-value direct-slotds 'writable)
+	     :construct (most-specific-slot-value direct-slotds 'construct))
+       (call-next-method))
+    (call-next-method)))
+
+
+(defmethod initialize-internal-slot-functions ((slotd effective-gobject-slot-definition))
+  (let* ((type (slot-definition-type slotd))
+	 (pname (slot-definition-pname slotd))
+	 (type-number (find-type-number type)))
+    (unless (slot-boundp slotd 'reader-function)
+      (setf 
+       (slot-value slotd 'reader-function)
+       (if (slot-readable-p slotd)
+	   #'(lambda (object)
+	       (with-gc-disabled
+		   (let ((gvalue (gvalue-new type-number)))
+		     (%object-get-property object pname gvalue)
+		     (unwind-protect
+			  (funcall
+			   (intern-reader-function (type-from-number type-number)) gvalue +gvalue-value-offset+) ; temporary workaround for wrong topological sorting of types
+		       (gvalue-free gvalue t)))))
+	   #'(lambda (value object)
+	       (error "Slot is not readable: ~A" (slot-definition-name slotd))))))
+    
+    (unless (slot-boundp slotd 'writer-function)
+      (setf 
+       (slot-value slotd 'writer-function)
+       (if (slot-writable-p slotd)
+	   #'(lambda (value object)
+	       (with-gc-disabled
+		   (let ((gvalue (gvalue-new type-number)))
+		     (funcall
+		      (intern-writer-function (type-from-number type-number)) ; temporary
+		      value gvalue +gvalue-value-offset+)
+		     (%object-set-property object pname gvalue)
+		     (funcall
+		      (intern-destroy-function (type-from-number type-number)) ; temporary
+		      gvalue +gvalue-value-offset+)
+		     (gvalue-free gvalue nil)
+		     value)))
+ 	   #'(lambda (value object)
+ 	       (error "Slot is not writable: ~A" (slot-definition-name slotd))))))
+    
+    (unless (slot-boundp slotd 'boundp-function)
+      (setf 
+       (slot-value slotd 'boundp-function)
        #'(lambda (object)
-	   (with-gc-disabled
-	     (let ((gvalue (gvalue-new type-number)))
-	       (%object-get-property object pname gvalue)
-	       (unwind-protect
-		   (funcall
-		    (intern-reader-function (type-from-number type-number)) gvalue +gvalue-value-offset+) ; temporary workaround for wrong topological sorting of types
-		 (gvalue-free gvalue t)))))
-       #'(lambda (value object)
-	   (with-gc-disabled
-  	     (let ((gvalue (gvalue-new type-number)))
-	       (funcall
-		(intern-writer-function (type-from-number type-number)) ; temporary
-		value gvalue +gvalue-value-offset+)
-	       (%object-set-property object pname gvalue)
-	       (funcall
-		(intern-destroy-function (type-from-number type-number)) ; temporary
-		gvalue +gvalue-value-offset+)
-	       (gvalue-free gvalue nil)
-	       value)))))))
+	   (declare (ignore object))
+	   t))))
+  (call-next-method))
+
 
 (defmethod validate-superclass ((class gobject-class)
 				(super pcl::standard-class))
@@ -208,35 +269,50 @@
   (intern
    (format
     nil "~A-~A~A" class-name slot-name
-    (if (eq 'boolean type) "-P" ""))))
+    (if (eq type 'boolean) "-P" ""))))
 
 (defun expand-gobject-type (type-number &optional options
 			    (metaclass 'gobject-class))
   (let* ((supers (cons (supertype type-number) (implements type-number)))
 	 (class  (type-from-number type-number))
-	 (override-slots (getf options :slots))
+	 (manual-slots (getf options :slots))
 	 (expanded-slots
 	  (mapcar
 	   #'(lambda (param)
 	       (with-slots (name flags value-type documentation) param
 	         (let* ((slot-name (default-slot-name name))
-			(slot-type value-type) ;(type-from-number value-type t))
+;			(slot-type value-type) ;(type-from-number value-type t))
+			(slot-type (or (type-from-number value-type) value-type))
 			(accessor
-			 (default-slot-accessor class slot-name (type-from-number slot-type)))) ; temporary workaround for wrong topological sorting of types
+			 (default-slot-accessor class slot-name slot-type)));(type-from-number slot-type)))) ; temporary workaround for wrong topological sorting of types
+
 		   `(,slot-name
 		     :allocation :property
 		     :pname ,name
 		     ,@(cond
 			((and
 			  (member :writable flags)
-			  (member :readable flags))
+			  (member :readable flags)
+			  (not (member :construct-only flags)))
 			 (list :accessor accessor))
-			((member :writable flags)
+			((and (member :writable flags)
+			      (not (member :construct-only flags)))
 			 (list :writer `(setf ,accessor)))
 			((member :readable flags)
 			 (list :reader accessor)))
 		     ,@(when (or
+			      (not (member :writable flags))
+			      (member :construct-only flags))
+		         (list :writable nil))
+		     ,@(when (not (member :readable flags))
+		         (list :readable nil))
+		     ,@(when (or 
 			      (member :construct flags)
+			      (member :construct-only flags))
+		         (list :construct t))
+		     ,@(when (or
+			      (member :construct flags)
+			      (member :construct-only flags)
 			      (member :writable flags))
 			 (list :initarg (intern (string slot-name) "KEYWORD")))
 		     :type ,slot-type
@@ -244,7 +320,7 @@
 			 (list :documentation documentation))))))
 	   (query-object-class-properties type-number))))
 
-    (dolist (slot-def override-slots)
+    (dolist (slot-def (reverse manual-slots))
       (let ((name (car slot-def))
 	    (pname (getf (cdr slot-def) :pname)))
 	(setq

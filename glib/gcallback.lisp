@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gcallback.lisp,v 1.8 2002-03-24 15:43:16 espen Exp $
+;; $Id: gcallback.lisp,v 1.9 2004-10-27 14:58:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -54,7 +54,7 @@
 		   (unwind-protect
 		       (let ((result (apply callback-function (reverse args))))
 			 (when return-type
-			   (gvalue-set (print return-value) result))))
+			   (gvalue-set return-value result))))
 		
 		 (continue nil :report "Return from callback function"
 		  (when return-type
@@ -160,6 +160,11 @@
 
 
 (defmethod signal-connect ((gobject gobject) signal function &key after object)
+"Connects a callback function to a signal for a particular object. If :OBJECT 
+ is T, the object connected to is passed as the first argument to the callback 
+ function, or if :OBJECT is any other non NIL value, it is passed as the first 
+ argument instead. If :AFTER is non NIL, the handler will be called after the 
+ default handler of the signal."
   (let ((callback-id
 	 (make-callback-closure
 	  (cond

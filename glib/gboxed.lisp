@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.9 2002-03-19 17:06:11 espen Exp $
+;; $Id: gboxed.lisp,v 1.10 2004-10-27 14:58:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -40,7 +40,8 @@
 ;;;; Metaclass for boxed classes
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass boxed-class (proxy-class))
+  (defclass boxed-class (proxy-class)
+    ())
 
 
   (defmethod shared-initialize ((class boxed-class) names

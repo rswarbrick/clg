@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.1 2002-01-20 14:05:27 espen Exp $
+;; $Id: ginterface.lisp,v 1.2 2004-10-27 14:58:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -23,7 +23,8 @@
 
 ;;;; 
 
-(defclass ginterface ())
+(defclass ginterface ()
+  ())
 
 (deftype-method translate-type-spec ginterface (type-spec)
   (declare (ignore type-spec))
@@ -48,7 +49,8 @@
 ;;;; Metaclass for interfaces
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginterface-class (pcl::standard-class)))
+  (defclass ginterface-class (virtual-slot-class)
+    ()))
 
 
 (defmethod shared-initialize ((class ginterface-class) names
@@ -69,10 +71,10 @@
 
 ;;;;
 
-(defun expand-ginterface-type (type-number &rest args)
+(defun expand-ginterface-type (type-number options &rest args)
   (declare (ignore args))
   `(defclass ,(type-from-number type-number) (ginterface)
-     ()
+     ,(getf options :slots)
      (:metaclass ginterface-class)
      (:alien-name ,(find-type-name type-number))))
 

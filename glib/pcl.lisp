@@ -26,111 +26,94 @@
 ;;; Modifications for better AMOP conformance
 ;;; Copyright (C) 2001 Espen S. Johnsen <esj@stud.cs.uit.no>
 
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (setf (ext:package-lock (find-package "PCL")) nil))
+
 (in-package "PCL")
 
-;;;; Adding initargs parameter to change-class
+(defstruct slot-info
+  (name nil :type symbol)
+  ;;
+  ;; Specified slot allocation.or :INSTANCE.
+  (allocation :instance :type symbol)
+  ;;
+  ;; Specified slot type or T.
+  (type t :type (or symbol list number)))
 
-(defun change-class-internal (instance new-class initargs)
-  (let* ((old-class (class-of instance))
-	 (copy (allocate-instance new-class))
-	 (new-wrapper (get-wrapper copy))
-	 (old-wrapper (class-wrapper old-class))
-	 (old-layout (wrapper-instance-slots-layout old-wrapper))
-	 (new-layout (wrapper-instance-slots-layout new-wrapper))
-	 (old-slots (get-slots instance))
-	 (new-slots (get-slots copy))
-	 (old-class-slots (wrapper-class-slots old-wrapper)))
 
+(defmethod compute-slots :around ((class standard-class))
+  (loop with slotds = (call-next-method) and location = -1
+	for slot in slotds do
+	  (setf (slot-definition-location slot)
+		(case (slot-definition-allocation slot)
+		  (:instance
+		   (incf location))
+		  (:class
+		   (let* ((name (slot-definition-name slot))
+			  (from-class (slot-definition-allocation-class slot))
+			  (cell (assq name (class-slot-cells from-class))))
+		     (assert (consp cell))
+		     cell))))
+	  (initialize-internal-slot-functions slot)
+	finally
+	  (return slotds)))
+
+
+
+(defun update-slots (class eslotds)
+  (collect ((instance-slots) (class-slots))
+    (dolist (eslotd eslotds)
+      (case (slot-definition-allocation eslotd)
+	(:instance (instance-slots eslotd))
+	(:class (class-slots eslotd))))
     ;;
-    ;; "The values of local slots specified by both the class Cto and
-    ;; Cfrom are retained.  If such a local slot was unbound, it remains
-    ;; unbound."
-    ;;     
-    (iterate ((new-slot (list-elements new-layout))
-	      (new-position (interval :from 0)))
-      (let ((old-position (posq new-slot old-layout)))
-	(when old-position
-	  (setf (instance-ref new-slots new-position)
-		(instance-ref old-slots old-position)))))
+    ;; If there is a change in the shape of the instances then the
+    ;; old class is now obsolete.
+    (let* ((nlayout (mapcar #'slot-definition-name
+			    (sort (instance-slots) #'<
+				  :key #'slot-definition-location)))
+	   (nslots (length nlayout))
+	   (nwrapper-class-slots (compute-class-slots (class-slots)))
+	   (owrapper (when (class-finalized-p class)
+		       (class-wrapper class)))
+	   (olayout (when owrapper
+		      (wrapper-instance-slots-layout owrapper)))
+	   (nwrapper
+	    (cond ((null owrapper)
+		   (make-wrapper nslots class))
+		  ;;
+		  ;; We cannot reuse the old wrapper easily when it
+		  ;; has class slot cells, even if these cells are
+		  ;; EQUAL to the ones used in the new wrapper.  The
+		  ;; class slot cells of OWRAPPER may be referenced
+		  ;; from caches, and if we don't change the wrapper,
+		  ;; the caches won't notice that something has
+		  ;; changed.  We could do something here manually,
+		  ;; but I don't think it's worth it.
+		  ((and (equal nlayout olayout)
+			(null (wrapper-class-slots owrapper)))
+		   owrapper)
+		  (t
+		   ;;
+		   ;; This will initialize the new wrapper to have the same
+		   ;; state as the old wrapper.  We will then have to change
+		   ;; that.  This may seem like wasted work (it is), but the
+		   ;; spec requires that we call make-instances-obsolete.
+		   (make-instances-obsolete class)
+		   (class-wrapper class)))))
 
-    ;;
-    ;; "The values of slots specified as shared in the class Cfrom and
-    ;; as local in the class Cto are retained."
-    ;;
-    (iterate ((slot-and-val (list-elements old-class-slots)))
-      (let ((position (posq (car slot-and-val) new-layout)))
-	(when position
-	  (setf (instance-ref new-slots position) (cdr slot-and-val)))))
+      (with-slots (wrapper slots finalized-p) class
+	(update-lisp-class-layout class nwrapper)
+	(setf slots eslotds
+	      (wrapper-instance-slots-layout nwrapper) nlayout
+	      (wrapper-class-slots nwrapper) nwrapper-class-slots
+	      (wrapper-no-of-instance-slots nwrapper) nslots
+	      wrapper nwrapper
+	      finalized-p t))
 
-    ;; Make the copy point to the old instance's storage, and make the
-    ;; old instance point to the new storage.
-    (swap-wrappers-and-slots instance copy)
-
-    (apply #'update-instance-for-different-class copy instance initargs)
-    instance))
-
-
-(fmakunbound 'change-class)
-(defgeneric change-class (instance new-class &rest initargs))
-
-(defmethod change-class ((instance standard-object)
-			 (new-class standard-class)
-			 &rest initargs)
-  (change-class-internal instance new-class initargs))
-
-(defmethod change-class ((instance funcallable-standard-object)
-			 (new-class funcallable-standard-class)
-			 &rest initargs)
-  (change-class-internal instance new-class initargs))
-
-(defmethod change-class ((instance standard-object)
-			 (new-class funcallable-standard-class)
-			 &rest initargs)
-  (declare (ignore initargs))
-  (error "Can't change the class of ~S to ~S~@
-          because it isn't already an instance with metaclass ~S."
-	 instance new-class 'standard-class))
-
-(defmethod change-class ((instance funcallable-standard-object)
-			 (new-class standard-class)
-			 &rest initargs)
-  (declare (ignore initargs))
-  (error "Can't change the class of ~S to ~S~@
-          because it isn't already an instance with metaclass ~S."
-	 instance new-class 'funcallable-standard-class))
-
-(defmethod change-class ((instance t) (new-class symbol) &rest initargs)
-  (change-class instance (find-class new-class) initargs))
-
-
-;;;; Make the class finalization protocol behave as specified in AMOP
-
-(defmethod ensure-class-using-class (name (class pcl-class) &rest args &key)
-  (multiple-value-bind (meta initargs)
-      (ensure-class-values class args)
-    (if (eq (class-of class) meta)
-	(apply #'reinitialize-instance class initargs)
-      (apply #'change-class class meta initargs))
-    (setf (find-class name) class)
-    (inform-type-system-about-class class name)
-    class))
-
-(defmethod finalize-inheritance ((class std-class))
-  (dolist (super (class-direct-superclasses class))
-    (unless (class-finalized-p super) (finalize-inheritance super)))
-  (update-cpl class (compute-class-precedence-list class))
-  (update-slots class (compute-slots class))
-  (update-gfs-of-class class)
-  (update-inits class (compute-default-initargs class))
-  (update-make-instance-function-table class))
-
-(defmethod finalize-inheritance ((class forward-referenced-class))
-  (error "~A can't be finalized" class))
-
-(defun update-class (class &optional finalizep)  
-  (declare (ignore finalizep))
-  (unless (class-has-a-forward-referenced-superclass-p class)
-    (finalize-inheritance class)
-    (dolist (sub (class-direct-subclasses class))
-      (update-class sub))))
+      (unless (eq owrapper nwrapper)
+	(update-inline-access class)
+	(update-pv-table-cache-info class)
+	(maybe-update-standard-class-locations class)))))
 
