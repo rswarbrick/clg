@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.5 2000-08-23 21:36:44 espen Exp $
+;; $Id: glib.lisp,v 1.6 2000-09-04 22:10:26 espen Exp $
 
 
 (in-package "GLIB")
@@ -44,7 +44,15 @@
 
 (deftype quark () 'unsigned)
 
-(define-foreign %quark-get-reserved () quark)
+;(define-foreign %quark-get-reserved () quark)
+
+(define-foreign %quark-from-string () quark
+  (string string))
+
+(defvar *string-counter* 0)
+
+(defun %quark-get-reserved ()
+  (%quark-from-string (format nil "CLG-~D" (incf *string-counter*))))
 
 (defvar *quark-from-object* (make-hash-table))
 (defvar *quark-to-object* (make-hash-table))
@@ -111,7 +119,11 @@
 
 (deftype-method translate-type-spec double-list (type-spec)
   (declare (ignore type-spec))
-  'system-area-pointer)
+  (translate-type-spec 'pointer))
+
+(deftype-method size-of double-list (type-spec)
+  (declare (ignore type-spec))
+  (size-of 'pointer))
 
 (deftype-method translate-to-alien double-list (type-spec list &optional copy)
   (declare (ignore copy))
@@ -152,80 +164,36 @@
 
 
 
-;;; Array
-#|
-(define-foreign ("g_array_new" %array-new) () garray
-  (zero-terminated boolean)
-  (clear boolean)
-  (element-size unsigned-int))
+;;; Vector
 
-(defun array-new (&key zero-terminated clear (element-size 4) initial-contents)
-  (let ((array (%array-new zero-terminated clear element-size)))
-    (when initial-contents
-      (dolist (element initial-contents)
-	(array-append array element)))
-    array))
+(deftype-method translate-type-spec vector (type-spec)
+  (declare (ignore type-spec))
+  (translate-type-spec 'pointer))
 
-(define-foreign ("g_array_free" %array-free) () none
-  (array garray)
-  (free-segment boolean))
+(deftype-method size-of vector (type-spec)
+  (declare (ignore type-spec))
+  (size-of 'pointer))
 
-(defun array-free (array &optional free-data (free-segment t))
-  (when free-data
-    (dotimes (i (array-get-size array))
-      (free (array-get-pointer array i))))
-  (%array-free array free-segment))
+(deftype-method translate-to-alien vector (type-spec vector &optional copy)
+  (declare (ignore copy))
+  (destructuring-bind (element-type &optional (length '*))
+      (cdr (type-expand-to 'vector type-spec))
+    (let ((element-to-alien (translate-to-alien element-type 'element :copy))
+	  (element-size (size-of element-type)))
+      `(let ((vector ,vector))
+	 (let ((c-vector
+		(allocate-memory
+		 ,(if (eq length '*)
+		      `(* ,element-size (length vector))
+		    (* element-size length)))))
+	   (dotimes (i ,(if (eq length '*) '(length vector) length) c-vector)
+	     (setf
+	      (,(sap-ref-fname element-type) c-vector (* i ,element-size))
+	      ,(translate-to-alien element-type '(svref vector i) :copy))))))))
 
-(defmacro with-array (binding &body body)
-  (let ((array (gensym)))
-    (destructuring-bind (var &rest args
-			 &key (free-contents nil) (free-segment t)
-			 &allow-other-keys )
-        binding
-      (remf args :free-contents)
-      (remf args :free-segment)
-      `(let* ((,array (array-new ,@args))
-	      (,var (array-get-data ,array)))
-	 (unwind-protect
-	     ,@body
-	   (array-free ,array ,free-contents ,free-segment))))))
-
-;; cl-gtk.c
-(define-foreign ("g_array_insert_int" array-insert-int) () garray
-  (array garray)
-  (index unsigned-int)
-  (value int))
-
-(defun array-insert-value (array index value)
-  (etypecase value
-    (null (array-insert-int array index 0))
-    (integer (array-insert-int array index value))
-    (string (array-insert-int array index (sap-int (gforeign::pointer-to-sap (%strdup value)))))
-    (pointer (array-insert-int array index (sap-int (gforeign::pointer-to-sap value))))))
-
-(defun array-prepend (array value)
-  (array-insert-value array 0 value))
-
-(defun array-append (array value)
-  (array-insert-value array (array-get-size array) value))
-
-;; cl-gtk.c
-(define-foreign ("g_array_get_int" array-get-int) () int
-  (array garray)
-  (index unsigned-int))
-
-(defun array-get-pointer (array index)
-  (gforeign::sap-to-pointer (int-sap (array-get-int array index))))
-
-;; cl-gtk.c
-(define-foreign ("g_array_get_data" array-get-data) () pointer
-  (array garray))
-
-(define-foreign ("g_array_set_size" array-set-size) () garray
-  (array garray)
-  (size unsigned-int))
-
-;; cl-gtk.c
-(define-foreign ("g_array_get_size" array-get-size) () int
-  (array garray))
-|#
+(deftype-method cleanup-alien vector (type-spec sap &optional copied)
+  (declare (ignore type-spec copied))
+  ;; The individual elements also have to be cleaned up to avoid memory leaks,
+  ;; but this is currently not possible because we can't always tell the
+  ;; length of the vector
+  `(deallocate-memory ,sap))
