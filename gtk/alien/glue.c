@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.6 2004-12-29 21:17:37 espen Exp $ */
+/* $Id: glue.c,v 1.7 2005-01-06 21:54:19 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -112,7 +112,7 @@ gtk_window_get_group (GtkWindow *window)
 
 
 
-/* Window */
+/* Menu */
 
 GdkScreen*
 gtk_menu_get_screen (GtkMenu *menu)
@@ -120,6 +120,25 @@ gtk_menu_get_screen (GtkMenu *menu)
   return (GdkScreen*)g_object_get_data (G_OBJECT (menu), "gtk-menu-explicit-screen");
 }
 
+
+
+/* Toolbar */
+
+GtkTooltips*
+gtk_toolbar_get_tooltips_object (GtkToolbar *toolbar)
+{
+  return toolbar->tooltips;
+}
+
+
+
+/* Tooltips */
+
+gint
+gtk_tooltips_get_enabled (GtkTooltips *tooltips)
+{
+  return tooltips->enabled;
+}
 
 
 /* Layout */
