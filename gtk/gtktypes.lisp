@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.4 2000-10-05 17:30:07 espen Exp $
+;; $Id: gtktypes.lisp,v 1.5 2001-01-28 14:21:04 espen Exp $
 
 
 
@@ -141,91 +141,91 @@
     :accessor widget-child-slots
     :type container-child)
    (name
-    :allocation :arg
+    :allocation :param
     :accessor widget-name
     :initarg :name
     :type string)
    (parent
-    :allocation :arg
+    :allocation :param
     :accessor widget-parent
 ;   :initarg :parent
     :type container)
    (x
-    :allocation :arg
+    :allocation :param
     :accessor widget-x-position
     :initarg :x
     :type int)
    (y
-    :allocation :arg
+    :allocation :param
     :accessor widget-y-position
     :initarg :y
     :type int)
    (width
-    :allocation :arg
+    :allocation :param
     :accessor widget-width
     :initarg :width
     :type int)
    (height
-    :allocation :arg
+    :allocation :param
     :accessor widget-height
     :initarg :height
     :type int)
    (visible
-    :allocation :arg
+    :allocation :param
     :accessor widget-visible-p
     :initarg :visible
     :type boolean)
    (sensitive
-    :allocation :arg
+    :allocation :param
     :accessor widget-sensitive-p
     :initarg :sensitive
     :type boolean)
    (app-paintable
-    :allocation :arg
+    :allocation :param
     :reader widget-app-paintable-p
     :type boolean)
    (can-focus
-    :allocation :arg
+    :allocation :param
     :accessor widget-can-focus-p
     :initarg :can-focus
     :type boolean)
    (has-focus
-    :allocation :arg
+    :allocation :param
     :accessor widget-has-focus-p
     :initarg :has-focus
     :type boolean)
    (can-default
-    :allocation :arg
+    :allocation :param
     :accessor widget-can-default-p
     :initarg :can-default
     :type boolean)
    (has-default
-    :allocation :arg
+    :allocation :param
     :accessor widget-has-default-p
     :initarg :has-default
     :type boolean)
    (receives-default
-    :allocation :arg
+    :allocation :param
     :accessor widget-receives-default-p
     :initarg :receives-default
     :type boolean)
    (composite-child
-    :allocation :arg
+    :allocation :param
     :accessor widget-composite-child-p
     :initarg :composite-child
     :type boolean)
    (style
-    :allocation :arg
+    :allocation :param
     :accessor widget-style
     :initarg :style
     :type style)
    (events
-    :allocation :arg
+    :allocation :param
     :accessor widget-events
     :initarg :events
     :type gdk:event-mask)
    (extension-events
-    :allocation :arg
+    :allocation :param
     :accessor widget-extension-events
     :initarg :extpension-events
     :type gdk:event-mask)
@@ -256,22 +256,22 @@
 
 (defclass misc (widget)
   ((xalign
-    :allocation :arg
+    :allocation :param
     :accessor misc-xalign
     :initarg :xalign
     :type single-float)
    (yalign
-    :allocation :arg
+    :allocation :param
     :accessor misc-yalign
     :initarg :yalign
     :type single-float)
    (xpad
-    :allocation :arg
+    :allocation :param
     :accessor misc-xpad
     :initarg :xpad
     :type int)
    (ypad
-    :allocation :arg
+    :allocation :param
     :accessor misc-ypad
     :initarg :ypad
     :type int))
@@ -281,22 +281,22 @@
 
 (defclass label (misc)
   ((label
-    :allocation :arg
+    :allocation :param
     :accessor label-label
     :initarg :label
     :type string)
    (pattern
-    :allocation :arg
+    :allocation :param
     :accessor label-pattern
     :initarg :pattern
     :type string)
    (justify
-    :allocation :arg
+    :allocation :param
     :accessor label-justify
     :initarg :justify
     :type justification)
    (wrap
-    :allocation :arg
+    :allocation :param
     :accessor label-line-wrap-p
     :initarg :wrap
     :type boolean))
@@ -306,7 +306,7 @@
 
 (defclass accel-label (label)
   ((widget
-    :allocation :arg
+    :allocation :param
     :location "GtkAccelLabel::accel_widget"
     :accessor accel-label-accel-widget
     :initarg :accel-widget
@@ -322,22 +322,22 @@
 
 (defclass tips-query (label)
   ((emit-always
-    :allocation :arg
+    :allocation :param
     :accessor tips-query-emit-always-p
     :initarg :emit-always
     :type boolean)
    (caller
-    :allocation :arg
+    :allocation :param
     :accessor tips-query-caller
     :initarg :caller
     :type widget)
    (label-inactive
-    :allocation :arg
+    :allocation :param
     :accessor tips-query-label-inactive
     :initarg :label-inactive
     :type string)
    (label-no-tip
-    :allocation :arg
+    :allocation :param
     :accessor tips-query-label-no-tip
     :initarg :label-no-tip
     :type string))
@@ -347,12 +347,12 @@
 
 (defclass arrow (misc)
   ((arrow-type
-    :allocation :arg
+    :allocation :param
     :accessor arrow-arrow-type
     :initarg :arrow-type
     :type arrow-type)
    (shadow-type
-    :allocation :arg
+    :allocation :param
     :accessor arrow-shadow-type
     :initarg :shadow-type
     :type shadow-type))
@@ -380,12 +380,12 @@
 
 (defclass container (widget)
   ((border-width
-    :allocation :arg
+    :allocation :param
     :accessor container-border-width
     :initarg :border-width
     :type unsigned-long)
    (resize-mode
-    :allocation :arg
+    :allocation :param
     :accessor container-resize-mode
     :initarg :resize-mode
     :type resize-mode)
@@ -435,22 +435,22 @@
 
 (defclass alignment (bin)
   ((xalign
-    :allocation :arg
+    :allocation :param
     :accessor alignment-xalign
     :initarg :xalign
     :type single-float)
    (yalign
-    :allocation :arg
+    :allocation :param
     :accessor alignment-yalign
     :initarg :yalign
     :type single-float)
    (xscale
-    :allocation :arg
+    :allocation :param
     :accessor alignment-xscale
     :initarg :xscale
     :type single-float)
    (yscale
-    :allocation :arg
+    :allocation :param
     :accessor alignment-yscale
     :initarg :yscale
     :type single-float))
@@ -468,17 +468,17 @@
     :initarg :label
     :type string)
    (label-xalign
-    :allocation :arg
+    :allocation :param
     :accessor frame-label-xalign
     :initarg :label-xalign
     :type single-float)
    (label-yalign
-    :allocation :arg
+    :allocation :param
     :accessor frame-label-yalign
     :initarg :label-yalign
     :type single-float)
    (shadow-type
-    :allocation :arg
+    :allocation :param
     :location "GtkFrame::shadow"
     :accessor frame-shadow-type
     :initarg :shadow-type
@@ -491,22 +491,22 @@
 
 ; (defclass aspect-frame (frame)
 ;   ((xalign
-;     :allocation :arg
+;     :allocation :param
 ;     :accessor aspect-frame-xalign
 ;     :initarg :xalign
 ;     :type single-float)
 ;    (yalign
-;     :allocation :arg
+;     :allocation :param
 ;     :accessor aspect-frame-yalign
 ;     :initarg :yalign
 ;     :type single-float)
 ;    (ratio
-;     :allocation :arg
+;     :allocation :param
 ;     :accessor aspect-frame-ratio
 ;     :initarg :ratio
 ;     :type single-float)
 ;    (obey-child
-;     :allocation :arg
+;     :allocation :param
 ;     :accessor aspect-frame-obey-child-p
 ;     :initarg :obey-child
 ;     :type boolean))
@@ -518,12 +518,11 @@
 
 (defclass button (bin)
   ((label
-    :allocation :virtual
-    :location button-label
+    :allocation :param
     :initarg :label
     :type string)
    (relief
-    :allocation :arg
+    :allocation :param
     :accessor button-relief
     :initarg :relief
     :type relief-style))
@@ -537,12 +536,12 @@
 
 (defclass toggle-button (button)
   ((active
-    :allocation :arg
+    :allocation :param
     :accessor toggle-button-active-p
     :initarg :active
     :type boolean)
    (draw-indicator
-    :allocation :arg
+    :allocation :param
     :accessor toggle-button-draw-indicator-p
     :initarg :draw-indicator
     :type boolean))
@@ -727,48 +726,48 @@
 
 (defclass window (bin)
   ((type
-    :allocation :arg
+    :allocation :param
     :accessor window-type
     :initarg :type
     :type window-type)
    (title
-    :allocation :arg
+    :allocation :param
     :accessor window-title
     :initarg :title
     :type string)
    (auto-shrink
-    :allocation :arg
+    :allocation :param
     :accessor window-auto-shrink-p
     :initarg :auto-shrink
     :type boolean)
    (allow-shrink
-    :allocation :arg
+    :allocation :param
     :accessor window-allow-shrink-p
     :initarg :allow-shrink
     :type boolean)
    (allow-grow
-    :allocation :arg
+    :allocation :param
     :accessor window-allow-grow-p
     :initarg :allow-grow
     :type boolean)
    (modal
-    :allocation :arg
+    :allocation :param
     :accessor window-modal-p
     :initarg :modal
     :type boolean)
    (position
-    :allocation :arg
+    :allocation :param
     :location "GtkWindow::window_position"
     :accessor window-position
     :initarg :position
     :type window-position)
    (default-width
-    :allocation :arg
+    :allocation :param
     :accessor window-default-width
     :initarg :default-width
     :type int)
    (default-height
-    :allocation :arg
+    :allocation :param
     :accessor window-default-height
     :initarg :default-height
     :type int))
@@ -878,18 +877,18 @@
 
 (defclass handle-box (bin)
   ((shadow-type
-    :allocation :arg
+    :allocation :param
     :location "GtkHandleBox::shadow"
     :accessor handle-box-shadow-type
     :initarg :shadow-type
     :type shadow-type)   
    (handle-position
-    :allocation :arg
+    :allocation :param
     :accessor handle-box-handle-position
     :initarg :handle-position
     :type position-type)
    (snap-edge
-    :allocation :arg
+    :allocation :param
     :accessor handle-box-snap-edge
     :initarg :snap-edge
     :type position-type))
@@ -903,33 +902,33 @@
 
 (defclass scrolled-window (bin)
   ((hadjustment
-    :allocation :arg
+    :allocation :param
     :accessor scrolled-window-hadjustment
     :initarg :hadjustment
     :type adjustment)   
    (vadjustment
-    :allocation :arg
+    :allocation :param
     :accessor scrolled-window-vadjustment
     :initarg :vadjustment
     :type adjustment)
    (hscrollbar-policy
-    :allocation :arg
+    :allocation :param
     :accessor scrolled-window-hscrollbar-policy
     :initarg :hscrollbar-policy
     :type policy-type)
    (vscrollbar-policy
-    :allocation :arg
+    :allocation :param
     :accessor scrolled-window-vscrollbar-policy
     :initarg :vscrollbar-policy
     :type policy-type)
    (placement
-    :allocation :arg
+    :allocation :param
     :location "GtkScrolledWindow::window_placement"
     :accessor scrolled-window-placement
     :initarg :placement
     :type corner-type)
    (shadow-type
-    :allocation :arg
+    :allocation :param
     :location "GtkScrolledWindow::shadow"
     :accessor scrolled-window-shadow-type
     :initarg :shadow-type
@@ -954,17 +953,17 @@
 
 (defclass viewport (bin)
   ((hadjustment
-    :allocation :arg
+    :allocation :param
     :accessor viewport-hadjustment
     :initarg :hadjustment
     :type adjustment)   
    (vadjustment
-    :allocation :arg
+    :allocation :param
     :accessor viewport-vadjustment
     :initarg :vadjustment
     :type adjustment)
    (shadow-type
-    :allocation :arg
+    :allocation :param
     :accessor viewport-shadow-type
     :initarg :shadow-type
     :type shadow-type))
@@ -978,12 +977,12 @@
 
 (defclass box (container)
   ((spacing
-    :allocation :arg
+    :allocation :param
     :accessor box-spacing
     :initarg :spacing
     :type int)
    (homogeneous
-    :allocation :arg
+    :allocation :param
     :accessor box-homogeneous-p
     :initarg :homogeneous
     :type boolean))
@@ -1155,52 +1154,52 @@
 
 (defclass notebook (container)
   ((tab-pos
-    :allocation :arg
+    :allocation :param
     :accessor notebook-tab-pos
     :initarg :tab-pos
     :type position-type)
    (show-tabs
-    :allocation :arg
+    :allocation :param
     :accessor notebook-show-tabs-p
     :initarg :show-tabs
     :type boolean)
    (show-border
-    :allocation :arg
+    :allocation :param
     :accessor notebook-show-border-p
     :initarg :show-border
     :type boolean)
    (scrollable
-    :allocation :arg
+    :allocation :param
     :accessor notebook-scrollable-p
     :initarg :scrollable
     :type boolean)
    (tab-border
-    :allocation :arg
+    :allocation :param
     :accessor notebook-tab-border
     :initarg :tab-border
     :type unsigned-int)
    (tab-hborder
-    :allocation :arg
+    :allocation :param
     :accessor notebook-tab-hborder
     :initarg :tab-hborder
     :type unsigned-int)
    (tab-vborder
-    :allocation :arg
+    :allocation :param
     :accessor notebook-tab-vborder
     :initarg :tab-vborder
     :type unsigned-int)
    (page
-    :allocation :arg
+    :allocation :param
     :accessor notebook-page
     :initarg :page
     :type int)
    (enable-popup
-    :allocation :arg
+    :allocation :param
     :accessor notebook-enable-popup-p
     :initarg :enable-popup
     :type boolean)
    (homogeneous
-    :allocation :arg
+    :allocation :param
     :accessor notebook-homogeneous-p
     :initarg :homogeneous
     :type boolean))
@@ -1248,7 +1247,7 @@
 
 (defclass paned (container)
   ((handle-size
-    :allocation :arg
+    :allocation :param
     :accessor paned-handle-size
     :initarg handle-size
     :type unsigned-int)
@@ -1356,7 +1355,7 @@
 
 (defclass menu-bar (menu-shell)
   ((shadow-type
-    :allocation :arg
+    :allocation :param
     :location "GtkMenuBar::shadow"
     :accessor menu-bar-shadow-type
     :initarg :shadow-type
@@ -1398,32 +1397,32 @@
 
 (defclass packer (container)
   ((spacing
-    :allocation :arg
+    :allocation :param
     :accessor packer-spacing
     :initarg :spacing
     :type unsigned-int)
    (default-border-width
-    :allocation :arg
+    :allocation :param
     :accessor packer-default-border-width
     :initarg :default-border-width
     :type unsigned-int)
    (default-pad-x
-    :allocation :arg
+    :allocation :param
     :accessor packer-default-pad-x
     :initarg :default-pad-x
     :type unsigned-int)
    (default-pad-y
-    :allocation :arg
+    :allocation :param
     :accessor packer-default-pad-y
     :initarg :default-pad-y
     :type unsigned-int)
    (default-ipad-x
-    :allocation :arg
+    :allocation :param
     :accessor packer-default-ipad-x
     :initarg :default-ipad-x
     :type unsigned-int)
    (default-ipad-y
-    :allocation :arg
+    :allocation :param
     :accessor packer-default-ipad-y
     :initarg :default-ipad-y
     :type unsigned-int))
@@ -1499,29 +1498,29 @@
 
 (defclass table (container)
   ((rows
-    :allocation :arg
+    :allocation :param
     :location "GtkTable::n_rows"
     :accessor table-rows
     :initarg :rows
     :type unsigned-int)
    (columns
-    :allocation :arg
+    :allocation :param
     :location "GtkTable::n_columns"
     :accessor table-columns
     :initarg :columns
     :type unsigned-int)
    (row-spacing
-    :allocation :arg
+    :allocation :param
     :accessor table-default-row-spacing
     :initarg :row-spacing
     :type unsigned-int)
    (column-spacing
-    :allocation :arg
+    :allocation :param
     :accessor table-default-column-spacing
     :initarg :column-spacing
     :type unsigned-int)
    (homogeneous
-    :allocation :arg
+    :allocation :param
     :accessor table-homogeneous-p
     :initarg :homogeneous
     :type boolean))
@@ -1605,27 +1604,27 @@
 
 (defclass toolbar (container)
   ((orientation
-    :allocation :arg
+    :allocation :param
     :accessor toolbar-orientation
     :initarg :orientation
     :type orientation)
    (toolbar-style
-    :allocation :arg
+    :allocation :param
     :accessor toolbar-style
     :initarg :toolbar-style
     :type toolbar-style)
    (space-size
-    :allocation :arg
+    :allocation :param
     :accessor toolbar-space-size
     :initarg :space-size
     :type unsigned-int)
    (space-style
-    :allocation :arg
+    :allocation :param
     :accessor toolbar-space-style
     :initarg :space-style
     :type toolbar-space-style)
    (relief
-    :allocation :arg
+    :allocation :param
     :accessor toolbar-relief
     :initarg :relief
     :type relief-style)
@@ -1677,13 +1676,13 @@
 
 (defclass editable (widget)
   ((position
-    :allocation :arg
+    :allocation :param
     :location "GtkEditable::text_position"
     :accessor ediatable-position
     :initarg :position
     :type int)
    (editable
-    :allocation :arg
+    :allocation :param
     :accessor editable-editable-p
     :initarg :editable
     :type boolean)
@@ -1698,12 +1697,12 @@
   
 (defclass entry (editable)
   ((max-length
-    :allocation :arg
+    :allocation :param
     :accessor entry-max-length
     :initarg :max-length
     :type unsigned-int)
    (visible
-    :allocation :arg
+    :allocation :param
     :location "GtkEntry::visibility"
     :accessor entry-visible-p
     :initarg :visible
@@ -1743,47 +1742,47 @@
 
 (defclass spin-button (entry)
   ((adjustment
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-adjustment
     :initarg :adjustment
     :type adjustment)
    (climb-rate
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-climb-rate
     :initarg :climb-rate
     :type single-float)
    (digits
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-digits
     :initarg :digits
     :type unsigned-int)
    (snap-to-ticks
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-snap-to-ticks-p
     :initarg :snap-to-ticks
     :type boolean)
    (numeric
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-numeric-p
     :initarg :numeric
     :type boolean)
    (wrap
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-wrap-p
     :initarg :wrap
     :type boolean)
    (update-policy
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-update-policy
     :initarg :update-policy
     :type spin-button-update-policy)
    (shadow-type
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-shadow-type
     :initarg :shadow-type
     :type shadow-type)
    (value
-    :allocation :arg
+    :allocation :param
     :accessor spin-button-value
     :initarg :value
     :type single-float))
@@ -1804,22 +1803,22 @@
 
 (defclass ruler (widget)
   ((lower
-    :allocation :arg
+    :allocation :param
     :accessor ruler-lower
     :initarg :lower
     :type single-float)
    (upper
-    :allocation :arg
+    :allocation :param
     :accessor ruler-upper
     :initarg :upper
     :type single-float)
    (position
-    :allocation :arg
+    :allocation :param
     :accessor ruler-position
     :initarg :position
     :type single-float)
    (max-size
-    :allocation :arg
+    :allocation :param
     :accessor ruler-max-size
     :initarg :max-size
     :type single-float)
@@ -1847,7 +1846,7 @@
 
 (defclass range (widget)
   ((update-policy
-    :allocation :arg
+    :allocation :param
     :accessor range-update-policy
     :initarg :update-policy
     :type update-type)
@@ -1863,17 +1862,17 @@
 
 (defclass scale (range)
   ((digits
-    :allocation :arg
+    :allocation :param
     :accessor scale-digits
     :initarg :digits
     :type int)
    (draw-value
-    :allocation :arg
+    :allocation :param
     :accessor scale-draw-value-p
     :initarg :draw-value
     :type boolean)
    (value-position
-    :allocation :arg
+    :allocation :param
     :location "GtkScale::value_pos"
     :accessor scale-value-position
     :initarg :value-position
@@ -1941,22 +1940,22 @@
 
 (defclass progress (widget)
   ((activity-mode
-    :allocation :arg
+    :allocation :param
     :accessor progress-activity-mode-p
     :initarg :activity-mode
     :type boolean)   
    (show-text
-    :allocation :arg
+    :allocation :param
     :accessor progress-show-text-p
     :initarg :show-text
     :type boolean)
    (text-xalign
-    :allocation :arg
+    :allocation :param
     :accessor progress-text-xalign
     :initarg :text-xalign
     :type single-float)
    (text-yalign
-    :allocation :arg
+    :allocation :param
     :accessor progress-text-yalign
     :initarg :text-yalign
     :type single-float)
@@ -1998,37 +1997,37 @@
 
 (defclass progress-bar (progress)
   ((orientation
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-orientation
     :initarg :orientation
     :type progress-bar-orientation)
    (bar-style
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-style
     :initarg :bar-style
     :type progress-bar-style)
    (activity-step
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-activity-step
     :initarg :activity-step
     :type unsigned-int)
    (activity-blocks
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-activity-blocks
     :initarg :activity-blocks
     :type unsigned-int)
    (discrete-blocks
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-discrete-blocks
     :initarg :discrete-blocks
     :type unsigned-int)
    (fraction
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-fraction
     :initarg :fraction
     :type single-float)
    (pulse-step
-    :allocation :arg
+    :allocation :param
     :accessor progress-bar-pulse-step
     :initarg :pulse-step
     :type single-float)
