@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.28 2005-01-12 13:26:03 espen Exp $
+;; $Id: gobject.lisp,v 1.29 2005-01-30 14:30:30 espen Exp $
 
 (in-package "GLIB")
 
@@ -268,22 +268,21 @@
 (defbinding object-thaw-notify () nil
   (object gobject))
 
+
+;;;; User data
+
 (defbinding %object-set-qdata-full () nil
   (object gobject)
   (id quark)
   (data unsigned-long)
   (destroy-marshal pointer))
 
-
-;;;; User data
-
 (defun (setf user-data) (data object key)
-  (%object-set-qdata-full
-   object (quark-from-object key)
+  (%object-set-qdata-full object (quark-intern key)
    (register-user-data data) (callback %destroy-user-data))
   data)
 
-;; depecated
+;; deprecated
 (defun (setf object-data) (data object key &key (test #'eq))
   (assert (eq test #'eq))
   (setf (user-data object key) data))
@@ -293,15 +292,22 @@
   (id quark))
 
 (defun user-data (object key)
-  (find-user-data (%object-get-qdata object (quark-from-object key))))
+  (find-user-data (%object-get-qdata object (quark-intern key))))
 
-;; depecated
+;; deprecated
 (defun object-data (object key &key (test #'eq))
   (assert (eq test #'eq))
   (user-data object key))
 
 (defun user-data-p (object key)
-  (nth-value 1 (find-user-data (%object-get-qdata object (quark-from-object key)))))
+  (user-data-exists-p (%object-get-qdata object (quark-intern key))))
+
+(defbinding %object-steal-qdata () unsigned-long
+  (object gobject)		 
+  (id quark))
+
+(defun unset-user-data (object key)
+  (destroy-user-data (%object-steal-qdata object (quark-intern key))))
 
 
 ;;;;
