@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.2 2000-08-15 23:25:18 espen Exp $
+;; $Id: glib.lisp,v 1.3 2000-08-22 23:13:39 espen Exp $
 
 
 (in-package "GLIB")
@@ -37,6 +37,38 @@
 (defun copy-memory (from length &optional (to (allocate-memory length)))
   (kernel:system-area-copy from 0 to 0 (* 8 length))
   to)
+
+
+
+;;;; Quarks
+
+(deftype quark () 'unsigned)
+
+(define-foreign %quark-get-reserved () quark)
+
+(defvar *quark-from-object* (make-hash-table))
+(defvar *quark-to-object* (make-hash-table))
+
+(defun quark-from-object (object &key (test #'eq))
+  (let ((hash-code (sxhash object)))
+    (or
+     (assoc-ref object (gethash hash-code *quark-from-object*) :test test)
+     (let ((quark (%quark-get-reserved)))
+       (push (cons object quark) (gethash hash-code *quark-from-object*))
+       (setf (gethash quark *quark-to-object*) object)
+       quark))))
+
+(defun quark-to-object (quark) 
+  (gethash quark *quark-to-object*))
+  
+(defun remove-quark (quark)
+  (let* ((object (gethash quark *quark-to-object*))
+	 (hash-code (sxhash object)))
+    (remhash quark *quark-to-object*)
+    (unless (setf
+	     (gethash hash-code *quark-from-object*)
+	     (assoc-delete object (gethash hash-code *quark-from-object*)))
+      (remhash hash-code *quark-from-object*))))
 
 
 
