@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.30 2005-03-12 19:38:12 espen Exp $
+;; $Id: gtype.lisp,v 1.31 2005-04-03 17:14:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -301,6 +301,7 @@
 (register-type 'unsigned-char "guchar")
 (register-type 'boolean "gboolean")
 (register-type 'int "gint")
+(register-type-alias 'integer 'int)
 (register-type-alias 'fixnum 'int)
 (register-type 'unsigned-int "guint")
 (register-type 'long "glong")
