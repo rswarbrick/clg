@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.6 2001-11-20 18:25:53 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.7 2002-03-24 12:58:34 espen Exp $
 
 (in-package "GTK")
             
@@ -65,13 +65,19 @@
 (defbinding container-check-resize () nil
   (container container))
 
-(defbinding (%container-foreach "gtk_container_foreach_full")
-    (container function) nil
+(defvar *callback-marshal*
+  (system:foreign-symbol-address "gtk_callback_marshal"))
+
+(defbinding %container-foreach (container callback-id) nil
   (container container)
-  (0 unsigned-long)
   (*callback-marshal* pointer)
-  ((register-callback-function function) pointer)
-  (*destroy-marshal* pointer))
+  (callback-id unsigned-int))
+
+(defun container-foreach (container function)
+  (let ((callback-id (register-callback-function function)))
+    (unwind-protect
+	(%container-foreach container callback-id)
+      (destroy-user-data callback-id))))
 
 (defun map-container (seqtype func container)
   (case seqtype
@@ -80,15 +86,15 @@
      nil)
     (list
      (let ((list nil))
-       (%container-foreach
+       (container-foreach
 	container
 	#'(lambda (child)
 	    (push (funcall func child) list)))
        (nreverse list)))
     (t
-     (let ((seq (make-sequence seqtype (container-num-children container)))
+     (let ((seq (make-sequence seqtype (container-length container)))
 	   (index 0))
-       (%container-foreach
+       (container-foreach
 	container
 	#'(lambda (child)
 	    (setf (elt seq index) (funcall func child))
@@ -98,7 +104,7 @@
 (defmacro do-container ((var container &optional (result nil)) &body body)
   (let ((continue (make-symbol "CONTINUE")))
     `(let ((,continue t))
-       (%container-foreach
+       (container-foreach
 	,container
 	#'(lambda (,var)
 	    (when ,continue
@@ -108,11 +114,12 @@
 		(setq ,continue t)))))
        ,result)))
 
-(defbinding %container-get-children () (glist widget)
-  (container container))
+;; (defbinding %container-get-children () (glist widget)
+;;   (container container))
 
 (defmethod container-children ((container container))
-  (%container-get-children container))
+;;   (%container-get-children container)
+  (map-container 'list #'identity container))
 
 (defmethod (setf container-children) (children (container container))
   (dolist (child (container-children container))
@@ -121,9 +128,40 @@
     (container-add container child))
   children)
 
-;; Should be implemented as a foreign function
-(defun container-num-children (container)
-  (length (container-children container)))
+(defun container-length (container)
+  (let ((n 0))
+    (container-foreach container
+     #'(lambda (child)
+	 (declare (ignore child))
+	 (incf n)))
+    n))
 
 (defbinding container-resize-children () nil
   (container container))
+
+(defbinding container-propagate-expose () nil
+  (container container)
+  (child widget)
+  (event gdk:expose-event))
+
+
+(defbinding %container-get-focus-chain () boolean
+  (container container)
+  (focusable-widgets (glist widget) :out))
+
+(defun container-focus-chain (container)
+  (multiple-value-bind (chain-set-p focusable-widgets)
+      (%container-get-focus-chain container)
+    (and chain-set-p focusable-widgets)))
+
+(defbinding %container-set-focus-chain () nil
+  (container container)
+  (focusable-widgets (glist widget)))
+
+(defbinding %container-unset-focus-chain () nil
+  (container container))
+
+(defun (setf container-focus-chain) (focusable-widgets container)
+  (if (null focusable-widgets)
+      (%container-unset-focus-chain container)
+    (%container-set-focus-chain container focusable-widgets)))
