@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gutils.lisp,v 1.5 2001-05-04 16:54:35 espen Exp $
+;; $Id: gutils.lisp,v 1.6 2001-05-11 15:57:13 espen Exp $
 
 
 (in-package "KERNEL")
@@ -32,22 +32,24 @@
 
 (in-package "PCL")
 
+;;;; Make PCL's class finalization protocol behave as specified in AMOP
+
 (defmethod finalize-inheritance ((class std-class))
   (update-cpl class (compute-class-precedence-list class))
   (update-slots class (compute-slots class))
   (update-gfs-of-class class)
   (update-inits class (compute-default-initargs class))
-  (update-make-instance-function-table class)
-  (dolist (sub (class-direct-subclasses class))
-    (update-class sub)))
+  (update-make-instance-function-table class))
 
 (defun update-class (class &optional finalizep)  
-    (declare (ignore finalizep))
-    (unless (class-has-a-forward-referenced-superclass-p class)
-      (finalize-inheritance class)))
+  (declare (ignore finalizep))
+  (unless (class-has-a-forward-referenced-superclass-p class)
+    (finalize-inheritance class)
+    (dolist (sub (class-direct-subclasses class))
+      (update-class sub))))
+
 
 (in-package "GLIB")
-
 
 (defun type-expand-to (type form)
   (labels ((expand (form0)
@@ -127,6 +129,11 @@
       (fdefinition object)
     object))
 
+(defun intersection-p (list1 list2 &key (test #'eq))
+  (dolist (obj list1 nil)
+    (when (member obj list2 :test test)
+      (return-from intersection-p t))))
+
 
 (defun split-string (string delimiter)
   (declare (simple-string string) (character delimiter))
@@ -158,3 +165,6 @@
      (first strings)
      (if delimiter (string delimiter) "")
      (concatenate-strings (rest strings)))))
+
+(defun string-prefix-p (string1 string2)
+  (string= string1 string2 :end2 (length string1)))
