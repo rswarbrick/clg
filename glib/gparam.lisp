@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.11 2004-11-19 13:02:51 espen Exp $
+;; $Id: gparam.lisp,v 1.12 2004-12-16 23:21:18 espen Exp $
 
 (in-package "GLIB")
 
@@ -41,11 +41,11 @@
   (when value-p
     (funcall (writer-function type) value gvalue +gvalue-value-offset+)))
 
-(defun gvalue-new (type &optional (value nil value-p))
+(defun gvalue-new (&optional type (value nil value-p))
   (let ((gvalue (allocate-memory +gvalue-size+)))
-    (if value-p
-	(gvalue-init gvalue type value)
-      (gvalue-init gvalue type))
+    (cond
+     (value-p (gvalue-init gvalue type value))
+     (type (gvalue-init gvalue type)))
     gvalue))
 
 (defun gvalue-free (gvalue &optional (unset-p t))
@@ -68,8 +68,8 @@
 
 (defmacro with-gvalue ((gvalue type &optional (value nil value-p)) &body body)
   `(let ((,gvalue ,(if value-p
-		       `(gvalue-new ',type ,value)
-		     `(gvalue-new ',type ,value))))
+		       `(gvalue-new ,type ,value)
+		     `(gvalue-new))))
     (unwind-protect
 	 (progn
 	   ,@body
