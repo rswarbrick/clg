@@ -15,14 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.13 2004-10-27 14:58:59 espen Exp $
+;; $Id: glib.lisp,v 1.14 2004-10-31 11:37:11 espen Exp $
 
 
 (in-package "GLIB")
 
 (use-prefix "g")
 
-;(load-shared-library "libglib-2.0")
 
 ;;;; Memory management
 
