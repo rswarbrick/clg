@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: glue.c,v 1.3 2004-12-20 00:45:24 espen Exp $ */
+/* $Id: glue.c,v 1.4 2004-12-20 20:00:46 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -96,28 +96,6 @@ GtkWidget*
 gtk_window_get_default (GtkWindow *window)
 {
   return window->default_widget;
-}
-
-
-/* Paned */
-
-GtkWidget*
-gtk_paned_child1 (GtkPaned *paned, guint *resize, guint *shrink)
-{
-  *resize = paned->child1_resize;
-  *shrink = paned->child1_shrink;
-  
-  return paned->child1;
-}
-
-
-GtkWidget*
-gtk_paned_child2 (GtkPaned *paned, guint *resize, guint *shrink)
-{
-  *resize = paned->child2_resize;
-  *shrink = paned->child2_shrink;
-  
-  return paned->child2;
 }
 
 
