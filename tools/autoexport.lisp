@@ -102,6 +102,10 @@
   (declare (ignore args))
   (export-fname fname))
   
+(defexport defmethod (name &rest rest)
+  (declare (ignore rest))
+  name)
+
 (defexport progn (&rest body)
   (apply #'nconc (map 'list #'list-autoexported-symbols body)))
 
