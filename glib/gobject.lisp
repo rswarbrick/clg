@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.10 2002-01-20 14:09:52 espen Exp $
+;; $Id: gobject.lisp,v 1.11 2002-03-24 12:50:30 espen Exp $
 
 (in-package "GLIB")
 
@@ -25,22 +25,31 @@
     ()
     (:metaclass ginstance-class)
     (:alien-name "GObject")
-    (:ref "g_object_ref")
-    (:unref "g_object_unref")))
+    (:copy %object-ref)
+    (:free %object-unref)))
 
 (defmethod initialize-instance ((object gobject) &rest initargs)
   (declare (ignore initargs))
-  (setf 
-   (slot-value object 'location)
-   (%gobject-new (type-number-of object)))
-;  (funcall (proxy-class-copy (class-of object)) nil (proxy-location object))
-  (call-next-method)
-;  (funcall (proxy-class-free (class-of object)) nil (proxy-location object))
-  )
+  (setf  (slot-value object 'location) (%gobject-new (type-number-of object)))
+  (call-next-method))
 
 (defbinding (%gobject-new "g_object_new") () pointer
   (type type-number)
   (nil null))
+
+
+(defbinding %object-ref (type location) pointer
+  (location pointer))
+
+(defbinding %object-unref (type location) nil
+  (location pointer))
+
+
+(defun object-ref (object)
+  (%object-ref nil (proxy-location object)))
+
+(defun object-unref (object)
+  (%object-unref nil (proxy-location object)))
 
 
 
@@ -113,6 +122,8 @@
 ;   (class pointer)
 ;   (name string))
 
+(defun signal-name-to-string (name)
+  (substitute #\_ #\- (string-downcase (string name))))
 
 (defmethod initialize-instance :after ((slotd direct-gobject-slot-definition)
 				       &rest initargs &key pname)
