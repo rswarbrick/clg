@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.1 2001-04-29 20:19:25 espen Exp $
+;; $Id: proxy.lisp,v 1.2 2001-04-30 11:25:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -278,43 +278,19 @@
       ((class proxy-class)
        (slotd effective-virtual-alien-slot-definition)
        direct-slotds)
-    (let ((location (call-next-method)))
+    (let ((location (call-next-method))
+	  (class-name (class-name class)))
       (if (or (stringp location) (consp location))
 	  (destructuring-bind (reader &optional writer) (mklist location)
 	    (with-slots (type) slotd
               (list
 	       (if (stringp reader)
-		   (let* ((alien-type (translate-type-spec type))
-			  (alien
-			   (alien::%heap-alien
-			    (alien::make-heap-alien-info
-			     :type (alien::parse-alien-type
-				    `(function ,alien-type system-area-pointer))
-			     :sap-form (system:foreign-symbol-address reader))))
-			  (translate-return-value
-			   (intern-return-value-translator type)))
-		     #'(lambda (object)
-			 (funcall
-			  translate-return-value
-			  (alien-funcall
-			   alien (proxy-location object)))))
+		   (mkbinding reader type class-name)
 		 reader)
 	       (if (stringp writer)
-		   (let* ((alien-type (translate-type-spec type))
-			  (alien
-			   (alien::%heap-alien
-			    (alien::make-heap-alien-info
-			     :type (alien::parse-alien-type
-				    `(function
-				      void system-area-pointer ,alien-type))
-			     :sap-form (system:foreign-symbol-address writer))))
-			  (translate-argument (intern-argument-translator type))
-			  (cleanup (intern-cleanup-function type)))
+		   (let ((writer (mkbinding writer 'nil class-name type)))
 		     #'(lambda (value object)
-			 (let ((tmp (funcall translate-argument value))
-			       (location (proxy-location object)))
-			   (alien-funcall alien location tmp)
-			   (funcall cleanup tmp))))
+			 (funcall writer object value)))
 		 writer))))
 	location)))
 

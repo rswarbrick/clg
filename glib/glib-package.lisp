@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-package.lisp,v 1.4 2001-04-29 20:33:53 espen Exp $
+;; $Id: glib-package.lisp,v 1.5 2001-04-30 11:25:25 espen Exp $
 
 (export 'kernel::type-expand-1 "KERNEL")
 
@@ -29,9 +29,10 @@
   (:export "DEFTYPE-METHOD" "TRANSLATE-TYPE-SPEC" "TRANSLATE-TO-ALIEN"
 	   "TRANSLATE-FROM-ALIEN" "CLEANUP-ALIEN" "UNREFERENCE-ALIEN"
 	   "SIZE-OF")
-  (:export "DEFBINDING" "DEFINE-FOREIGN" "USE-PREFIX" "PACKAGE-PREFIX")
+  (:export "DEFBINDING" "DEFINE-FOREIGN" "MKBINDING" "USE-PREFIX"
+	   "PACKAGE-PREFIX")
   (:export "LONG" "UNSIGNED-LONG" "INT" "UNSIGNED-INT" "SHORT" "UNSIGNED-SHORT"
-	   "SIGNED" "UNSIGNED" "CHAR" "POINTER" "ENUM" "FLAGS")
+	   "SIGNED" "UNSIGNED" "CHAR" "POINTER")
   (:export "INTERN-ARGUMENT-TRANSLATOR" "INTERN-RETURN-VALUE-TRANSLATOR"
 	   "INTERN-CLEANUP-FUNCTION" "INTERN-WRITER-FUNCTION"
 	   "INTERN-READER-FUNCTION" "INTERN-DESTROY-FUNCTION"))

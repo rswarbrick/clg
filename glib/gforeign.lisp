@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.6 2001-04-29 20:05:22 espen Exp $
+;; $Id: gforeign.lisp,v 1.7 2001-04-30 11:25:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -364,7 +364,26 @@
 		 ,@(alien-deallocators)
 		 (values ,@(alien-values)))))))))
 
-  
+
+(defun mkbinding (name rettype &rest types)
+  (declare (optimize (ext:inhibit-warnings 3)))
+  (let* ((ftype
+	  `(function ,@(mapcar #'translate-type-spec (cons rettype types))))
+	 (alien
+	  (alien::%heap-alien
+	   (alien::make-heap-alien-info
+	    :type (alien::parse-alien-type ftype)
+	    :sap-form (system:foreign-symbol-address name))))
+	 (translate-arguments (mapcar #'intern-return-value-translator types))
+	 (translate-return-value (intern-return-value-translator rettype))
+	 (cleanup-arguments (mapcar #'intern-cleanup-function types)))
+	 
+    #'(lambda (&rest args)
+	(map-into args #'funcall translate-arguments args)
+	(prog1
+	    (funcall
+	     translate-return-value (apply #'alien:alien-funcall alien args))
+	  (mapc #'funcall cleanup-arguments args)))))
 
 
 ;;;; Definitons and translations of fundamental types
@@ -607,6 +626,7 @@
     (unreference-alien type-spec c-string)))
 
 (deftype-method unreference-alien string (type-spec c-string)
+  (declare (ignore type-spec))
   `(let ((c-string ,c-string))
      (unless (null-pointer-p c-string)
        (deallocate-memory c-string))))
@@ -683,3 +703,9 @@
 (deftype-method translate-type-spec nil (type-spec)
   (declare (ignore type-spec))
   'void)
+
+(deftype-method translate-from-alien nil (type-spec expr &optional weak-ref)
+  (declare (ignore type-spec weak-ref))
+  `(progn
+     ,expr
+     (values)))

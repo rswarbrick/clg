@@ -15,13 +15,13 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.1 2001-04-29 20:19:25 espen Exp $
+;; $Id: gboxed.lisp,v 1.2 2001-04-30 11:25:25 espen Exp $
 
 (in-package "GLIB")
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass boxed (alien-structure)
+  (defclass boxed (proxy)
     ()
     (:metaclass proxy-class)))
 
@@ -85,16 +85,15 @@
 	     "Specify either :type-init or :alien-name for class ~A"
 	     class-name))
 	   (alien-name (type-number-from-alien-name (first alien-name)))
-	   (type-init
-	     (funcall (alien-function (first type-init) '(unsigned 32))))
+	   (type-init (funcall (mkbinding (first type-init) 'type-number)))
 	   (t
 	    (or
 	     (type-number-from-alien-name
 	      (default-alien-type-name class-name) nil)
 	     (funcall
-	      (alien-function 
+	      (mkbinding
 	       (default-alien-fname (format nil "~A_get_type" class-name))
-	       '(unsigned 32))))))))
+	       'type-number)))))))
     (setf (find-type-number class) type-number)))
 
 

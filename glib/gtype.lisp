@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.8 2001-04-29 20:17:07 espen Exp $
+;; $Id: gtype.lisp,v 1.9 2001-04-30 11:25:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -109,24 +109,11 @@
 (defun type-number-of (object)
   (find-type-number (type-of object)))
 
-(defun alien-function (name return-type &rest arg-types)
-  (let ((alien
-	 (alien::%heap-alien
-	  (alien::make-heap-alien-info
-	   :type (alien::parse-alien-type
-		  `(function ,@(cons return-type arg-types)))
-	   :sap-form (system:foreign-symbol-address name)))))
-    #'(lambda (&rest args)
-	(apply #'alien:alien-funcall alien args))))
-
-
 (defun type-init (name &optional init-fname)
   (funcall
-   (alien-function
-    (or
-     init-fname
-     (default-alien-fname (format nil "~A_get_type" name)))
-    '(unsigned 32))))
+   (mkbinding
+    (or init-fname (default-alien-fname (format nil "~A_get_type" name)))
+    'type-number)))
 
 
 ;;;; Superclass for wrapping types in the glib type system
@@ -218,11 +205,11 @@
     (when ref
       (setf
        (slot-value class 'ref)
-       (alien-function (first ref) 'system-area-pointer 'system-area-pointer)))
+       (mkbinding (first ref) 'pointer 'pointer)))
     (when unref
       (setf
        (slot-value class 'unref)
-       (alien-function (first unref) 'void 'system-area-pointer)))))
+       (mkbinding (first unref) 'nil 'pointer)))))
 
 (defmethod shared-initialize :after ((class ginstance-class) names
 				     &rest initargs)
