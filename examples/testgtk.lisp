@@ -15,11 +15,12 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.24 2005-03-06 17:12:22 espen Exp $
+;; $Id: testgtk.lisp,v 1.25 2005-03-13 18:16:08 espen Exp $
 
+(defpackage "TESTGTK"
+  (:use "COMMON-LISP" "GTK"))
 
-;(use-package "GTK")
-(in-package "GTK")
+(in-package "TESTGTK")
 
 (defmacro define-toplevel (name (window title &rest initargs) &body body)
   `(let ((,window nil))
@@ -29,9 +30,10 @@
 	 (signal-connect ,window 'destroy #'(lambda () (setq ,window nil)))
 	 ,@body)
        
-       (if (not (widget-visible-p ,window))
-	   (widget-show ,window)
-	 (widget-hide ,window)))))
+       (when ,window
+	 (if (not (widget-visible-p ,window))
+	     (widget-show ,window)
+	   (widget-hide ,window))))))
 
 
 (defmacro define-dialog (name (dialog title &optional (class 'dialog)
@@ -44,9 +46,10 @@
 	 (signal-connect ,dialog 'destroy #'(lambda () (setq ,dialog nil)))
 	 ,@body)
        
-       (if (not (widget-visible-p ,dialog))
-	   (widget-show ,dialog)
-	 (widget-hide ,dialog)))))
+       (when ,dialog
+	 (if (not (widget-visible-p ,dialog))
+	     (widget-show ,dialog)
+	   (widget-hide ,dialog))))))
 
 
 (defmacro define-simple-dialog (name (dialog title &rest initargs) &body body)
@@ -498,6 +501,122 @@
 		   :expand nil :fill :nil))
    :child (make-instance 'h-separator)
    :child (create-label "Below")))
+
+
+;;; Icon View
+
+#+gtk2.6
+(let ((file-pixbuf nil)
+      (folder-pixbuf nil))
+  (defun load-pixbufs ()
+    (unless file-pixbuf
+      (handler-case 
+          (setf
+	   file-pixbuf (gdk:pixbuf-load #p"clg:examples;gnome-fs-regular.png")
+	   folder-pixbuf (gdk:pixbuf-load #p"clg:examples;gnome-fs-directory.png"))
+	(glib:glib-error (condition)
+	  (make-instance 'message-dialog 
+	   :message-type :error :visible t
+	   :text "<b>Failed to load an image</b>" 
+	   :secondary-text (glib:gerror-message condition)
+	   :signal (list :close #'widget-destroy :object t))
+	  (return-from load-pixbufs nil))))
+    t)
+
+  (defun fill-store (store directory)
+    (list-store-clear store)
+    (let ((dir #+cmu(unix:open-dir directory)
+	       #+sbcl(sb-posix:opendir directory)))
+      (unwind-protect 
+	  (loop
+	   as filename = #+cmu(unix:read-dir dir)
+	                 #+sbcl(let ((dirent (sb-posix:readdir dir)))
+				 (unless (sb-grovel::foreign-nullp dirent)
+				   (sb-posix:dirent-name dirent)))
+	   while filename
+	   unless (or (equal filename ".") (equal filename ".."))
+	   do (let* ((pathname (format nil "~A~A" directory filename))
+		     (directory-p
+		      #+cmu(eq (unix:unix-file-kind pathname) :directory)
+		      #+sbcl(sb-posix:s-isdir (sb-posix:stat-mode (sb-posix:stat pathname)))))
+		(list-store-append store 
+		 (vector
+		  filename 
+		  (if directory-p folder-pixbuf file-pixbuf)
+		  directory-p))))
+	#+cmu(unix:close-dir dir)
+	#+sbcl(sb-posix:closedir dir))))
+
+  (defun sort-func (store a b)
+    (let ((a-dir-p (tree-model-value store a 'directory-p))
+	  (b-dir-p (tree-model-value store b 'directory-p))
+	  (a-name (tree-model-value store a 'filename))
+	  (b-name (tree-model-value store b 'filename)))
+      (cond
+       ((and a-dir-p (not b-dir-p)) :before)
+       ((and (not a-dir-p) b-dir-p) :after)
+       ((string< a-name b-name) :before)
+       ((string> a-name b-name) :after)
+       (t :equal))))
+
+  (defun parent-dir (dir)
+    (let ((end (1+ (position #\/ dir :from-end t :end (1- (length dir))))))
+      (subseq dir 0 end)))
+
+  (define-toplevel create-icon-view (window "Icon View demo"
+				     :default-width 650 
+				     :default-height 400)
+    (if (not (load-pixbufs))
+	(widget-destroy window)
+      (let* ((directory "/")
+	     (store (make-instance 'list-store 
+		     :column-types '(string gdk:pixbuf boolean)
+		     :column-names '(filename pixbuf directory-p)))
+	     (icon-view (make-instance 'icon-view
+			 :model store :selection-mode :multiple
+			 :text-column 'filename :pixbuf-column 'pixbuf))
+	     (up (make-instance 'tool-button 
+		  :stock "gtk-go-up" :is-important t :sensitive nil))
+	     (home (make-instance 'tool-button 
+		    :stock  "gtk-home" :is-important t)))
+	(tree-sortable-set-sort-func store :default #'sort-func)
+	(tree-sortable-set-sort-column store :default :ascending)
+	(fill-store store directory)
+
+	(signal-connect icon-view 'item-activated
+         #'(lambda (path)
+	     (when (tree-model-value store path 'directory-p)
+	       (setq directory
+		     (concatenate 'string directory (tree-model-value store path 'filename) "/"))
+	       (fill-store store directory)
+	       (setf (widget-sensitive-p up) t))))
+
+	(signal-connect up 'clicked
+	 #'(lambda ()
+	     (unless (string= directory "/")
+	       (setq directory (parent-dir directory))
+	       (fill-store store directory)
+	       (setf 
+		(widget-sensitive-p home)
+		(not (string= directory (namestring (truename #p"clg:")))))
+	       (setf (widget-sensitive-p up) (not (string= directory "/"))))))
+
+	(signal-connect home 'clicked
+         #'(lambda ()
+	     (setq directory (namestring (truename #p"clg:")))
+	     (fill-store store directory)
+	     (setf (widget-sensitive-p up) t)
+	     (setf (widget-sensitive-p home) nil)))
+      
+	(make-instance 'v-box 
+         :parent window
+	 :child (list
+		 (make-instance 'toolbar :child up :child home)		 
+		 :fill nil :expand nil)
+	 :child (make-instance 'scrolled-window
+	         :shadow-type :etched-in :policy :automatic
+		 :child icon-view))))))
+
 
 ;;; Image
 
@@ -1722,6 +1841,7 @@ This one is underlined (こんにちは) in quite a funky fashion"
  	    ("file chooser" create-file-chooser)
  	    ("font selection" create-font-selection)
  	    ("handle box" create-handle-box)
+#+gtk2.6    ("icon view" create-icon-view)
  	    ("image" create-image)
  	    ("labels" create-labels)
  	    ("layout" create-layout)
