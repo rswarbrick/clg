@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.11 2002-03-24 21:55:49 espen Exp $ */
+/* $Id: gtkglue.c,v 1.12 2002-04-02 15:05:44 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -46,6 +46,23 @@ void gtk_callback_marshal (GtkWidget *widget, gpointer data)
   g_value_set_object (&arg, widget);
   callback_marshal ((guint)data, NULL, 1, &arg);
 }
+
+void gtk_menu_position_callback_marshal (GtkMenu *menu, gint x, gint y,
+					 gboolean push_in, gpointer data)
+{
+  GValue args[3];
+
+  memset (args, 0, 3 * sizeof (GValue));
+  g_value_init (&args[0], G_TYPE_INT);
+  g_value_set_int (&args[0], x);
+  g_value_init (&args[1], G_TYPE_INT);
+  g_value_set_int (&args[1], y);
+  g_value_init (&args[2], G_TYPE_BOOLEAN);
+  g_value_set_boolean (&args[2], push_in);
+  
+  callback_marshal ((guint)data, NULL, 3, args);
+}
+
 
 /* Widget */
 
@@ -96,28 +113,6 @@ GtkWidget*
 gtk_dialog_get_action_area (GtkDialog *dialog)
 {
   return dialog->action_area;
-}
-
-
-
-/* Menu item */
-
-GtkSubmenuPlacement
-gtk_menu_item_get_placement (GtkMenuItem* menu_item)
-{
-  return menu_item->submenu_placement;
-}
-
-gint
-gtk_menu_item_get_show_submenu (GtkMenuItem* menu_item)
-{
-  return menu_item->show_submenu_indicator;
-}
-
-void
-gtk_menu_item_set_show_submenu (GtkMenuItem* menu_item, guint show)
-{
-  menu_item->show_submenu_indicator = show;
 }
 
 
@@ -252,15 +247,6 @@ gtk_paned_child2 (GtkPaned *paned, guint *resize, guint *shrink)
   return paned->child2;
 }
 
-gint
-gtk_paned_get_position (GtkPaned *paned)
-{
-  if (paned->position_set == TRUE) 
-    return paned->child1_size;
-  else
-    return -1;
-}
-
 
 /* Layout */
 
@@ -282,12 +268,6 @@ gtk_list_selection (GtkList *list)
 
 
 /* Toolbar */
-
-gint
-gtk_toolbar_num_children (GtkToolbar *toolbar)
-{
-  return toolbar->num_children;
-}
 
 gint
 gtk_toolbar_get_tooltips (GtkToolbar *toolbar)
