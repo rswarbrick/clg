@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.14 2005-02-26 18:53:09 espen Exp $
+;; $Id: gdk.lisp,v 1.15 2005-02-27 12:37:45 espen Exp $
 
 
 (in-package "GDK")
@@ -146,7 +146,7 @@
   ((%grab-time time) (unsigned 32)))
 
 (defbinding (pointer-ungrab "gdk_display_pointer_ungrab")
-    (&optional (display (display-get-default) time)) nil
+    (&optional (display (display-get-default)) time) nil
   (display display)
   ((%grab-time time) (unsigned 32)))
 
@@ -159,7 +159,7 @@
   ((%grab-time time) (unsigned 32)))
 
 (defbinding (keyboard-ungrab "gdk_display_keyboard_ungrab")
-    (&optional (display (display-get-default) time)) nil
+    (&optional (display (display-get-default)) time) nil
   (display display)
   ((%grab-time time) (unsigned 32)))
 

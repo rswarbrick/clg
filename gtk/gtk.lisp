@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.37 2005-02-26 18:55:41 espen Exp $
+;; $Id: gtk.lisp,v 1.38 2005-02-27 12:37:01 espen Exp $
 
 
 (in-package "GTK")
@@ -67,7 +67,7 @@
 (defbinding grab-add () nil
   (widget widget))
 
-(defbinding grab-get-curent () widget)
+(defbinding grab-get-current () widget)
 
 (defbinding grab-remove () nil
   (widget widget))
