@@ -1,5 +1,5 @@
 /* Common Lisp bindings for GTK+ v2.0
- * Copyright (C) 1999-2000 Espen S. Johnsen <espejohn@online.no>
+ * Copyright (C) 1999-2000 Espen S. Johnsen <esj@stud.cs.uit.no>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -16,68 +16,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* $Id: gtkglue.c,v 1.3 2000-10-05 17:32:34 espen Exp $ */
+/* $Id: gtkglue.c,v 1.4 2000-11-09 20:30:16 espen Exp $ */
 
 
 #include <gtk/gtk.h>
-
-#ifdef CMUCL
-#include "lisp.h"
-
-extern lispobj funcall1(lispobj function, lispobj arg0);
-extern lispobj funcall3(lispobj function, lispobj arg0,
-			lispobj arg1, lispobj arg2);
-
-lispobj callback_trampoline;
-lispobj destroy_user_data;
-#endif
-
-
-void callback_marshal (GtkObject *object,
-		       gpointer data,
-		       guint n_args,
-		       GtkArg *args)
-{
-#ifdef CMUCL
-  funcall3 (callback_trampoline, alloc_number ((unsigned long)data),
-	    alloc_number (n_args), alloc_sap (args));
-
-  /*  lispobj lisp_args[4];
-
-  lisp_args[0] = alloc_sap (object);
-  lisp_args[1] = alloc_number ((unsigned long)data);
-  lisp_args[2] = alloc_number (n_args);
-  lisp_args[3] = alloc_sap (args);
-
-  call_into_lisp (callback_trampoline, lisp_args, 4);*/
-#elif defined(CLISP)
-  callback_trampoline ((unsigned long)data, n_args, (unsigned int) args);
-#endif
-}
-
-
-void destroy_marshal (gpointer data)
-{ 
-#ifdef CMUCL
-  funcall1 (destroy_user_data, alloc_number ((unsigned long)data));
-#elif defined(CLISP)
-  destroy_user_data ((unsigned long)data);
-#endif
-}
-
-#ifndef CMUCL
-void*
-callback_marshal_address ()
-{
-  return (void*)callback_marshal;
-}
-
-void*
-destroy_marshal_address ()
-{
-  return (void*)destroy_marshal;
-}
-#endif
 
 
 /*

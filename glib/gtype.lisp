@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 2000 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.5 2000-10-01 17:20:43 espen Exp $
+;; $Id: gtype.lisp,v 1.6 2000-11-09 20:29:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -582,7 +582,7 @@
 ;;;; Superclass wrapping types in the glib type system
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass gtype (alien-object)
+  (defclass ginstance (alien-object)
     ()
     (:metaclass alien-class)
     (:size 4 #|(size-of 'pointer)|#)))
@@ -593,7 +593,7 @@
     (sap-ref-unsigned class 0)))
 
 
-(deftype-method translate-from-alien gtype (type-spec location &optional alloc)
+(deftype-method translate-from-alien ginstance (type-spec location &optional alloc)
   (declare (ignore type-spec alloc))
   `(let ((location ,location))
      (unless (null-pointer-p location)
@@ -603,13 +603,13 @@
 
 
 
-;;;; Metaclass for subclasses of gtype-class
+;;;; Metaclass for subclasses of ginstance-class
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass gtype-class (alien-class)))
+  (defclass ginstance-class (alien-class)))
 
 
-(defmethod shared-initialize ((class gtype-class) names
+(defmethod shared-initialize ((class ginstance-class) names
 			      &rest initargs &key name)
   (declare (ignore initargs names))
   (call-next-method)
@@ -619,11 +619,11 @@
 
 
 (defmethod validate-superclass
-    ((class gtype-class) (super pcl::standard-class))
-  (subtypep (class-name super) 'gtype))
+    ((class ginstance-class) (super pcl::standard-class))
+  (subtypep (class-name super) 'ginstance))
 
 
-(defmethod allocate-alien-storage ((class gtype-class))
+(defmethod allocate-alien-storage ((class ginstance-class))
   (type-create-instance (find-type-number class)))
 
 

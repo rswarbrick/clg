@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 2000 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,18 +15,18 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.2 2000-08-23 21:40:38 espen Exp $
+;; $Id: gobject.lisp,v 1.3 2000-11-09 20:29:19 espen Exp $
 
 (in-package "GLIB")
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass gobject (gtype)
+  (defclass gobject (ginstance)
     ()
-    (:metaclass gtype-class)
+    (:metaclass ginstance-class)
     (:alien-name "GObject"))
 
-  (defclass gobject-class (gtype-class)))
+  (defclass gobject-class (ginstance-class)))
 
 
 ;;;; Reference counting for gobject
@@ -56,54 +56,24 @@
   (object (or gobject pointer)))
 
 
-;; Parameter stuff not yet implemented
+;;;; Parameter stuff
 
-; (define-foreign object-set-param () nil
-;   (object gobject)
-;   (name string)
-;   (value gvalue))
+(define-foreign %object-set-param () nil
+  (object gobject)
+  (name string)
+  (value gvalue))
 
-; (define-foreign object-get-param () nil
-;   (object gobject)
-;   (name string)
-;   (value gvalue :out))
+(define-foreign %object-get-param () nil
+  (object gobject)
+  (name string)
+  (value gvalue :out))
 
-; (define-foreign object-queue-param-changed () nil
-;   (object gobject)
-;   (name string))
+(define-foreign object-queue-param-changed () nil
+  (object gobject)
+  (name string))
 
 
-;;;; User data mechanism
 
-(declaim (fixnum *user-data-count*))
-
-(defvar *user-data* (make-hash-table))
-(defvar *user-data-count* 0)
-
-;; Until the callback mechanism is moved to glib, the value of
-;; *destroy-marshal* is set in gtkobject.lisp
-(defvar *destroy-marshal* nil)
-
-(defun register-user-data (object &optional destroy-function)
-  (check-type destroy-function (or null symbol function))
-;  (incf *user-data-count*)
-  (setq *user-data-count* (the fixnum (1+ *user-data-count*)))
-  (setf
-   (gethash *user-data-count* *user-data*)
-   (cons object destroy-function))
-  *user-data-count*)
-
-(defun find-user-data (id)
-  (check-type id fixnum)
-  (multiple-value-bind (user-data p) (gethash id *user-data*)
-    (values (car user-data) p)))
-
-(defun destroy-user-data (id)
-  (check-type id fixnum)
-  (let ((user-data (gethash id *user-data*)))
-    (when (cdr user-data)
-      (funcall (cdr user-data) (car user-data))))
-  (remhash id *user-data*))
 
 (define-foreign %object-set-qdata-full () nil
   (object gobject)
@@ -114,7 +84,7 @@
 (defun (setf object-data) (data object key &key (test #'eq))
   (%object-set-qdata-full
    object (quark-from-object key :test test)
-   (register-user-data data) *destroy-marshal*)
+   (register-user-data data) *destroy-notify*)
   data)
 
 (define-foreign %object-get-qdata () unsigned-long
@@ -124,6 +94,9 @@
 (defun object-data (object key &key (test #'eq))
   (find-user-data
    (%object-get-qdata object (quark-from-object key :test test))))
+
+
+
 
 
 

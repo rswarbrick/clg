@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 1999-2000 Espen S. Johnsen <esj@ostud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.6 2000-09-04 22:14:54 espen Exp $
+;; $Id: gtkobject.lisp,v 1.7 2000-11-09 20:30:16 espen Exp $
 
 
 (in-package "GTK")
@@ -171,61 +171,6 @@
   value)
 
 
-;;;; Callback mechanism
-
-(defun register-callback-function (function)
-  (check-type function (or null symbol function))
-  ; We treat callbacks just as ordinary user data
-  (register-user-data function))
-
-(defun callback-trampoline (callback-id nargs arg-array)
-  (declare (fixnum callback-id nargs))
-  (let* ((return-arg (unless (null-pointer-p arg-array)
-		       (arg-array-ref arg-array nargs)))
-	 (return-type (if return-arg
-			  (type-from-number (arg-type return-arg))
-			nil))
-	 (args nil)
-	 (callback-function (find-user-data callback-id)))
-    
-    (dotimes (n nargs)
-      (push (arg-value (arg-array-ref arg-array (- nargs n 1))) args))
-
-    (labels ((invoke-callback ()
-	       (restart-case
-		   (unwind-protect
-		       (let ((return-value (apply callback-function args)))
-			 (when return-type
-			   (setf (return-arg-value return-arg) return-value))))
-		
-		 (continue nil :report "Return from callback function"
-		  (when return-type
-		    (format
-		     *query-io*
-		     "Enter return value of type ~S: "
-		     return-type)
-		    (force-output *query-io*)
-		    (setf
-		     (return-arg-value return-arg)
-		     (eval (read *query-io*)))))
-		 (re-invoke nil :report "Re-invoke callback function"
-		  (invoke-callback)))))
-      (invoke-callback))))
-
-(defvar *callback-marshal* (system:foreign-symbol-address "callback_marshal"))
-(setq *destroy-marshal* (system:foreign-symbol-address "destroy_marshal"))
-
-(defun after-gc-hook ()
-  (setf
-   (extern-alien "callback_trampoline" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'callback-trampoline))
-   (extern-alien "destroy_user_data" system-area-pointer)
-   (make-pointer (kernel:get-lisp-obj-address #'destroy-user-data))))
-
-(pushnew 'after-gc-hook ext:*after-gc-hooks*)
-(after-gc-hook)
-
-
 
 ;;;; Main loop, timeouts and idle functions
 
@@ -282,56 +227,6 @@
 (setq lisp::*max-event-to-sec* 0)
 (setq lisp::*max-event-to-usec* 1000)
 
-
-
-;;;; Signals
-
-(define-foreign %signal-emit-stop () nil
-  (object object)
-  (signal-id unsigned-int))
-
-(define-foreign %signal-emit-stop-by-name (object signal) nil
-  (object object)
-  ((name-to-string signal) string))
-
-(defun signal-emit-stop (object signal)
-  (if (numberp signal)
-      (%signal-emit-stop object signal)
-    (%signal-emit-stop-by-name object signal)))
-
-(define-foreign %signal-connect-full
-    (object signal function after) unsigned-int
-  (object object)
-  ((name-to-string signal) string)
-  (0 unsigned-long)
-  (*callback-marshal* pointer)
-  ((register-callback-function function) unsigned-long)
-  (*destroy-marshal* pointer)
-  (nil boolean)
-  (after boolean))
-
-(defun signal-connect (object signal function
-		       &key after ((:object callback-object)))
-  (let* ((callback-object (if (eq callback-object t)
-			      object
-			    callback-object))
-	 (callback-function
-	  (if callback-object
-	      #'(lambda (&rest args) (apply function callback-object args))
-	    function)))
-    (%signal-connect-full object signal callback-function after)))
-
-(define-foreign signal-disconnect () nil
-  (object object)
-  (handler unsigned-int))
-
-(define-foreign signal-handler-block () nil
-  (object object)
-  (handler unsigned-int))
-
-(define-foreign signal-handler-unblock () nil
-  (object object)
-  (handler unsigned-int))
 
 
 ;;;; Metaclass used for subclasses of object

@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 2000 Espen S. Johnsen <esj@stud.cs.uit.no>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib-export.lisp,v 1.2 2000-08-17 22:43:02 espen Exp $
+;; $Id: glib-export.lisp,v 1.3 2000-11-09 20:29:19 espen Exp $
 
 
 ;;; Autogenerating exported symbols
@@ -42,4 +42,6 @@
 (export-from-file #p"clg:glib;gutils.lisp")
 (export-from-file #p"clg:glib;glib.lisp")
 (export-from-file #p"clg:glib;gtype.lisp")
+(export-from-file #p"clg:glib;gparam.lisp")
+(export-from-file #p"clg:glib;gcallback.lisp")
 (export-from-file #p"clg:glib;gobject.lisp")
