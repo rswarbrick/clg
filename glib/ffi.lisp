@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.10 2004-12-26 11:40:14 espen Exp $
+;; $Id: ffi.lisp,v 1.11 2004-12-28 20:27:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -378,7 +378,7 @@
 (defmethod alien-type ((type (eql 'unsigned-byte)) &rest args)
   (destructuring-bind (&optional (size '*)) args
     (ecase size
-      (#.+bits-of-byte+ '(unsigned-byte 8))
+      (#.+bits-of-byte+ '(unsigned #|-byte|# 8))
       (#.+bits-of-short+ 'c-call:unsigned-short)
       ((* #.+bits-of-int+) 'c-call:unsigned-int)
       (#.+bits-of-long+ 'c-call:unsigned-long))))
