@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.2 2000-08-15 14:42:34 espen Exp $
+;; $Id: gtype.lisp,v 1.3 2000-08-23 14:27:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -469,7 +469,8 @@
 
 (deftype-method translate-from-alien
     alien-object (type-spec location &optional alloc)
-  (declare (ignore alloc))
+  ;; Reference counted objects are always treated as if alloc were :reference
+  (declare (ignore alloc)) 
   `(let ((location ,location))
      (unless (null-pointer-p location)
        (ensure-alien-instance ',type-spec location))))
@@ -536,16 +537,17 @@
        (alien-instance-location object))))
 
 (deftype-method translate-from-alien
-    alien-structure (type-spec location &optional (alloc :dynamic))
+    alien-structure (type-spec location &optional (alloc :reference))
   `(let ((location ,location))
      (unless (null-pointer-p location)
        ,(ecase alloc
-	  (:dynamic `(ensure-alien-instance ',type-spec location))
+	  (:copy `(ensure-alien-instance ',type-spec location))
 	  (:static `(ensure-alien-instance ',type-spec location :static t))
-	  (:copy `(ensure-alien-instance
-		   ',type-spec
-		   `(,(alien-copier type-spec)
-		     location ,(alien-class-size (find-class type-spec)))))))))
+	  (:reference
+	   `(ensure-alien-instance
+	     ',type-spec
+	     `(,(alien-copier type-spec)
+	       location ,(alien-class-size (find-class type-spec)))))))))
 
 (deftype-method cleanup-alien alien-structure (type-spec sap &optional copied)
   (when copied

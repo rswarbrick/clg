@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gforeign.lisp,v 1.2 2000-08-16 18:25:30 espen Exp $
+;; $Id: gforeign.lisp,v 1.3 2000-08-23 14:27:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -182,7 +182,7 @@
      `(lambda (sap offset)	 
 	(declare (ignorable sap offset))
 	,(translate-from-alien
-	  type-spec `(,(sap-ref-fname type-spec) sap offset) :copy))))))
+	  type-spec `(,(sap-ref-fname type-spec) sap offset) :reference))))))
 
 
 (defun get-destroy-function (type-spec)
@@ -516,13 +516,13 @@
     `(make-pointer (1+ (kernel:get-lisp-obj-address ,string)))))
 
 (deftype-method
-    translate-from-alien string (type-spec sap &optional (alloc :dynamic))
+    translate-from-alien string (type-spec sap &optional (alloc :copy))
   (declare (ignore type-spec))
   `(let ((sap ,sap))
      (unless (null-pointer-p sap)
        (prog1
 	   (c-call::%naturalize-c-string sap)
-	 ,(when (eq alloc :dynamic) `(deallocate-memory ,sap))))))
+	 ,(when (eq alloc :copy) `(deallocate-memory ,sap))))))
 
 (deftype-method cleanup-alien string (type-spec sap &optional copied)
   (declare (ignore type-spec))

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.3 2000-08-22 23:13:39 espen Exp $
+;; $Id: glib.lisp,v 1.4 2000-08-23 14:27:41 espen Exp $
 
 
 (in-package "GLIB")
@@ -119,7 +119,7 @@
 
 (deftype-method
     translate-from-alien
-    double-list (type-spec glist &optional (alloc :dynamic))
+    double-list (type-spec glist &optional (alloc :reference))
   (let ((element-type-spec (second (type-expand-to 'double-list type-spec))))
     `(let ((glist ,glist)
 	   (list nil))
@@ -129,7 +129,7 @@
 	  ,(translate-from-alien
 	    element-type-spec `(glist-data tmp ,element-type-spec) alloc)
 	  list))
-       ,(when (eq alloc :dynamic)
+       ,(when (eq alloc :reference)
 	  '(glist-free glist))
        (nreverse list))))
 
