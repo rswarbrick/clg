@@ -10,7 +10,7 @@
 (pkg-exists-p "gtk+-2.0" :atleast-version "2.4.0")
 
 (when (string>= (pkg-version "gtk+-2.0") "2.6.0")
-  (push :gtk2.6 *features*))
+  (pushnew :gtk2.6 *features*))
 
 (defsystem gtk
     :depends-on (glib gdk pango atk)
@@ -32,4 +32,4 @@
 		 (:file "gtkstyle" :depends-on ("gtktypes"))
 		 (:file "gtk" :depends-on ("gtktypes"))
 		 (:file "gtkutils" :depends-on ("gtk"))
-		 (:file "export" :depends-on ("gtktypes" "gtk"))))
+		 (:file "export" :depends-on ("gtktypes" "gtkwidget" "gtkcontainer" "gtk" "gtktree" "gtkaction" "gtkutils" "gtkstyle"))))
