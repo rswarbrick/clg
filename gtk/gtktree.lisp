@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktree.lisp,v 1.7 2005-02-27 19:56:06 espen Exp $
+;; $Id: gtktree.lisp,v 1.8 2005-03-03 10:05:32 espen Exp $
 
 
 (in-package "GTK")
@@ -274,6 +274,12 @@
   (let ((reader (reader-function 'pointer)))
     #'(lambda (location &optional (offset 0))
 	(%tree-path-to-vector (funcall reader location offset)))))
+
+(defmethod destroy-function ((type (eql 'tree-path)) &rest args)
+  (declare (ignore type args))
+  (let ((reader (reader-function 'pointer)))
+    #'(lambda (location &optional (offset 0))
+	(%tree-path-free (funcall reader location offset)))))
 
 
 (defbinding %tree-row-reference-new () pointer
