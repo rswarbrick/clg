@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkcontainer.lisp,v 1.4 2001-10-21 23:20:13 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.5 2001-10-25 08:16:17 espen Exp $
 
 (in-package "GTK")
 
@@ -48,6 +48,19 @@
   (%container-remove container widget)
   (slot-makunbound widget 'child-slots))
 
+
+(defbinding %container-child-get-property () nil
+  (container container)
+  (child widget)
+  (property-name string)
+  (value gvalue))
+
+(defbinding %container-child-set-property () nil
+  (container container)
+  (child widget)
+  (property-name string)
+  (value gvalue))
+  
 
 (defbinding container-check-resize () nil
   (container container))

@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkobject.lisp,v 1.10 2001-10-21 23:18:11 espen Exp $
+;; $Id: gtkobject.lisp,v 1.11 2001-10-25 08:16:17 espen Exp $
 
 
 (in-package "GTK")
@@ -136,18 +136,6 @@
     (:property (find-class 'effective-child-slot-definition))
     (t (call-next-method))))
 
-(defbinding %container-child-get-property () nil
-  (container container)
-  (child widget)
-  (property-name string)
-  (value gvalue))
-
-(defbinding %container-child-set-property () nil
-  (container container)
-  (child widget)
-  (property-name string)
-  (value gvalue))
-  
 (defmethod compute-virtual-slot-accessors
     ((class child-class) (slotd effective-child-slot-definition) direct-slotds)
   (with-slots (type) slotd
