@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.29 2005-03-11 20:16:07 espen Exp $
+;; $Id: gtype.lisp,v 1.30 2005-03-12 19:38:12 espen Exp $
 
 (in-package "GLIB")
 
@@ -237,7 +237,7 @@
     ()))
 
 
-(defmethod shared-initialize ((class ginstance-class) names &key name gtype)
+(defmethod shared-initialize ((class ginstance-class) names &rest initargs &key name gtype)
   (declare (ignore names))
   (let* ((class-name (or name (class-name class)))
 	 (type-number 
@@ -245,9 +245,10 @@
 	   (find-type-number class-name)
 	   (register-type class-name 
 	     (or (first gtype) (default-type-init-name class-name))))))
-    (call-next-method)
-    (when (slot-boundp class 'size)
-      (setf (slot-value class 'size) (type-instance-size type-number)))))
+    (if (getf initargs :size)
+         (call-next-method)
+       (let ((size (type-instance-size type-number)))
+         (apply #'call-next-method class names :size (list size) initargs)))))
 
 
 (defmethod validate-superclass ((class ginstance-class) (super standard-class))
