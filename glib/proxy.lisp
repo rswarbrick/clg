@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: proxy.lisp,v 1.13 2004-11-15 19:20:55 espen Exp $
+;; $Id: proxy.lisp,v 1.14 2004-11-19 13:02:51 espen Exp $
 
 (in-package "GLIB")
 
@@ -365,6 +365,26 @@
   (declare (ignore class args))
   #'proxy-location)
 
+(defmethod copy-from-alien-form (location (class proxy-class) &rest args)
+  (declare (ignore args))
+  (let ((class-name (class-name class)))
+    `(ensure-proxy-instance ',class-name
+      (reference-foreign ',class-name ,location))))
+
+(defmethod copy-from-alien-function ((class proxy-class) &rest args)
+  (declare (ignore args))  
+  #'(lambda (location)
+      (ensure-proxy-instance class (reference-foreign class location))))
+
+(defmethod copy-to-alien-form (instance (class proxy-class) &rest args)
+  (declare (ignore args))
+  `(reference-foreign ',(class-name class) (proxy-location ,instance)))
+
+(defmethod copy-to-alien-function ((class proxy-class) &rest args)
+  (declare (ignore class args))
+  #'(lambda (instance)
+      (reference-foreign class (proxy-location instance))))
+
 (defmethod writer-function ((class proxy-class) &rest args)
   (declare (ignore args))
   #'(lambda (instance location &optional (offset 0))
@@ -376,7 +396,9 @@
 (defmethod reader-function ((class proxy-class) &rest args)
   (declare (ignore args))
   #'(lambda (location &optional (offset 0))
-      (ensure-proxy-instance class (sap-ref-sap location offset))))
+      (let ((instance (sap-ref-sap location offset)))
+	(unless (null-pointer-p instance)
+	  (ensure-proxy-instance class (reference-foreign class instance))))))
 
 (defmethod destroy-function ((class proxy-class) &rest args)
   (declare (ignore args))
@@ -426,13 +448,6 @@
 
 (defmethod unreference-foreign ((class struct-class) location)
   (deallocate-memory location))
-
-(defmethod reader-function ((class struct-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (location &optional (offset 0))
-      (let ((instance (sap-ref-sap location offset)))
-	(unless (null-pointer-p instance)
-	  (ensure-proxy-instance class (reference-foreign class instance))))))
 
 
 (defclass static-struct-class (struct-class)

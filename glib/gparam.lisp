@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gparam.lisp,v 1.10 2004-11-12 15:01:42 espen Exp $
+;; $Id: gparam.lisp,v 1.11 2004-11-19 13:02:51 espen Exp $
 
 (in-package "GLIB")
 
@@ -134,12 +134,12 @@
     :allocation :virtual
     :getter "g_param_spec_get_nick"
     :reader param-nickname
-    :type string)
+    :type (copy-of string))
    (documentation
     :allocation :virtual
     :getter "g_param_spec_get_blurb"
     :reader param-documentation
-    :type string))
+    :type (copy-of string)))
   (:metaclass param-spec-class))
 
 

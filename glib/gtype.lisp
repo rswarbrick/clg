@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtype.lisp,v 1.20 2004-11-13 16:37:09 espen Exp $
+;; $Id: gtype.lisp,v 1.21 2004-11-19 13:02:51 espen Exp $
 
 (in-package "GLIB")
 
@@ -147,7 +147,7 @@
   (etypecase name
     (string (type-from-number (find-type-number name t)))))
 
-(defbinding (find-type-name "g_type_name") (type) string
+(defbinding (find-type-name "g_type_name") (type) (copy-of string)
   ((find-type-number type t) type-number))
 
 (defun type-number-of (object)
@@ -202,6 +202,19 @@
 	(make-instance class :location (reference-foreign class location))
       ;; TODO: (make-instance 'ginstance ...)
       location)))
+
+(defmethod copy-from-alien-form (location (class ginstance-class) &rest args)
+  (declare (ignore location class args))
+  (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
+
+(defmethod copy-from-alien-function ((class ginstance-class) &rest args)
+  (declare (ignore class args))  
+  (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
+
+(defmethod reader-function ((class ginstance-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0))
+      (ensure-proxy-instance class (sap-ref-sap location offset))))
 
 
 ;;;; Metaclass for subclasses of ginstance

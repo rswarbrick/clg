@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.5 2004-11-12 11:34:14 espen Exp $
+;; $Id: ffi.lisp,v 1.6 2004-11-19 13:02:51 espen Exp $
 
 (in-package "GLIB")
 
@@ -234,6 +234,11 @@
 (def-type-method from-alien-function ())
 (def-type-method cleanup-function ())
 
+(def-type-method copy-to-alien-form (form))
+(def-type-method copy-to-alien-function ())
+(def-type-method copy-from-alien-form (form))
+(def-type-method copy-from-alien-function ())
+
 (def-type-method writer-function ())
 (def-type-method reader-function ())
 (def-type-method destroy-function ())
@@ -296,6 +301,18 @@
   (declare (ignore type args))
   #'(lambda (location offset)
       (declare (ignore location offset))))
+
+(defmethod copy-to-alien-form  (form (type t) &rest args)
+  (apply #'to-alien-form form type args))
+
+(defmethod copy-to-alien-function  ((type t) &rest args)
+  (apply #'to-alien-function type args))
+
+(defmethod copy-from-alien-form  (form (type t) &rest args)
+  (apply #'from-alien-form form type args))
+
+(defmethod copy-from-alien-function  ((type t) &rest args)
+  (apply #'from-alien-function type args))
 
 
 (defmethod alien-type ((type (eql 'signed-byte)) &rest args)
@@ -494,13 +511,17 @@
   (declare (ignore type args))
   `(let ((string ,string))
     (unless (null-pointer-p string)
-      (c-call::%naturalize-c-string string))))
+      (prog1
+	  (c-call::%naturalize-c-string string)
+	(deallocate-memory string)))))
 
 (defmethod from-alien-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (string)
       (unless (null-pointer-p string)
-	(c-call::%naturalize-c-string string))))
+	(prog1
+	    (c-call::%naturalize-c-string string)
+	  (deallocate-memory string)))))
 
 (defmethod cleanup-form (string (type (eql 'string)) &rest args)
   (declare (ignore type args))
@@ -513,6 +534,18 @@
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(deallocate-memory string))))
+
+(defmethod copy-from-alien-form (string (type (eql 'string)) &rest args)
+  (declare (ignore type args))
+  `(let ((string ,string))
+    (unless (null-pointer-p string)
+      (c-call::%naturalize-c-string string))))
+
+(defmethod copy-from-alien-function ((type (eql 'string)) &rest args)
+  (declare (ignore type args))
+  #'(lambda (string)
+      (unless (null-pointer-p string)
+	(c-call::%naturalize-c-string string))))
 
 (defmethod writer-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
@@ -709,3 +742,30 @@
   #'(lambda (value)
       (declare (ignore value))
       (values)))
+
+
+(defmethod alien-type ((type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (alien-type (first args)))
+
+(defmethod size-of ((type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (size-of (first args)))
+
+(defmethod to-alien-form (form (type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (copy-to-alien-form form (first args)))
+
+(defmethod to-alien-function ((type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (copy-to-alien-function (first args)))
+
+(defmethod from-alien-form (form (type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (copy-from-alien-form form (first args)))
+
+(defmethod from-alien-function ((type (eql 'copy-of)) &rest args)
+  (declare (ignore type))
+  (copy-from-alien-function (first args)))
+
+(export 'copy-of)
