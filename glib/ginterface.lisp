@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ginterface.lisp,v 1.4 2004-11-06 21:39:58 espen Exp $
+;; $Id: ginterface.lisp,v 1.5 2004-11-07 15:54:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -93,6 +93,18 @@
 (defmethod to-alien-function ((class ginterface-class) &rest args)
   (declare (ignore class args))
   (to-alien-function 'gobject))
+
+(defmethod reader-function ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (reader-function 'gobject))
+
+(defmethod writer-function ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (writer-function 'gobject))
+
+(defmethod destroy-function ((class ginterface-class) &rest args)
+  (declare (ignore class args))
+  (destroy-function 'gobject))
 
 
 ;;;;
