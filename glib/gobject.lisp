@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gobject.lisp,v 1.5 2001-04-29 20:17:27 espen Exp $
+;; $Id: gobject.lisp,v 1.6 2001-04-29 20:34:18 espen Exp $
 
 (in-package "GLIB")
 
@@ -35,34 +35,34 @@
    (%gobject-new (type-number-of object)))
   (call-next-method))
 
-(define-foreign ("g_object_new" %gobject-new) () gobject
+(defbinding ("g_object_new" %gobject-new) () gobject
   (type type-number)
   (nil null))
 
 
 ;;;; Parameter stuff
 
-(define-foreign %object-set-property () nil
+(defbinding %object-set-property () nil
   (object gobject)
   (name string)
   (value gvalue))
 
-(define-foreign %object-get-property () nil
+(defbinding %object-get-property () nil
   (object gobject)
   (name string)
   (value gvalue))
 
-(define-foreign %object-notify () nil
+(defbinding %object-notify () nil
   (object gobject)
   (name string))
 
-(define-foreign object-freeze-notify () nil
+(defbinding object-freeze-notify () nil
   (object gobject))
 
-(define-foreign object-thaw-notify () nil
+(defbinding object-thaw-notify () nil
   (object gobject))
 
-(define-foreign %object-set-qdata-full () nil
+(defbinding %object-set-qdata-full () nil
   (object gobject)
   (id quark)
   (data unsigned-long)
@@ -77,7 +77,7 @@
    (register-user-data data) *destroy-notify*)
   data)
 
-(define-foreign %object-get-qdata () unsigned-long
+(defbinding %object-get-qdata () unsigned-long
   (object gobject)		 
   (id quark))
 
@@ -98,12 +98,12 @@
     (effective-virtual-slot-definition)))
 
 
-; (define-foreign object-class-install-param () nil
+; (defbinding object-class-install-param () nil
 ;   (class pointer)
 ;   (id unsigned-int)
 ;   (parameter parameter))
 
-; (define-foreign object-class-find-param-spec () parameter
+; (defbinding object-class-find-param-spec () parameter
 ;   (class pointer)
 ;   (name string))
 
@@ -156,10 +156,4 @@
 (defmethod validate-superclass ((class gobject-class)
 				(super pcl::standard-class))
   (subtypep (class-name super) 'gobject))
-
-
-;;;;
-
-; (defmacro defclass-by-query (name)
-;   (destructuring-bind (lisp-name alien-name) name
     
