@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gboxed.lisp,v 1.3 2001-05-11 16:04:33 espen Exp $
+;; $Id: gboxed.lisp,v 1.4 2001-05-29 15:46:17 espen Exp $
 
 (in-package "GLIB")
 
@@ -68,3 +68,34 @@
      (:alien-name ,(find-type-name type-number))))
 
 (register-derivable-type 'boxed "GBoxed" :expand 'expand-boxed-type)
+
+;;;; Special boxed types
+
+(defclass gstring (boxed)
+  ()
+  (:metaclass boxed-class)
+  (:alien-name "GString"))
+
+(deftype-method translate-from-alien
+    gstring (type-spec location &optional weak-ref)
+  `(let ((location ,location))
+     (unless (null-pointer-p location)
+       (prog1
+	   (c-call::%naturalize-c-string location)
+	 ,(unless weak-ref
+	    (unreference-alien type-spec location))))))
+
+(deftype-method translate-to-alien
+    gstring (type-spec string &optional weak-ref)
+  (declare (ignore type-spec weak-ref))
+  `(let ((string ,string))
+     ;; Always copy strings to prevent seg fault due to GC
+     (funcall
+      ',(proxy-class-copy (find-class type-spec))
+      ',type-spec
+      (make-pointer (1+ (kernel:get-lisp-obj-address string))))))
+
+(deftype-method cleanup-alien gstring (type-spec c-string &optional weak-ref)
+  (when weak-ref
+    (unreference-alien type-spec c-string)))
+
