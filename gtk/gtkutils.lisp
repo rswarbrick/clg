@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkutils.lisp,v 1.3 2004-11-07 17:55:29 espen Exp $
+;; $Id: gtkutils.lisp,v 1.4 2004-12-04 18:24:01 espen Exp $
 
 
 (in-package "GTK")
@@ -90,3 +90,50 @@
   (make-instance 'adjustment 
    :value value :lower lower :upper upper :step-increment step-increment
    :page-increment page-increment :page-size page-size))
+
+(defun create-action (name &optional stock-id label accelerator tooltip 
+		      callback &rest initargs)
+  (let ((action (apply #'make-instance 'action
+		 :name (string name) :stock-id stock-id  :label label
+		 :tooltip tooltip :accelerator accelerator initargs)))
+    (when callback
+      (signal-connect action 'activate callback))
+    action))
+
+(defun create-toggle-action (name &optional stock-id label accelerator 
+			     tooltip active callback &rest initargs)
+  (let ((action (apply #'make-instance 'toggle-action 
+		 :name (string name) :stock-id stock-id :label label
+		 :tooltip tooltip :active active :accelerator accelerator
+		 initargs)))
+    (when callback
+      (signal-connect action 'activate
+       #'(lambda ()
+	   (funcall callback (toggle-action-active-p action))))
+      (funcall callback active))
+    action))
+
+(defun create-radio-actions (specs &optional active callback &rest initargs)
+  (loop
+   with group = nil
+   for spec in specs
+   collect (destructuring-bind (name &optional stock-id label accelerator 
+				tooltip (value name)) 
+	       (mklist spec)
+	     (let ((action (apply #'make-instance 'radio-action 
+			    :name (string name) :stock-id stock-id 
+			    :label label :tooltip tooltip 
+			    :accelerator accelerator initargs)))
+	       (when (equal active value)
+		 (setf (toggle-action-active-p action) t)
+		 (when callback
+		   (funcall callback value)))
+
+	       (if (not group)
+		   (setq group action)
+		 (radio-action-add-to-group action group))
+	       (when callback
+		 (signal-connect action 'activate
+		  #'(lambda ()
+		      (funcall callback value))))
+	       action))))
