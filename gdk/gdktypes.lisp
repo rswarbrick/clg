@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdktypes.lisp,v 1.12 2005-02-03 23:09:07 espen Exp $
+;; $Id: gdktypes.lisp,v 1.13 2005-02-10 00:22:35 espen Exp $
 
 (in-package "GDK")
 
@@ -190,7 +190,7 @@
     :reader cursor-display
     :type display))
   (:metaclass boxed-class)
-  (:alien-name "GdkColor"))
+  (:alien-name "GdkCursor"))
 
 
 (defclass geometry (struct)
