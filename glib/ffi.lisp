@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2001 Espen S. Johnsen <esj@stud.cs.uit.no>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: ffi.lisp,v 1.18 2005-03-13 18:06:51 espen Exp $
+;; $Id: ffi.lisp,v 1.19 2005-04-17 21:49:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -546,23 +546,32 @@
   (declare (ignore type args))
   `(let ((string ,string))
      ;; Always copy strings to prevent seg fault due to GC
+     #+cmu
      (copy-memory
       (vector-sap (coerce string 'simple-base-string))
-      (1+ (length string)))))
+      (1+ (length string)))
+     #+sbcl
+     (let ((utf8 (%deport-utf8-string string)))
+       (copy-memory (vector-sap utf8) (length utf8)))))
   
 (defmethod to-alien-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (string)
+      #+cmu
       (copy-memory
        (vector-sap (coerce string 'simple-base-string))
-       (1+ (length string)))))
+       (1+ (length string)))
+      #+sbcl
+      (let ((utf8 (%deport-utf8-string string)))
+	(copy-memory (vector-sap utf8) (length utf8)))))
 
 (defmethod from-alien-form (string (type (eql 'string)) &rest args)
   (declare (ignore type args))
   `(let ((string ,string))
     (unless (null-pointer-p string)
       (prog1
-	  (%naturalize-c-string string)
+	  #+cmu(%naturalize-c-string string)
+	  #+sbcl(%naturalize-utf8-string string)
 	(deallocate-memory string)))))
 
 (defmethod from-alien-function ((type (eql 'string)) &rest args)
@@ -570,7 +579,8 @@
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(prog1
-	    (%naturalize-c-string string)
+	    #+cmu(%naturalize-c-string string)
+	    #+sbcl(%naturalize-utf8-string string)
 	  (deallocate-memory string)))))
 
 (defmethod cleanup-form (string (type (eql 'string)) &rest args)
@@ -589,29 +599,35 @@
   (declare (ignore type args))
   `(let ((string ,string))
     (unless (null-pointer-p string)
-      (%naturalize-c-string string))))
-
+      #+cmu(%naturalize-c-string string)
+      #+sbcl(%naturalize-utf8-string string))))
 
 (defmethod copy-from-alien-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (string)
       (unless (null-pointer-p string)
-	(%naturalize-c-string string))))
+	#+cmu(%naturalize-c-string string)
+	#+sbcl(%naturalize-utf8-string string))))
 
 (defmethod writer-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (string location &optional (offset 0))
       (assert (null-pointer-p (sap-ref-sap location offset)))
       (setf (sap-ref-sap location offset)
+       #+cmu
        (copy-memory
 	(vector-sap (coerce string 'simple-base-string))
-	(1+ (length string))))))
+	(1+ (length string)))
+       #+sbcl
+       (let ((utf8 (%deport-utf8-string string)))
+	 (copy-memory (vector-sap utf8) (length utf8))))))
 
 (defmethod reader-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   #'(lambda (location &optional (offset 0))
       (unless (null-pointer-p (sap-ref-sap location offset))
-	(%naturalize-c-string (sap-ref-sap location offset)))))
+	#+cmu(%naturalize-c-string (sap-ref-sap location offset))
+	#+sbcl(%naturalize-utf8-string (sap-ref-sap location offset)))))
 
 (defmethod destroy-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
@@ -623,6 +639,7 @@
 (defmethod unbound-value ((type (eql 'string)) &rest args)
   (declare (ignore type args))
   (values t nil))
+
 
 (defmethod alien-type ((type (eql 'pathname)) &rest args)
   (declare (ignore type args))

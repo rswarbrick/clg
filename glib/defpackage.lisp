@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2000 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: defpackage.lisp,v 1.5 2005-02-03 23:09:03 espen Exp $
+;; $Id: defpackage.lisp,v 1.6 2005-04-17 21:49:19 espen Exp $
 
 ;(export 'kernel::type-expand-1 "KERNEL")
 
@@ -37,7 +37,9 @@
   (:import-from #+cmu"ALIEN" #+sbcl"SB-ALIEN" 
 	   "WITH-ALIEN" "ALIEN-FUNCALL" "%HEAP-ALIEN" "MAKE-HEAP-ALIEN-INFO" 
 	   "ADDR" "PARSE-ALIEN-TYPE" "SYSTEM-AREA-POINTER" "EXTERN-ALIEN")
-  (:import-from #+cmu"C-CALL" #+sbcl"SB-ALIEN" "%NATURALIZE-C-STRING" "VOID")
+  #+cmu(:import-from "C-CALL" "%NATURALIZE-C-STRING" "VOID")
+  #+sbcl(:import-from "SB-ALIEN" 
+	   "%NATURALIZE-UTF8-STRING"  "%DEPORT-UTF8-STRING" "VOID")
   (:export "DEFTYPE-METHOD" "TRANSLATE-TYPE-SPEC" "TRANSLATE-TO-ALIEN"
 	   "TRANSLATE-FROM-ALIEN" "CLEANUP-ALIEN" "UNREFERENCE-ALIEN"
 	   "SIZE-OF" "UNBOUND-VALUE")
