@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.25 2005-03-13 18:16:08 espen Exp $
+;; $Id: testgtk.lisp,v 1.26 2005-04-17 21:52:17 espen Exp $
 
 (defpackage "TESTGTK"
   (:use "COMMON-LISP" "GTK"))
@@ -326,7 +326,7 @@
   (let ((spinner (make-instance 'spin-button 
 		  :adjustment (adjustment-new 
 			       0 0 
-			       (1- (enum-int :last-cursor 'gdk:cursor-type))
+			       (1- (glib:enum-int :last-cursor 'gdk:cursor-type))
 			       2 10 0)))
 	(drawing-area (make-instance 'drawing-area
 		       :width-request 80 :height-request 80
@@ -667,8 +667,9 @@ Third line"
                       :justify :fill :wrap t)
 
 	     :child (create-label-in-frame "Underlined label"
+(#+cmu glib:latin1-to-unicode #+sbcl identity
 "This label is underlined!
-This one is underlined (ã“ã‚“ã«ã¡ã¯) in quite a funky fashion"
+This one is underlined (æøåÆØÅ) in quite a funky fashion")
                       :justify :left
 	              :pattern  "_________________________ _ _________ _ _____ _ __ __  ___ ____ _____")))))
 
@@ -733,7 +734,7 @@ This one is underlined (ã“ã‚“ã«ã¡ã¯) in quite a funky fashion"
     
 (define-simple-dialog create-list (dialog "List" :default-height 400)
   (let* ((store (make-instance 'list-store 
-		 :column-types '(string int boolean)
+		 :column-types '(string integer boolean)
 		 :column-names '(:foo :bar :baz)
 		 :initial-content '(#("First" 12321 nil)
 				    (:foo "Yeah" :baz t))))
