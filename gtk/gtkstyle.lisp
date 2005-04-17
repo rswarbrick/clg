@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkstyle.lisp,v 1.1 2004-12-20 00:48:57 espen Exp $
+;; $Id: gtkstyle.lisp,v 1.2 2005-04-17 21:43:16 espen Exp $
 
 (in-package "GTK")
 
@@ -224,3 +224,8 @@
 
 (defun style-white-gc (style)
   (%style-get-gc style :white :normal))
+
+(export 
+ '(style-fg style-bg style-light style-dark style-mid style-text style-base 
+   style-text-aa style-fg-gc style-bg-gc style-light-gc style-dark-gc 
+   style-mid-gc style-text-gc style-base-gc style-text-aa-gc))
