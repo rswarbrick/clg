@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.39 2005-03-13 18:08:44 espen Exp $
+;; $Id: gtk.lisp,v 1.40 2005-04-17 21:39:04 espen Exp $
 
 
 (in-package "GTK")
@@ -851,6 +851,12 @@
 
 
 ;;; Label
+
+(defmethod shared-initialize ((label label) names &key pattern)
+  (declare (ignore names))
+  (call-next-method)
+  (when pattern
+    (setf (label-pattern label) pattern)))
 
 (defbinding label-get-layout-offsets () nil
   (label label)
