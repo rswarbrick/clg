@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.27 2005-02-14 00:44:26 espen Exp $
+;; $Id: glib.lisp,v 1.28 2005-04-17 21:44:27 espen Exp $
 
 
 (in-package "GLIB")
@@ -38,9 +38,8 @@
 ;;   (declare (ignore address)))
 
 (defun copy-memory (from length &optional (to (allocate-memory length)))
-  (;#+cmu kernel:system-area-copy 
-   ;#+sbcl sb-impl::system-area-copy 
-   system-area-copy from 0 to 0 (* 8 length))
+  #+cmu(system-area-copy from 0 to 0 (* 8 length))
+  #+sbcl(system-area-ub8-copy from 0 to 0 length)
   to)
 
 
