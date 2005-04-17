@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: utils.lisp,v 1.3 2005-02-03 23:09:05 espen Exp $
+;; $Id: utils.lisp,v 1.4 2005-04-17 21:38:15 espen Exp $
 
 
 (in-package "GLIB")
@@ -45,15 +45,8 @@
     (expand form)))
 
 (defmacro with-gc-disabled (&body body)
-  (let ((gc-inhibit (make-symbol "GC-INHIBIT")))
-    `(progn
-       (let ((,gc-inhibit #+cmu lisp::*gc-inhibit* 
-			  #+sbcl sb-impl::*gc-inhibit*))
-	 (gc-off)
-	 	 (unwind-protect
-	     ,@body
-	   (unless ,gc-inhibit
-	     (gc-on)))))))
+  #+cmu`(system:without-gcing ,@body)
+  #+sbcl`(sb-impl::without-gcing ,@body))
 
 (defun mklist (obj)
   (if (and obj (atom obj)) (list obj) obj))
