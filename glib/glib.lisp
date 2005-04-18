@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v1.2.x
-;; Copyright (C) 1999 Espen S. Johnsen <espejohn@online.no>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users-sf-net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: glib.lisp,v 1.28 2005-04-17 21:44:27 espen Exp $
+;; $Id: glib.lisp,v 1.29 2005-04-18 10:34:51 espen Exp $
 
 
 (in-package "GLIB")
@@ -444,6 +444,14 @@
 	(error "Can't use vector of variable size as return type")
       `(map-c-vector 'vector #'identity ,c-vector ',element-type ',length))))
 
+(defmethod copy-from-alien-function ((type (eql 'vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type &optional (length '*)) args
+    (if (eq length '*)
+	(error "Can't use vector of variable size as return type")
+      #'(lambda (c-vector)
+	  (map-c-vector 'vector #'identity c-vector element-type length)))))
+
 (defmethod cleanup-form (location (type (eql 'vector)) &rest args)
   (declare (ignore type))
   (destructuring-bind (element-type &optional (length '*)) args
@@ -546,6 +554,7 @@
    do (funcall destroy location offset))
   (deallocate-memory location))
 
+(deftype null-terminated-vector (element-type) `(vector ,element-type))
 
 (defmethod alien-type ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type args))
@@ -553,7 +562,30 @@
 
 (defmethod size-of ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type args))
-  (alien-type 'pointer))
+  (size-of 'pointer))
+
+(defmethod to-alien-form (vector (type (eql 'null-terminated-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(make-0-vector ',element-type ,vector)))
+
+(defmethod from-alien-form (c-vector (type (eql 'null-terminated-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(let ((c-vector ,c-vector))
+       (prog1
+	   (map-0-vector 'vector #'identity c-vector ',element-type)
+	 (destroy-0-vector c-vector ',element-type)))))
+
+(defmethod copy-from-alien-form (c-vector (type (eql 'null-terminated-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(map-0-vector 'vector #'identity ,c-vector ',element-type)))
+
+(defmethod cleanup-form (location (type (eql 'null-terminated-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(destroy-0-vector ,location ',element-type)))
 
 (defmethod writer-function ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type))
@@ -589,3 +621,94 @@
 (defmethod unbound-value ((type (eql 'null-terminated-vector)) &rest args)
   (declare (ignore type args))
   (values t nil))
+
+
+;;; Counted vector
+
+(defun make-counted-vector (type content)
+  (let* ((size-of-type (size-of type))
+	 (length (length content))
+	 (location 
+	  (allocate-memory (+ +size-of-int+ (* size-of-type length)))))
+    (setf (sap-ref-32 location 0) length)
+    (make-c-vector type length content (sap+ location +size-of-int+))))
+
+(defun map-counted-vector (seqtype function location element-type)
+  (let ((length (sap-ref-32 location 0)))
+    (map-c-vector 
+     seqtype function (sap+ location +size-of-int+)
+     element-type length)))
+
+(defun destroy-counted-vector (location element-type)
+  (loop
+   with destroy = (destroy-function element-type)
+   with element-size = (size-of element-type)
+   for i from 0 below (sap-ref-32 location 0)
+   as offset = +size-of-int+ then (+ offset element-size)
+   do (funcall destroy location offset))
+  (deallocate-memory location))
+
+
+(deftype counted-vector (element-type) `(vector ,element-type))
+
+(defmethod alien-type ((type (eql 'counted-vector)) &rest args)
+  (declare (ignore type args))
+  (alien-type 'pointer))
+
+(defmethod size-of ((type (eql 'counted-vector)) &rest args)
+  (declare (ignore type args))
+  (size-of 'pointer))
+
+(defmethod to-alien-form (vector (type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(make-counted-vector ',element-type ,vector)))
+
+(defmethod from-alien-form (c-vector (type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(let ((c-vector ,c-vector))
+       (prog1
+	   (map-counted-vector 'vector #'identity c-vector ',element-type)
+	 (destroy-counted-vector c-vector ',element-type)))))
+
+(defmethod copy-from-alien-form (c-vector (type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(map-counted-vector 'vector #'identity ,c-vector ',element-type)))
+
+(defmethod copy-from-alien-function ((type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (c-vector)
+	(map-counted-vector 'vector #'identity c-vector element-type))))
+
+(defmethod cleanup-form (location (type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    `(destroy-counted-vector ,location ',element-type)))
+
+(defmethod writer-function ((type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (vector location &optional (offset 0))
+	(setf 
+	 (sap-ref-sap location offset)
+	 (make-counted-vector element-type vector)))))
+
+(defmethod reader-function ((type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (map-counted-vector 'vector #'identity 
+	   (sap-ref-sap location offset) element-type)))))
+
+(defmethod destroy-function ((type (eql 'counted-vector)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (element-type) args
+    #'(lambda (location &optional (offset 0))
+	(unless (null-pointer-p (sap-ref-sap location offset))
+	  (destroy-counted-vector 
+	   (sap-ref-sap location offset) element-type)
+	  (setf (sap-ref-sap location offset) (make-pointer 0))))))
