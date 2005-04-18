@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.26 2005-04-17 21:52:17 espen Exp $
+;; $Id: testgtk.lisp,v 1.27 2005-04-18 10:39:32 espen Exp $
 
 (defpackage "TESTGTK"
   (:use "COMMON-LISP" "GTK"))
@@ -478,29 +478,6 @@
    :child (make-instance 'label :label "Pick a font")
    :child (make-instance 'font-button 
            :use-font t :title "Font Selection Dialog")))
-
-
-;;; Handle box
-
-(define-toplevel create-handle-box (window "Handle Box Test" :border-width 20)
-  (make-instance 'v-box 
-   :parent window
-   :child (create-label "Above")
-   :child (make-instance 'h-separator)
-   :child (make-instance 'h-box 
-	   :spacing 10
-	   :child (list
-		   (make-instance 'handle-box
-		    :child (create-toolbar window)
-		    :signal (list 'child-attached
-			     #'(lambda (child)
-				 (format t "~A attached~%" child)))
-		    :signal (list 'child-detached
-			     #'(lambda (child)
-				 (format t "~A detached~%" child))))
-		   :expand nil :fill :nil))
-   :child (make-instance 'h-separator)
-   :child (create-label "Below")))
 
 
 ;;; Icon View
@@ -1728,6 +1705,28 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 (define-toplevel create-toolbar-window (window "Toolbar test" :resizable nil)
   (container-add window (create-toolbar window)))
 
+
+;;; Handle box
+
+(define-toplevel create-handle-box (window "Handle Box Test" :border-width 20)
+  (make-instance 'v-box 
+   :parent window
+   :child (create-label "Above")
+   :child (make-instance 'h-separator)
+   :child (make-instance 'h-box 
+	   :spacing 10
+	   :child (list
+		   (make-instance 'handle-box
+		    :child (create-toolbar window)
+		    :signal (list 'child-attached
+			     #'(lambda (child)
+				 (format t "~A attached~%" child)))
+		    :signal (list 'child-detached
+			     #'(lambda (child)
+				 (format t "~A detached~%" child))))
+		   :expand nil :fill :nil))
+   :child (make-instance 'h-separator)
+   :child (create-label "Below")))
 
 
 ;;; Tooltips test
