@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.27 2005-04-18 10:39:32 espen Exp $
+;; $Id: testgtk.lisp,v 1.28 2005-04-19 08:17:06 espen Exp $
 
 (defpackage "TESTGTK"
   (:use "COMMON-LISP" "GTK"))
@@ -1547,23 +1547,25 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 
       (let* ((actions 
 	      (make-instance 'action-group 
-	       :action (create-toggle-action 
-			"Bold" "gtk-bold" "Bold" "<control>B" "Bold" nil
-			(create-toggle-callback "Bold"))
-	       :action (create-toggle-action 
-			"Italic" "gtk-italic" "Italic" "<control>I" "Italic" nil
-			(create-toggle-callback "Italic"))
-	       :action (create-toggle-action 
-			"Underline" "gtk-underline" "Underline" "<control>U" "Underline" nil
-			(create-toggle-callback "Underline"))))
-	     (ui (make-instance 'ui-manager)))
-      
-	(ui-manager-insert-action-group ui actions)
-	(ui-manager-add-ui ui 
-	 '((:toolbar "ToolBar"
-	    (:toolitem "Bold")
-	    (:toolitem "Italic")
-	    (:toolitem "Underline"))))
+	       :action (make-instance 'toggle-action 
+			:name "Bold" :stock-id "gtk-bold" :label "Bold" 
+			:accelerator "<control>B" :tooltip "Bold"
+			:callback (create-toggle-callback "Bold"))
+	       :action (make-instance 'toggle-action 
+			:name "Italic" :stock-id "gtk-italic" :label "Italic" 
+			:accelerator "<control>I" :tooltip "Italic"
+			:callback (create-toggle-callback "Italic"))
+	       :action (make-instance 'toggle-action 
+			:name "Underline" :stock-id "gtk-underline" 
+			:label "Underline" :accelerator "<control>U" 
+			:tooltip "Underline"
+			:callback (create-toggle-callback "Underline"))))
+	     (ui (make-instance 'ui-manager
+		  :action-group actions
+		  :ui '((:toolbar "ToolBar"
+		         (:toolitem "Bold")
+			 (:toolitem "Italic")
+			 (:toolitem "Underline"))))))
 
 	;; Callback to activate/deactivate toolbar buttons when cursor
 	;; is moved
@@ -1769,42 +1771,63 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
     (:toolbar "ToolBar"
      (:toolitem "Open")
      (:toolitem "Quit")
-     (:separator "Sep1")
+     :separator
      (:toolitem "Logo"))))
 
 (define-toplevel create-ui-manager (window "UI Manager")
-  (let ((actions 
-	 (make-instance 'action-group 
-	  :name "Actions"
-	  :action (create-action "FileMenu" nil "_File")
-	  :action (create-action "PreferencesMenu" nil "_Preferences")
-	  :action (create-action "ColorMenu" nil "_Color")
-	  :action (create-action "ShapeMenu" nil "_Shape")
-	  :action (create-action "HelpMenu" nil "_Help")
-	  :action (create-action "New" "gtk-new" "_New" "<control>N" "Create a new file")
-	  :action (create-action "Open" "gtk-open" "_Open" "<control>O" "Open a file" #'create-file-chooser)
-	  :action (create-action "Save" "gtk-save" "_Save" "<control>S" "Save current file")
-	  :action (create-action "SaveAs" "gtk-save" "Save _As..." "" "Save to a file")
-	  :action (create-action "Quit" "gtk-quit" "_Quit" "<control>Q" "Quit" (list #'widget-destroy :object window))
-	  :action (create-action "About" nil "_About" "<control>A" "About")
-	  :action (create-action "Logo" "demo-gtk-logo" "" nil "GTK+")
-	  :action (create-toggle-action "Bold" "gtk-bold" "_Bold" "<control>B" "Bold" t)
-	  :actions (create-radio-actions
-		    '(("Red" nil "_Red" "<control>R" "Blood")
-		      ("Green" nil "_Green" "<control>G" "Grass")
-		      ("Blue" nil "_Blue" "<control>B" "Sky"))
-		    "Green")
-	  :actions (create-radio-actions
-		    '(("Square" nil "_Square" "<control>S" "Square")
-		      ("Rectangle" nil "_Rectangle" "<control>R" "Rectangle")
-		      ("Oval" nil "_Oval" "<control>O" "Egg")))))
-	(ui (make-instance 'ui-manager)))
-  
-    (ui-manager-insert-action-group ui actions)
+  (let ((ui (make-instance 'ui-manager)))
+    (window-add-accel-group window (ui-manager-accel-group ui))
+    (ui-manager-insert-action-group ui
+     (make-instance 'action-group :name "Actions"
+      :action (make-instance 'action :name "FileMenu" :label "_File")
+      :action (make-instance 'action :name "PreferencesMenu" :label "_Preferences")
+      :action (make-instance 'action :name "ColorMenu" :label "_Color")
+      :action (make-instance 'action :name "ShapeMenu" :label "_Shape")
+      :action (make-instance 'action :name "HelpMenu" :label "_Help")
+      :action (make-instance 'action 
+	       :name "New" :stock-id "gtk-new" :label "_New" 
+	       :accelerator "<control>N" :tooltip "Create a new file")
+      :action (make-instance 'action 
+	       :name "Open" :stock-id "gtk-open" :label "_Open" 
+	       :accelerator "<control>O" :tooltip "Open a file" 
+	       :callback #'create-file-chooser)
+      :action (make-instance 'action 
+	       :name "Save" :stock-id "gtk-save" :label "_Save" 
+	       :accelerator "<control>S" :tooltip "Save current file")
+      :action (make-instance 'action 
+	       :name "SaveAs" :stock-id "gtk-save" :label "Save _As..." 
+	       :tooltip "Save to a file")
+      :action (make-instance 'action 
+	       :name "Quit" :stock-id "gtk-quit" :label "_Quit" 
+	       :accelerator "<control>Q" :tooltip "Quit" 
+	       :callback (list #'widget-destroy :object window))
+      :action (make-instance 'action 
+	       :name "About" :label "_About" 
+	       :accelerator "<control>A" :tooltip "About")
+      :action (make-instance 'action 
+	       :name "Logo" :stock-id "demo-gtk-logo" :tooltip "GTK+")
+      :action (make-instance 'toggle-action 
+	       :name "Bold" :stock-id "gtk-bold" :label "_Bold" 
+	       :accelerator "<control>B" :tooltip "Bold" :active t)
+      :actions (make-radio-group 'radio-action
+		'((:name "Red" :value :red :label "_Red" 
+		   :accelerator "<control>R" :tooltip "Blood")
+		  (:name "Green" :value :green :label "_Green" 
+		   :accelerator "<control>G" :tooltip "Grass" :active t)
+		  (:name "Blue" :value :blue :label "_Blue" 
+		   :accelerator "<control>B" :tooltip "Sky"))
+		#'(lambda (active) (print active)))
+      :actions (make-radio-group 'radio-action
+	        '((:name "Square" :value :square :label "_Square" 
+		   :accelerator "<control>S" :tooltip "Square")
+		  (:name "Rectangle" :value :rectangle :label "_Rectangle" 
+		   :accelerator "<control>R" :tooltip "Rectangle")
+		  (:name "Oval" :value :oval :label "_Oval" 
+		   :accelerator "<control>O" :tooltip "Egg"))
+		#'(lambda (active) (print active)))))    
+
     (ui-manager-add-ui ui *ui-description*)
 
-    (window-add-accel-group window (ui-manager-accel-group ui))
-    
     (make-instance 'v-box 
      :parent window
      :child (list 
