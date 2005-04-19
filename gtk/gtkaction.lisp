@@ -15,16 +15,17 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkaction.lisp,v 1.3 2005-02-03 23:09:09 espen Exp $
+;; $Id: gtkaction.lisp,v 1.4 2005-04-19 08:11:39 espen Exp $
 
 
 (in-package "GTK")
 
 ;;; Action
 
-(defmethod initialize-instance ((action action) &key accelerator)
+(defmethod initialize-instance ((action action) &key callback)
   (call-next-method)
-  (setf (object-data action 'accelerator) accelerator))
+  (when callback
+    (apply #'signal-connect action 'activate (mklist callback))))
 
 (defmethod action-accelerator ((action action))
   (object-data action 'accelerator))
@@ -46,7 +47,7 @@
   (declare (ignore action actions))
   (prog1
       (call-next-method)
-    (initial-add action-group #'action-group-add-action 
+    (initial-add action-group #'action-group-add-action
      initargs :action :actions)))
 
 (defbinding action-group-get-action () action
@@ -66,11 +67,9 @@
   (accelerator (or null string)))
 
 (defun action-group-add-action (action-group action)
-  (multiple-value-bind (accelerator accelerator-p) 
-      (object-data action 'accelerator)
-    (if accelerator-p
-	(%action-group-add-action-with-accel action-group action accelerator)
-      (%action-group-add-action action-group action))))
+  (if (slot-boundp action 'accelerator)
+      (%action-group-add-action-with-accel action-group action (action-accelerator action))
+    (%action-group-add-action action-group action)))
 
 (defbinding action-group-remove-action () nil
   (action-group action-group)
@@ -79,15 +78,11 @@
 
 ;;; Radio Action
 
-(defmethod initialize-instance ((action radio-action) &key group value)
+(defmethod initialize-instance ((action radio-action) &key group)
   (call-next-method)
-  (setf (slot-value action '%value) (sap-int (proxy-location action)))
-  (setf (object-data action 'radio-action-value) value)
+  (setf (slot-value action 'self) (sap-int (proxy-location action)))
   (when group
-    (radio-action-add-to-group action group)))
-
-(defmethod radio-value-action ((action radio-action))
-  (object-data action 'radio-action-value))
+    (add-to-radio-group action group)))
 
 (defbinding %radio-action-get-group () pointer
   (radio-action radio-action))
@@ -96,12 +91,19 @@
   (radio-button radio-button)
   (group pointer))
 
-(defun radio-action-add-to-group (action1 action2)
+(defmethod add-to-radio-group ((action1 radio-action) (action2 radio-action))
   "Add ACTION1 to the group which ACTION2 belongs to."
   (%radio-action-set-group action1 (%radio-action-get-group action2)))
 
+(defmethod activate-radio-widget ((action radio-action))
+  (action-activate action))
+
+(defmethod add-activate-callback ((action radio-action) function &key object after)
+  (%add-activate-callback action 'activate function object after))
+
 (defbinding (radio-action-get-current "gtk_radio_action_get_current_value") 
     () radio-action
+  "Returns the current active radio action in the group the give radio action belongs to."
   (radio-action radio-action))
 
 (defun radio-action-get-current-value (action)
@@ -111,9 +113,23 @@
 
 ;;; Toggle Action
 
+(defmethod initialize-instance ((action toggle-action) &rest initargs &key callback)
+  (remf initargs :callback)
+  (apply #'call-next-method action initargs)
+  (when callback
+    (destructuring-bind (function &key object after) (mklist callback)
+      (signal-connect action 'activate
+       (if object 
+	   #'(lambda (object)
+	       (funcall function object (toggle-action-active-p action)))
+	 #'(lambda ()
+	     (funcall function (toggle-action-active-p action))))
+       :object object :after after)))
+  (when (toggle-action-active-p action)
+    (action-activate action)))
+
 (defbinding toggle-action-toggled () nil
   (toggle-action toggle-action))
-
 
 
 ;;; UI Manager
@@ -202,6 +218,9 @@
     (:separator)
     (:accelerator)))
 
+(defvar *anonymous-element-counter* 0)
+(internal *anonymous-element-counter*)
+
 (defmethod ui-manager-add-ui ((ui-manager ui-manager) (ui-spec list))
   (let ((id (%ui-manager-new-merge-id ui-manager)))
     (labels 
@@ -219,7 +238,12 @@
 				(not (keywordp (first rest))))
 			   (values (first rest) (rest rest))
 			 (values name rest))
-		     (%ui-manager-add-ui ui-manager id (or path "/") name action type nil)
+		     (%ui-manager-add-ui ui-manager 
+		      id (or path "/") 
+		      (or name (format nil "~A~D" 
+			        (string-capitalize type) 
+				(incf *anonymous-element-counter*)))
+		      action type nil)
 		     (when children
 		       (parse-ui-spec (concatenate 'string path "/" name) 
 				      children type)))))))))

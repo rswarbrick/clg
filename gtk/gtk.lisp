@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtk.lisp,v 1.40 2005-04-17 21:39:04 espen Exp $
+;; $Id: gtk.lisp,v 1.41 2005-04-19 08:11:39 espen Exp $
 
 
 (in-package "GTK")
@@ -44,7 +44,7 @@
 
 ;;;; Initalization
 
-(defbinding (gtk-init "gtk_parse_args") () nil
+(defbinding (gtk-init "gtk_parse_args") () boolean
   "Initializes the library without opening the display."
   (nil null)
   (nil null))
@@ -53,7 +53,8 @@
   "Initializes the system and starts the event handling"
   (unless (gdk:display-get-default)
     (gdk:gdk-init)
-    (gtk-init)
+    (unless (gtk-init)
+      (error "Initialization of GTK+ failed."))
     (prog1
 	(gdk:display-open display)
       (add-fd-handler (gdk:display-connection-number) :input #'main-iterate-all)
@@ -186,6 +187,8 @@
 
 
 ;;; Accel map
+
+;(defbinding (accel-map-init "_gtk_accel_map_init") () nil)
 
 (defbinding %accel-map-add-entry () nil
   (path string)
@@ -888,6 +891,25 @@
   "Add BUTTON1 to the group which BUTTON2 belongs to."
   (%radio-button-set-group button1 (%radio-button-get-group button2)))
 
+(defun %add-activate-callback (widget signal function object after)
+  (if object
+      (signal-connect widget signal
+       #'(lambda (object)
+	   (when (slot-value widget 'active)
+	     (funcall function object (slot-value widget 'value))))
+       :object object :after after)
+    (signal-connect widget signal 
+     #'(lambda ()
+	 (when (slot-value widget 'active)
+	   (funcall function (slot-value widget 'value))))
+     :after after)))
+
+(defmethod activate-radio-widget ((button radio-button))
+  (signal-emit button 'clicked))
+
+(defmethod add-activate-callback ((button radio-button) function &key object after)
+  (%add-activate-callback button 'clicked function object after))
+
 (defmethod initialize-instance ((button radio-button) &key group)
   (prog1
       (call-next-method)
@@ -1013,9 +1035,15 @@
   (radio-menu-item radio-menu-item)
   (group pointer))
 
+(defmethod activate-radio-widget ((item radio-menu-item))
+  (menu-item-activate item))
+
 (defmethod add-to-radio-group ((item1 radio-menu-item) (item2 radio-menu-item))
   "Add ITEM1 to the group which ITEM2 belongs to."
   (%radio-menu-item-set-group item1 (%radio-menu-item-get-group item2)))
+
+(defmethod add-activate-callback ((item radio-menu-item) function &key object after)
+  (%add-activate-callback item 'activate function object after))
 
 (defmethod initialize-instance ((item radio-menu-item) &key group)
   (prog1
@@ -1034,22 +1062,14 @@
   (radio-tool-button radio-tool-button)
   (group pointer))
 
+(defmethod activate-radio-widget ((button radio-tool-button))
+  (signal-emit button 'clicked))
+
 (defmethod add-to-radio-group ((button1 radio-tool-button) (button2 radio-tool-button))
   "Add BUTTON1 to the group which BUTTON2 belongs to."
   (%radio-tool-button-set-group button1 (%radio-tool-button-get-group button2)))
-
-(defmethod add-activate-callback ((widget widget) function &key object after)
-  (if object
-      (signal-connect widget 'clicked
-       #'(lambda (object)
-	   (when (slot-value widget 'active)
-	     (funcall function object (slot-value widget 'value))))
-       :object object :after after)
-    (signal-connect widget 'clicked 
-     #'(lambda ()
-	 (when (slot-value widget 'active)
-	   (funcall function (slot-value widget 'value))))
-     :after after)))
+(defmethod add-activate-callback ((button radio-tool-button) function &key object after)
+  (%add-activate-callback button 'clicked function object after))
 
 (defmethod initialize-instance ((button radio-tool-button) &key group)
   (prog1

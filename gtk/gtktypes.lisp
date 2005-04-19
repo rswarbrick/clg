@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtktypes.lisp,v 1.35 2005-03-13 18:10:14 espen Exp $
+;; $Id: gtktypes.lisp,v 1.36 2005-04-19 08:11:39 espen Exp $
 
 (in-package "GTK")
 
@@ -933,11 +933,11 @@
   ("GtkUIManagerItemType"
    :type ui-manager-item-type)
 
-  ("GtkToggle"
+  ("GtkAction"
    :slots
    ((accelerator
-     :allocation :virtual
-     :getter action-accelerator)))
+     :allocation :user-data :initarg :accelerator 
+     :reader action-accelerator)))
 
   ("GtkToggleAction"
    :slots
@@ -956,12 +956,11 @@
      :getter "gtk_radio_button_get_group"
      :reader radio-action-group
      :type (copy-of (gslist widget)))
-    (%value
-     :allocation :property  :pname "value"
-     :readable nil :type int)
+    (self
+     :allocation :property :pname "value" :type int
+     :documentation "A hack so we can use the alien function gtk_radio_action_get_current_value to retrieve the active radio action in a group.")
     (value 
-     :allocation :virtual
-     :getter radio-action-value)))
+     :allocation :user-data :initarg :value :accessor radio-action-value)))
 
   ("GtkColorSelection"
    :slots
