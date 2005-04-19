@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gtkutils.lisp,v 1.6 2005-01-06 21:06:54 espen Exp $
+;; $Id: gtkutils.lisp,v 1.7 2005-04-19 08:12:58 espen Exp $
 
 
 (in-package "GTK")
@@ -74,63 +74,6 @@
        for widget in widgets
        unless (eq widget active)
        do (add-to-radio-group widget active))
-      (signal-emit active 'clicked))
+      (activate-radio-widget active))
 
     widgets))
-
-
-;;;; The follwing code will probably be removed soon
-
-(defun create-action (name &optional stock-id label accelerator tooltip 
-		      callback &rest initargs)
-  (let ((action (apply #'make-instance 'action
-		 :name (string name) :stock-id stock-id  :label label
-		 :tooltip tooltip :accelerator accelerator initargs)))
-    (when callback
-      (apply #'signal-connect action 'activate (mklist callback)))
-    action))
-
-(defun create-toggle-action (name &optional stock-id label accelerator 
-			     tooltip active callback &rest initargs)
-  (let ((action (apply #'make-instance 'toggle-action 
-		 :name (string name) :stock-id stock-id :label label
-		 :tooltip tooltip :active active :accelerator accelerator
-		 initargs)))
-    (when callback
-      (destructuring-bind (function &key object after) (mklist callback)
-	(signal-connect action 'activate
-	 (if object 
-	     #'(lambda (object)
-		 (funcall function object (toggle-action-active-p action)))
-	   #'(lambda ()
-	       (funcall function (toggle-action-active-p action))))
-	 :object object :after after)
-	;(funcall callback active)
-	(when active
-	  (action-activate action))))
-    action))
-
-(defun create-radio-actions (specs &optional active callback &rest initargs)
-  (loop
-   with group = nil
-   for spec in specs
-   collect (destructuring-bind (name &optional stock-id label accelerator 
-				tooltip (value name)) 
-	       (mklist spec)
-	     (let ((action (apply #'make-instance 'radio-action 
-			    :name (string name) :stock-id stock-id 
-			    :label label :tooltip tooltip 
-			    :accelerator accelerator initargs)))
-	       (when (equal active value)
-		 (setf (toggle-action-active-p action) t)
-		 (when callback
-		   (funcall callback value)))
-
-	       (if (not group)
-		   (setq group action)
-		 (radio-action-add-to-group action group))
-	       (when callback
-		 (signal-connect action 'activate
-		  #'(lambda ()
-		      (funcall callback value))))
-	       action))))
