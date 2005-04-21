@@ -15,7 +15,10 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: testgtk.lisp,v 1.28 2005-04-19 08:17:06 espen Exp $
+;; $Id: testgtk.lisp,v 1.29 2005-04-21 12:30:23 espen Exp $
+
+#+sbcl(require :gtk)
+#+cmucl(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "TESTGTK"
   (:use "COMMON-LISP" "GTK"))
@@ -1255,12 +1258,13 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 	     (grab-add window)
 	     (gdk:pointer-grab (widget-window window) 
 	      :events '(:button-release :button-motion :pointer-motion-hint)
-	      :owner-events t :time event))))
+	      :owner-events t))))
 
       (signal-connect window 'button-release-event
        #'(lambda (event)
+	   (declare (ignore event))
 	   (grab-remove window)
-	   (gdk:pointer-ungrab event)))
+	   (gdk:pointer-ungrab)))
 	
       (signal-connect window 'motion-notify-event
        #'(lambda (event)
