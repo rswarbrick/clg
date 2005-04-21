@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users@sf.net>
+;; Copyright (C) 1999-2005 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; This library is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Lesser General Public
@@ -15,7 +15,7 @@
 ;; License along with this library; if not, write to the Free Software
 ;; Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
-;; $Id: gdk.lisp,v 1.15 2005-02-27 12:37:45 espen Exp $
+;; $Id: gdk.lisp,v 1.16 2005-04-21 12:28:20 espen Exp $
 
 
 (in-package "GDK")
@@ -130,12 +130,6 @@
 (defbinding screen-width-mm () int)
 (defbinding screen-height-mm () int)
 
-(defun %grab-time (time-or-event)
-  (etypecase time-or-event
-    (null 0)
-    (timed-event (event-time time-or-event))
-    (integer time-or-event)))
-
 (defbinding pointer-grab 
     (window &key owner-events events confine-to cursor time) grab-status
   (window window)
@@ -143,12 +137,12 @@
   (events event-mask)
   (confine-to (or null window))
   (cursor (or null cursor))
-  ((%grab-time time) (unsigned 32)))
+  ((or time 0) (unsigned 32)))
 
 (defbinding (pointer-ungrab "gdk_display_pointer_ungrab")
-    (&optional (display (display-get-default)) time) nil
+    (&optional time (display (display-get-default))) nil
   (display display)
-  ((%grab-time time) (unsigned 32)))
+  ((or time 0) (unsigned 32)))
 
 (defbinding (pointer-is-grabbed-p "gdk_display_pointer_is_grabbed") 
     (&optional (display (display-get-default))) boolean)
@@ -156,12 +150,12 @@
 (defbinding keyboard-grab (window &key owner-events time) grab-status
   (window window)
   (owner-events boolean)
-  ((%grab-time time) (unsigned 32)))
+  ((or time 0) (unsigned 32)))
 
 (defbinding (keyboard-ungrab "gdk_display_keyboard_ungrab")
-    (&optional (display (display-get-default)) time) nil
+    (&optional time (display (display-get-default))) nil
   (display display)
-  ((%grab-time time) (unsigned 32)))
+  ((or time 0) (unsigned 32)))
 
 
 
