@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.19 2005-04-23 16:48:50 espen Exp $
+;; $Id: gdktypes.lisp,v 1.20 2005-04-24 13:29:36 espen Exp $
 
 (in-package "GDK")
 
@@ -83,6 +83,8 @@
   (:metaclass boxed-class))
 
 
+
+
 (define-types-by-introspection "Gdk"
   ("GdkFunction" :type gc-function)
   ("GdkWMDecoration" :type wm-decoration)
@@ -100,6 +102,7 @@
   ("GdkCursor" :ignore t)
   ("GdkFont" :ignore t) ; deprecated
   ("GdkEventMask" :ignore t) ; manually defined
+  ("GdkModifierType" :ignore t) ; manually defined
 
   ("GdkDisplay"
    :slots
@@ -266,3 +269,8 @@
     :initarg :gravity
     :type gravity))
   (:metaclass struct-class))
+
+(define-flags-type modifier-type
+  :shift :lock :control :mod1 :mod2 :mod3 :mod4 :mod5 
+  :button1 :button2 :button3 :button4 :button5
+  (:release #.(ash 1 30)))
