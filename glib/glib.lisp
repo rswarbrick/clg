@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.30 2005-04-23 16:48:50 espen Exp $
+;; $Id: glib.lisp,v 1.31 2005-04-24 13:27:20 espen Exp $
 
 
 (in-package "GLIB")
@@ -447,7 +447,7 @@
   (destructuring-bind (element-type &optional (length '*)) args
     (if (eq length '*)
 	(error "Can't use vector of variable size as return type")
-      `(map-c-vector 'vector #'identity ,c-vector ',element-type ',length))))
+      `(map-c-vector 'vector #'identity ,c-vector ',element-type ,length))))
 
 (defmethod copy-from-alien-function ((type (eql 'vector)) &rest args)
   (declare (ignore type))

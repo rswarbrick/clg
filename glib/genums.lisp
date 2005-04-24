@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: genums.lisp,v 1.13 2005-04-23 16:48:50 espen Exp $
+;; $Id: genums.lisp,v 1.14 2005-04-24 13:24:41 espen Exp $
 
 (in-package "GLIB")
   
@@ -171,12 +171,12 @@
 	       (t (error 'type-error :datum ,flags 
 		   :expected-type '(,type ,@args)))))))
 
-(defmethod from-alien-form (int (type (eql 'flags)) &rest args)
+(defmethod from-alien-form (value (type (eql 'flags)) &rest args)
   (declare (ignore type))
   `(loop
-    for mapping in ',(%map-flags args :int-symbol)
-    unless (zerop (logand ,int (first mapping)))
-    collect (second mapping)))
+    for (int symbol)  in ',(%map-flags args :int-symbol)
+    when (= (logand ,value int) int)
+    collect symbol))
 
 (defmethod to-alien-function ((type (eql 'flags)) &rest args)
   (declare (ignore type))
@@ -192,11 +192,11 @@
 (defmethod from-alien-function ((type (eql 'flags)) &rest args)
   (declare (ignore type))
   (let ((mappings (%map-flags args :int-symbol)))
-    #'(lambda (int)
+    #'(lambda (value)
 	(loop
-	 for mapping in mappings
-	 unless (zerop (logand int (first mapping)))
-	 collect (second mapping)))))
+	 for (int symbol) in mappings
+	 when (= (logand value int) int)
+	 collect symbol))))
 
 (defmethod writer-function ((type (eql 'flags)) &rest args)
   (declare (ignore type))
@@ -236,9 +236,9 @@
 		         :expected-type ',name))))))
        (defun ,int-flags (value)
 	 (loop
-	  for mapping in ',(%map-flags args :int-symbol)
-	  unless (zerop (logand value (first mapping)))
-	  collect (second mapping)))
+	  for (int symbol) in ',(%map-flags args :int-symbol)
+	  when(= (logand value int) int)
+	  collect symbol))
        (defmethod alien-type ((type (eql ',name)) &rest args)
 	 (declare (ignore type args))
 	 (alien-type 'flags))
