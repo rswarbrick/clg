@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.24 2005-04-23 16:48:50 espen Exp $
+;; $Id: gcallback.lisp,v 1.25 2005-04-24 13:25:31 espen Exp $
 
 (in-package "GLIB")
 
@@ -244,6 +244,7 @@
   (handler-id unsigned-int))
 
 (deftype gclosure () 'pointer)
+(register-type 'gclosure "GClosure")
 
 (defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
   (callback-id unsigned-int) 
