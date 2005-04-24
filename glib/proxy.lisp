@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.20 2005-04-23 16:48:51 espen Exp $
+;; $Id: proxy.lisp,v 1.21 2005-04-24 13:26:40 espen Exp $
 
 (in-package "GLIB")
 
@@ -538,3 +538,24 @@
 (defmethod unreference-foreign ((class static-struct-class) location)
   (declare (ignore class location))
   nil)
+
+
+;;; Pseudo type for structs which are inlined in other objects
+
+(defmethod size-of ((type (eql 'inlined)) &rest args)
+  (declare (ignore type))
+  (proxy-instance-size (first args)))
+
+(defmethod reader-function ((type (eql 'inlined)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (class) args
+    #'(lambda (location &optional (offset 0))
+	(ensure-proxy-instance class 
+	 (reference-foreign class (sap+ location offset))))))
+
+(defmethod destroy-function ((type (eql 'inlined)) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0))
+      (declare (ignore location offset))))
+
+(export 'inlined)
