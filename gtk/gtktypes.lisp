@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.37 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtktypes.lisp,v 1.38 2005-04-24 13:30:40 espen Exp $
 
 (in-package "GTK")
 
@@ -1127,4 +1127,30 @@
     :allocation :alien 
     :initarg :mime-type
     :type string))
+  (:metaclass struct-class))
+
+
+(defclass accel-key (struct)
+  ((key
+    :allocation :alien
+    :type unsigned-int)
+   (modifiers
+    :allocation :alien
+    :type gdk:modifier-type)
+   (flags
+    :allocation :alien
+    :type (unsigned 16)))
+  (:metaclass struct-class))
+
+(defclass accel-group-entry (struct)
+  ((key
+    :allocation :alien
+    :setter nil
+    :type (inlined accel-key))
+   (gclosure
+    :allocation :alien
+    :type gclosure)
+   (accel_path_quark
+    :allocation :alien
+    :type quark))
   (:metaclass struct-class))

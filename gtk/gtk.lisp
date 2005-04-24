@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.42 2005-04-23 16:48:51 espen Exp $
+;; $Id: gtk.lisp,v 1.43 2005-04-24 13:30:40 espen Exp $
 
 
 (in-package "GTK")
@@ -107,7 +107,7 @@
   (gclosure gclosure))
 
 (defun accel-group-connect (group accelerator function &optional flags)
-  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+  (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
     (let ((gclosure (make-callback-closure function)))
       (%accel-group-connect group key modifiers flags gclosure)
       gclosure)))
@@ -130,8 +130,28 @@
   (etypecase accelerator
     (gclosure (%accel-group-disconnect group accelerator))
     (string 
-     (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+     (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
        (%accel-group-disconnect-key group key modifiers)))))
+
+(defbinding %accel-group-query () (copy-of (vector (inlined accel-group-entry) n))
+  (accel-group accel-group)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type)
+  (n int :out))
+
+(defun accel-group-query (accel-group accelerator)
+  (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
+    (%accel-group-query accel-group key modifiers)))
+
+(defbinding %accel-group-activate () boolean
+  (accel-group accel-group)
+  (acceleratable gobject)
+  (key unsigned-int)
+  (modifiers gdk:modifier-type))
+
+(defun accel-group-activate (accel-group acceleratable accelerator)
+  (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
+    (%accel-group-activate accel-group acceleratable key modifiers)))
 
 (defbinding accel-group-lock () nil
   (accel-group accel-group))
@@ -139,13 +159,16 @@
 (defbinding accel-group-unlock () nil
   (accel-group accel-group))
 
+(defbinding accel-group-from-accel-closure () accel-group
+  (closure gclosure))
+
 (defbinding %accel-groups-activate () boolean
   (object gobject)
   (key unsigned-int)
   (modifiers gdk:modifier-type))
 
 (defun accel-groups-activate (object accelerator)
-  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+  (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
     (%accel-groups-activate object key modifiers)))
 
 (defbinding accel-groups-from-object () (gslist accel-groups)
@@ -160,11 +183,34 @@
   (key unsigned-int :out)
   (modifiers gdk:modifier-type :out))
 
-(defun accelerator-parse (accelerator)
+(defgeneric parse-accelerator (accelerator))
+
+(defmethod parse-accelerator ((accelerator string))
   (multiple-value-bind (key modifiers) (%accelerator-parse accelerator)
     (if (zerop key)
 	(error "Invalid accelerator: ~A" accelerator)
       (values key modifiers))))
+
+(defmethod parse-accelerator ((accelerator cons))
+  (destructuring-bind (key modifiers) accelerator
+    (values
+     (etypecase key
+       (integer key)
+       (string
+	(or 
+	 (gdk:keyval-from-name key)
+	 (error "Invalid key name: ~A" key)))
+       (character (parse-accelerator key)))
+     modifiers)))
+
+(defmethod parse-accelerator ((key integer))
+  key)
+
+(defmethod parse-accelerator ((key character))
+  (or
+   (gdk:keyval-from-name (string key))
+   (error "Invalid key name: ~A" key)))
+
 
 (defbinding accelerator-name () string
   (key unsigned-int)
@@ -186,6 +232,9 @@
 
 ;;; Acccel label
 
+(defbinding accel-label-get-accel-width () unsigned-int
+  (accel-label accel-label))
+
 (defbinding accel-label-refetch () boolean
   (accel-label accel-label))
 
@@ -193,7 +242,7 @@
 
 ;;; Accel map
 
-;(defbinding (accel-map-init "_gtk_accel_map_init") () nil)
+(defbinding (accel-map-init "_gtk_accel_map_init") () nil)
 
 (defbinding %accel-map-add-entry () nil
   (path string)
@@ -201,12 +250,20 @@
   (modifiers gdk:modifier-type))
 
 (defun accel-map-add-entry (path accelerator)
-  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+  (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
     (%accel-map-add-entry path key modifiers)))
 
-(defbinding accel-map-lookup-entry () boolean
+(defbinding %accel-map-lookup-entry () boolean
   (path string)
-  (key pointer)) ;accel-key))
+  ((make-instance 'accel-key) accel-key :return))
+
+(defun accel-map-lookup-entry (path)
+  (multiple-value-bind (found-p accel-key) (%accel-map-lookup-entry path)
+    (when found-p
+      (values 
+       (slot-value accel-key 'key)
+       (slot-value accel-key 'modifiers)
+       (slot-value accel-key 'flags)))))
 
 (defbinding %accel-map-change-entry () boolean
   (path string)
@@ -215,7 +272,7 @@
   (replace boolean))
 
 (defun accel-map-change-entry (path accelerator &optional replace)
-  (multiple-value-bind (key modifiers) (accelerator-parse accelerator)
+  (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
     (%accel-map-change-entry path key modifiers replace)))
 
 (defbinding accel-map-load () nil
@@ -223,6 +280,29 @@
 
 (defbinding accel-map-save () nil
   (filename pathname))
+
+(defcallback %accel-map-foreach-func 
+    (nil
+     (callback-id unsigned-int) (accel-path (copy-of string)) 
+     (key unsigned-int) (modifiers gdk:modifier-type) (changed boolean))
+  (invoke-callback callback-id nil accel-path key modifiers changed))
+
+(defbinding %accel-map-foreach (callback-id) nil
+  (callback-id unsigned-int)
+  (%accel-map-foreach-func callback))
+
+(defbinding %accel-map-foreach-unfiltered (callback-id) nil
+  (callback-id unsigned-int)
+  (%accel-map-foreach-func callback))
+
+(defun accel-map-foreach (function &optional (filter-p t))
+  (with-callback-function (id function)
+    (if filter-p			  
+	(%accel-map-foreach id)
+      (%accel-map-foreach-unfiltered id))))
+
+(defbinding accel-map-add-filter () nil
+  (filter string))
 
 (defbinding accel-map-get () accel-map)
 
@@ -234,7 +314,7 @@
 
 
 
-;;; Accessible
+;;; Accessibility
 
 (defbinding accessible-connect-widget-destroyed () nil
   (accessible accessible))
