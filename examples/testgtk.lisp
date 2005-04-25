@@ -26,10 +26,10 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.31 2005-04-25 18:13:32 espen Exp $
+;; $Id: testgtk.lisp,v 1.32 2005-04-25 21:45:05 espen Exp $
 
 #+sbcl(require :gtk)
-#+cmucl(asdf:oos 'asdf:load-op :gtk)
+#+cmu(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "TESTGTK"
   (:use "COMMON-LISP" "GTK"))
@@ -1935,7 +1935,7 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
      :parent main-window
      :child-args '(:expand nil)
      :child (list (make-instance 'label :label (gtk-version)) :fill nil)
-     :child (list (make-instance 'label :label "clg CVS version") :fill nil)
+     :child (list (make-instance 'label :label (clg-version)) :fill nil)
      :child (list (make-instance 'label 			  
 		   :label #-cmu(format nil "~A (~A)" 
 			        (lisp-implementation-type)
