@@ -1,22 +1,23 @@
-This package contains Common Lisp bindings to GTK+ v2.0. It currently
-only works with CMUCL 19a and SBCL. Ports to other CL implementations
-may be added later.
+This package contains Common Lisp bindings to GTK+ v2.x. It currently
+only works with CMUCL 19a and SBCL (0.8.21), but ports to other CL
+implementations may be added later.
 
 
 New versions
 ------------
 
-The most recent version of this package can be found: in CVS 
+The most recent version of this package can be downloaded from
+http://sourceforge.net/projects/clg.
 
 
 
 Build instructions
 ------------------
 
-1. When building for SBCL (at least 0.8.19 or earlier) you first need
-   to add callback support, since SBCL does not yet has a native
-   callback facility. The following instructions are borrowed from the
-   Common Music installation guide:
+1. When building for SBCL you first need to add callback support,
+   since SBCL does not yet has a native callback facility. The
+   following instructions are borrowed from the Common Music
+   installation guide:
 
    1. Download Thomas Burdick's Alien Function package¹ and restore it 
       to a directory on your machine.
@@ -30,13 +31,15 @@ Build instructions
       $ mv /tmp/sbcl.core .
 
 
-   ¹ http://pinhead.music.uiuc.edu/~hkt/sbcl-af-2004-10-22.tgz
+   ¹ A slightly modified version which works with SBCL 0.8.21 could be
+     found at http://jupiter.td.org.uit.no/lisp/sbcl-0.8.21-af.tar.gz
 
 
-2. Set up paths to reflect your system:
+2. Set up paths to match your system:
 
    - Add a logical-pathname-translation to the clg root directory in
-     ~/.cmucl-init.lisp, ~/.sbclrc or some other startup file. Example:
+     ~/.cmucl-init.lisp, ~/.sbclrc or some other startup file, like
+     this:
 
        (setf
          (logical-pathname-translations "clg")
@@ -47,8 +50,16 @@ Build instructions
      environment variable before starting lisp.
 
    - Make sure ASDF finds the system definition files:
-     $ cd ~/.clc/systems
-     $ find <path to clg> -name '*.asd' -exec ln -s {} . \;
+       
+       (push 
+	#+sbcl(truename #p"clg:systems") 
+	#+cmu(concatenate 'string (unix-namestring #p"clg:systems") "/")
+	asdf:*central-registry*)
+
+     When checking out of CVS also do the following:
+     $ cd <clg toplevel>
+     $ mkdir systems && cd systems
+     $ find .. -name '*.asd' -exec ln -s {} . \;
 
 
 3. Compile and load the system:
@@ -66,8 +77,8 @@ Build instructions
    save an new core image.
 
    If you are running SBCL with Slime you need to put the following
-   line in ~/.swank.lisp to prevent Slime from spawning multiple
-   threads, since Gtk+ is not thread safe:
+   in ~/.swank.lisp to prevent Slime from spawning multiple
+   threads, since GTK+ is not really thread safe:
 
      #+sbcl(setq swank:*communication-style* :fd-handler)
 
@@ -81,8 +92,8 @@ Guidelines for using the GTK+ API documentation
 -----------------------------------------------
 
 Here are some brief guidelines for using the GTK+ API documentation. A
-lot of (both intentionally and unintentionally) inconsistencies
-exists, so it is also wise to check the source code.
+lot of (both intentional and unintentional) inconsistencies exists,
+so it is also wise to check the source code.
 
 - library prefixes are stripped from all symbols
 
@@ -107,7 +118,6 @@ exists, so it is also wise to check the source code.
 - use STYLE-PROPERTY-VALUE to access style properties
 
 - the only function used to connect signals is SIGNAL-CONNECT
-
 
 
 
