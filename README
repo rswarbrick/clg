@@ -72,9 +72,11 @@ Build instructions
      Redefining class PCL::SLOT-INFO incompatibly with the current definition.
 
    Just accept the redefinition (restart 1) to continue building or
-   loading. To avoid doing this every time clg is loaded, one may
-   compile and load glib/pcl.lisp in newly started CMUCL process and
-   save an new core image.
+   loading. To avoid doing this every time clg is loaded, compile
+   and load glib/pcl.lisp in newly started CMUCL process and save a
+   new core image. If you are using a recent snapshot of CMUCL were
+   the broken PCL has been fixed, you should push :non-broken-pcl
+   to the feature list before compiling or loading clg.
 
    If you are running SBCL with Slime you need to put the following
    in ~/.swank.lisp to prevent Slime from spawning multiple
