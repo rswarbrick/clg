@@ -36,7 +36,7 @@
   (name nil :type symbol)
   ;;
   ;; Specified slot allocation.or :INSTANCE.
-  (allocation :instance :type symbol)
+  (allocation :instance :type (or (member :class :instance) t))
   ;;
   ;; Specified slot type or T.
   (type t :type (or symbol list)))
@@ -118,4 +118,4 @@
 	(maybe-update-standard-class-locations class)))))
 
 
-(pushnew :clg-pcl *features*)
+(pushnew :non-broken-pcl *features*)
