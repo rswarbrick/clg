@@ -26,7 +26,7 @@
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")
-		 #+(and cmu (not clg-pcl))(:file "pcl")
+		 #+(and cmu (not non-broken-pcl))(:file "pcl")
 		 ;; For preloading to work in glib 2.6, the library needs to 
 		 ;; be configured and build with '--disable-visibility'
   		 (:unix-dso "preload"
