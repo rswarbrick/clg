@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.43 2005-04-24 13:30:40 espen Exp $
+;; $Id: gtk.lisp,v 1.44 2005-04-25 18:20:00 espen Exp $
 
 
 (in-package "GTK")
@@ -44,7 +44,8 @@
 	(format nil "Gtk+ v~A.~A" major minor) 
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
-(defbinding get-default-language () (copy-of pango:language))
+(defun clg-version ()
+  "clg CVS version")
 
 
 ;;;; Initalization
@@ -77,6 +78,8 @@
 
 (defbinding grab-remove () nil
   (widget widget))
+
+(defbinding get-default-language () (copy-of pango:language))
 
 
 ;;; About dialog
@@ -2236,7 +2239,7 @@
   (current-widget widget :out))
 
 
-;;; Rc
+;;; Resource Files
 
 (defbinding rc-add-default-file (filename) nil
   ((namestring (truename filename)) string))
