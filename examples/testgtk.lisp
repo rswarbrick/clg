@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.30 2005-04-23 16:48:49 espen Exp $
+;; $Id: testgtk.lisp,v 1.31 2005-04-25 18:13:32 espen Exp $
 
 #+sbcl(require :gtk)
 #+cmucl(asdf:oos 'asdf:load-op :gtk)
@@ -1852,7 +1852,7 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 	     (ui-manager-get-widget ui "/ToolBar")
 	     :expand nil :fill nil)
      :child (make-instance 'label
-	     :label "Type <alt> to start" 
+	     :label "Type Ctrl+Q to quit"
 	     :xalign 0.5 :yalign 0.5
 	     :width-request 200 :height-request 200))))
 		  
