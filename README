@@ -31,8 +31,9 @@ Build instructions
       $ mv /tmp/sbcl.core .
 
 
-   ¹ A slightly modified version which works with SBCL 0.8.21 could be
-     found at http://jupiter.td.org.uit.no/lisp/sbcl-0.8.21-af.tar.gz
+   ¹ A slightly modified version which works with SBCL 0.8.21 or newer
+     could be found at 
+     http://jupiter.td.org.uit.no/lisp/sbcl-0.8.21-af.tar.gz
 
 
 2. Set up paths to match your system:
@@ -66,7 +67,7 @@ Build instructions
    
      (asdf:oos 'asdf:load-op :gtk)
 
-   In CMUCL this will currently fail with:
+   In CMUCL 19a this will fail with:
 
    Error in function KERNEL::%REDEFINE-DEFSTRUCT:
      Redefining class PCL::SLOT-INFO incompatibly with the current definition.
@@ -74,9 +75,7 @@ Build instructions
    Just accept the redefinition (restart 1) to continue building or
    loading. To avoid doing this every time clg is loaded, compile
    and load glib/pcl.lisp in newly started CMUCL process and save a
-   new core image. If you are using a recent snapshot of CMUCL were
-   the broken PCL has been fixed, you should push :non-broken-pcl
-   to the feature list before compiling or loading clg.
+   new core image.
 
    If you are running SBCL with Slime you need to put the following
    in ~/.swank.lisp to prevent Slime from spawning multiple
