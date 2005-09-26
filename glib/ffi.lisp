@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.20 2005-04-23 16:48:50 espen Exp $
+;; $Id: ffi.lisp,v 1.21 2005-09-26 21:27:31 espen Exp $
 
 (in-package "GLIB")
 
@@ -189,7 +189,10 @@
 	  (%heap-alien
 	   (make-heap-alien-info
 	    :type (parse-alien-type ftype #+sbcl nil)
-	    :sap-form (foreign-symbol-address name))))
+	    :sap-form (let ((address (foreign-symbol-address name)))
+			(etypecase address
+			  (integer (int-sap address))
+			  (system-area-pointer address))))))
 	 (translate-arguments (mapcar #'to-alien-function arg-types))
 	 (translate-return-value (from-alien-function return-type))
 	 (cleanup-arguments (mapcar #'cleanup-function arg-types)))
