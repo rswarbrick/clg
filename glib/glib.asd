@@ -26,7 +26,7 @@
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")
-		 #+(and cmu (not non-broken-pcl))(:file "pcl")
+		 #+(and cmu (not non-broken-pcl) (not cmu19b))(:file "pcl")
 		 ;; For preloading to work in glib 2.6, the library needs to 
 		 ;; be configured and build with '--disable-visibility'
   		 (:unix-dso "preload"
@@ -47,7 +47,7 @@
 		 (:file "utils" :depends-on ("defpackage"))
 		 (:file "ffi" :depends-on ("utils"))
 		 (:file "glib" :depends-on ("ffi" "libglib-2.0"))
-		 (:file "proxy" :depends-on (#+(and cmu (not clg-pcl))"pcl" "glib"))
+		 (:file "proxy" :depends-on (#+(and cmu (not non-broken-pcl) (not cmu19b))"pcl" "glib"))
 		 (:file "gtype" :depends-on ("proxy" "alien" "libgobject-2.0"))
 		 (:file "gboxed" :depends-on ("gtype"))
 		 (:file "genums" :depends-on ("gtype"))
