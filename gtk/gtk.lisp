@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.44 2005-04-25 18:20:00 espen Exp $
+;; $Id: gtk.lisp,v 1.45 2005-09-26 21:34:53 espen Exp $
 
 
 (in-package "GTK")
@@ -701,6 +701,16 @@
 	new-order) (vector int)))
 
 
+#+gtk2.8
+(progn
+  (defbinding %dialog-get-response-for-widget () int
+    (dialog dialog)
+    (widget widget))
+
+  (defun dialog-get-response-for-widget (dialog widget)
+    (dialog-find-response dialog (dialog-get-response-for-widget dialog widget))))
+
+
 (defmethod container-add ((dialog dialog) (child widget) &rest args)
   (apply #'container-add (dialog-vbox dialog) child args))
 
@@ -924,6 +934,11 @@
     (pathname (make-instance 'image :file source))
     ((or list vector) (make-instance 'image :pixmap source))
     (gdk:pixmap (make-instance 'image :pixmap source :mask mask))))
+
+#+gtk2.8
+(defbinding image-clear () nil
+  (image image))
+
 
 
 ;;; Image menu item
@@ -1270,8 +1285,23 @@
   (window window)
   (event gdk:key-event))
 
+#-gtk2.8
 (defbinding window-present () nil
   (window window))
+
+#+gtk2.8
+(progn
+  (defbinding %window-present () nil
+    (window window))
+
+  (defbinding %window-present-with-timestamp () nil
+    (window window)
+    (timespamp unsigned-int))
+
+  (defun window-present (window &optional timestamp)
+    (if timestamp
+	(%window-present-with-timestamp window timestamp)
+      (%window-present window))))
 
 (defbinding window-iconify () nil
   (window window))
@@ -1556,7 +1586,7 @@
 (defbinding notebook-reorder-child (notebook child position) nil
   (notebook notebook)
   (child widget)
-  ((%notebook-position notebook position) int))
+  ((%ensure-notebook-position notebook position) int))
 
 (defbinding notebook-popup-enable () nil
   (notebook notebook))
@@ -1623,7 +1653,7 @@
 
 (defbinding notebook-query-tab-label-packing (notebook page) nil
   (notebook notebook)
-  ((%notebook-child notebook page) widget)
+  ((%ensure-notebook-child notebook page) widget)
   (expand boolean :out)
   (fill boolean :out)
   (pack-type pack-type :out))
@@ -1631,7 +1661,7 @@
 (defbinding notebook-set-tab-label-packing
     (notebook page expand fill pack-type) nil
   (notebook notebook)
-  ((%notebook-child notebook page) widget)
+  ((%ensure-notebook-child notebook page) widget)
   (expand boolean)
   (fill boolean)
   (pack-type pack-type))

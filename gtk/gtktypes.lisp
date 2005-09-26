@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.38 2005-04-24 13:30:40 espen Exp $
+;; $Id: gtktypes.lisp,v 1.39 2005-09-26 21:34:53 espen Exp $
 
 (in-package "GTK")
 
@@ -375,6 +375,15 @@
      :initarg :submenu
      :type widget)))
 
+  ("GtkMenuShell"
+   :slots
+   ((take-focus-p
+     :allocation :virtual
+     :getter "gtk_menu_shell_get_take_focus"
+     :setter "gtk_menu_shell_set_take_focus"
+     :accessor menu-shell-take-focus-p
+     :type boolean)))
+
   ("GtkColorSelectionDialog"
    :slots
    ((colorsel
@@ -396,12 +405,26 @@
 
   ("GtkScrolledWindow"
    :slots
-   ((hscrollbar
-     :allocation :alien
+   (#-gtk2.8
+    (hscrollbar
+     :allocation  :alien
      :reader scrolled-window-hscrollbar
      :type widget)
+    #-gtk2.8
     (vscrollbar
      :allocation :alien
+     :reader scrolled-window-vscrollbar
+     :type widget)
+    #+gtk2.8
+    (hscrollbar
+     :allocation :virtual
+     :getter "gtk_scrolled_window_get_hscrollbar"
+     :reader scrolled-window-hscrollbar
+     :type widget)
+    #+gtk2.8
+    (vscrollbar
+     :allocation :virtual
+     :getter "gtk_scrolled_window_get_hscrollbar"
      :reader scrolled-window-vscrollbar
      :type widget)))
 
@@ -1154,3 +1177,7 @@
     :allocation :alien
     :type quark))
   (:metaclass struct-class))
+
+#+gtk2.8
+(define-enum-type drop-position
+  :no-drop :drop-into :drop-left :drop-right :drop-above :drop-below)

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.10 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtktree.lisp,v 1.11 2005-09-26 21:34:53 espen Exp $
 
 
 (in-package "GTK")
@@ -957,3 +957,65 @@ then the model will sort using this function."
     ((if (integerp column) 
 	 column 
        (column-index (icon-view-model icon-view) column)) int)))
+
+#+gtk2.8
+(progn
+  (defbinding icon-view-get-item-at-pos () boolean
+    (icon-view icon-view)
+    (x int)
+    (y int)
+    (tree-path tree-path :out)
+    (cell cell-renderer :out))
+
+  (defbinding icon-view-set-cursor (icon-view path &key cell start-editing) nil
+    (icon-view icon-view)
+    (path tree-path)
+    (cell (or null cell-renderer))
+    (start-editing boolean))
+  
+  (defbinding icon-view-get-cursor () boolean
+    (icon-view icon-view)
+    (path tree-path :out)
+    (cell cell-renderer :out))
+
+  (defbinding icon-view-get-dest-item-at-pos () boolean
+    (icon-view icon-view)
+    (drag-x int)
+    (drag-y int)
+    (tree-path tree-path :out)
+    (pos drop-position :out))
+
+  (defbinding icon-view-create-drag-icon () gdk:pixmap
+    (icon-view icon-view)
+    (tree-path tree-path))
+
+  (defbinding icon-view-scroll-to-path (icon-view tree-path &key row-align column-align) nil
+    (icon-view icon-view)
+    (tree-path tree-path)
+    ((or row-align column-align) boolean)
+    (row-align single-float)
+    (column-align single-float))
+
+  (defbinding icon-view-get-visible-range () boolean
+    (icon-view icon-view)
+    (start-path tree-path :out)
+    (end-path tree-path :out))
+
+;;   (defbinding icon-view-enable-model-drag-source () nil
+;;     (icon-view icon-view)
+;;     (start-button-mask gdk:modifier-type)
+;;     (targets (vector target-entry))
+;;     ((length targets) unsigned-int)
+;;     (actions gdk:drag-action))
+
+;;   (defbinding icon-view-enable-model-drag-dest () nil
+;;     (icon-view icon-view)
+;;     (targets (vector target-entry))
+;;     ((length targets) unsigned-int)
+;;     (actions gdk:drag-action))
+
+  (defbinding icon-view-unset-model-drag-source () nil
+    (icon-view icon-view))
+
+  (defbinding icon-view-unset-model-drag-dest () nil
+    (icon-view icon-view)))
