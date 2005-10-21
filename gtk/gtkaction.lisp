@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.5 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtkaction.lisp,v 1.6 2005-10-21 11:50:50 espen Exp $
 
 
 (in-package "GTK")
@@ -112,7 +112,7 @@
   (radio-action radio-action))
 
 (defun radio-action-get-current-value (action)
-  (radio-value-action (radio-action-get-current action)))
+  (radio-action-value (radio-action-get-current action)))
 
 
 
