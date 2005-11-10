@@ -10,8 +10,11 @@
 (when (string>= (pkg-version "gtk+-2.0") "2.6.0")
   (pushnew :gtk2.6 *features*))
 
+(when (string>= (pkg-version "gtk+-2.0") "2.8.0")
+  (pushnew :gtk2.8 *features*))
+
 (defsystem gdk
-    :depends-on (glib pango)
+    :depends-on (glib pango #+gtk2.8 cairo)
     :components ((:file "defpackage")
 		 (:library "libgdk_pixbuf-2.0" 
 			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
