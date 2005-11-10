@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.17 2005-04-23 16:48:50 espen Exp $
+;; $Id: gdk.lisp,v 1.18 2005-11-10 09:01:36 espen Exp $
 
 
 (in-package "GDK")
@@ -705,3 +705,28 @@
 (defbinding (keyval-is-lower-p "gdk_keyval_is_lower") () boolean
   (keyval unsigned-int))
 
+;;; Cairo interaction
+
+#+gtk2.8
+(progn
+  (defbinding cairo-create () cairo:context
+    (drawable drawable))
+
+  (defbinding cairo-set-source-color () nil
+    (cr cairo:context)
+    (color color))
+
+  (defbinding cairo-set-source-pixbuf () nil
+    (cr cairo:context)
+    (pixbuf pixbuf)
+    (x double-float)
+    (y double-float))
+ 
+  (defbinding cairo-rectangle () nil
+    (cr cairo:context)
+    (rectangle rectangle))
+ 
+;;   (defbinding cairo-region () nil
+;;     (cr cairo:context)
+;;     (region region))
+)
