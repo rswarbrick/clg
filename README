@@ -1,5 +1,5 @@
 This package contains Common Lisp bindings to GTK+ v2.x. It currently
-only works with CMUCL 19a and SBCL (0.8.21), but ports to other CL
+only works with CMUCL 19 and SBCL 0.9, but ports to other CL
 implementations may be added later.
 
 
