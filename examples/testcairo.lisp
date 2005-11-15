@@ -5,9 +5,8 @@
 #+cmu(asdf:oos 'asdf:load-op :gtk)
 #+sbcl(require :cairo)
 #+cmu(asdf:oos 'asdf:load-op :cairo)
-
-;;#+sbcl(require :rsvg)
-;;#+cmu(asdf:oos 'asdf:load-op :avg-cairo)
+#+sbcl(require :rsvg)
+#+cmu(asdf:oos 'asdf:load-op :rsvg)
 
 (defpackage "TESTCAIRO"
   (:use "COMMON-LISP" "GTK")
@@ -32,7 +31,7 @@
 	(window (make-symbol "WINDOW"))
 	(pointer (make-symbol "POINTER")))
     `(let ((,window nil))
-       (setq *snippets* (pushnew ',name *snippets*))
+       (pushnew ',name *snippets*)
        (defun ,name ()
 	 (if (not ,window)
 	     (let ((,widget (make-instance 'drawing-area)))
@@ -145,52 +144,52 @@
   (cairo:stroke cr))
 
 
-;; (define-snippet curve-rectangle (cr)
-;;   (let ((x0 0.1)
-;; 	(y0 0.1)
-;; 	(width 0.8)
-;; 	(height 0.8)
-;; 	(radius 0.4))
-;;     (unless (and (zerop width) (zerop height))
-;;       (let ((x1 (+ x0 width))
-;; 	    (y1 (+ y0 height)))
-;; 	(cond
-;; 	 ((and (< (* 0.5 width) radius) (< (* 0.5 height) radius))
-;; 	  (cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
-;; 	  (cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
-;; 	  (cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
-;; 	  (cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
-;; 	  (cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
-;; 	 ((< (* 0.5 width) radius)
-;; 	  (cairo:move-to  cr x0 (+ y0 radius))
-;; 	  (cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
-;; 	  (cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
-;; 	  (cairo:line-to cr x1  (- y1 radius))
-;; 	  (cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
-;; 	  (cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius)))
-;; 	 ((< (* 0.5 height) radius)
-;; 	  (cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
-;; 	  (cairo:curve-to cr x0  y0 x0  y0 (+ x0 radius) y0)
-;; 	  (cairo:line-to cr (- x1 radius) y0)
-;; 	  (cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
-;; 	  (cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
-;; 	  (cairo:line-to cr (+ x0 radius) y1)
-;; 	  (cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
-;; 	 (t
-;; 	  (cairo:move-to cr x0 (+ y0 radius))
-;; 	  (cairo:curve-to cr x0 y0 x0 y0 (+ x0 radius) y0)
-;; 	  (cairo:line-to cr (- x1 radius) y0)
-;; 	  (cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
-;; 	  (cairo:line-to cr x1 (- y1 radius))
-;; 	  (cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
-;; 	  (cairo:line-to cr (+ x0 radius) y1)
-;; 	  (cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius))))
-;; 	(cairo:close-path cr)
+(define-snippet curve-rectangle (cr)
+  (let ((x0 0.1)
+	(y0 0.1)
+	(width 0.8)
+	(height 0.8)
+	(radius 0.4))
+    (unless (and (zerop width) (zerop height))
+      (let ((x1 (+ x0 width))
+	    (y1 (+ y0 height)))
+	(cond
+	 ((and (< (* 0.5 width) radius) (< (* 0.5 height) radius))
+	  (cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
+	  (cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
+	  (cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
+	  (cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
+	  (cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
+	 ((< (* 0.5 width) radius)
+	  (cairo:move-to  cr x0 (+ y0 radius))
+	  (cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
+	  (cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
+	  (cairo:line-to cr x1  (- y1 radius))
+	  (cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
+	  (cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius)))
+	 ((< (* 0.5 height) radius)
+	  (cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
+	  (cairo:curve-to cr x0  y0 x0  y0 (+ x0 radius) y0)
+	  (cairo:line-to cr (- x1 radius) y0)
+	  (cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
+	  (cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
+	  (cairo:line-to cr (+ x0 radius) y1)
+	  (cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
+	 (t
+	  (cairo:move-to cr x0 (+ y0 radius))
+	  (cairo:curve-to cr x0 y0 x0 y0 (+ x0 radius) y0)
+	  (cairo:line-to cr (- x1 radius) y0)
+	  (cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
+	  (cairo:line-to cr x1 (- y1 radius))
+	  (cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
+	  (cairo:line-to cr (+ x0 radius) y1)
+	  (cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius))))
+	(cairo:close-path cr)
 
-;; 	(cairo:set-source-color cr 0.5 0.5 1.0)
-;; 	(cairo:fill cr t)
-;;  	(cairo:set-source-color cr 0.5 0.0 0.0 0.5)
-;;  	(cairo:stroke cr)))))
+	(cairo:set-source-color cr 0.5 0.5 1.0)
+	(cairo:fill cr t)
+ 	(cairo:set-source-color cr 0.5 0.0 0.0 0.5)
+ 	(cairo:stroke cr)))))
 
 
 
@@ -303,46 +302,45 @@
     (cairo:fill cr)))
 
 
-;; (defun snippet-set-bg-svg (cr filename)
-;;   (let ((handle (make-instance 'rsvg:handle :filename filename)))
-;;     (cairo:with-context (cr)
-;;       (with-slots (rsvg:width rsvg:height) (rsvg:handle-dimensions handle)
-;; 	(cairo:scale cr (/ 1.0 rsvg:width) (/ 1.0 rsvg:height))
-;; 	(rsvg:cairo-render cr handle)))))
+(defun snippet-set-bg-svg (cr filename)
+  (let ((handle (make-instance 'rsvg:handle :filename filename)))
+    (cairo:with-context (cr)
+      (with-slots (rsvg:width rsvg:height) (rsvg:handle-dimensions handle)
+	(cairo:scale cr (/ 1.0 rsvg:width) (/ 1.0 rsvg:height))
+	(rsvg:cairo-render cr handle)))))
 
-;; (define-snippet librsvg (cr)
-;;   (snippet-set-bg-svg cr "clg:examples;home.svg"))
+(define-snippet librsvg (cr)
+  (snippet-set-bg-svg cr "clg:examples;home.svg"))
 
 
-(defmacro define-operator-snippet (operator)
-  (let ((name (intern (format nil "OPERATOR-~A" operator))))
-    `(define-snippet ,name (cr)
-       (snippet-set-bg-svg cr "clg:examples;freedesktop.svg")
-       (setf (cairo:operator cr) ,operator)
-       
-       (cairo:set-source-color cr 1.0 0.0 0.0 0.5)
-       (cairo:rectangle cr 0.2 0.2 0.5 0.5)
-       (cairo:fill)
-       
-       (cairo:set-source-color cr 0.0 1.0 0.0)
-       (cairo:rectangle cr 0.4 0.4 0.4 0.4)
-       (cairo:fill)
-       
-       (cairo:set-source-color cr 0.0 0.0 1.0)
-       (cairo:rectangle cr 0.6 0.6 0.3 0.3)
-       (cairo:fill))))
+(defmacro define-operator-snippet (name operator)
+  `(define-snippet ,name (cr)
+     (snippet-set-bg-svg cr "clg:examples;freedesktop.svg")
+     (setf (cairo:operator cr) ,operator)
+     
+     (cairo:set-source-color cr 1.0 0.0 0.0 0.5)
+     (cairo:rectangle cr 0.2 0.2 0.5 0.5)
+     (cairo:fill cr)
+     
+     (cairo:set-source-color cr 0.0 1.0 0.0)
+     (cairo:rectangle cr 0.4 0.4 0.4 0.4)
+     (cairo:fill cr)
+     
+     (cairo:set-source-color cr 0.0 0.0 1.0)
+     (cairo:rectangle cr 0.6 0.6 0.3 0.3)
+     (cairo:fill cr)))
 
-;; (define-operator-snippet :add)
-;; (define-operator-snippet :atop)
-;; (define-operator-snippet :atop-reverse)
-;; (define-operator-snippet :in)
-;; (define-operator-snippet :in-reverse)
-;; (define-operator-snippet :out)
-;; (define-operator-snippet :out-reverse)
-;; (define-operator-snippet :over)
-;; (define-operator-snippet :over-reverse)
-;; (define-operator-snippet :saturate)
-;; (define-operator-snippet :xor)
+(define-operator-snippet operator-add :add)
+(define-operator-snippet operator-atop :atop)
+(define-operator-snippet operator-atop-reverse :dest-atop)
+(define-operator-snippet operator-in :in)
+(define-operator-snippet operator-in-reverse :dest-in)
+(define-operator-snippet operator-out :out)
+(define-operator-snippet operator-out-reverse :dest-out)
+(define-operator-snippet operator-over :over)
+(define-operator-snippet operator-over-reverse :dest-over)
+(define-operator-snippet operator-saturate :saturate)
+(define-operator-snippet operator-xor :xor)
 
       
 
@@ -352,59 +350,6 @@
   (cairo:rel-line-to cr -0.4 0.0)
   (cairo:curve-to cr 0.2 0.9 0.2 0.5 0.5 0.5)
   (cairo:stroke cr))
-
-
-;; (let ((path))
-;;   (define-snippet pattern-fill (cr)
-;;     (let ((spikes 10)
-;; 	  (text "KAPOW!"))
-;;       (unless path
-;; 	(let ((x-fuzz 0.08)
-;; 	      (y-fuzz 0.08)
-;; 	      (x-inner-radius 0.3)
-;; 	      (y-inner-radius 0.2)
-;; 	      (x-outer-radius 0.45)
-;; 	      (y-outer-radius 0.35))
-;; 	  (setq path (make-array (* 2 spikes)))
-;; 	  (loop
-;; 	   for i from 0 below (* 2 spikes)
-;; 	   do (multiple-value-bind (x-radius y-radius)
-;; 		  (if (evenp i)
-;; 		      (values x-inner-radius y-inner-radius)
-;; 		    (values x-outer-radius y-outer-radius))
-;; 		(setf 
-;; 		 (svref path i)
-;; 		 (cons
-;; 		  (+ 0.5 (* (cos (* pi (/ i spikes))) x-radius) 
-;; 		     (* (random 1.0) x-fuzz))
-;; 		  (+ 0.5 (* (sin (* pi (/ i spikes))) y-radius)
-;; 		     (* (random 1.0) y-fuzz))))))))
-      
-;;       (setf (cairo:line-width cr) 0.01)
-;;       (cairo:move-to cr (car (svref path 0)) (cdr (svref path 0)))
-;;       (loop
-;;        for i from 1 below (* 2 spikes)
-;;        do (cairo:line-to cr (car (svref path i)) (cdr (svref path i))))
-;;       (cairo:close-path cr)
-;;       (cairo:stroke cr)
-;;       (cairo:move-to cr 
-;;        (car (svref path (1- spikes))) (cdr (svref path (1- spikes))))
-
-;;       (cairo:select-font-face cr "Sans" :normal :bold)
-;;       (time (cairo:text-path cr text))
-;;       (cairo:set-source-color cr 1.0 1.0 0.5)
-;;       (cairo:fill cr)
-
-;;       (cairo:set-font-size cr 0.2)
-;;       (let* ((extents (cairo:text-extents cr text))
-;; 	     (x (- 0.5 (+ (* 0.5 (cairo:text-extents-width extents)) (cairo:text-extents-x-bearing extents))))
-;; 	     (y (- 0.5 (+ (* 0.5 (cairo:text-extents-height extents)) (cairo:text-extents-y-bearing extents)))))
-
-;; 	(cairo:move-to cr x y)
-;; 	(cairo:text-path cr text)
-;; 	(cairo:set-source-color cr 0 0 0)
-;; 	(cairo:stroke cr)))))
-
 
 
 (define-snippet set-line-cap (cr)
@@ -571,7 +516,7 @@
 	    :focus-vadjustment (scrolled-window-vadjustment scrolled-window)
 	    :children (mapcar #'(lambda (snippet)
 				  (create-button (string-downcase snippet) snippet))
-			      (sort *snippets* #'string<)))))
+			      (setq *snippets* (sort *snippets* #'string<))))))
       (scrolled-window-add-with-viewport scrolled-window content-box))
     
     (widget-grab-focus close-button)
@@ -580,4 +525,12 @@
 
 
 (clg-init)
-;;(rsvg:init)
+(rsvg:init)
+
+;; We need to turn off floating point exceptions, because Cairo is
+;; presumably using internal code which generates NaNs in some cases.
+;; Thanks to Christophe Rhodes for pointing this out.
+#+sbcl(sb-int:set-floating-point-modes :traps nil) 
+#+cmu(ext:set-floating-point-modes :traps nil)
+
+(create-tests)
