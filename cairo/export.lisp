@@ -4,7 +4,7 @@
   (defexport defoperator (name &optional clip-p)
     (if clip-p
 	name
-      (let ((tname (intern (format nil "IN~A-P" name)))
+      (let ((tname (intern (format nil "IN-~A-P" name)))
 	    (ename (intern (format nil "~A-EXTENTS" name))))
 	(list name tname ename))))
 

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.1 2005-11-10 08:50:45 espen Exp $
+;; $Id: cairo.lisp,v 1.2 2005-11-15 10:03:04 espen Exp $
 
 (in-package "CAIRO")
 
@@ -339,7 +339,7 @@
 	     (,pname cr)
 	   (,iname cr)))
        ,(unless clip-p
-	  (let ((tname (intern (format nil "IN~A-P" name)))
+	  (let ((tname (intern (format nil "IN-~A-P" name)))
 		(ename (intern (format nil "~A-EXTENTS" name))))
 	    `(progn
 	       (defbinding ,tname () boolean
