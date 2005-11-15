@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.46 2005-10-21 12:32:29 espen Exp $
+;; $Id: gtk.lisp,v 1.47 2005-11-15 10:08:13 espen Exp $
 
 
 (in-package "GTK")
@@ -1294,13 +1294,13 @@
   (defbinding %window-present () nil
     (window window))
 
-  (defbinding %window-present-with-timestamp () nil
+  (defbinding %window-present-with-time () nil
     (window window)
     (timespamp unsigned-int))
 
   (defun window-present (window &optional timestamp)
     (if timestamp
-	(%window-present-with-timestamp window timestamp)
+	(%window-present-with-time window timestamp)
       (%window-present window))))
 
 (defbinding window-iconify () nil
