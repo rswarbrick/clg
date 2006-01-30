@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.20 2005-04-24 13:29:36 espen Exp $
+;; $Id: gdktypes.lisp,v 1.21 2006-01-30 15:40:16 espen Exp $
 
 (in-package "GDK")
 
@@ -42,11 +42,11 @@
     :accessor color-red
     :type unsigned-short)
    (green
-    :allocation :alien
+    :allocation :alien :offset 6
     :accessor color-green
     :type unsigned-short)
    (blue
-    :allocation :alien
+    :allocation :alien  :offset 8
     :accessor color-blue
     :type unsigned-short))
   (:metaclass boxed-class))
@@ -98,7 +98,7 @@
   ("GdkGCX11" :ignore t)
   ("GdkColor" :ignore t)
   ("GdkEvent" :ignore t)
-  ("GdkRectngle" :ignore t)
+  ("GdkRectangle" :ignore t)
   ("GdkCursor" :ignore t)
   ("GdkFont" :ignore t) ; deprecated
   ("GdkEventMask" :ignore t) ; manually defined
