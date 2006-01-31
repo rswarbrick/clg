@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.32 2005-04-23 16:48:51 espen Exp $
+;; $Id: gtype.lisp,v 1.33 2006-01-31 14:02:51 espen Exp $
 
 (in-package "GLIB")
 
@@ -232,6 +232,40 @@
   (find-symbol (format nil "~A_~A_get_type" 
 		(package-prefix *package*)
 		(substitute #\_ #\- (string-downcase type)))))
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass type-info (struct)
+    ((class-size :allocation :alien :type (unsigned 16) :initarg :class-size)
+     (base-init :allocation :alien :type pointer)
+     (base-finalize :allocation :alien :type pointer)
+     (class-init :allocation :alien :type pointer)
+     (class-finalize :allocation :alien :type pointer)
+     (class-data :allocation :alien :type pointer)
+     (instance-size :allocation :alien :type (unsigned 16) 
+		    :initarg :instance-size)
+     (n-preallocs :allocation :alien :type (unsigned 16))
+     (instance-init :allocation :alien :type pointer)
+     (value-table :allocation :alien :type pointer))
+    (:metaclass struct-class)))
+
+(defbinding %type-register-static () type-number
+  (parent-type gtype)
+  (name string)
+  (info type-info)
+  (0 unsigned-int))
+
+(defun register-new-type (type parent)
+  (let ((parent-info (type-query parent)))
+    (with-slots ((parent-number type-number) class-size instance-size) parent-info
+      (let ((type-number 
+	     (%type-register-static 
+	      parent-number
+	      (default-alien-type-name type)
+	      (make-instance 'type-info :class-size class-size :instance-size instance-size))))
+       (setf (gethash type *lisp-type-to-type-number*) type-number)
+       (setf (gethash type-number *type-number-to-lisp-type*) type)
+       type-number))))
 
 
 
