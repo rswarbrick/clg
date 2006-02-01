@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.35 2006-02-01 17:46:11 espen Exp $
+;; $Id: gtype.lisp,v 1.36 2006-02-01 22:48:39 espen Exp $
 
 (in-package "GLIB")
 
@@ -171,7 +171,7 @@
 	type
       (let ((name (find-foreign-type-name type-number)))
 	(cond
-	 ((and name (type-number-from-glib-name name nil))
+	 ((and name (not (= (type-number-from-glib-name name nil) type-number)))
 	  ;; This is a hack because GdkEvent seems to be registered
 	  ;; multiple times
 	  (type-from-number (type-number-from-glib-name name)))
@@ -279,19 +279,29 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass ginstance-class (proxy-class)
-    ()))
+    ((foreign-init))))
 
 
-(defmethod shared-initialize :after ((class ginstance-class) names &key name gtype)
-  (let* ((class-name (or name (class-name class)))
+(defmethod shared-initialize ((class ginstance-class) names &key name gtype)
+  (call-next-method)
+  (setf 
+   (slot-value class 'foreign-init) 
+   (or (first gtype) (default-type-init-name (or name (class-name class))))))
+
+
+(defmethod finalize-inheritance ((class ginstance-class))
+  (call-next-method)
+  (let* ((class-name (class-name class))
 	 (super (most-specific-proxy-superclass class))
-	 (foreign-name (or (first gtype) (default-type-init-name class-name)))
-	 (type-number 
+	 (foreign-init (slot-value class 'foreign-init))
+	 (type-number
 	  (or 
 	   (find-type-number class-name)
-	   (if (type-number-from-glib-name foreign-name nil)
-	       (register-type class-name foreign-name)
-	     (register-new-type class-name (class-name super) foreign-name)))))
+	   (if (or 
+		(symbolp foreign-init)
+		(type-number-from-glib-name foreign-init nil))
+	       (register-type class-name foreign-init)
+	     (register-new-type class-name (class-name super) foreign-init)))))
     (unless (eq (class-name super) (supertype type-number))
       (warn "~A is the super type for ~A in the gobject type system."
        (supertype type-number) class-name))
