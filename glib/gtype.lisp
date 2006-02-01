@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.33 2006-01-31 14:02:51 espen Exp $
+;; $Id: gtype.lisp,v 1.34 2006-02-01 14:17:37 espen Exp $
 
 (in-package "GLIB")
 
@@ -167,12 +167,18 @@
 (defun type-from-number (type-number &optional error)
   (multiple-value-bind (type found)
       (gethash type-number *type-number-to-lisp-type*)
-    (when (and error (not found))
+    (if found
+	type
       (let ((name (find-foreign-type-name type-number)))
-	(if name
-	    (error "Type number not registered: ~A (~A)" type-number name)
-	  (error "Invalid type number: ~A" type-number))))
-    type))
+	(cond
+	 ((and name (type-number-from-glib-name name nil))
+	  ;; This is a hack because GdkEvent seems to be registered
+	  ;; multiple times
+	  (type-from-number (type-number-from-glib-name name)))
+	 ((and error name)
+	  (error "Type number not registered: ~A (~A)" type-number name))
+	 ((and error)
+	  (error "Invalid type number: ~A" type-number)))))))
 
 (defbinding (find-foreign-type-name "g_type_name") (type) (copy-of string)
   ((find-type-number type t) type-number))
@@ -250,7 +256,7 @@
     (:metaclass struct-class)))
 
 (defbinding %type-register-static () type-number
-  (parent-type gtype)
+  (parent-type type-number)
   (name string)
   (info type-info)
   (0 unsigned-int))
