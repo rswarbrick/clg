@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.34 2006-02-01 14:17:37 espen Exp $
+;; $Id: gtype.lisp,v 1.35 2006-02-01 17:46:11 espen Exp $
 
 (in-package "GLIB")
 
@@ -261,13 +261,13 @@
   (info type-info)
   (0 unsigned-int))
 
-(defun register-new-type (type parent)
+(defun register-new-type (type parent &optional foreign-name)
   (let ((parent-info (type-query parent)))
     (with-slots ((parent-number type-number) class-size instance-size) parent-info
       (let ((type-number 
 	     (%type-register-static 
 	      parent-number
-	      (default-alien-type-name type)
+	      (or foreign-name (default-alien-type-name type))
 	      (make-instance 'type-info :class-size class-size :instance-size instance-size))))
        (setf (gethash type *lisp-type-to-type-number*) type-number)
        (setf (gethash type-number *type-number-to-lisp-type*) type)
@@ -282,18 +282,22 @@
     ()))
 
 
-(defmethod shared-initialize ((class ginstance-class) names &rest initargs &key name gtype)
-  (declare (ignore names))
+(defmethod shared-initialize :after ((class ginstance-class) names &key name gtype)
   (let* ((class-name (or name (class-name class)))
+	 (super (most-specific-proxy-superclass class))
+	 (foreign-name (or (first gtype) (default-type-init-name class-name)))
 	 (type-number 
 	  (or 
 	   (find-type-number class-name)
-	   (register-type class-name 
-	     (or (first gtype) (default-type-init-name class-name))))))
-    (if (getf initargs :size)
-         (call-next-method)
-       (let ((size (type-instance-size type-number)))
-         (apply #'call-next-method class names :size (list size) initargs)))))
+	   (if (type-number-from-glib-name foreign-name nil)
+	       (register-type class-name foreign-name)
+	     (register-new-type class-name (class-name super) foreign-name)))))
+    (unless (eq (class-name super) (supertype type-number))
+      (warn "~A is the super type for ~A in the gobject type system."
+       (supertype type-number) class-name))
+
+    (unless (slot-boundp class 'size)
+      (setf (slot-value class 'size) (type-instance-size type-number)))))
 
 
 (defmethod validate-superclass ((class ginstance-class) (super standard-class))
