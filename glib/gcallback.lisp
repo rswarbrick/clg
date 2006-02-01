@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.25 2005-04-24 13:25:31 espen Exp $
+;; $Id: gcallback.lisp,v 1.26 2006-02-01 14:18:49 espen Exp $
 
 (in-package "GLIB")
 
@@ -185,6 +185,79 @@
 
 
 ;;;; Signal connecting and controlling
+
+(defvar *overridden-signals* (make-hash-table :test 'equalp))
+
+(defbinding %signal-override-class-closure () nil
+  (signal-id unsigned-int)
+  (type-number type-number)
+  (callback-closure pointer))
+
+
+(defun signal-override-class-closure (name type function)
+  (let* ((signal-id (ensure-signal-id-from-type name type))
+	 (type-number (find-type-number type t))
+	 (callback-id (gethash (cons type-number signal-id) *overridden-signals*)))
+    (if callback-id
+	(update-user-data callback-id function)
+      (multiple-value-bind (callback-closure callback-id)
+	  (make-callback-closure function)
+	(%signal-override-class-closure signal-id type-number callback-closure)
+	(setf 
+	 (gethash (cons type-number signal-id) *overridden-signals*)
+	 callback-id)))))
+
+
+(defbinding %signal-chain-from-overridden () nil
+  (args pointer)
+  (return-value (or null gvalue)))
+
+
+(defun %call-next-handler (n-params types args defaults return-type)
+  (let ((params (allocate-memory (* n-params +gvalue-size+))))
+    (loop 
+     as tmp = args then (rest tmp)
+     for default in defaults
+     for type in types
+     for offset from 0 by +gvalue-size+
+     as arg = (if tmp (car tmp) default)
+     do (gvalue-init (sap+ params offset) type arg))
+
+    (unwind-protect
+	(if return-type
+	    (with-gvalue (return-value return-type)
+	      (%signal-chain-from-overridden params return-value))
+	  (%signal-chain-from-overridden params nil))
+      (progn
+	(loop
+	 repeat n-params
+	 for offset from 0 by +gvalue-size+
+	 do (gvalue-unset (sap+ params offset)))
+	(deallocate-memory params)))))
+
+
+(defmacro define-signal-handler (name ((object class) &rest args) &body body)
+  (let* ((info (signal-query (ensure-signal-id-from-type name class)))
+	 (types (cons class (signal-param-types info)))
+	 (n-params (1+ (slot-value info 'n-params)))
+	 (return-type (type-from-number (slot-value info 'return-type)))
+	 (vars (loop
+		for arg in args
+		until (eq arg '&rest)
+		collect arg))
+	 (rest (cadr (member '&rest args)))
+	 (next (make-symbol "ARGS")))
+
+    `(progn
+       (signal-override-class-closure ',name ',class 
+	#'(lambda (,object ,@args)
+	    (flet ((call-next-handler (&rest ,next)
+		     (let ((defaults (list* ,object ,@vars ,rest)))
+		       (%call-next-handler 
+			,n-params ',types ,next defaults ',return-type))))
+	      ,@body)))
+       ',name)))
+
 
 (defbinding %signal-stop-emission () nil
   (instance ginstance)
