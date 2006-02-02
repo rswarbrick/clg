@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.5 2005-04-23 16:48:49 espen Exp $
+;; $Id: ginspect.lisp,v 1.6 2006-02-02 22:48:53 espen Exp $
 
 (in-package :gtk)
 
@@ -81,7 +81,7 @@
     (if (equal parts (list object))
 	(values description nil nil)
       (values description named-p parts)))
-  (sb-impl::inspected-parts object))
+  #+sbcl(sb-impl::inspected-parts object))
 
 (defmethod decompose-describe-object ((object (eql t)))
   (values (call-next-method) nil nil))
@@ -109,7 +109,7 @@
   (values 
    (call-next-method) t
    (cons "Name" (symbol-name object)) 
-   (cons "Package" (symbol-package objecy))
+   (cons "Package" (symbol-package object))
    (cons "Value" (if (boundp object)
 		     (symbol-value object)
 		   *ginspect-unbound-object-marker*))
