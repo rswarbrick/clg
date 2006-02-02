@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.37 2006-02-02 19:51:33 espen Exp $
+;; $Id: gobject.lisp,v 1.38 2006-02-02 22:35:12 espen Exp $
 
 (in-package "GLIB")
 
@@ -182,7 +182,7 @@
   (when (some #'(lambda (slotd)
 		  (and
 		   (eq (slot-definition-allocation slotd) :instance)
-		   (not (eq (slot-definition-name slotd) 'location))))
+		   (not (typep slotd 'effective-special-slot-definition))))
 	      (class-slots class))
     (setf (slot-value class 'instance-slots-p) t)))
 
