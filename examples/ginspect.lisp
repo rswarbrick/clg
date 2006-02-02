@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.6 2006-02-02 22:48:53 espen Exp $
+;; $Id: ginspect.lisp,v 1.7 2006-02-02 23:00:28 espen Exp $
 
 (in-package :gtk)
 
@@ -108,15 +108,16 @@
 (defmethod decompose-describe-object ((object symbol))
   (values 
    (call-next-method) t
-   (cons "Name" (symbol-name object)) 
-   (cons "Package" (symbol-package object))
-   (cons "Value" (if (boundp object)
-		     (symbol-value object)
-		   *ginspect-unbound-object-marker*))
-   (cons "Function" (if (fboundp object)
-			(symbol-function  object)
-		      *ginspect-unbound-object-marker*))
-   (cons "Plist" (symbol-plist object))))
+   (list
+    (cons "Name" (symbol-name object)) 
+    (cons "Package" (symbol-package object))
+    (cons "Value" (if (boundp object)
+		      (symbol-value object)
+		    *ginspect-unbound-object-marker*))
+    (cons "Function" (if (fboundp object)
+			 (symbol-function  object)
+		       *ginspect-unbound-object-marker*))
+    (cons "Plist" (symbol-plist object)))))
 
 #+cmu
 (defmethod decompose-describe-object ((object standard-object))
