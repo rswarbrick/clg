@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.36 2006-02-01 22:48:39 espen Exp $
+;; $Id: gtype.lisp,v 1.37 2006-02-02 17:56:09 espen Exp $
 
 (in-package "GLIB")
 
@@ -279,29 +279,22 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass ginstance-class (proxy-class)
-    ((foreign-init))))
-
-
-(defmethod shared-initialize ((class ginstance-class) names &key name gtype)
-  (call-next-method)
-  (setf 
-   (slot-value class 'foreign-init) 
-   (or (first gtype) (default-type-init-name (or name (class-name class))))))
+    ((gtype :initarg :gtype :initform nil :reader ginstance-class-gtype))))
 
 
 (defmethod finalize-inheritance ((class ginstance-class))
   (call-next-method)
   (let* ((class-name (class-name class))
 	 (super (most-specific-proxy-superclass class))
-	 (foreign-init (slot-value class 'foreign-init))
+	 (gtype (or 
+		 (first (ginstance-class-gtype class))
+		 (default-alien-type-name class-name)))
 	 (type-number
 	  (or 
 	   (find-type-number class-name)
-	   (if (or 
-		(symbolp foreign-init)
-		(type-number-from-glib-name foreign-init nil))
-	       (register-type class-name foreign-init)
-	     (register-new-type class-name (class-name super) foreign-init)))))
+	   (if (or (symbolp gtype) (type-number-from-glib-name gtype nil))
+	       (register-type class-name gtype)
+	     (register-new-type class-name (class-name super) gtype)))))
     (unless (eq (class-name super) (supertype type-number))
       (warn "~A is the super type for ~A in the gobject type system."
        (supertype type-number) class-name))
