@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.36 2005-04-23 16:48:51 espen Exp $
+;; $Id: gobject.lisp,v 1.37 2006-02-02 19:51:33 espen Exp $
 
 (in-package "GLIB")
 
@@ -29,7 +29,8 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass gobject-class (ginstance-class)
-    ())
+    ((instance-slots-p :initform nil
+      :documentation "Non NIL if the class has slots with instance allocation")))
 
   (defmethod validate-superclass ((class gobject-class) (super standard-class))
 ;  (subtypep (class-name super) 'gobject)
@@ -60,13 +61,33 @@
 (defbinding %object-unref () nil
   (location pointer))
 
+(defcallback toggle-ref-callback (nil (data pointer) (location pointer) (last-ref-p boolean))
+  (if last-ref-p
+      (cache-instance (find-cached-instance location) t)
+    (cache-instance (find-cached-instance location) nil)))
+
+(defbinding %object-add-toggle-ref () pointer
+  (location pointer)
+  ((callback toggle-ref-callback) pointer)
+  (nil null))
+
+(defbinding %object-remove-toggle-ref () pointer
+  (location pointer)
+  ((callback toggle-ref-callback) pointer)
+  (nil null))
+
 (defmethod reference-foreign ((class gobject-class) location)
   (declare (ignore class))
-  (%object-ref location))
+  (if (slot-value class 'instance-slots-p)
+      (%object-add-toggle-ref location)
+    (%object-ref location)))
 
 (defmethod unreference-foreign ((class gobject-class) location)
   (declare (ignore class))
-  (%object-unref location))
+  (error "Should never be called on a GOBJECT-CLASS (if this is ever needed some redesigning would have to be done)")
+;  (%object-unref location)
+)
+
 
 
 ; (defbinding object-class-install-param () nil
@@ -156,6 +177,16 @@
 	   (user-data-p object slot-name)))))
   (call-next-method))
 
+(defmethod shared-initialize :after ((class gobject-class) names &rest initargs)
+  (declare (ignore initargs))
+  (when (some #'(lambda (slotd)
+		  (and
+		   (eq (slot-definition-allocation slotd) :instance)
+		   (not (eq (slot-definition-name slotd) 'location))))
+	      (class-slots class))
+    (setf (slot-value class 'instance-slots-p) t)))
+
+
 
 ;;;; Super class for all classes in the GObject type hierarchy
 
@@ -184,7 +215,7 @@
 
 (defmethod initialize-instance ((object gobject) &rest initargs)
   (unless (slot-boundp object 'location)
-    ;; Extract initargs which we should pass directly to the GObeject
+    ;; Extract initargs which we should pass directly to the GObject
     ;; constructor
     (let* ((slotds (class-slots (class-of object)))
 	   (args (when initargs
@@ -233,9 +264,13 @@
 
 (defmethod instance-finalizer ((instance gobject))
   (let ((location (proxy-location instance)))
-    #'(lambda ()
-	(remove-cached-instance location)
-	(%object-unref location))))
+    (if (slot-value (class-of instance) 'instance-slots-p)
+	#'(lambda ()
+	    (remove-cached-instance location)
+	    (%object-remove-toggle-ref location))
+      #'(lambda ()
+	  (remove-cached-instance location)
+	  (%object-unref location)))))
 
 
 (defbinding (%gobject-new "g_object_new") () pointer
