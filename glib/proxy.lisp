@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.21 2005-04-24 13:26:40 espen Exp $
+;; $Id: proxy.lisp,v 1.22 2006-02-02 18:37:46 espen Exp $
 
 (in-package "GLIB")
 
@@ -226,15 +226,19 @@
 (internal *instance-cache*)
 (defvar *instance-cache* (make-hash-table :test #'eql))
 
-(defun cache-instance (instance)
+(defun cache-instance (instance &optional (weak-ref t))
   (setf
    (gethash (sap-int (proxy-location instance)) *instance-cache*)
-   (make-weak-pointer instance)))
+   (if weak-ref
+       (make-weak-pointer instance)
+     instance)))
 
 (defun find-cached-instance (location)
   (let ((ref (gethash (sap-int location) *instance-cache*)))
     (when ref
-      (weak-pointer-value ref))))
+      (if (weak-pointer-p ref)
+	  (weak-pointer-value ref)
+	ref))))
 
 (defun instance-cached-p (location)
   (gethash (sap-int location) *instance-cache*))
@@ -243,11 +247,11 @@
   (remhash (sap-int location) *instance-cache*))
 
 ;; For debuging
-(defun cached-instances ()
+(defun list-cached-instances ()
   (let ((instances ()))
     (maphash #'(lambda (location ref)
 		 (declare (ignore location))
-		 (push (weak-pointer-value ref) instances))
+		 (push ref instances))
 	     *instance-cache*)
     instances))
 			
@@ -258,7 +262,6 @@
 (defclass proxy ()
   ((location :reader proxy-location :type system-area-pointer)))
 
-(defgeneric initialize-proxy (object &rest initargs))
 (defgeneric instance-finalizer (object))
 (defgeneric reference-foreign (class location))
 (defgeneric unreference-foreign (class location))
