@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.40 2006-02-03 00:41:01 espen Exp $
+;; $Id: gobject.lisp,v 1.41 2006-02-03 12:44:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -61,38 +61,40 @@
 (defbinding %object-unref () nil
   (location pointer))
 
-(defcallback toggle-ref-callback (nil (data pointer) (location pointer) (last-ref-p boolean))
-  (if last-ref-p
-      (cache-instance (find-cached-instance location) t)
-    (cache-instance (find-cached-instance location) nil)))
-
 #+glib2.8
-(defbinding %object-add-toggle-ref () pointer
-  (location pointer)
-  ((callback toggle-ref-callback) pointer)
-  (nil null))
+(progn
+  (defcallback toggle-ref-callback (nil (data pointer) (location pointer) (last-ref-p boolean))
+    (if last-ref-p
+	(cache-instance (find-cached-instance location) t)
+      (cache-instance (find-cached-instance location) nil)))
 
-#+glib2.8
-(defbinding %object-remove-toggle-ref () pointer
-  (location pointer)
-  ((callback toggle-ref-callback) pointer)
-  (nil null))
+  (defbinding %object-add-toggle-ref () pointer
+    (location pointer)
+    ((callback toggle-ref-callback) pointer)
+    (nil null))
+
+  (defbinding %object-remove-toggle-ref () pointer
+    (location pointer)
+    ((callback toggle-ref-callback) pointer)
+    (nil null)))
 
 (defmethod reference-foreign ((class gobject-class) location)
   (declare (ignore class))
-  #+glib2.8
-  (if (slot-value class 'instance-slots-p)
-      (%object-add-toggle-ref location)
-    (%object-ref location))
-  #-glib2.8
   (%object-ref location))
 
 (defmethod unreference-foreign ((class gobject-class) location)
   (declare (ignore class))
-  (error "Should never be called on a GOBJECT-CLASS (if this is ever needed some redesigning would have to be done)")
-;  (%object-unref location)
-)
+  (%object-unref location))
 
+#+debug-ref-counting
+(progn
+  (defcallback weak-ref-callback (nil (data pointer) (location pointer))
+    (format t "Object at 0x~8,'0X being finalized~%" (sap-int location)))
+  
+  (defbinding %object-weak-ref () pointer
+    (location pointer)
+    ((callback weak-ref-callback) pointer)
+    (nil null)))
 
 
 ; (defbinding object-class-install-param () nil
@@ -218,6 +220,17 @@
 	       initargs key pkey))
 
 
+(defmethod initialize-instance :around ((object gobject) &rest initargs)
+  (declare (ignore initargs))
+  (call-next-method)
+  #+debug-ref-counting(%object-weak-ref (proxy-location object))
+  #+glib2.8
+  (when (slot-value (class-of object) 'instance-slots-p)
+    (with-slots (location) object
+      (%object-add-toggle-ref location)
+      (%object-unref location))))
+
+
 (defmethod initialize-instance ((object gobject) &rest initargs)
   (unless (slot-boundp object 'location)
     ;; Extract initargs which we should pass directly to the GObject
@@ -272,9 +285,13 @@
     #+glib2.8
     (if (slot-value (class-of instance) 'instance-slots-p)
 	#'(lambda ()
+	    #+debug-ref-counting
+	    (format t "Finalizing proxy for 0x~8,'0X~%" (sap-int location))
 	    (remove-cached-instance location)
 	    (%object-remove-toggle-ref location))
       #'(lambda ()
+	  #+debug-ref-counting
+	  (format t "Finalizing proxy for 0x~8,'0X~%" (sap-int location))
 	  (remove-cached-instance location)
 	  (%object-unref location)))
     #-glib2.8
