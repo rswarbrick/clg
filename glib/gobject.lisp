@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.38 2006-02-02 22:35:12 espen Exp $
+;; $Id: gobject.lisp,v 1.39 2006-02-03 00:10:56 espen Exp $
 
 (in-package "GLIB")
 
@@ -66,11 +66,13 @@
       (cache-instance (find-cached-instance location) t)
     (cache-instance (find-cached-instance location) nil)))
 
+#+gtk2.8
 (defbinding %object-add-toggle-ref () pointer
   (location pointer)
   ((callback toggle-ref-callback) pointer)
   (nil null))
 
+#+gtk2.8
 (defbinding %object-remove-toggle-ref () pointer
   (location pointer)
   ((callback toggle-ref-callback) pointer)
@@ -78,9 +80,12 @@
 
 (defmethod reference-foreign ((class gobject-class) location)
   (declare (ignore class))
+  #+gtk2.8
   (if (slot-value class 'instance-slots-p)
       (%object-add-toggle-ref location)
-    (%object-ref location)))
+    (%object-ref location))
+  #-gtk2.8
+  (%object-ref location))
 
 (defmethod unreference-foreign ((class gobject-class) location)
   (declare (ignore class))
@@ -264,13 +269,18 @@
 
 (defmethod instance-finalizer ((instance gobject))
   (let ((location (proxy-location instance)))
+    #+gtk2.8
     (if (slot-value (class-of instance) 'instance-slots-p)
 	#'(lambda ()
 	    (remove-cached-instance location)
 	    (%object-remove-toggle-ref location))
       #'(lambda ()
 	  (remove-cached-instance location)
-	  (%object-unref location)))))
+	  (%object-unref location)))
+    #-gtk2.8
+    #'(lambda ()
+	(remove-cached-instance location)
+	  (%object-unref location))))
 
 
 (defbinding (%gobject-new "g_object_new") () pointer
