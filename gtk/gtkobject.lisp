@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.27 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtkobject.lisp,v 1.28 2006-02-03 12:47:00 espen Exp $
 
 
 (in-package "GTK")
@@ -52,13 +52,15 @@
 (defmethod initialize-instance ((object %object) &rest initargs &key signal)
   (declare (ignore signal))
   (call-next-method)
-  (reference-foreign (class-of object) (proxy-location object))
   (dolist (signal-definition (get-all initargs :signal))
     (apply #'signal-connect object signal-definition)))
 
 (defmethod initialize-instance :around ((object %object) &rest initargs)
   (declare (ignore initargs))
   (call-next-method)
+  ;; Add a temorary reference which will be removed when the object is
+  ;; sinked
+  (reference-foreign (class-of object) (proxy-location object))
   (%object-sink object))
 
 (defbinding %object-sink () nil
