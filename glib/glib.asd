@@ -23,6 +23,9 @@
 (when (string>= (pkg-version "glib-2.0") "2.6.0")
   (push :glib2.6 *features*))
 
+(when (string>= (pkg-version "glib-2.0") "2.8.0")
+  (push :glib2.8 *features*))
+
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")
