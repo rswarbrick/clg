@@ -20,9 +20,16 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.7 2006-02-02 23:00:28 espen Exp $
+;; $Id: ginspect.lisp,v 1.8 2006-02-03 00:15:52 espen Exp $
 
-(in-package :gtk)
+#+sbcl(require :gtk)
+#+cmu(asdf:oos 'asdf:load-op :gtk)
+
+(defpackage "GINSPECT"
+  (:use "COMMON-LISP" "GLIB" "GTK" #+cmu"PCL" #+sbcl"SB-PCL")
+  (:export "GINSPECT"))
+
+(in-package "GINSPECT")
 
 (defvar *ginspect-unbound-object-marker* 
   #+cmu (gensym "UNBOUND-OBJECT-")
@@ -33,6 +40,12 @@
 (defgeneric insert-parts (object store parent))
 (defgeneric object-has-parts-p (object))
 (defgeneric decompose-describe-object (object))
+
+
+;; A container to hold lisp objects "inside" the tree store
+(defclass object-container (gobject)
+  ((object :initarg :object))
+  (:metaclass gobject-class))
 
 
 (defun ginspect (object)
@@ -62,8 +75,8 @@
 	     ;; Remove old children
 	     (when valid
 	       (loop while (tree-store-remove store child-iter))))
-	   (let ((gobject (tree-model-value store iter 'object)))
-	     (insert-parts (object-data gobject 'object) store iter))
+	   (let ((container (tree-model-value store iter 'object)))
+	     (insert-parts (slot-value container 'object) store iter))
 	   (tree-view-expand-row view path nil))))
 
     (make-instance 'dialog
@@ -153,15 +166,14 @@
   "<unbound>")
 
 (defmethod insert-object ((object t) store parent &optional (name ""))
-  (let ((gobject (make-instance 'gobject)) ; to "hang" the lisp object on
+  (let ((container (make-instance 'object-container :object object))
 	(has-parts (object-has-parts-p object)))
-    (setf (object-data gobject 'object) object)
     (let ((iter (tree-store-append store parent 
 		 (vector name (object-to-string object) 
-			 gobject (not has-parts)))))
+			 container (not has-parts)))))
       (when has-parts
 	;; Insert dummy child
-	(tree-store-append store iter (vector "" "" gobject t))))))
+	(tree-store-append store iter (vector "" "" container t))))))
 
 (defmethod insert-parts :around ((object t) store parent)
   (when (object-has-parts-p object)
