@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.41 2006-02-03 12:44:32 espen Exp $
+;; $Id: gobject.lisp,v 1.42 2006-02-04 12:15:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -64,6 +64,10 @@
 #+glib2.8
 (progn
   (defcallback toggle-ref-callback (nil (data pointer) (location pointer) (last-ref-p boolean))
+    #+debug-ref-counting
+    (if last-ref-p
+	(format t "Object at 0x~8,'0X has no foreign references~%" (sap-int location))
+      (format t "Foreign reference added to object at 0x~8,'0X~%" (sap-int location)))
     (if last-ref-p
 	(cache-instance (find-cached-instance location) t)
       (cache-instance (find-cached-instance location) nil)))
@@ -223,7 +227,7 @@
 (defmethod initialize-instance :around ((object gobject) &rest initargs)
   (declare (ignore initargs))
   (call-next-method)
-  #+debug-ref-counting(%object-weak-ref (proxy-location object))
+  #+debug-ref-counting(%object-weak-ref (foreign-location object))
   #+glib2.8
   (when (slot-value (class-of object) 'instance-slots-p)
     (with-slots (location) object
@@ -281,7 +285,7 @@
 
 
 (defmethod instance-finalizer ((instance gobject))
-  (let ((location (proxy-location instance)))
+  (let ((location (foreign-location instance)))
     #+glib2.8
     (if (slot-value (class-of instance) 'instance-slots-p)
 	#'(lambda ()
@@ -526,7 +530,7 @@
 	(let ((instance (make-symbol "INSTANCE")))
 	  `(let ((,instance ,(from-alien-form form type)))
 	     (when ,instance
-	       (%object-unref (proxy-location ,instance)))
+	       (%object-unref (foreign-location ,instance)))
 	     ,instance))
       (error "~A is not a subclass of GOBJECT" type))))
 

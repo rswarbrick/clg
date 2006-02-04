@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gboxed.lisp,v 1.19 2005-04-23 16:48:50 espen Exp $
+;; $Id: gboxed.lisp,v 1.20 2006-02-04 12:15:31 espen Exp $
 
 (in-package "GLIB")
 
@@ -30,7 +30,7 @@
   (:metaclass struct-class))
 
 (defmethod instance-finalizer ((instance boxed))
-  (let ((location (proxy-location instance))
+  (let ((location (foreign-location instance))
 	(type-number (type-number-of instance)))
     #'(lambda ()
 	(remove-cached-instance location)

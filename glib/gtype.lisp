@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.37 2006-02-02 17:56:09 espen Exp $
+;; $Id: gtype.lisp,v 1.38 2006-02-04 12:15:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -282,6 +282,9 @@
     ((gtype :initarg :gtype :initform nil :reader ginstance-class-gtype))))
 
 
+(defmethod compute-foreign-size ((class ginstance-class))
+  (type-instance-size (find-type-number (class-name class))))
+
 (defmethod finalize-inheritance ((class ginstance-class))
   (call-next-method)
   (let* ((class-name (class-name class))
@@ -297,10 +300,7 @@
 	     (register-new-type class-name (class-name super) gtype)))))
     (unless (eq (class-name super) (supertype type-number))
       (warn "~A is the super type for ~A in the gobject type system."
-       (supertype type-number) class-name))
-
-    (unless (slot-boundp class 'size)
-      (setf (slot-value class 'size) (type-instance-size type-number)))))
+       (supertype type-number) class-name))))
 
 
 (defmethod validate-superclass ((class ginstance-class) (super standard-class))
@@ -311,8 +311,10 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass ginstance (proxy)
-    ((class :allocation :alien :type pointer))
-    (:metaclass proxy-class)))
+    (;(class :allocation :alien :type pointer :offset 0)
+     )
+    (:metaclass proxy-class)
+    (:size #.(size-of 'pointer))))
 
 (defun %type-number-of-ginstance (location)
   (let ((class (sap-ref-sap location 0)))

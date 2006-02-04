@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.23 2006-02-02 22:35:14 espen Exp $
+;; $Id: proxy.lisp,v 1.24 2006-02-04 12:15:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -103,7 +103,7 @@
 			      (setq reader
 			       (mkbinding getter 
 				(slot-definition-type slotd) 'pointer)))
-			    (funcall reader (proxy-location object))))))))))
+			    (funcall reader (foreign-location object))))))))))
 
       (setf 
        (slot-value slotd 'boundp-function)
@@ -124,7 +124,7 @@
 			     (setq reader
 			      (mkbinding boundp
 			       (slot-definition-type slotd) 'pointer)))
-			   (funcall reader (proxy-location object))))))))
+			   (funcall reader (foreign-location object))))))))
 	((multiple-value-bind (unbound-p unbound-value)
 	     (unbound-value (slot-definition-type slotd))
 	   (when unbound-p
@@ -181,7 +181,7 @@
 		   (setq writer
 		    (mkbinding setter 'nil 'pointer 
 		     (slot-definition-type slotd))))
-		 (funcall writer (proxy-location object) value)))))))))
+		 (funcall writer (foreign-location object) value)))))))))
 
   (initialize-internal-slot-gfs (slot-definition-name slotd)))
 
@@ -239,7 +239,7 @@
 
 (defun cache-instance (instance &optional (weak-ref t))
   (setf
-   (gethash (sap-int (proxy-location instance)) *instance-cache*)
+   (gethash (sap-int (foreign-location instance)) *instance-cache*)
    (if weak-ref
        (make-weak-pointer instance)
      instance)))
@@ -271,7 +271,7 @@
 ;;;; Proxy for alien instances
 
 (defclass proxy ()
-  ((location :allocation :special :reader proxy-location :type system-area-pointer))
+  ((location :allocation :special :reader foreign-location :type pointer))
   (:metaclass virtual-slots-class))
 
 (defgeneric instance-finalizer (object))
@@ -286,17 +286,13 @@
 
 (defmethod unreference-foreign :around ((class class) location)
   (unless (null-pointer-p location)
-;;     (format t "Unreferencing ~A at ~A" (class-name class) location)
-;;     (finish-output *standard-output*)
-    (call-next-method)
-;;     (write-line " done")
-;;     (finish-output *standard-output*)
-    ))
+    (call-next-method)))
 
 (defmethod print-object ((instance proxy) stream)
   (print-unreadable-object (instance stream :type t :identity nil)
-    (when (slot-boundp instance 'location)
-      (format stream "at 0x~X" (sap-int (proxy-location instance))))))
+    (if (slot-boundp instance 'location)
+	(format stream "at 0x~X" (sap-int (foreign-location instance)))
+      (write-string "at \"unbound\"" stream))))
 
 (defmethod initialize-instance :around ((instance proxy) &key location)
   (if location
@@ -307,7 +303,7 @@
   instance)
 
 (defmethod instance-finalizer ((instance proxy))
-  (let ((location (proxy-location instance))
+  (let ((location (foreign-location instance))
 	(class (class-of instance)))    
 ;;     (unless (find-method #'unreference-foreign nil (list (class-of class) t) nil)
 ;;       (error "No matching method for UNREFERENCE-INSTANCE when called with class ~A" class))
@@ -320,11 +316,12 @@
 
 (defgeneric most-specific-proxy-superclass (class))
 (defgeneric direct-proxy-superclass (class))
+(defgeneric compute-foreign-size (class))
   
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass proxy-class (virtual-slots-class)
-    ((size :reader proxy-instance-size)))
+    ((size :reader foreign-size)))
 
   (defclass direct-alien-slot-definition (direct-virtual-slot-definition)
     ((allocation :initform :alien)
@@ -350,7 +347,7 @@
     (cond
       (size (setf (slot-value class 'size) (first size)))
       ((slot-boundp class 'size) (slot-makunbound class 'size))))
-  
+
   (defmethod direct-slot-definition-class ((class proxy-class) &rest initargs)
     (case (getf initargs :allocation)
       (:alien (find-class 'direct-alien-slot-definition))
@@ -378,7 +375,7 @@
 	    (setf 
 	     (slot-value slotd 'getter)
 	     #'(lambda (object)
-		 (funcall reader (proxy-location object) offset)))))
+		 (funcall reader (foreign-location object) offset)))))
 
 	(unless (slot-boundp slotd 'setter)
 	  (let ((writer (writer-function type))
@@ -386,50 +383,58 @@
 	    (setf 
 	     (slot-value slotd 'setter)
 	     #'(lambda (value object)
-		 (let ((location (proxy-location object)))
+		 (let ((location (foreign-location object)))
 		   (funcall destroy location offset) ; destroy old value
 		   (funcall writer value location offset))))))))
 
     (call-next-method))
   
+  (defmethod compute-foreign-size ((class proxy-class))
+    nil)
 
   ;; TODO: call some C code to detect this a compile time
   (defconstant +struct-alignmen+ 4)
 
+  (defun align-offset (size)
+    (if (zerop (mod size +struct-alignmen+))
+	size
+      (+ size (- +struct-alignmen+ (mod size +struct-alignmen+)))))
+
   (defmethod compute-slots ((class proxy-class))
-    (loop 
-     with offset = (let ((size-of-super-classes
-			  (proxy-instance-size 
-			   (most-specific-proxy-superclass class))))
-		     (+ size-of-super-classes 
-			(mod size-of-super-classes +struct-alignmen+)))
-     with size = offset
-     for slotd in (class-direct-slots class)
-     when (eq (slot-definition-allocation slotd) :alien)
-     do (if (not (slot-boundp slotd 'offset))
-	    (setf (slot-value slotd 'offset) offset)
-	  (setq offset (slot-value slotd 'offset)))
-
-        (incf offset (size-of (slot-definition-type slotd)))
-	(incf offset (mod offset +struct-alignmen+))
-	(setq size (max size offset))
-
-     finally (unless (slot-boundp class 'size)
-	       (setf (slot-value class 'size) size)))
+    (let ((alien-slots 
+	   (remove-if-not
+	    #'(lambda (slotd)
+		(eq (slot-definition-allocation slotd) :alien))
+	    (class-direct-slots class))))      
+      (when alien-slots
+	(loop 
+	 as offset = (align-offset (foreign-size 
+				    (most-specific-proxy-superclass class)))
+	             then (align-offset 
+			   (+ 
+			    (slot-definition-offset slotd)
+			    (size-of (slot-definition-type slotd))))
+       for slotd in alien-slots
+       unless (slot-boundp slotd 'offset)
+       do (setf (slot-value slotd 'offset) offset))))
     (call-next-method))
 
+  (defmethod compute-slots :after ((class proxy-class))
+    (when (and (class-finalized-p class) (not (slot-boundp class 'size)))
+      (let ((size (compute-foreign-size class)))
+	(when size 
+	  (setf (slot-value class 'size) size)))))
   
   (defmethod validate-superclass ((class proxy-class) (super standard-class))
     (subtypep (class-name super) 'proxy))
   
-  (defmethod proxy-instance-size (class)
-    (declare (ignore class))
-    0)
+  (defmethod foreign-size ((class-name symbol))
+    (foreign-size (find-class class-name))))
 
-  (defmethod proxy-instance-size ((class-name symbol))
-    (proxy-instance-size (find-class class-name)))
-)
+(defmethod foreign-size ((object proxy))
+  (foreign-size (class-of object)))
   
+
 (defmethod alien-type ((class proxy-class) &rest args)
   (declare (ignore class args))
   (alien-type 'pointer))
@@ -449,11 +454,11 @@
 
 (defmethod to-alien-form (instance (class proxy-class) &rest args)
   (declare (ignore class args))
-  `(proxy-location ,instance))
+  `(foreign-location ,instance))
 
 (defmethod to-alien-function ((class proxy-class) &rest args)
   (declare (ignore class args))
-  #'proxy-location)
+  #'foreign-location)
 
 (defmethod copy-from-alien-form (location (class proxy-class) &rest args)
   (declare (ignore args))
@@ -468,12 +473,12 @@
 
 (defmethod copy-to-alien-form (instance (class proxy-class) &rest args)
   (declare (ignore args))
-  `(reference-foreign ',(class-name class) (proxy-location ,instance)))
+  `(reference-foreign ',(class-name class) (foreign-location ,instance)))
 
 (defmethod copy-to-alien-function ((class proxy-class) &rest args)
   (declare (ignore args))
   #'(lambda (instance)
-      (reference-foreign class (proxy-location instance))))
+      (reference-foreign class (foreign-location instance))))
 
 (defmethod writer-function ((class proxy-class) &rest args)
   (declare (ignore args))
@@ -481,7 +486,7 @@
       (assert (null-pointer-p (sap-ref-sap location offset)))
       (setf 
        (sap-ref-sap location offset)
-       (reference-foreign class (proxy-location instance)))))
+       (reference-foreign class (foreign-location instance)))))
 
 (defmethod reader-function ((class proxy-class) &rest args)
   (declare (ignore args))
@@ -519,12 +524,13 @@
 
 (defclass struct (proxy)
   ()
-  (:metaclass proxy-class))
+  (:metaclass proxy-class)
+  (:size 0))
 
 (defmethod initialize-instance ((struct struct) &rest initargs)
   (declare (ignore initargs))
   (unless (slot-boundp struct 'location)
-    (let ((size (proxy-instance-size (class-of struct))))
+    (let ((size (foreign-size (class-of struct))))
       (if (zerop size)
 	  (error "~A has zero size" (class-of struct))
 	(setf (slot-value struct 'location) (allocate-memory size)))))
@@ -542,10 +548,19 @@
     (call-next-method)))
 
 (defmethod reference-foreign ((class struct-class) location)
-  (copy-memory location (proxy-instance-size class)))
+  (copy-memory location (foreign-size class)))
 
 (defmethod unreference-foreign ((class struct-class) location)
   (deallocate-memory location))
+
+(defmethod compute-foreign-size ((class struct-class))
+  (let ((size (loop
+	       for slotd in (class-slots class)
+	       when (eq (slot-definition-allocation slotd) :alien)
+	       maximize (+ 
+			 (slot-definition-offset slotd)
+			 (size-of (slot-definition-type slotd))))))
+    (+ size (mod size +struct-alignmen+))))
 
 
 (defclass static-struct-class (struct-class)
@@ -564,7 +579,7 @@
 
 (defmethod size-of ((type (eql 'inlined)) &rest args)
   (declare (ignore type))
-  (proxy-instance-size (first args)))
+  (foreign-size (first args)))
 
 (defmethod reader-function ((type (eql 'inlined)) &rest args)
   (declare (ignore type))
