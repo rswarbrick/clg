@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.28 2006-02-03 12:47:00 espen Exp $
+;; $Id: gtkobject.lisp,v 1.29 2006-02-04 12:17:45 espen Exp $
 
 
 (in-package "GTK")
@@ -60,7 +60,7 @@
   (call-next-method)
   ;; Add a temorary reference which will be removed when the object is
   ;; sinked
-  (reference-foreign (class-of object) (proxy-location object))
+  (reference-foreign (class-of object) (foreign-location object))
   (%object-sink object))
 
 (defbinding %object-sink () nil
