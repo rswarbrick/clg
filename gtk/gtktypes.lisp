@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.39 2005-09-26 21:34:53 espen Exp $
+;; $Id: gtktypes.lisp,v 1.40 2006-02-04 12:18:12 espen Exp $
 
 (in-package "GTK")
 
@@ -112,14 +112,17 @@
     :type string))
   (:metaclass struct-class))
 
-;; We don't really need to access any of these slots, but we need to
-;; specify the size of the struct somehow 
-(defclass tree-iter (boxed)
-  ((stamp :allocation :alien :type int)
-   (user-data :allocation :alien :type pointer)
-   (user-data2 :allocation :alien :type pointer)
-   (user-data3 :allocation :alien :type pointer))
-  (:metaclass boxed-class))
+;; We don't really need to access any slots in this class, so we just
+;; specify the total size
+(defclass tree-iter (boxed)  
+  (
+;;    (stamp :allocation :alien :type int)
+;;    (user-data :allocation :alien :type pointer)
+;;    (user-data2 :allocation :alien :type pointer)
+;;    (user-data3 :allocation :alien :type pointer)
+   )
+  (:metaclass boxed-class)
+  (:size #.(+ (size-of 'int) (* 3 (size-of 'pointer)))))
 
 
 ;; (defclass tree-path (boxed)
@@ -137,6 +140,8 @@
   (declare (ignore type args))
   (reader-function 'int))
 
+
+
 (define-types-by-introspection "Gtk"
   ;; Manually defined
   ("GtkObject" :ignore t)
@@ -150,7 +155,7 @@
   ("GtkWidget"
    :slots
    ((child-properties
-     :allocation :instance
+     :allocation :special
      :accessor widget-child-properties
      :type container-child)
     (window
@@ -639,6 +644,7 @@
      :reader entry-layout
      :type pango:layout)
     (completion
+     :allocation :virtual
      :getter "gtk_entry_get_completion"
      :setter "gtk_entry_set_completion"
      :initarg :completion
@@ -1099,15 +1105,9 @@
     :getter "gtk_text_iter_get_visible_line_offset"
     :setter "gtk_text_iter_set_visible_line_offset"
     :accessor text-iter-visible-line-offset
-    :type int)
-   ;; Workaround to get correct size 
-   (dummy14
-    :allocation :alien :offset #.(* 13 (size-of 'pointer))
-    :type pointer))
-  (:metaclass boxed-class 
-   ;; I am pretty sure this was working in older versons on CMUCL
-;   :size #.(* 14 (size-of 'pointer))
-   ))
+    :type int))
+  (:metaclass boxed-class)
+  (:size #.(* 14 (size-of 'pointer))))
 
 
 (defclass tooltips-data (struct)
@@ -1181,3 +1181,25 @@
 #+gtk2.8
 (define-enum-type drop-position
   :no-drop :drop-into :drop-left :drop-right :drop-above :drop-below)
+
+
+
+(defclass target-entry (struct)
+  ((target
+    :allocation :alien
+    :accessor target-entry-target
+    :initarg :target
+    :type string)
+   (flags
+    :allocation :alien
+    :accessor target-entry-flags
+    :initarg :flags
+    :type target-flags)
+   (id
+    :allocation :alien
+    :accessor target-entry-id
+    :initarg :id
+    :type unsigned-int))
+  (:metaclass struct-class))
+
+(deftype target-list () 'pointer)
