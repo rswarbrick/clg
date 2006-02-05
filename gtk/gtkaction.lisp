@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.6 2005-10-21 11:50:50 espen Exp $
+;; $Id: gtkaction.lisp,v 1.7 2006-02-05 12:54:55 espen Exp $
 
 
 (in-package "GTK")
@@ -85,7 +85,7 @@
 
 (defmethod initialize-instance ((action radio-action) &key group)
   (call-next-method)
-  (setf (slot-value action 'self) (sap-int (proxy-location action)))
+  (setf (slot-value action 'self) (sap-int (foreign-location action)))
   (when group
     (add-to-radio-group action group)))
 
