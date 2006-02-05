@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.38 2006-02-04 12:15:32 espen Exp $
+;; $Id: gtype.lisp,v 1.39 2006-02-05 15:38:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -320,7 +320,7 @@
   (let ((class (sap-ref-sap location 0)))
     (sap-ref-32 class 0)))
 
-(defmethod ensure-proxy-instance ((class ginstance-class) location)
+(defmethod make-proxy-instance :around ((class ginstance-class) location &rest initargs)
   (declare (ignore class))
   (let ((class (labels ((find-known-class (type-number)
 		          (or
@@ -328,10 +328,22 @@
 			   (unless (zerop type-number)
 			     (find-known-class (type-parent type-number))))))
 		 (find-known-class (%type-number-of-ginstance location)))))
+    ;; Note that chancing the class argument must not alter "the
+    ;; ordered set of applicable methods" as specified in the
+    ;; Hyperspec
     (if class
-	(make-instance class :location (reference-foreign class location))
-      (error "Object at ~A has an unkown type number: ~A" 
-        location (%type-number-of-ginstance location)))))
+	(apply #'call-next-method class location initargs)
+      (error "Object at ~A has an unkown type number: ~A"
+       location (%type-number-of-ginstance location)))))
+
+(defmethod make-proxy-instance ((class ginstance-class) location &rest initargs)
+  (declare (ignore initargs))
+  (reference-foreign class location)
+  ;; Since we make an explicit reference to the foreign object, we
+  ;; always have to release it when the proxy is garbage collected
+  ;; and therefor ignore the weak-p argument.
+  (call-next-method class location :weak nil))
+
 
 (defmethod copy-from-alien-form (location (class ginstance-class) &rest args)
   (declare (ignore location class args))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.24 2006-02-04 12:15:32 espen Exp $
+;; $Id: proxy.lisp,v 1.25 2006-02-05 15:38:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -294,13 +294,12 @@
 	(format stream "at 0x~X" (sap-int (foreign-location instance)))
       (write-string "at \"unbound\"" stream))))
 
-(defmethod initialize-instance :around ((instance proxy) &key location)
-  (if location
-      (setf (slot-value instance 'location) location)      
-    (call-next-method))
-  (cache-instance instance)
-  (finalize instance (instance-finalizer instance))
-  instance)
+(defmethod initialize-instance :around ((instance proxy) &rest initargs)
+  (declare (ignore initargs))
+  (prog1
+      (call-next-method)
+    (cache-instance instance)
+    (finalize instance (instance-finalizer instance))))
 
 (defmethod instance-finalizer ((instance proxy))
   (let ((location (foreign-location instance))
@@ -504,20 +503,32 @@
   (declare (ignore args))
   (values t nil))
 
-(defgeneric ensure-proxy-instance (class location)
-  (:documentation "Returns a proxy object representing the foreign object at the give location."))
-
-(defmethod ensure-proxy-instance :around (class location)
+(defun ensure-proxy-instance (class location &rest initargs)
+  "Returns a proxy object representing the foreign object at the give
+location. If an existing object is not found in the cache
+MAKE-PROXY-INSTANCE is called to create one."
   (unless (null-pointer-p location)
     (or 
      (find-cached-instance location)
-     (call-next-method))))
-  
-(defmethod ensure-proxy-instance ((class symbol) location)
-  (ensure-proxy-instance (find-class class) location))
+     (let ((instance (apply #'make-proxy-instance class location initargs)))
+       (cache-instance instance)
+       instance))))
 
-(defmethod ensure-proxy-instance ((class proxy-class) location)
-  (make-instance class :location location))
+(defgeneric make-proxy-instance (class location &key weak)
+  (:documentation "Creates a new proxy object representing the foreign
+object at the give location. If WEAK is non NIL the foreign memory
+will not be released when the proxy is garbage collected."))
+
+(defmethod make-proxy-instance ((class symbol) location &key weak)
+  (ensure-proxy-instance (find-class class) location :weak weak))
+
+(defmethod make-proxy-instance ((class proxy-class) location &key weak)
+  (declare (ignore weak-p))
+  (let ((instance (allocate-instance class)))
+    (setf (slot-value instance 'location) location)
+    (unless weak
+      (finalize instance (instance-finalizer instance)))
+    instance))
 
 
 ;;;; Superclasses for wrapping of C structures

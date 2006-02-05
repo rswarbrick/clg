@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: genums.lisp,v 1.15 2006-02-04 12:15:32 espen Exp $
+;; $Id: genums.lisp,v 1.16 2006-02-05 15:38:57 espen Exp $
 
 (in-package "GLIB")
   
@@ -277,7 +277,7 @@
       (funcall query-function (type-class-ref type))
     (let ((values nil)
 	  (size (foreign-size (find-class class)))
-	  (proxy (make-instance class :location sap)))
+	  (proxy (ensure-proxy-instance class sap)))
       (dotimes (i length)
 	(with-slots (location nickname value) proxy
 	  (setf location sap)

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdkevents.lisp,v 1.10 2005-04-23 16:48:50 espen Exp $
+;; $Id: gdkevents.lisp,v 1.11 2006-02-05 15:39:40 espen Exp $
 
 (in-package "GDK")
 
@@ -64,7 +64,6 @@
     ;(subtypep (class-name super) 'event)
     t))
 
-
 (defmethod shared-initialize ((class event-class) names &key name type)
   (let ((class-name (or name (class-name class))))
     (unless (eq class-name 'event)
@@ -77,10 +76,10 @@
   (defun %event-class (location)
     (gethash (funcall reader location 0) *event-classes*)))
 
-(defmethod ensure-proxy-instance ((class event-class) location)
+(defmethod make-proxy-instance :around ((class event-class) location &rest initargs)
   (declare (ignore class))
   (let ((class (%event-class location)))
-    (make-instance class :location location)))
+    (apply #'call-next-method class location initargs)))
 
 
 ;;;;

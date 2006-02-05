@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.42 2006-02-04 12:15:32 espen Exp $
+;; $Id: gobject.lisp,v 1.43 2006-02-05 15:38:57 espen Exp $
 
 (in-package "GLIB")
 
@@ -223,6 +223,12 @@
 			  (apply function object (mklist value)))
 	       initargs key pkey))
 
+
+(defmethod make-proxy-instance ((class gobject-class) location &rest initargs)
+  (declare (ignore location initargs))
+  (if (slot-value class 'instance-slots-p)
+      (error "An object of class ~A has instance slots and should only be created with MAKE-INSTANCE" class)
+    (call-next-method)))
 
 (defmethod initialize-instance :around ((object gobject) &rest initargs)
   (declare (ignore initargs))
