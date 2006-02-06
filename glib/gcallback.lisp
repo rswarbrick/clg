@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.26 2006-02-01 14:18:49 espen Exp $
+;; $Id: gcallback.lisp,v 1.27 2006-02-06 11:56:22 espen Exp $
 
 (in-package "GLIB")
 
@@ -58,10 +58,17 @@
 			(gvalue-type return-value)))
 	 (args (loop
 		for n from 0 below n-params
-		collect (gvalue-get (sap+ param-values (* n +gvalue-size+))))))
-    (let ((result (apply #'invoke-callback callback-id return-type args)))
-      (when return-type
-	(gvalue-set return-value result)))))
+		for offset from 0 by +gvalue-size+
+		collect (gvalue-weak-get (sap+ param-values offset)))))
+    (unwind-protect
+	(let ((result (apply #'invoke-callback callback-id return-type args)))
+	  (when return-type
+	    (gvalue-set return-value result)))
+      (loop 
+       for arg in args
+       when (typep arg 'proxy)
+       do (invalidate-instance arg)))))
+
 
 (defun invoke-callback (callback-id return-type &rest args)
   (restart-case
@@ -212,7 +219,7 @@
   (args pointer)
   (return-value (or null gvalue)))
 
-
+;; TODO: implement same semantics as CALL-NEXT-METHOD
 (defun %call-next-handler (n-params types args defaults return-type)
   (let ((params (allocate-memory (* n-params +gvalue-size+))))
     (loop 
