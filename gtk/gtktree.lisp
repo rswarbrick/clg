@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.11 2005-09-26 21:34:53 espen Exp $
+;; $Id: gtktree.lisp,v 1.12 2006-02-06 18:13:13 espen Exp $
 
 
 (in-package "GTK")
@@ -276,7 +276,8 @@
 (defmethod reader-function ((type (eql 'tree-path)) &rest args)
   (declare (ignore type args))
   (let ((reader (reader-function 'pointer)))
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(%tree-path-to-vector (funcall reader location offset)))))
 
 (defmethod destroy-function ((type (eql 'tree-path)) &rest args)
