@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.21 2005-09-26 21:27:31 espen Exp $
+;; $Id: ffi.lisp,v 1.22 2006-02-06 11:49:50 espen Exp $
 
 (in-package "GLIB")
 
@@ -271,6 +271,7 @@
 
 (def-type-method writer-function ())
 (def-type-method reader-function ())
+(def-type-method weak-reader-function ())
 (def-type-method destroy-function ())
 
 (def-type-method unbound-value ()
@@ -346,6 +347,9 @@
 
 (defmethod copy-from-alien-function  ((type t) &rest args)
   (apply #'from-alien-function type args))
+
+(defmethod weak-reader-function ((type symbol) &rest args)
+  (apply #'reader-function type args))
 
 
 (defmethod alien-type ((type (eql 'signed-byte)) &rest args)
