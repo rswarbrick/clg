@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.40 2006-02-06 11:52:24 espen Exp $
+;; $Id: gtype.lisp,v 1.41 2006-02-06 18:12:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -69,7 +69,8 @@
 (defmethod reader-function ((type (eql 'gtype)) &rest args)
   (declare (ignore type args))
   (let ((reader (reader-function 'type-number)))
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(type-from-number (funcall reader location offset)))))
 
 
@@ -358,7 +359,8 @@
 
 (defmethod reader-function ((class ginstance-class) &rest args)
   (declare (ignore args))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (ensure-proxy-instance class (sap-ref-sap location offset))))
 
 

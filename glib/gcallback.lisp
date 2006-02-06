@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.27 2006-02-06 11:56:22 espen Exp $
+;; $Id: gcallback.lisp,v 1.28 2006-02-06 18:12:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -59,7 +59,7 @@
 	 (args (loop
 		for n from 0 below n-params
 		for offset from 0 by +gvalue-size+
-		collect (gvalue-weak-get (sap+ param-values offset)))))
+		collect (gvalue-get (sap+ param-values offset) t))))
     (unwind-protect
 	(let ((result (apply #'invoke-callback callback-id return-type args)))
 	  (when return-type

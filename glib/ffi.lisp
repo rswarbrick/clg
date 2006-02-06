@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.22 2006-02-06 11:49:50 espen Exp $
+;; $Id: ffi.lisp,v 1.23 2006-02-06 18:12:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -271,7 +271,6 @@
 
 (def-type-method writer-function ())
 (def-type-method reader-function ())
-(def-type-method weak-reader-function ())
 (def-type-method destroy-function ())
 
 (def-type-method unbound-value ()
@@ -348,10 +347,6 @@
 (defmethod copy-from-alien-function  ((type t) &rest args)
   (apply #'from-alien-function type args))
 
-(defmethod weak-reader-function ((type symbol) &rest args)
-  (apply #'reader-function type args))
-
-
 (defmethod alien-type ((type (eql 'signed-byte)) &rest args)
   (declare (ignore type))
   (destructuring-bind (&optional (size '*)) args
@@ -393,13 +388,17 @@
   (destructuring-bind (&optional (size '*)) args
     (let ((size (if (eq size '*) +bits-of-int+ size)))
       (ecase size
-	(8 #'(lambda (sap &optional (offset 0)) 
+	(8 #'(lambda (sap &optional (offset 0) weak-p) 
+	       (declare (ignore weak-p))
 	       (signed-sap-ref-8 sap offset)))
-	(16 #'(lambda (sap &optional (offset 0)) 
+	(16 #'(lambda (sap &optional (offset 0) weak-p)
+		(declare (ignore weak-p))
 		(signed-sap-ref-16 sap offset)))
-	(32 #'(lambda (sap &optional (offset 0)) 
+	(32 #'(lambda (sap &optional (offset 0) weak-p) 
+		(declare (ignore weak-p)) 
 		(signed-sap-ref-32 sap offset)))
-	(64 #'(lambda (sap &optional (offset 0))
+	(64 #'(lambda (sap &optional (offset 0) weak-p) 
+		(declare (ignore weak-p))
 		(signed-sap-ref-64 sap offset)))))))
 
 (defmethod alien-type ((type (eql 'unsigned-byte)) &rest args)
@@ -435,13 +434,17 @@
   (destructuring-bind (&optional (size '*)) args
     (let ((size (if (eq size '*) +bits-of-int+ size)))
       (ecase size
-	(8 #'(lambda (sap &optional (offset 0)) 
+	(8 #'(lambda (sap &optional (offset 0) weak-p)
+	       (declare (ignore weak-p))
 	       (sap-ref-8 sap offset)))
-	(16 #'(lambda (sap &optional (offset 0)) 
+	(16 #'(lambda (sap &optional (offset 0) weak-p)
+		(declare (ignore weak-p)) 
 		(sap-ref-16 sap offset)))
-	(32 #'(lambda (sap &optional (offset 0)) 
+	(32 #'(lambda (sap &optional (offset 0) weak-p)
+		(declare (ignore weak-p)) 
 		(sap-ref-32 sap offset)))
-	(64 #'(lambda (sap &optional (offset 0))
+	(64 #'(lambda (sap &optional (offset 0) weak-p)
+		(declare (ignore weak-p))
 		(sap-ref-64 sap offset)))))))
   
   
@@ -495,7 +498,8 @@
 
 (defmethod reader-function ((type (eql 'single-float)) &rest args)
   (declare (ignore type args))
-  #'(lambda (sap &optional (offset 0)) 
+  #'(lambda (sap &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (sap-ref-single sap offset)))
 
 
@@ -523,7 +527,8 @@
 
 (defmethod reader-function ((type (eql 'double-float)) &rest args)
   (declare (ignore type args))
-  #'(lambda (sap &optional (offset 0)) 
+  #'(lambda (sap &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (sap-ref-double sap offset)))
 
 
@@ -542,7 +547,8 @@
 
 (defmethod reader-function ((type (eql 'base-char)) &rest args)
   (declare (ignore type args))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (code-char (sap-ref-8 location offset))))
 
 
@@ -636,7 +642,8 @@
 
 (defmethod reader-function ((type (eql 'string)) &rest args)
   (declare (ignore type args))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (unless (null-pointer-p (sap-ref-sap location offset))
 	#+cmu(%naturalize-c-string (sap-ref-sap location offset))
 	#+sbcl(%naturalize-utf8-string (sap-ref-sap location offset)))))
@@ -698,7 +705,8 @@
 (defmethod reader-function ((type (eql 'pathname)) &rest args)
   (declare (ignore type args))
   (let ((string-reader (reader-function 'string)))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (let ((string (funcall string-reader location offset)))
 	(when string
 	  (parse-namestring string))))))
@@ -745,7 +753,8 @@
 (defmethod reader-function ((type (eql 'boolean)) &rest args)
   (declare (ignore type))
   (let ((reader (apply #'reader-function 'signed-byte args)))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (not (zerop (funcall reader location offset))))))
 
 
@@ -797,7 +806,8 @@
 
 (defmethod reader-function ((type (eql 'system-area-pointer)) &rest args)
   (declare (ignore type args))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (sap-ref-sap location offset)))
 
 
@@ -907,7 +917,8 @@
   (declare (ignore type args))
   (let ((reader (reader-function 'pointer))
 	(from-alien (from-alien-function 'callback)))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (let ((pointer (funcall reader location offset)))
 	(unless (null-pointer-p pointer)
 	  (funcall from-alien pointer))))))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: genums.lisp,v 1.16 2006-02-05 15:38:57 espen Exp $
+;; $Id: genums.lisp,v 1.17 2006-02-06 18:12:19 espen Exp $
 
 (in-package "GLIB")
   
@@ -87,7 +87,8 @@
   (declare (ignore type))
   (let ((reader (reader-function 'signed))
 	(function (apply #'from-alien-function 'enum args)))
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(funcall function (funcall reader location offset)))))
 
 (defun enum-int (enum type)
@@ -134,7 +135,8 @@
        (defmethod reader-function ((type (eql ',name)) &rest args)
 	 (declare (ignore type args))
 	 (let ((reader (reader-function 'signed)))
-	   #'(lambda (location &optional (offset 0))
+	   #'(lambda (location &optional (offset 0) weak-p)
+	       (declare (ignore weak-p))
 	       (,int-enum (funcall reader location offset))))))))
 
 
@@ -209,7 +211,8 @@
   (declare (ignore type))
   (let ((reader (reader-function 'unsigned))
 	(function (apply #'from-alien-function 'flags args)))
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(funcall function (funcall reader location offset)))))
 
 
@@ -265,7 +268,8 @@
        (defmethod reader-function ((type (eql ',name)) &rest args)
 	 (declare (ignore type args))
 	 (let ((reader (reader-function 'signed)))
-	   #'(lambda (location &optional (offset 0))
+	   #'(lambda (location &optional (offset 0) weak-p)
+	       (declare (ignore weak-p))
 	       (,int-flags (funcall reader location offset))))))))
 
 

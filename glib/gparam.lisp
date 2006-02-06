@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.18 2006-02-06 11:56:22 espen Exp $
+;; $Id: gparam.lisp,v 1.19 2006-02-06 18:12:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -64,13 +64,9 @@
 (defun gvalue-type (gvalue)
   (type-from-number (sap-ref-32 gvalue 0)))
 
-(defun gvalue-get (gvalue)  
+(defun gvalue-get (gvalue &optional weak-p)
   (funcall (reader-function (gvalue-type gvalue))
-   gvalue +gvalue-value-offset+))
-
-(defun gvalue-weak-get (gvalue)  
-  (funcall (weak-reader-function (gvalue-type gvalue))
-   gvalue +gvalue-value-offset+))
+   gvalue +gvalue-value-offset+ weak-p))
 
 (defun gvalue-set (gvalue value)
   (funcall (writer-function (gvalue-type gvalue))

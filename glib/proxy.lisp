@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.27 2006-02-06 12:48:40 espen Exp $
+;; $Id: proxy.lisp,v 1.28 2006-02-06 18:12:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -495,7 +495,8 @@
 
 (defmethod reader-function ((class proxy-class) &rest args)
   (declare (ignore args))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
       (let ((instance (sap-ref-sap location offset)))
 	(unless (null-pointer-p instance)
 	  (ensure-proxy-instance class (reference-foreign class instance))))))
@@ -583,12 +584,14 @@ will not be released when the proxy is garbage collected."))
 			 (size-of (slot-definition-type slotd))))))
     (+ size (mod size +struct-alignmen+))))
 
-(defmethod weak-reader-function ((class struct-class) &rest args)
+(defmethod reader-function ((class struct-class) &rest args)
   (declare (ignore args))
-  #'(lambda (location &optional (offset 0))
+  #'(lambda (location &optional (offset 0) weak-p)
       (let ((instance (sap-ref-sap location offset)))
 	(unless (null-pointer-p instance)
-	  (ensure-proxy-instance class instance :weak t)))))
+	  (if weak-p
+	      (ensure-proxy-instance class instance :weak t)
+	    (ensure-proxy-instance class (reference-foreign class instance)))))))
 
 
 (defclass static-struct-class (struct-class)
@@ -602,6 +605,14 @@ will not be released when the proxy is garbage collected."))
   (declare (ignore class location))
   nil)
 
+(defmethod reader-function ((class struct-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0) weak-p)
+      (declare (ignore weak-p))
+      (let ((instance (sap-ref-sap location offset)))
+	(unless (null-pointer-p instance)
+	  (ensure-proxy-instance class instance :weak t)))))
+
 
 ;;; Pseudo type for structs which are inlined in other objects
 
@@ -612,7 +623,8 @@ will not be released when the proxy is garbage collected."))
 (defmethod reader-function ((type (eql 'inlined)) &rest args)
   (declare (ignore type))
   (destructuring-bind (class) args
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(ensure-proxy-instance class 
 	 (reference-foreign class (sap+ location offset))))))
 

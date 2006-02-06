@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.31 2005-04-24 13:27:20 espen Exp $
+;; $Id: glib.lisp,v 1.32 2006-02-06 18:12:19 espen Exp $
 
 
 (in-package "GLIB")
@@ -230,7 +230,8 @@
 (defmethod reader-function ((type (eql 'glist)) &rest args)
   (declare (ignore type))
   (destructuring-bind (element-type) args
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
 
@@ -339,7 +340,8 @@
 (defmethod reader-function ((type (eql 'gslist)) &rest args)
   (declare (ignore type))
   (destructuring-bind (element-type) args
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
 
@@ -486,7 +488,8 @@
   (destructuring-bind (element-type &optional (length '*)) args
     (if (eq length '*)
 	(error "Can't create reader function for vector of variable size")
-      #'(lambda (location &optional (offset 0))
+      #'(lambda (location &optional (offset 0) weak-p)
+	  (declare (ignore weak-p))
 	  (unless (null-pointer-p (sap-ref-sap location offset))
 	    (map-c-vector 'vector #'identity (sap-ref-sap location offset) 
 	     element-type length))))))
@@ -607,7 +610,8 @@
   (destructuring-bind (element-type) args
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-0-vector 'vector #'identity (sap-ref-sap location offset) 
 	   element-type)))))
@@ -704,7 +708,8 @@
 (defmethod reader-function ((type (eql 'counted-vector)) &rest args)
   (declare (ignore type))
   (destructuring-bind (element-type) args
-    #'(lambda (location &optional (offset 0))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-counted-vector 'vector #'identity 
 	   (sap-ref-sap location offset) element-type)))))
