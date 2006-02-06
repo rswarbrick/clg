@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.41 2006-02-06 11:59:47 espen Exp $
+;; $Id: gtktypes.lisp,v 1.42 2006-02-06 19:16:17 espen Exp $
 
 (in-package "GTK")
 
@@ -307,7 +307,7 @@
      :type boolean)
     (icon-list
      :allocation :virtual
-     :getter "gtk_window_get_icon_list"
+     :getter %window-get-icon-list
      :setter "gtk_window_set_icon_list"
      :accessor window-icon-list
      :initarg :icon-list
