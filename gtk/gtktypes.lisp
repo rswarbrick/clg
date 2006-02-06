@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.40 2006-02-04 12:18:12 espen Exp $
+;; $Id: gtktypes.lisp,v 1.41 2006-02-06 11:59:47 espen Exp $
 
 (in-package "GTK")
 
@@ -1183,7 +1183,6 @@
   :no-drop :drop-into :drop-left :drop-right :drop-above :drop-below)
 
 
-
 (defclass target-entry (struct)
   ((target
     :allocation :alien
@@ -1202,4 +1201,32 @@
     :type unsigned-int))
   (:metaclass struct-class))
 
-(deftype target-list () 'pointer)
+
+(defclass selection-data (boxed)
+  ((selection
+    :allocation :alien :type gdk:atom
+    :reader selection-data-selection)
+   (target
+    :allocation :alien :type gdk:atom
+    :reader selection-data-target)
+   (type
+    :allocation :alien :type gdk:atom
+    :reader selection-data-type)
+   (format 
+    :allocation :alien :type int
+    :reader selection-data-format)
+   (data
+    :allocation :alien :type pointer
+    :reader selection-data-data)
+   (length 
+    :allocation :alien :type int
+    :reader selection-data-length)
+   (display 
+    :allocation :alien :type gdk:display
+    :reader selection-data-display))
+  (:metaclass boxed-class))
+
+
+(defclass target-list (proxy)
+  ()
+  (:metaclass proxy-class))
