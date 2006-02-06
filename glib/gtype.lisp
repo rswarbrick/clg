@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.41 2006-02-06 18:12:19 espen Exp $
+;; $Id: gtype.lisp,v 1.42 2006-02-06 22:58:35 espen Exp $
 
 (in-package "GLIB")
 
@@ -296,10 +296,17 @@
 	 (type-number
 	  (or 
 	   (find-type-number class-name)
-	   (if (or (symbolp gtype) (type-number-from-glib-name gtype nil))
-	       (register-type class-name gtype)
-	     (register-new-type class-name (class-name super) gtype)))))
-    (unless (eq (class-name super) (supertype type-number))
+	   (let ((type-number
+		  (if (or 
+		       (symbolp gtype)
+		       (type-number-from-glib-name gtype nil))
+		      (register-type class-name gtype)
+		    (register-new-type class-name (class-name super) gtype))))
+	     (type-class-ref type-number)
+	     type-number))))
+    (when (and
+	   (supertype type-number) 
+	   (not (eq (class-name super) (supertype type-number))))
       (warn "~A is the super type for ~A in the gobject type system."
        (supertype type-number) class-name))))
 
