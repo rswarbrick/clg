@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.26 2006-02-06 11:52:24 espen Exp $
+;; $Id: proxy.lisp,v 1.27 2006-02-06 12:48:40 espen Exp $
 
 (in-package "GLIB")
 
@@ -515,6 +515,8 @@ location. If an existing object is not found in the cache
 MAKE-PROXY-INSTANCE is called to create one."
   (unless (null-pointer-p location)
     (or 
+     #-debug-ref-counting(find-cached-instance location)
+     #+debug-ref-counting
      (let ((instance (find-cached-instance location)))
        (when instance
 	 (format t "Object found in cache: ~A~%" instance)
