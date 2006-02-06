@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.25 2006-02-05 15:38:57 espen Exp $
+;; $Id: proxy.lisp,v 1.26 2006-02-06 11:52:24 espen Exp $
 
 (in-package "GLIB")
 
@@ -270,6 +270,7 @@
 
 ;;;; Proxy for alien instances
 
+;; TODO: add a ref-counted-proxy subclass
 (defclass proxy ()
   ((location :allocation :special :reader foreign-location :type pointer))
   (:metaclass virtual-slots-class))
@@ -277,6 +278,7 @@
 (defgeneric instance-finalizer (object))
 (defgeneric reference-foreign (class location))
 (defgeneric unreference-foreign (class location))
+(defgeneric invalidate-instance (object))
 
 (defmethod reference-foreign ((name symbol) location)
   (reference-foreign (find-class name) location))
@@ -309,6 +311,10 @@
     #'(lambda ()
 	(remove-cached-instance location)
 	(unreference-foreign class location))))
+
+(defmethod invalidate-instance ((instance proxy))
+  (remove-cached-instance (foreign-location instance))
+  (slot-makunbound instance 'location))
 
 
 ;;;; Metaclass used for subclasses of proxy
@@ -509,7 +515,10 @@ location. If an existing object is not found in the cache
 MAKE-PROXY-INSTANCE is called to create one."
   (unless (null-pointer-p location)
     (or 
-     (find-cached-instance location)
+     (let ((instance (find-cached-instance location)))
+       (when instance
+	 (format t "Object found in cache: ~A~%" instance)
+	 instance))
      (let ((instance (apply #'make-proxy-instance class location initargs)))
        (cache-instance instance)
        instance))))
@@ -519,11 +528,10 @@ MAKE-PROXY-INSTANCE is called to create one."
 object at the give location. If WEAK is non NIL the foreign memory
 will not be released when the proxy is garbage collected."))
 
-(defmethod make-proxy-instance ((class symbol) location &key weak)
-  (ensure-proxy-instance (find-class class) location :weak weak))
+(defmethod make-proxy-instance ((class symbol) location &rest initargs)
+  (apply #'make-proxy-instance (find-class class) location initargs))
 
 (defmethod make-proxy-instance ((class proxy-class) location &key weak)
-  (declare (ignore weak-p))
   (let ((instance (allocate-instance class)))
     (setf (slot-value instance 'location) location)
     (unless weak
@@ -573,6 +581,13 @@ will not be released when the proxy is garbage collected."))
 			 (size-of (slot-definition-type slotd))))))
     (+ size (mod size +struct-alignmen+))))
 
+(defmethod weak-reader-function ((class struct-class) &rest args)
+  (declare (ignore args))
+  #'(lambda (location &optional (offset 0))
+      (let ((instance (sap-ref-sap location offset)))
+	(unless (null-pointer-p instance)
+	  (ensure-proxy-instance class instance :weak t)))))
+
 
 (defclass static-struct-class (struct-class)
   ())
@@ -598,6 +613,12 @@ will not be released when the proxy is garbage collected."))
     #'(lambda (location &optional (offset 0))
 	(ensure-proxy-instance class 
 	 (reference-foreign class (sap+ location offset))))))
+
+(defmethod writer-function ((type (eql 'inlined)) &rest args)
+  (declare (ignore type))
+  (destructuring-bind (class) args
+    #'(lambda (instance location &optional (offset 0))
+	(copy-memory (foreign-location instance) (foreign-size class) (sap+ location offset)))))
 
 (defmethod destroy-function ((type (eql 'inlined)) &rest args)
   (declare (ignore args))

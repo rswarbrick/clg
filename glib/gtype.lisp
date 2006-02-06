@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.39 2006-02-05 15:38:57 espen Exp $
+;; $Id: gtype.lisp,v 1.40 2006-02-06 11:52:24 espen Exp $
 
 (in-package "GLIB")
 
@@ -302,7 +302,6 @@
       (warn "~A is the super type for ~A in the gobject type system."
        (supertype type-number) class-name))))
 
-
 (defmethod validate-superclass ((class ginstance-class) (super standard-class))
   (subtypep (class-name super) 'ginstance))
 
@@ -344,6 +343,10 @@
   ;; and therefor ignore the weak-p argument.
   (call-next-method class location :weak nil))
 
+(defmethod invalidate-instance ((instance ginstance))
+  (declare (ignore instance))
+  ;; A ginstance should never be invalidated since it is ref counted
+  nil)
 
 (defmethod copy-from-alien-form (location (class ginstance-class) &rest args)
   (declare (ignore location class args))
