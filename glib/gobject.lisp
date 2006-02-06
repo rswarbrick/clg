@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.43 2006-02-05 15:38:57 espen Exp $
+;; $Id: gobject.lisp,v 1.44 2006-02-06 11:34:05 espen Exp $
 
 (in-package "GLIB")
 
@@ -28,6 +28,7 @@
 ;;;; Metaclass used for subclasses of gobject
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+;;   (push :debug-ref-counting *features*)
   (defclass gobject-class (ginstance-class)
     ((instance-slots-p :initform nil
       :documentation "Non NIL if the class has slots with instance allocation")))
@@ -203,9 +204,17 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass gobject (ginstance)
-    ()
+    (#+debug-ref-counting
+     (ref-count :allocation :alien :type int :reader ref-count))
     (:metaclass gobject-class)
     (:gtype "GObject")))
+
+#+debug-ref-counting
+(defmethod print-object ((instance gobject) stream)
+  (print-unreadable-object (instance stream :type t :identity nil)
+    (if (slot-boundp instance 'location)
+	(format stream "at 0x~X (~D)" (sap-int (foreign-location instance)) (ref-count instance))
+      (write-string "at \"unbound\"" stream))))
 
 
 (defun initial-add (object function initargs key pkey)
