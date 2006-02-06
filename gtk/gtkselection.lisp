@@ -20,27 +20,13 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.1 2006-02-06 11:57:27 espen Exp $
+;; $Id: gtkselection.lisp,v 1.2 2006-02-06 14:02:17 espen Exp $
 
 
 (in-package "GTK")
 
 
 ;;;; Selection
-
-(defbinding %selection-data-copy () pointer
-  (location pointer))
-  
-(defbinding %selection-data-free () nil
-  (location pointer))
-
-(defmethod reference-foreign ((class (eql (find-class 'selection-data))) location)
-  (declare (ignore class))
-  (%selection-data-copy location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'selection-data))) location)
-  (declare (ignore class))
-  (%selection-data-free location))
 
 (defbinding %target-list-ref () pointer
   (location pointer))
@@ -212,7 +198,7 @@
 
 (defbinding clipboard-set-with-data (clipboard targets get-func clear-func) gobject
   (clipboard clipboard)
-  (targets (vector target-entry))
+  (targets (vector (inlined target-entry)))
   ((length targets) unsigned-int)
   (%clipboard-get-func callback)
   (%clipboard-clear-func callback)
@@ -319,6 +305,7 @@
 #+gtk2.6
 (defbinding clipboard-store () nil
   (clipboard clipboard))
+
 
 ;;;; Drag and Drop
 
