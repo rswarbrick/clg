@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.2 2005-11-15 10:03:04 espen Exp $
+;; $Id: cairo.lisp,v 1.3 2006-02-07 17:04:40 espen Exp $
 
 (in-package "CAIRO")
 
@@ -52,7 +52,7 @@
   (define-enum-type hint-style :default :none :slight :medium :full)
   (define-enum-type hint-metrics :default :off :on)
 
-  (defclass glyph (proxy)
+  (defclass glyph (struct)
     ((index 
       :allocation :alien 
       :initarg :index 
@@ -649,7 +649,7 @@
   (location pointer))
 
 (defmethod reference-foreign ((class (eql (find-class 'font-options))) location)
-  (%font-options-reference location))
+  (%font-options-copy location))
 
 (defmethod unreference-foreign ((class (eql (find-class 'font-options))) location)
   (%font-options-destroy location))
