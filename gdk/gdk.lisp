@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.18 2005-11-10 09:01:36 espen Exp $
+;; $Id: gdk.lisp,v 1.19 2006-02-07 13:22:14 espen Exp $
 
 
 (in-package "GDK")
@@ -711,6 +711,13 @@
 (progn
   (defbinding cairo-create () cairo:context
     (drawable drawable))
+
+  (defmacro with-cairo-context ((cr drawable) &body body)
+    `(let ((,cr (cairo-create ,drawable)))
+       (unwind-protect
+	   (progn ,@body)
+	 (unreference-foreign 'cairo:context (foreign-location ,cr))
+	 (invalidate-instance ,cr))))
 
   (defbinding cairo-set-source-color () nil
     (cr cairo:context)
