@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.28 2006-02-06 18:12:19 espen Exp $
+;; $Id: proxy.lisp,v 1.29 2006-02-07 13:20:39 espen Exp $
 
 (in-package "GLIB")
 
@@ -234,7 +234,6 @@
 
 ;;;; Proxy cache
 
-(internal *instance-cache*)
 (defvar *instance-cache* (make-hash-table :test #'eql))
 
 (defun cache-instance (instance &optional (weak-ref t))
@@ -266,6 +265,27 @@
 	     *instance-cache*)
     instances))
 			
+;; Instances that gets invalidated tend to be short lived, but created
+;; in large numbers. So we're keeping them in a hash table to be able
+;; to reuse them (and thus reduce consing)
+(defvar *invalidated-instance-cache* (make-hash-table :test #'eql))
+
+(defun cache-invalidated-instance (instance)
+  (push instance
+   (gethash (class-of instance) *invalidated-instance-cache*)))
+
+(defun find-invalidated-instance (class)
+  (when (gethash class *invalidated-instance-cache*)
+    (pop (gethash class *invalidated-instance-cache*))))
+
+(defun list-invalidated-instances ()
+  (let ((instances ()))
+    (maphash #'(lambda (location ref)
+		 (declare (ignore location))
+		 (push ref instances))
+	     *invalidated-instance-cache*)
+    instances))
+
 
 
 ;;;; Proxy for alien instances
@@ -312,9 +332,13 @@
 	(remove-cached-instance location)
 	(unreference-foreign class location))))
 
+;; Any reference to the foreign object the instance may have held
+;; should be released before this method is invoked
 (defmethod invalidate-instance ((instance proxy))
   (remove-cached-instance (foreign-location instance))
-  (slot-makunbound instance 'location))
+  (slot-makunbound instance 'location)
+  (cancel-finalization instance)
+  (cache-invalidated-instance instance))
 
 
 ;;;; Metaclass used for subclasses of proxy
@@ -535,7 +559,10 @@ will not be released when the proxy is garbage collected."))
   (apply #'make-proxy-instance (find-class class) location initargs))
 
 (defmethod make-proxy-instance ((class proxy-class) location &key weak)
-  (let ((instance (allocate-instance class)))
+  (let ((instance
+	 (or
+	  (find-invalidated-instance class)
+	  (allocate-instance class))))
     (setf (slot-value instance 'location) location)
     (unless weak
       (finalize instance (instance-finalizer instance)))
