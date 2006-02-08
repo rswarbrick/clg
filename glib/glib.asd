@@ -26,6 +26,10 @@
 (when (string>= (pkg-version "glib-2.0") "2.8.0")
   (push :glib2.8 *features*))
 
+#+sbcl
+(when (string>= (lisp-implementation-version) "0.9.8")
+  (push :sbcl>=0.9.8 *features*))
+
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")

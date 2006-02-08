@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.29 2006-02-07 13:20:39 espen Exp $
+;; $Id: proxy.lisp,v 1.30 2006-02-08 21:43:33 espen Exp $
 
 (in-package "GLIB")
 
@@ -183,7 +183,7 @@
 		     (slot-definition-type slotd))))
 		 (funcall writer (foreign-location object) value)))))))))
 
-  (initialize-internal-slot-gfs (slot-definition-name slotd)))
+  #-sbcl>=0.9.8(initialize-internal-slot-gfs (slot-definition-name slotd)))
 
 
 
@@ -345,7 +345,6 @@
 
 (defgeneric most-specific-proxy-superclass (class))
 (defgeneric direct-proxy-superclass (class))
-(defgeneric compute-foreign-size (class))
   
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -418,9 +417,6 @@
 
     (call-next-method))
   
-  (defmethod compute-foreign-size ((class proxy-class))
-    nil)
-
   ;; TODO: call some C code to detect this a compile time
   (defconstant +struct-alignmen+ 4)
 
@@ -448,12 +444,6 @@
        do (setf (slot-value slotd 'offset) offset))))
     (call-next-method))
 
-  (defmethod compute-slots :after ((class proxy-class))
-    (when (and (class-finalized-p class) (not (slot-boundp class 'size)))
-      (let ((size (compute-foreign-size class)))
-	(when size 
-	  (setf (slot-value class 'size) size)))))
-  
   (defmethod validate-superclass ((class proxy-class) (super standard-class))
     (subtypep (class-name super) 'proxy))
   
@@ -602,14 +592,19 @@ will not be released when the proxy is garbage collected."))
 (defmethod unreference-foreign ((class struct-class) location)
   (deallocate-memory location))
 
-(defmethod compute-foreign-size ((class struct-class))
-  (let ((size (loop
-	       for slotd in (class-slots class)
-	       when (eq (slot-definition-allocation slotd) :alien)
-	       maximize (+ 
-			 (slot-definition-offset slotd)
-			 (size-of (slot-definition-type slotd))))))
-    (+ size (mod size +struct-alignmen+))))
+(defmethod compute-slots :around ((class struct-class))
+    (let ((slots (call-next-method)))
+      (when (and 
+	     #-sbcl>=0.9.8(class-finalized-p class) #+sbc098 t
+	     (not (slot-boundp class 'size)))
+        (let ((size (loop
+		     for slotd in slots
+		     when (eq (slot-definition-allocation slotd) :alien)
+		     maximize (+ 
+			       (slot-definition-offset slotd)
+			       (size-of (slot-definition-type slotd))))))
+	  (setf (slot-value class 'size) (+ size (mod size +struct-alignmen+)))))
+      slots))
 
 (defmethod reader-function ((class struct-class) &rest args)
   (declare (ignore args))
