@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.18 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.19 2006-02-08 22:00:09 espen Exp $
 
 (in-package "GTK")
 
@@ -55,12 +55,6 @@
 	:parent parent :child object))))
    ((call-next-method))))
 
-(defmethod slot-boundp-using-class ((class gobject-class) (object widget) slot)
-  (or
-   (and 
-    (eq (slot-definition-name slot) 'child-properties) 
-    (slot-boundp object 'parent))
-   (call-next-method)))
 
 (defmethod compute-signal-function ((widget widget) signal function object)
   (if (eq object :parent)

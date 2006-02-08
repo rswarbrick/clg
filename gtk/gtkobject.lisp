@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.29 2006-02-04 12:17:45 espen Exp $
+;; $Id: gtkobject.lisp,v 1.30 2006-02-08 21:57:26 espen Exp $
 
 
 (in-package "GTK")
@@ -128,6 +128,8 @@
   (if (eq (most-specific-slot-value direct-slotds 'allocation) :property)
       (nconc 
        (list :pname (most-specific-slot-value direct-slotds 'pname))
+       ;; Need this to prevent type type expansion in SBCL (>= 0.9.8)
+       (list :type (most-specific-slot-value direct-slotds 'type))
        (call-next-method))
     (call-next-method)))
 

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.42 2006-02-06 22:58:35 espen Exp $
+;; $Id: gtype.lisp,v 1.43 2006-02-08 21:53:34 espen Exp $
 
 (in-package "GLIB")
 
@@ -283,8 +283,16 @@
     ((gtype :initarg :gtype :initform nil :reader ginstance-class-gtype))))
 
 
-(defmethod compute-foreign-size ((class ginstance-class))
-  (type-instance-size (find-type-number (class-name class))))
+(defun update-size (class)
+  (let ((type-number (find-type-number class)))
+    (cond
+     ((not (slot-boundp class 'size))
+      (setf (slot-value class 'size) (type-instance-size type-number)))
+     ((and 
+       (slot-boundp class 'size) 
+       (not (= (type-instance-size type-number) (slot-value class 'size))))
+      (warn "Size mismatch for class ~A" class)))))
+
 
 (defmethod finalize-inheritance ((class ginstance-class))
   (call-next-method)
@@ -308,7 +316,17 @@
 	   (supertype type-number) 
 	   (not (eq (class-name super) (supertype type-number))))
       (warn "~A is the super type for ~A in the gobject type system."
-       (supertype type-number) class-name))))
+       (supertype type-number) class-name)))
+  
+  (update-size class))
+
+
+(defmethod shared-initialize ((class ginstance-class) names &rest initargs)
+  (declare (ignore initargs))
+  (call-next-method)
+  (when (class-finalized-p class)
+    (update-size class)))
+
 
 (defmethod validate-superclass ((class ginstance-class) (super standard-class))
   (subtypep (class-name super) 'ginstance))
