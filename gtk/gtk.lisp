@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.49 2006-02-06 19:16:17 espen Exp $
+;; $Id: gtk.lisp,v 1.50 2006-02-08 15:22:33 espen Exp $
 
 
 (in-package "GTK")
@@ -1366,7 +1366,7 @@
   (window window)
   (left int :out) (top int :out) (rigth int :out) (bottom int :out))
 
-(defbinding %window-get-icon-list () (glist gdk:pixbuf)
+(defbinding %window-get-icon-list () (glist (copy-of gdk:pixbuf))
   (window window))
 
 (defbinding window-get-position () nil
@@ -1456,9 +1456,6 @@
   (y int)
   (width int)
   (heigth int))
-
-(defbinding %window-get-icon-list () (glist (copy-of gdk:pixbuf))
-  (window window))
 
 
 ;;; Window group
