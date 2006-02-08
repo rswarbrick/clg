@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.30 2006-02-08 21:43:33 espen Exp $
+;; $Id: proxy.lisp,v 1.31 2006-02-08 22:10:47 espen Exp $
 
 (in-package "GLIB")
 
@@ -292,13 +292,22 @@
 
 ;; TODO: add a ref-counted-proxy subclass
 (defclass proxy ()
-  ((location :allocation :special :reader foreign-location :type pointer))
+  ((location :allocation :special :type pointer))
   (:metaclass virtual-slots-class))
 
 (defgeneric instance-finalizer (object))
 (defgeneric reference-foreign (class location))
 (defgeneric unreference-foreign (class location))
 (defgeneric invalidate-instance (object))
+
+(defun foreign-location (instance)
+  (slot-value instance 'location))
+
+(defun (setf foreign-location) (location instance)
+  (setf (slot-value instance 'location) location))
+
+(defun proxy-valid-p (instance)
+  (slot-boundp instance 'location))
 
 (defmethod reference-foreign ((name symbol) location)
   (reference-foreign (find-class name) location))
@@ -553,7 +562,7 @@ will not be released when the proxy is garbage collected."))
 	 (or
 	  (find-invalidated-instance class)
 	  (allocate-instance class))))
-    (setf (slot-value instance 'location) location)
+    (setf (foreign-location instance) location)
     (unless weak
       (finalize instance (instance-finalizer instance)))
     instance))

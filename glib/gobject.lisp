@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.44 2006-02-06 11:34:05 espen Exp $
+;; $Id: gobject.lisp,v 1.45 2006-02-08 22:10:47 espen Exp $
 
 (in-package "GLIB")
 
@@ -212,7 +212,7 @@
 #+debug-ref-counting
 (defmethod print-object ((instance gobject) stream)
   (print-unreadable-object (instance stream :type t :identity nil)
-    (if (slot-boundp instance 'location)
+    (if (proxy-valid-p instance)
 	(format stream "at 0x~X (~D)" (sap-int (foreign-location instance)) (ref-count instance))
       (write-string "at \"unbound\"" stream))))
 
@@ -251,7 +251,7 @@
 
 
 (defmethod initialize-instance ((object gobject) &rest initargs)
-  (unless (slot-boundp object 'location)
+  (unless (proxy-valid-p object)
     ;; Extract initargs which we should pass directly to the GObject
     ;; constructor
     (let* ((slotds (class-slots (class-of object)))
@@ -284,7 +284,7 @@
 	     (gvalue-init (sap+ tmp string-size) type value))
 	    (unwind-protect
 		(setf  
-		 (slot-value object 'location) 
+		 (foreign-location object)
 		 (%gobject-newv (type-number-of object) (length args) params))
 	      (loop
 	       repeat (length args)
@@ -293,7 +293,7 @@
 	       (gvalue-unset (sap+ tmp string-size)))
 	      (deallocate-memory params)))
 	(setf  
-	 (slot-value object 'location) 
+	 (foreign-location object)
 	 (%gobject-new (type-number-of object))))))
 
   (apply #'call-next-method object initargs))
