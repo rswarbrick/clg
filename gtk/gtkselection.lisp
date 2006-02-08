@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.3 2006-02-08 21:58:49 espen Exp $
+;; $Id: gtkselection.lisp,v 1.4 2006-02-08 22:21:07 espen Exp $
 
 
 (in-package "GTK")
@@ -47,9 +47,7 @@
   ((length targets) int))
   
 (defmethod initialize-instance ((target-list target-list) &key targets)
-  (setf
-   (slot-value target-list 'location)
-   (%target-list-new targets))
+  (setf (foreign-location target-list) (%target-list-new targets))
   (call-next-method))
 
 (defbinding target-list-add (target-list target &optional flags info) nil

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.50 2006-02-08 15:22:33 espen Exp $
+;; $Id: gtk.lisp,v 1.51 2006-02-08 22:21:07 espen Exp $
 
 
 (in-package "GTK")
@@ -1096,7 +1096,7 @@
 				flags text #+gtk 2.6 secondary-text 
 				transient-parent)
   (setf 
-   (slot-value dialog 'location)
+   (foreign-location dialog)
    (%message-dialog-new transient-parent flags message-type buttons))
   (when text
     (message-dialog-set-markup dialog text))

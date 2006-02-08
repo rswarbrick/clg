@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.1 2005-11-10 08:53:24 espen Exp $
+;; $Id: rsvg.lisp,v 1.2 2006-02-08 22:21:26 espen Exp $
 
 (in-package "RSVG")
 
@@ -118,7 +118,7 @@
        (t (%handle-new)))
     (if gerror 
 	(signal-gerror gerror)
-      (setf (slot-value handle 'location) location)))
+      (setf (foreign-location handle) location)))
   (call-next-method))
 
 
