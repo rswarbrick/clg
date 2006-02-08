@@ -11,8 +11,10 @@
 
 * Add documentation and more examples
 
-* Make sub classing of gobjects possible
+* Make subclassing of gobjects possible -- done
 
 * Port to SBCL -- done
 
 * Improve load time
+
+* Porting to amd64
