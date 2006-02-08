@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.28 2006-02-06 18:12:19 espen Exp $
+;; $Id: gcallback.lisp,v 1.29 2006-02-08 19:56:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -219,15 +219,13 @@
   (args pointer)
   (return-value (or null gvalue)))
 
-;; TODO: implement same semantics as CALL-NEXT-METHOD
-(defun %call-next-handler (n-params types args defaults return-type)
+
+(defun %call-next-handler (n-params types args return-type)
   (let ((params (allocate-memory (* n-params +gvalue-size+))))
     (loop 
-     as tmp = args then (rest tmp)
-     for default in defaults
+     for arg in args
      for type in types
      for offset from 0 by +gvalue-size+
-     as arg = (if tmp (car tmp) default)
      do (gvalue-init (sap+ params offset) type arg))
 
     (unwind-protect
@@ -253,15 +251,16 @@
 		until (eq arg '&rest)
 		collect arg))
 	 (rest (cadr (member '&rest args)))
-	 (next (make-symbol "ARGS")))
+	 (next (make-symbol "ARGS"))
+	 (default (make-symbol "DEFAULT")))
 
     `(progn
        (signal-override-class-closure ',name ',class 
 	#'(lambda (,object ,@args)
-	    (flet ((call-next-handler (&rest ,next)
-		     (let ((defaults (list* ,object ,@vars ,rest)))
+	    (let ((,default (list* ,object ,@vars ,rest)))
+	      (flet ((call-next-handler (&rest ,next)
 		       (%call-next-handler 
-			,n-params ',types ,next defaults ',return-type))))
+			,n-params ',types (or ,next ,default) ',return-type))))
 	      ,@body)))
        ',name)))
 
