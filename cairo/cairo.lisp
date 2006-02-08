@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.3 2006-02-07 17:04:40 espen Exp $
+;; $Id: cairo.lisp,v 1.4 2006-02-08 22:19:44 espen Exp $
 
 (in-package "CAIRO")
 
@@ -633,7 +633,7 @@
 
 (defmethod initialize-instance ((scaled-font scaled-font) &key font-face font-matrix cmt options)
   (setf
-   (slot-value scaled-font 'location)
+   (foreign-location scaled-font)
    (%scaled-font-create font-face font-matrix cmt options))
   (call-next-method))
 
@@ -661,7 +661,7 @@
 
 (defmethod initialize-instance ((font-options font-options) &rest initargs)
   (declare (ignore initargs))
-  (setf (slot-value font-options 'location) (%font-options-create))
+  (setf (foreign-location font-options) (%font-options-create))
   (call-next-method))
 
 (defbinding font-options-merge () nil
@@ -738,7 +738,7 @@
 (defmethod initialize-instance ((surface image-surface) 
 				&key width height stride format data)
   (setf 
-   (slot-value surface 'location)
+   (foreign-location surface)
    (if (not data)
        (%image-surface-create format width height)
      (%image-surface-create-for-data data format width height 
