@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.4 2006-02-08 22:19:44 espen Exp $
+;; $Id: cairo.lisp,v 1.5 2006-02-09 22:30:39 espen Exp $
 
 (in-package "CAIRO")
 
@@ -631,11 +631,8 @@
   (ctm matrix)
   (options font-options))
 
-(defmethod initialize-instance ((scaled-font scaled-font) &key font-face font-matrix cmt options)
-  (setf
-   (foreign-location scaled-font)
-   (%scaled-font-create font-face font-matrix cmt options))
-  (call-next-method))
+(defmethod allocate-foreign ((scaled-font scaled-font) &key font-face font-matrix cmt options)
+  (%scaled-font-create font-face font-matrix cmt options))
 
 
 
@@ -659,10 +656,9 @@
 
 (defbinding %font-options-create () pointer)
 
-(defmethod initialize-instance ((font-options font-options) &rest initargs)
+(defmethod allocate-foreign ((font-options font-options) &rest initargs)
   (declare (ignore initargs))
-  (setf (foreign-location font-options) (%font-options-create))
-  (call-next-method))
+  (%font-options-create))
 
 (defbinding font-options-merge () nil
   (options1 font-options :return)
@@ -735,18 +731,15 @@
 ;; Image Surface
 
 ;; Should data be automatically freed when the surface is GCed?
-(defmethod initialize-instance ((surface image-surface) 
-				&key width height stride format data)
-  (setf 
-   (foreign-location surface)
-   (if (not data)
-       (%image-surface-create format width height)
-     (%image-surface-create-for-data data format width height 
-      (or 
-       stride
-       (let ((element-size (cdr (assoc format '((:argb32 . 4) (:rgb24 . 4) (:a8 . 1) (:a1 1/8))))))
-	 (ceiling (* width element-size)))))))
-  (call-next-method))
+(defmethod allocate-foreign ((surface image-surface) 
+			     &key width height stride format data)
+  (if (not data)
+      (%image-surface-create format width height)
+    (%image-surface-create-for-data data format width height 
+     (or 
+      stride
+      (let ((element-size (cdr (assoc format '((:argb32 . 4) (:rgb24 . 4) (:a8 . 1) (:a1 1/8))))))
+	(ceiling (* width element-size)))))))
 
 
 (defbinding %image-surface-create () image-surface
