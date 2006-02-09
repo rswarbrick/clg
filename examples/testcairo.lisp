@@ -29,7 +29,7 @@
 (defmacro define-snippet (name (cr) &body body)
   (let ((widget (make-symbol "WIDGET"))
 	(window (make-symbol "WINDOW"))
-	(pointer (make-symbol "POINTER")))
+	(event (make-symbol "EVENT")))
     `(let ((,window nil))
        (pushnew ',name *snippets*)
        (defun ,name ()
@@ -43,8 +43,8 @@
 	       (signal-connect ,window 'destroy 
                 #'(lambda () (setq ,window nil)))
 	       (signal-connect ,widget 'expose-event
-		#'(lambda (,pointer)
-		    (declare (ignore ,pointer))
+		#'(lambda (,event)
+		    (declare (ignore ,event))
 		    (let ((,cr (gdk:cairo-create (widget-window ,widget))))
 		      (multiple-value-bind (width height) 
 			  (widget-get-size-allocation ,widget)
