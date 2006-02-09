@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.32 2006-02-06 18:12:19 espen Exp $
+;; $Id: glib.lisp,v 1.33 2006-02-09 22:24:31 espen Exp $
 
 
 (in-package "GLIB")
@@ -46,6 +46,12 @@
   #+cmu(system-area-copy from 0 to 0 (* 8 length))
   #+sbcl(system-area-ub8-copy from 0 to 0 length)
   to)
+
+(defmacro with-allocated-memory ((var size) &body body)
+  `(let ((,var (allocate-memory ,size)))
+     (unwind-protect
+	 (progn ,@body)
+       (deallocate-memory ,var))))
 
 
 ;;;; User data mechanism
