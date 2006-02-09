@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.45 2006-02-08 22:10:47 espen Exp $
+;; $Id: gobject.lisp,v 1.46 2006-02-09 22:29:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -39,15 +39,15 @@
 
 (defclass direct-property-slot-definition (direct-virtual-slot-definition)
   ((pname :reader slot-definition-pname :initarg :pname)
-   (readable :initform t :reader slot-readable-p :initarg :readable)
-   (writable :initform t :reader slot-writable-p :initarg :writable)
-   (construct :initform nil :initarg :construct)))
+   (readable :reader slot-readable-p :initarg :readable)
+   (writable :reader slot-writable-p :initarg :writable)
+   (construct-only :initarg :construct-only :reader construct-only-property-p)))
 
 (defclass effective-property-slot-definition (effective-virtual-slot-definition)
   ((pname :reader slot-definition-pname :initarg :pname)
    (readable :reader slot-readable-p :initarg :readable)
    (writable :reader slot-writable-p :initarg :writable)
-   (construct :initarg :construct)))
+   (construct-only :initarg :construct-only :reader construct-only-property-p)))
 
 (defclass direct-user-data-slot-definition (direct-virtual-slot-definition)
   ())
@@ -131,13 +131,18 @@
   (if (typep (first direct-slotds) 'direct-property-slot-definition)
       (nconc 
        (list :pname (signal-name-to-string 
-		     (most-specific-slot-value direct-slotds 'pname))
-	     :readable (most-specific-slot-value direct-slotds 'readable)
-	     :writable (most-specific-slot-value direct-slotds 'writable)
-	     :construct (most-specific-slot-value direct-slotds 'construct))
+		     (most-specific-slot-value direct-slotds 'pname
+		      (slot-definition-name (first direct-slotds))))
+	     :readable (most-specific-slot-value direct-slotds 'readable t)
+	     :writable (most-specific-slot-value direct-slotds 'writable t)
+	     :construct-only (most-specific-slot-value direct-slotds 
+                              'construct-only nil))
        (call-next-method))
     (call-next-method)))
 
+
+(defvar *ignore-setting-construct-only-property* nil)
+(declaim (special *ignore-setting-construct-only-property*))
 
 (defmethod initialize-internal-slot-functions ((slotd effective-property-slot-definition))
   (let ((type (slot-definition-type slotd))
@@ -155,18 +160,28 @@
 		 (funcall reader  gvalue +gvalue-value-offset+)
 		 (gvalue-free gvalue t)))))))
     
-    (when (and (not (slot-boundp slotd 'setter)) (slot-writable-p slotd))
-      (setf 
-       (slot-value slotd 'setter)
-       (let ((writer nil))
+    (when (not (slot-boundp slotd 'setter))
+      (cond
+       ((slot-writable-p slotd)
+	(setf 
+	 (slot-value slotd 'setter)
+	 (let ((writer nil))
+	   #'(lambda (value object)
+	       (unless writer
+		 (setq writer (writer-function type)))
+	       (let ((gvalue (gvalue-new type)))
+		 (funcall writer value gvalue +gvalue-value-offset+)
+		 (%object-set-property object pname gvalue)
+		 (gvalue-free gvalue t)
+		 value)))))
+
+       ((construct-only-property-p slotd)
+	(setf 
+	 (slot-value slotd 'setter)
 	 #'(lambda (value object)
-	     (unless writer
-	       (setq writer (writer-function type)))
-	     (let ((gvalue (gvalue-new type)))
-	       (funcall writer value gvalue +gvalue-value-offset+)
-	       (%object-set-property object pname gvalue)
-	       (gvalue-free gvalue t)
-	       value))))))
+	     (declare (ignore value object))
+	     (unless *ignore-setting-construct-only-property*
+	       (error "Slot is not writable: ~A" (slot-definition-name slotd)))))))))
 
   (call-next-method))
 
@@ -239,64 +254,71 @@
       (error "An object of class ~A has instance slots and should only be created with MAKE-INSTANCE" class)
     (call-next-method)))
 
+
+(defmethod allocate-foreign ((object gobject) &rest initargs)
+  (let ((init-slots ())) 
+    (flet ((value-from-initargs (slotd)
+	     (loop
+	      with slot-initargs = (slot-definition-initargs slotd)
+	      for (initarg value) on initargs by #'cddr
+	      when (find initarg slot-initargs)
+	      do (return (values value t)))))
+
+    (loop 
+     for slotd in (class-slots (class-of object))
+     when (and 
+	   (eq (slot-definition-allocation slotd) :property)
+	   (construct-only-property-p slotd))
+     do (multiple-value-bind (value initarg-p) (value-from-initargs slotd)
+	  (cond
+	   (initarg-p (push (cons slotd value) init-slots))
+	   ((slot-definition-initfunction slotd)
+	    (push 
+	     (cons slotd (funcall (slot-definition-initfunction slotd)))
+	     init-slots))))))
+
+    (cond
+     (init-slots
+      (let ((element-size (+ +gvalue-size+ +size-of-pointer+))
+	    (num-slots (length init-slots)))
+	(with-allocated-memory (params (* num-slots element-size))
+          (loop
+	   with string-writer = (writer-function 'string)
+	   for (slotd . value) in init-slots
+	   as offset = params then (sap+ offset element-size)
+	   as type = (slot-definition-type slotd)
+	   as pname = (slot-definition-pname slotd)
+	   do (funcall string-writer pname offset)
+              (gvalue-init (sap+ offset +size-of-pointer+) type value))
+
+	  (unwind-protect
+	      (%gobject-newv (type-number-of object) num-slots params)
+	
+	    (loop
+	     with string-destroy = (destroy-function 'string)
+	     repeat num-slots
+	     as offset = params then (sap+ offset element-size)
+	     do (funcall string-destroy offset)
+	        (gvalue-unset (sap+ offset +size-of-pointer+)))))))
+
+     (t (%gobject-new (type-number-of object))))))
+
+
+(defmethod shared-initialize ((object gobject) names &rest initargs)
+  (declare (ignore names initargs))
+  (let ((*ignore-setting-construct-only-property* t))
+    (call-next-method)))
+
 (defmethod initialize-instance :around ((object gobject) &rest initargs)
   (declare (ignore initargs))
-  (call-next-method)
-  #+debug-ref-counting(%object-weak-ref (foreign-location object))
-  #+glib2.8
-  (when (slot-value (class-of object) 'instance-slots-p)
-    (with-slots (location) object
-      (%object-add-toggle-ref location)
-      (%object-unref location))))
-
-
-(defmethod initialize-instance ((object gobject) &rest initargs)
-  (unless (proxy-valid-p object)
-    ;; Extract initargs which we should pass directly to the GObject
-    ;; constructor
-    (let* ((slotds (class-slots (class-of object)))
-	   (args (when initargs
-		   (loop 
-		    as (key value . rest) = initargs then rest
-		    as slotd = (find-if
-				#'(lambda (slotd)
-				    (member key (slot-definition-initargs slotd)))
-				slotds)
-		    when (and (typep slotd 'effective-property-slot-definition)
-			      (slot-value slotd 'construct))
-		    collect (progn 
-			      (remf initargs key)
-			      (list 
-			       (slot-definition-pname slotd)
-			       (slot-definition-type slotd)
-			       value))
-		    while rest))))
-      (if args
-	  (let* ((string-size (size-of 'string))
-		 (string-writer (writer-function 'string))
-		 (string-destroy (destroy-function 'string))
-		 (params (allocate-memory 
-			  (* (length args) (+ string-size +gvalue-size+)))))
-	    (loop
-	     for (pname type value) in args
-	     as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
-	     do (funcall string-writer pname tmp)
-	     (gvalue-init (sap+ tmp string-size) type value))
-	    (unwind-protect
-		(setf  
-		 (foreign-location object)
-		 (%gobject-newv (type-number-of object) (length args) params))
-	      (loop
-	       repeat (length args)
-	       as tmp = params then (sap+ tmp (+ string-size +gvalue-size+))
-	       do (funcall string-destroy tmp)
-	       (gvalue-unset (sap+ tmp string-size)))
-	      (deallocate-memory params)))
-	(setf  
-	 (foreign-location object)
-	 (%gobject-new (type-number-of object))))))
-
-  (apply #'call-next-method object initargs))
+  (prog1
+      (call-next-method)
+    #+debug-ref-counting(%object-weak-ref (foreign-location object))
+    #+glib2.8
+    (when (slot-value (class-of object) 'instance-slots-p)
+      (with-slots (location) object
+        (%object-add-toggle-ref location)
+	(%object-unref location)))))
 
 
 (defmethod instance-finalizer ((instance gobject))
@@ -471,9 +493,8 @@
 	    '(:writable nil))
 	,@(when (not (member :readable flags))
 	    '(:readable nil))
-	,@(when (or (member :construct flags) 
-		    (member :construct-only flags))
-	    '(:construct t))
+	,@(when (member :construct-only flags)
+	    '(:construct-only t))
 	
 	;; initargs
 	,@(if (find :initarg args)
