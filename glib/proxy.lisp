@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.31 2006-02-08 22:10:47 espen Exp $
+;; $Id: proxy.lisp,v 1.32 2006-02-09 22:26:38 espen Exp $
 
 (in-package "GLIB")
 
@@ -84,7 +84,7 @@
        (slot-value slotd 'reader-function)
        #'(lambda (object)
 	   (declare (ignore object))
-	   (error "Can't read slot: ~A" (slot-definition-name slotd)))
+	   (error "Slot is not readable: ~A" (slot-definition-name slotd)))
        (slot-value slotd 'boundp-function)
        #'(lambda (object) (declare (ignore object)) nil))
 
@@ -163,9 +163,9 @@
   (setf 
    (slot-value slotd 'writer-function)
    (if (not (slot-boundp slotd 'setter))
-       #'(lambda (object)
-	   (declare (ignore object))
-	   (error "Can't set slot: ~A" (slot-definition-name slotd)))
+       #'(lambda (value object)
+	   (declare (ignore value object))
+	   (error "Slot is not writable: ~A" (slot-definition-name slotd)))
      (with-slots (setter) slotd
        (etypecase setter
 	 (function setter)
@@ -299,6 +299,7 @@
 (defgeneric reference-foreign (class location))
 (defgeneric unreference-foreign (class location))
 (defgeneric invalidate-instance (object))
+(defgeneric allocate-foreign (object &key &allow-other-keys))
 
 (defun foreign-location (instance)
   (slot-value instance 'location))
@@ -325,8 +326,10 @@
 	(format stream "at 0x~X" (sap-int (foreign-location instance)))
       (write-string "at \"unbound\"" stream))))
 
-(defmethod initialize-instance :around ((instance proxy) &rest initargs)
-  (declare (ignore initargs))
+(defmethod initialize-instance :around ((instance proxy) &rest initargs &key &allow-other-keys) 
+  (setf  
+   (foreign-location instance)
+   (apply #'allocate-foreign instance initargs))
   (prog1
       (call-next-method)
     (cache-instance instance)
@@ -575,14 +578,12 @@ will not be released when the proxy is garbage collected."))
   (:metaclass proxy-class)
   (:size 0))
 
-(defmethod initialize-instance ((struct struct) &rest initargs)
+(defmethod allocate-foreign ((struct struct) &rest initargs)
   (declare (ignore initargs))
-  (unless (slot-boundp struct 'location)
-    (let ((size (foreign-size (class-of struct))))
-      (if (zerop size)
-	  (error "~A has zero size" (class-of struct))
-	(setf (slot-value struct 'location) (allocate-memory size)))))
-  (call-next-method))
+  (let ((size (foreign-size (class-of struct))))
+    (if (zerop size)
+	(error "~A has zero size" (class-of struct))
+      (allocate-memory size))))
 
 
 ;;;; Metaclasses used for subclasses of struct
