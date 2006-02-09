@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.51 2006-02-08 22:21:07 espen Exp $
+;; $Id: gtk.lisp,v 1.52 2006-02-09 22:32:47 espen Exp $
 
 
 (in-package "GTK")
@@ -1091,13 +1091,14 @@
 
 ;;; Message dialog
 
-(defmethod initialize-instance ((dialog message-dialog)
-				&key (message-type :info) (buttons :close)
-				flags text #+gtk 2.6 secondary-text 
-				transient-parent)
-  (setf 
-   (foreign-location dialog)
-   (%message-dialog-new transient-parent flags message-type buttons))
+(defmethod allocate-foreign ((dialog message-dialog) &key (message-type :info)
+			     (buttons :close) flags transient-parent)
+  (%message-dialog-new transient-parent flags message-type buttons))
+
+
+(defmethod shared-initialize ((dialog message-dialog) names
+			      &key text #+gtk 2.6 secondary-text)
+  (declare (ignore names))
   (when text
     (message-dialog-set-markup dialog text))
   #+gtk2.6

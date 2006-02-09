@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.2 2006-02-08 22:21:26 espen Exp $
+;; $Id: rsvg.lisp,v 1.3 2006-02-09 22:33:13 espen Exp $
 
 (in-package "RSVG")
 
@@ -111,15 +111,14 @@
   (filename pathname)
   (nil gerror :out))
 
-(defmethod initialize-instance ((handle handle) &key filename)
+(defmethod allocate-foreign ((handle handle) &key filename)
   (multiple-value-bind (location gerror)
       (cond 
        (filename (%handle-new-from-file filename))
        (t (%handle-new)))
     (if gerror 
 	(signal-gerror gerror)
-      (setf (foreign-location handle) location)))
-  (call-next-method))
+      location)))
 
 
 (defbinding %handle-free () nil
