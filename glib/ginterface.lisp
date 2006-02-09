@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.12 2005-04-23 16:48:50 espen Exp $
+;; $Id: ginterface.lisp,v 1.13 2006-02-09 22:29:43 espen Exp $
 
 (in-package "GLIB")
 
@@ -54,7 +54,7 @@
 		     (most-specific-slot-value direct-slotds 'pname))
 	     :readable (most-specific-slot-value direct-slotds 'readable)
 	     :writable (most-specific-slot-value direct-slotds 'writable)
-	     :construct (most-specific-slot-value direct-slotds 'construct))
+	     :construct-only (most-specific-slot-value direct-slotds 'construct))
        (call-next-method))
     (call-next-method)))
 
