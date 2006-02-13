@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.2 2005-04-23 16:48:50 espen Exp $
+;; $Id: gerror.lisp,v 1.3 2006-02-13 20:03:29 espen Exp $
 
 
 (in-package "GLIB")
@@ -65,6 +65,15 @@
     (error condition :code (gerror-code gerror) :message (gerror-message gerror))))
 
 
+(deftype gerror-signal () 'gerror)
+
+(defmethod from-alien-form (gerror (type (eql 'gerror-signal)) &rest args)
+  (declare (ignore type args))
+  `(let ((gerror ,(from-alien-form gerror 'gerror)))
+     (when gerror
+       (signal-gerror gerror))))
+
+ 
 ;;; Message logging
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
