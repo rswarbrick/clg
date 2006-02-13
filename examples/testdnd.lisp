@@ -61,7 +61,7 @@
 (defvar *target-type-text* 80)
 (defvar *target-type-image* 81)
 
-(setq from-image 
+(defvar from-image 
   (list
    (make-instance 'target-entry :target "text/plain" :id *target-type-text*)
    (make-instance 'target-entry :target "image/png" :id *target-type-image*)))
@@ -123,7 +123,6 @@
     (signal-connect button 'drag-data-received
      #'(lambda (context x y selection target-type time)
 	 (declare (ignore context x y time))
-	 (print 'her)
 	 (when (= target-type *target-type-text*)
 	   (setf 
 	    (button-label button) 
