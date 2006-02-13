@@ -5,8 +5,15 @@
 #+cmu(asdf:oos 'asdf:load-op :gtk)
 #+sbcl(require :cairo)
 #+cmu(asdf:oos 'asdf:load-op :cairo)
-#+sbcl(require :rsvg)
-#+cmu(asdf:oos 'asdf:load-op :rsvg)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (if (pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93" :error nil)
+      (push :rsvg *features*)
+    (warn "SVG tests disabled as the required version of librsvg is not available.")))
+
+
+#+(and sbcl rsvg)(require :rsvg)
+#+(and cmu  rsvg)(asdf:oos 'asdf:load-op :rsvg)
 
 (defpackage "TESTCAIRO"
   (:use "COMMON-LISP" "GTK")
@@ -302,11 +309,12 @@
     (cairo:fill cr)))
 
 
+#+rsvg(progn
 (defun snippet-set-bg-svg (cr filename)
   (let ((handle (make-instance 'rsvg:handle :filename filename)))
     (cairo:with-context (cr)
       (with-slots (rsvg:width rsvg:height) handle
-	(cairo:scale cr (/ 1.0 rsvg:width) (/ 1.0 rsvg:height))
+        (cairo:scale cr (/ 1.0 rsvg:width) (/ 1.0 rsvg:height))
 	(rsvg:render-cairo handle cr)))))
 
 (define-snippet librsvg (cr)
@@ -325,7 +333,7 @@
      (cairo:set-source-color cr 0.0 1.0 0.0)
      (cairo:rectangle cr 0.4 0.4 0.4 0.4)
      (cairo:fill cr)
-     
+       
      (cairo:set-source-color cr 0.0 0.0 1.0)
      (cairo:rectangle cr 0.6 0.6 0.3 0.3)
      (cairo:fill cr)))
@@ -341,6 +349,7 @@
 (define-operator-snippet operator-over-reverse :dest-over)
 (define-operator-snippet operator-saturate :saturate)
 (define-operator-snippet operator-xor :xor)
+)
 
       
 
@@ -525,7 +534,7 @@
 
 
 (clg-init)
-(rsvg:init)
+#+rsvg(rsvg:init)
 
 ;; We need to turn off floating point exceptions, because Cairo is
 ;; presumably using internal code which generates NaNs in some cases.
