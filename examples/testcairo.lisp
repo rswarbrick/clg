@@ -305,9 +305,9 @@
 (defun snippet-set-bg-svg (cr filename)
   (let ((handle (make-instance 'rsvg:handle :filename filename)))
     (cairo:with-context (cr)
-      (with-slots (rsvg:width rsvg:height) (rsvg:handle-dimensions handle)
+      (with-slots (rsvg:width rsvg:height) handle
 	(cairo:scale cr (/ 1.0 rsvg:width) (/ 1.0 rsvg:height))
-	(rsvg:cairo-render cr handle)))))
+	(rsvg:render-cairo handle cr)))))
 
 (define-snippet librsvg (cr)
   (snippet-set-bg-svg cr "clg:examples;home.svg"))
