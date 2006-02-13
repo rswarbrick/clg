@@ -20,118 +20,62 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.3 2006-02-09 22:33:13 espen Exp $
+;; $Id: rsvg.lisp,v 1.4 2006-02-13 20:10:48 espen Exp $
 
 (in-package "RSVG")
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  
-  (defclass dimension-data (struct)
-    ((width
-      :allocation :alien 
-      :initarg :width
-      :accessor dimension-data-width
-      :type int)
-     (height
-      :allocation :alien 
-      :initarg :height
-      :accessor dimension-data-height
-      :type int)
-     (em
-      :allocation :alien 
-      :initarg :em
-      :accessor dimension-data-em
-      :type double-float)
-     (ex
-      :allocation :alien 
-      :initarg :ex
-      :accessor dimension-data-ex
-      :type double-float))
-    (:metaclass struct-class))
+  (init-types-in-library 
+   #.(concatenate 'string (pkg-config:pkg-variable "librsvg-2.0" "libdir") 
+		          "/librsvg-2.so") :prefix "rsvg_")
 
+(define-types-by-introspection "Rsvg"
+  ("RsvgError" :ignore t)))
 
-  (defclass handle (proxy)
-    ((base-uri
-      :allocation :virtual 
-      :getter "rsvg_handle_get_base_uri"
-      :setter "rsvg_handle_set_base_uri"
-      :accessor handle-base-uri
-      :type string)
-     (dimensions
-      :allocation :virtual 
-      :getter handle-get-dimensions
-      :reader handle-dimensions
-      :type dimension-data)
-     (title
-      :allocation :virtual 
-      :getter "rsvg_handle_get_title"
-      :reader handle-title
-      :type string)
-     (description
-      :allocation :virtual 
-      :getter "rsvg_handle_get_desc"
-      :reader handle-description
-      :type string)
-     (metadata
-      :allocation :virtual 
-      :getter "rsvg_handle_get_metadata"
-      :reader handle-metadata
-      :type string))
-    (:metaclass proxy-class))
-
-)
 
 (defbinding init () nil)
 (defbinding term () nil)
 
-(defbinding set-default-dpi () nil
-  (dpi-x double-float)
-  (dpi-y double-float))
-
-(defbinding handle-set-dpi () nil
-  (handle handle)
+(defbinding (set-default-dpi "rsvg_set_default_dpi_x_y") (dpi-x &optional (dpi-y dpi-x)) nil
   (dpi-x double-float)
   (dpi-y double-float))
 
 
-(defbinding handle-get-dimensions (handle &optional (dimensions (make-instance 'dimension-data))) nil
+(defbinding handle-write () boolean
   (handle handle)
-  (dimensions dimension-data :return))
-
-
+  (data string)
+  ((length data) int) ; TODO: compute propper length of utf8 string
+  (nil gerror-signal :out))
 
 (defbinding handle-close () boolean
   (handle handle)
-  (nil gerror :out))
+  (nil gerror-signal :out))
 
-(defbinding %handle-new () pointer)
+(defbinding (handle-get-pixbuf "rsvg_handle_get_pixbuf_sub") (handle &optional id) boolean
+  (handle handle)
+  (id (or null string)))
+
+
+(defbinding %handle-new-from-data () pointer
+  (data string)
+  ((length data) int) ; TODO: compute propper length of utf8 string
+  (nil gerror-signal :out))
 
 (defbinding %handle-new-from-file () pointer
   (filename pathname)
-  (nil gerror :out))
+  (nil gerror-signal :out))
 
-(defmethod allocate-foreign ((handle handle) &key filename)
-  (multiple-value-bind (location gerror)
-      (cond 
-       (filename (%handle-new-from-file filename))
-       (t (%handle-new)))
-    (if gerror 
-	(signal-gerror gerror)
-      location)))
-
-
-(defbinding %handle-free () nil
-  (location pointer))
-
-(defmethod unreference-foreign ((class (eql (find-class 'handle))) location)
-  (%handle-free location))
-
-
+(defmethod allocate-foreign ((handle handle) &key data filename)
+  (cond 
+   (filename (%handle-new-from-file filename))
+   (data (%handle-new-from-data data))
+   (t (call-next-method))))
 
 
 ;;; Cairo interface
 
-(defbinding cairo-render () nil
+(defbinding (render-cairo "rsvg_handle_render_cairo_sub") (handle cr &optional id) nil
+  (handle handle)
   (cr cairo:context)
-  (handle handle))
+  (id (or null string)))
