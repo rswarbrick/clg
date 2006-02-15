@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.19 2006-02-06 18:12:19 espen Exp $
+;; $Id: gparam.lisp,v 1.20 2006-02-15 09:55:50 espen Exp $
 
 (in-package "GLIB")
 
@@ -77,15 +77,12 @@
   (location pointer))
 
 (defmacro with-gvalue ((gvalue &optional type (value nil value-p)) &body body)
-  `(let ((,gvalue ,(cond
-		    ((and type value-p) `(gvalue-new ,type ,value))
-		    (type `(gvalue-new ,type))
-		    (`(gvalue-new)))))
-    (unwind-protect
-	 (progn
-	   ,@body
-	   ,(unless value-p `(gvalue-get ,gvalue)))
-      (gvalue-free ,gvalue))))
+  `(with-allocated-memory (,gvalue +gvalue-size+)
+     ,(cond
+       ((and type value-p) `(gvalue-init ,gvalue ,type ,value))
+       (type `(gvalue-init ,gvalue ,type)))
+     ,@body
+     ,(unless value-p `(gvalue-get ,gvalue))))
 
 
 (deftype param-flag-type ()
