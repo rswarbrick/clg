@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.33 2006-02-09 22:24:31 espen Exp $
+;; $Id: glib.lisp,v 1.34 2006-02-15 09:53:42 espen Exp $
 
 
 (in-package "GLIB")
@@ -48,10 +48,15 @@
   to)
 
 (defmacro with-allocated-memory ((var size) &body body)
-  `(let ((,var (allocate-memory ,size)))
-     (unwind-protect
-	 (progn ,@body)
-       (deallocate-memory ,var))))
+  (if (constantp size)
+      (let ((alien (make-symbol "ALIEN")))
+	`(with-alien ((,alien (array #+sbcl(sb-alien:unsigned 8) #+cmu(alien:unsigned 8) ,(eval size))))
+	   (let ((,var (alien-sap ,alien)))
+	     ,@body)))
+    `(let ((,var (allocate-memory ,size)))
+       (unwind-protect
+	   (progn ,@body)
+	 (deallocate-memory ,var)))))
 
 
 ;;;; User data mechanism
