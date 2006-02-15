@@ -42,6 +42,7 @@
      ((error 'end-of-file :stream stream)))))
 
 
+#+(or sbcl cmu)
 (defun run-pkg-config (package error &rest options)
   (let ((process
 	 (run-program
@@ -59,6 +60,12 @@
 	(process-close process)
 	(values output exit-code)))))
 
+#+clisp
+;; I haven't figured out how to do error checking with CLISP's run-program
+(defun run-pkg-config (package error &rest options)
+  (declare (ignore error))
+  (let ((stream (ext:run-program *pkg-config* :arguments (cons package options)  :output :stream)))
+    (read-lines stream)))
 
 (defun pkg-cflags (package)
   (split-string (first (run-pkg-config package t "--cflags"))))
