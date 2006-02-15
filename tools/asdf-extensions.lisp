@@ -106,17 +106,22 @@
   ((libdir :initarg :libdir)))
 
 
-(defun relative-pathname (path)
-  (etypecase path
-    (cons path)
-    (string (if (char= #\/ (char path 0))
-		(subseq path 1)
-	      path))))
+(defun split-path (path)
+  (labels ((split (path)
+	     (unless (zerop (length path))
+	       (let ((slash (position #\/ path)))
+		 (if slash
+		     (cons (subseq path 0 slash) (split (subseq path (1+ slash))))
+		   (list path))))))
+    (if (and (not (zerop (length path))) (char= (char path 0) #\/))
+	(cons :absolute (split (subseq path 1)))
+      (cons :relative (split path)))))
+
 
 (defmethod component-pathname ((lib library))
   (make-pathname :type "so"
 		 :name (component-name lib)
-		 :directory (relative-pathname (slot-value lib 'libdir))))
+		 :directory (split-path (slot-value lib 'libdir))))
 
 (defmethod perform ((o load-op) (c library))
   (load-dso (component-pathname c)))
