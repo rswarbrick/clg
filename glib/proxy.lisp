@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.32 2006-02-09 22:26:38 espen Exp $
+;; $Id: proxy.lisp,v 1.33 2006-02-15 09:45:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -43,10 +43,10 @@
      (boundp :reader slot-definition-boundp :initarg :boundp)))
 
   (defclass direct-special-slot-definition (standard-direct-slot-definition)
-    ())
+    ((special :initarg :special :accessor slot-definition-special)))
   
   (defclass effective-special-slot-definition (standard-effective-slot-definition)
-    ()))
+    ((special :initarg :special :accessor slot-definition-special))))
 
 (defvar *unbound-marker* (gensym "UNBOUND-MARKER-"))
 
@@ -59,23 +59,22 @@
 	(slot-value object slot)
       default)))
 
-(defmethod initialize-instance ((slotd effective-special-slot-definition) &rest initargs)
-  (declare (ignore initargs))
-  (call-next-method)
-  (setf (slot-value slotd 'allocation) :instance))
-
 
 (defmethod direct-slot-definition-class ((class virtual-slots-class) &rest initargs)
-  (case (getf initargs :allocation)
-    (:virtual (find-class 'direct-virtual-slot-definition))
-    (:special (find-class 'direct-special-slot-definition))
-    (t (call-next-method))))
+  (cond
+   ((eq (getf initargs :allocation) :virtual)
+    (find-class 'direct-virtual-slot-definition))
+   ((getf initargs :special)
+    (find-class 'direct-special-slot-definition))
+   (t (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class virtual-slots-class) &rest initargs)
-  (case (getf initargs :allocation)
-    (:virtual (find-class 'effective-virtual-slot-definition))
-    (:special (find-class 'effective-special-slot-definition))
-    (t (call-next-method))))
+  (cond
+   ((eq (getf initargs :allocation) :virtual)
+    (find-class 'effective-virtual-slot-definition))
+   ((getf initargs :special)
+    (find-class 'effective-special-slot-definition))
+   (t (call-next-method))))
 
 
 (defmethod initialize-internal-slot-functions ((slotd effective-virtual-slot-definition))
@@ -191,22 +190,25 @@
   nil)
 
 (defmethod compute-effective-slot-definition-initargs ((class virtual-slots-class) direct-slotds)
-  (if (typep (first direct-slotds) 'direct-virtual-slot-definition)
-      (let ((initargs ()))
-	(let ((getter (most-specific-slot-value direct-slotds 'getter)))
-	  (unless (eq getter *unbound-marker*)
-	    (setf (getf initargs :getter) getter)))
-	(let ((setter (most-specific-slot-value direct-slotds 'setter)))
-	  (unless (eq setter *unbound-marker*)
-	    (setf (getf initargs :setter) setter)))
-	(let ((unbound (most-specific-slot-value direct-slotds 'unbound)))
-	  (unless (eq unbound *unbound-marker*)
-	    (setf (getf initargs :unbound) unbound)))
-	(let ((boundp (most-specific-slot-value direct-slotds 'boundp)))
-	  (unless (eq boundp *unbound-marker*)
-	    (setf (getf initargs :boundp) boundp)))
-	(nconc initargs (call-next-method)))
-    (call-next-method)))
+  (typecase (first direct-slotds)
+    (direct-virtual-slot-definition
+     (let ((initargs ()))
+       (let ((getter (most-specific-slot-value direct-slotds 'getter)))
+	 (unless (eq getter *unbound-marker*)
+	   (setf (getf initargs :getter) getter)))
+       (let ((setter (most-specific-slot-value direct-slotds 'setter)))
+	 (unless (eq setter *unbound-marker*)
+	   (setf (getf initargs :setter) setter)))
+       (let ((unbound (most-specific-slot-value direct-slotds 'unbound)))
+	 (unless (eq unbound *unbound-marker*)
+	   (setf (getf initargs :unbound) unbound)))
+       (let ((boundp (most-specific-slot-value direct-slotds 'boundp)))
+	 (unless (eq boundp *unbound-marker*)
+	   (setf (getf initargs :boundp) boundp)))
+       (nconc initargs (call-next-method))))
+    (direct-special-slot-definition
+     (append '(:special t) (call-next-method)))
+    (t (call-next-method))))
 
 
 (defmethod slot-value-using-class
@@ -230,6 +232,15 @@
 (defmethod validate-superclass
     ((class virtual-slots-class) (super standard-class))
   t)
+
+
+(defmethod slot-definition-special ((slotd standard-direct-slot-definition))
+  (declare (ignore slotd))
+  nil)
+
+(defmethod slot-definition-special ((slotd standard-effective-slot-definition))
+  (declare (ignore slotd))
+  nil)
 
 
 ;;;; Proxy cache
@@ -292,7 +303,7 @@
 
 ;; TODO: add a ref-counted-proxy subclass
 (defclass proxy ()
-  ((location :allocation :special :type pointer))
+  ((location :special t :type pointer))
   (:metaclass virtual-slots-class))
 
 (defgeneric instance-finalizer (object))
@@ -364,8 +375,8 @@
     ((size :reader foreign-size)))
 
   (defclass direct-alien-slot-definition (direct-virtual-slot-definition)
-    ((allocation :initform :alien)
-     (offset :reader slot-definition-offset :initarg :offset)))
+    ((offset :reader slot-definition-offset :initarg :offset))
+    (:default-initargs :allocation :alien))
   
   (defclass effective-alien-slot-definition (effective-virtual-slot-definition)
     ((offset :reader slot-definition-offset :initarg :offset)))
@@ -400,7 +411,7 @@
   
   
   (defmethod compute-effective-slot-definition-initargs ((class proxy-class) direct-slotds)
-    (if (eq (most-specific-slot-value direct-slotds 'allocation) :alien)
+    (if (eq (slot-definition-allocation (first direct-slotds)) :alien)
 	(nconc 
 	 (list :offset (most-specific-slot-value direct-slotds 'offset))
 	 (call-next-method))
@@ -605,7 +616,7 @@ will not be released when the proxy is garbage collected."))
 (defmethod compute-slots :around ((class struct-class))
     (let ((slots (call-next-method)))
       (when (and 
-	     #-sbcl>=0.9.8(class-finalized-p class) #+sbc098 t
+	     #-sbcl>=0.9.8(class-finalized-p class)
 	     (not (slot-boundp class 'size)))
         (let ((size (loop
 		     for slotd in slots

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.46 2006-02-09 22:29:01 espen Exp $
+;; $Id: gobject.lisp,v 1.47 2006-02-15 09:45:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -128,7 +128,7 @@
     (t (call-next-method))))
 
 (defmethod compute-effective-slot-definition-initargs ((class gobject-class) direct-slotds)
-  (if (typep (first direct-slotds) 'direct-property-slot-definition)
+  (if (eq (slot-definition-allocation (first direct-slotds)) :property)
       (nconc 
        (list :pname (signal-name-to-string 
 		     (most-specific-slot-value direct-slotds 'pname

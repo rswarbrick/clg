@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.42 2006-02-06 19:16:17 espen Exp $
+;; $Id: gtktypes.lisp,v 1.43 2006-02-15 09:47:42 espen Exp $
 
 (in-package "GTK")
 
@@ -155,7 +155,7 @@
   ("GtkWidget"
    :slots
    ((child-properties
-     :allocation :special
+     :special t
      :accessor widget-child-properties
      :type container-child)
     (window

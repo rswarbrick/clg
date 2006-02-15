@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.13 2006-02-09 22:29:43 espen Exp $
+;; $Id: ginterface.lisp,v 1.14 2006-02-15 09:45:41 espen Exp $
 
 (in-package "GLIB")
 
@@ -48,7 +48,7 @@
     (t (call-next-method))))
 
 (defmethod compute-effective-slot-definition-initargs ((class ginterface-class) direct-slotds)
-  (if (eq (most-specific-slot-value direct-slotds 'allocation) :property)
+  (if (eq (slot-definition-allocation (first direct-slotds)) :property)
       (nconc 
        (list :pname (signal-name-to-string 
 		     (most-specific-slot-value direct-slotds 'pname))
