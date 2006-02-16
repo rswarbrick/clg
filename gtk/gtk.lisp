@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.52 2006-02-09 22:32:47 espen Exp $
+;; $Id: gtk.lisp,v 1.53 2006-02-16 19:39:34 espen Exp $
 
 
 (in-package "GTK")
@@ -57,6 +57,11 @@
 
 (defun clg-init (&optional display)
   "Initializes the system and starts the event handling"
+  #+sbcl(when (and 
+	       (find-package "SWANK")
+	       (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) :spawn))
+	  (error "When running clg in Slime the communication style :spawn can not be used. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information."))
+
   (unless (gdk:display-get-default)
     (gdk:gdk-init)
     (unless (gtk-init)
