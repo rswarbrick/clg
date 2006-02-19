@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.34 2006-02-19 19:10:33 espen Exp $
+;; $Id: proxy.lisp,v 1.35 2006-02-19 19:23:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -659,6 +659,13 @@ will not be released when the proxy is garbage collected."))
       (let ((instance (sap-ref-sap location offset)))
 	(unless (null-pointer-p instance)
 	  (ensure-proxy-instance class instance :weak t)))))
+
+(defmethod callback-from-alien-form (form (class struct-class) &rest args)
+  `(ensure-proxy-instance ',(class-name class) ,form :weak t))
+
+(defmethod callback-cleanup-form (form (class struct-class) &rest args)
+  (declare (ignore class))
+  `(invalidate-instance ,form))
 
 
 ;;; Pseudo type for structs which are inlined in other objects
