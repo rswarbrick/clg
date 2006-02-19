@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.44 2006-02-19 19:23:23 espen Exp $
+;; $Id: gtype.lisp,v 1.45 2006-02-19 19:27:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -107,6 +107,7 @@
 
 (defvar *registered-types* ())
 (defvar *registered-type-aliases* ())
+(defvar *registered-static-types* ())
 (defvar *lisp-type-to-type-number* (make-hash-table))
 (defvar *type-number-to-lisp-type* (make-hash-table))
 
@@ -270,9 +271,10 @@
 	      parent-number
 	      (or foreign-name (default-alien-type-name type))
 	      (make-instance 'type-info :class-size class-size :instance-size instance-size))))
-       (setf (gethash type *lisp-type-to-type-number*) type-number)
-       (setf (gethash type-number *type-number-to-lisp-type*) type)
-       type-number))))
+	(pushnew (list type parent foreign-name) *registered-static-types* :key #'car)
+	(setf (gethash type *lisp-type-to-type-number*) type-number)
+	(setf (gethash type-number *type-number-to-lisp-type*) type)
+	type-number))))
 
 
 
