@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.53 2006-02-16 19:39:34 espen Exp $
+;; $Id: gtk.lisp,v 1.54 2006-02-19 19:31:14 espen Exp $
 
 
 (in-package "GTK")
@@ -91,18 +91,18 @@
 
 #+gtk2.6
 (progn
-  (def-callback-marshal %about-dialog-activate-link-func 
-    (nil (dialog about-dialog) (link (copy-of string))))
+  (define-callback-marshal %about-dialog-activate-link-callback nil
+    (about-dialog (link string)))
 
   (defbinding about-dialog-set-email-hook (function) nil
-    ((callback %about-dialog-activate-link-func) pointer)
+    (%about-dialog-activate-link-callback callback)
     ((register-callback-function function) unsigned-int)
-    ((callback user-data-destroy-func) pointer))
+    (user-data-destroy-callback callback))
   
   (defbinding about-dialog-set-url-hook (function) nil
-    ((callback %about-dialog-activate-link-func) pointer)
+    (%about-dialog-activate-link-callback callback)
     ((register-callback-function function) unsigned-int)
-    ((callback user-data-destroy-func) pointer)))
+    (user-data-destroy-callback callback)))
 
 
 ;;; Acccel group
@@ -289,19 +289,17 @@
 (defbinding accel-map-save () nil
   (filename pathname))
 
-(defcallback %accel-map-foreach-func 
-    (nil
-     (callback-id unsigned-int) (accel-path (copy-of string)) 
-     (key unsigned-int) (modifiers gdk:modifier-type) (changed boolean))
-  (invoke-callback callback-id nil accel-path key modifiers changed))
+(define-callback-marshal %accel-map-foreach-callback nil
+  ((accel-path string) (key unsigned-int) 
+   (modifiers gdk:modifier-type) (changed boolean)) :callback-id :first)
 
 (defbinding %accel-map-foreach (callback-id) nil
   (callback-id unsigned-int)
-  (%accel-map-foreach-func callback))
+  (%accel-map-foreach-callback callback))
 
 (defbinding %accel-map-foreach-unfiltered (callback-id) nil
   (callback-id unsigned-int)
-  (%accel-map-foreach-func callback))
+  (%accel-map-foreach-callback callback))
 
 (defun accel-map-foreach (function &optional (filter-p t))
   (with-callback-function (id function)
@@ -748,14 +746,14 @@
 
 ;;; Entry Completion
 
-(def-callback-marshal %entry-completion-match-func
-    (boolean entry-completion string (copy-of tree-iter)))
+(define-callback-marshal %entry-completion-match-callback boolean 
+  (entry-completion string tree-iter))
 
 (defbinding entry-completion-set-match-func (completion function) nil
   (completion entry-completion)
-  ((callback %entry-completion-match-func) pointer)
+  (%entry-completion-match-callback callback)
   ((register-callback-function function) unsigned-int)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-callback callback))
 
 (defbinding entry-completion-complete () nil
   (completion entry-completion))
@@ -892,14 +890,14 @@
 (defbinding file-filter-add-pixbuf-formats () nil
   (filter file-filter))
 
-(def-callback-marshal %file-filter-func (boolean file-filter-info))
+(define-callback-marshal %file-filter-callback boolean (file-filter-info))
 
 (defbinding file-filter-add-custom (filter needed function) nil
   (filter file-filter)
   (needed file-filter-flags)
-  ((callback %file-filter-func) pointer)
+  (%file-filter-callback callback)
   ((register-callback-function function) unsigned-int)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-callback callback))
 
 (defbinding file-filter-get-needed () file-filter-flags
   (filter file-filter))
@@ -1778,13 +1776,14 @@
   (top-attach unsigned-int)
   (bottom-attach unsigned-int))
 
-(def-callback-marshal %menu-position-func (nil (menu menu) (x int) (y int) (push-in boolean)))
+(define-callback-marshal %menu-position-callback nil 
+  (menu (x int) (y int) (push-in boolean)))
 
 (defbinding %menu-popup () nil
   (menu menu)
   (parent-menu-shell (or null menu-shell))
   (parent-menu-item (or null menu-item))
-  (callback-func (or null pointer))
+  (callback (or null callback))
   (callback-id unsigned-int)
   (button unsigned-int)
   (activate-time (unsigned 32)))
@@ -1795,7 +1794,7 @@
       (with-callback-function (id callback)
 	(%menu-popup 
 	 menu parent-menu-shell parent-menu-item 
-	 (callback %menu-position-func) id button activate-time))
+	 %menu-position-callback id button activate-time))
     (%menu-popup
      menu parent-menu-shell parent-menu-item nil 0 button activate-time)))
  
@@ -1823,13 +1822,13 @@
   (%menu-set-active menu (%menu-position menu child))
   child)
   
-(defcallback %menu-detach-func (nil (widget widget) (menu menu))
+(define-callback %menu-detach-callback nil ((widget widget) (menu menu))
   (funcall (object-data menu 'detach-func) widget menu))
 
 (defbinding %menu-attach-to-widget () nil
   (menu menu)
   (widget widget)
-  ((callback %menu-detach-func) pointer))
+  (%menu-detach-callback callback))
 
 (defun menu-attach-to-widget (menu widget function)
   (setf (object-data menu 'detach-func) function)

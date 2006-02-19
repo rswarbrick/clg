@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.3 2006-02-13 20:03:29 espen Exp $
+;; $Id: gerror.lisp,v 1.4 2006-02-19 19:31:14 espen Exp $
 
 
 (in-package "GLIB")
@@ -115,10 +115,8 @@
 
 (defparameter *fatal-log-levels* '(error-log-level critical-log-level))
 
-(defcallback log-handler (nil 
-			   (domain (copy-of string))
-			   (log-level log-levels)
-			   (message (copy-of string)))
+(define-callback log-handler nil 
+    ((domain string) (log-level log-levels) (message string))
   (let ((fatal-p (or
 		  (find :fatal log-level)
 		  (some 
@@ -132,7 +130,8 @@
     (funcall (if fatal-p #'error #'warn) condition
      :domain domain :message message)))
 
-(setf (extern-alien "log_handler" system-area-pointer) (callback log-handler))
+(setf (extern-alien "log_handler" system-area-pointer) 
+ (callback-address log-handler))
 
 
 #+glib2.6
@@ -143,6 +142,6 @@
   ;; abort (SIGABORT being signaled). To make things even worse, SBCL
   ;; doesn't handle SIGABRT at all.
   (defbinding %log-set-default-handler () pointer
-    ((callback log-handler) pointer)
+    ((progn log-handler) callback)
     (nil null))
   (%log-set-default-handler))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.14 2006-02-09 22:32:47 espen Exp $
+;; $Id: gtktree.lisp,v 1.15 2006-02-19 19:31:15 espen Exp $
 
 
 (in-package "GTK")
@@ -58,15 +58,15 @@
   ((string-downcase attribute) string)
   (column int))
 
-(def-callback-marshal %cell-layout-data-func 
-    (nil cell-layout cell-renderer tree-model (copy-of tree-iter)))
+(define-callback-marshal %cell-layout-data-callback nil 
+  (cell-layout cell-renderer tree-model tree-iter))
 
 (defbinding cell-layout-set-cell-data-func (cell-layout cell function) nil
   (cell-layout cell-layout)
   (cell cell-renderer)
-  (%cell-layout-data-func callback)
+  (%cell-layout-data-callback callback)
   ((register-callback-function function) unsigned-int)
-  (user-data-destroy-func callback))
+  (user-data-destroy-callback callback))
 
 (defbinding cell-layout-clear-attributes () nil
   (cell-layout cell-layout)
@@ -365,12 +365,12 @@
   (iter tree-iter :return)
   (child tree-iter))
 
-(def-callback-marshal %tree-model-foreach-func 
-  (boolean tree-model (path (copy-of tree-path)) (iter (copy-of tree-iter))))
+(define-callback-marshal %tree-model-foreach-callback boolean 
+  (tree-model tree-path tree-iter))
 
-(defbinding %tree-model-foreach () nil
+(defbinding %tree-model-foreach (tree-model callback-id) nil
   (tree-model tree-model)
-  ((progn %tree-model-foreach-func) callback)
+  (%tree-model-foreach-callback callback)
   (callback-id unsigned-int))
 
 (defun tree-model-foreach (model function)
@@ -486,13 +486,14 @@
 
 ;;; Tree Selection
 
-(def-callback-marshal %tree-selection-func (boolean tree-selection tree-model (path (copy-of tree-path)) (path-currently-selected boolean)))
+(define-callback-marshal %tree-selection-callback boolean 
+  (tree-selection tree-model tree-path (path-currently-selected boolean)))
 
 (defbinding tree-selection-set-select-function (selection function) nil
   (selection tree-selection)
-  (%tree-selection-func callback)
+  (%tree-selection-callback callback)
   ((register-callback-function function) unsigned-int)
-  (user-data-destroy-func callback))
+  (user-data-destroy-callback callback))
 
 (defbinding tree-selection-get-selected 
     (selection &optional (iter (make-instance 'tree-iter))) boolean
@@ -500,11 +501,11 @@
   (nil null) 
   (iter tree-iter :return))
 
-(def-callback-marshal %tree-selection-foreach-func (nil tree-model (path (copy-of tree-path)) (iter (copy-of tree-iter))))
+(define-callback-marshal %tree-selection-foreach-callback nil (tree-model tree-path tree-iter))
 
-(defbinding %tree-selection-selected-foreach () nil
+(defbinding %tree-selection-selected-foreach (tree-selection callback-id) nil
   (tree-selection tree-selection)
-  ((progn %tree-selection-foreach-func) callback)
+  (%tree-selection-foreach-callback callback)
   (callback-id unsigned-int))
 
 (defun tree-selection-selected-foreach (selection function)
@@ -581,8 +582,8 @@
   (define-enum-type sort-order (:before -1) (:equal 0) (:after 1)))
 
 
-(def-callback-marshal %tree-iter-compare-func 
-  ((or int sort-order) tree-model (a (copy-of tree-iter)) (b (copy-of tree-iter))))
+(define-callback-marshal %tree-iter-compare-callback (or int sort-order)
+  (tree-model (a tree-iter) (b tree-iter)))
 
 (defbinding tree-sortable-sort-column-changed () nil
   (sortable tree-sortable))
@@ -614,15 +615,15 @@
 (defbinding %tree-sortable-set-sort-func (sortable column function) nil
   (sortable tree-sortable)
   ((column-index sortable column) int)
-  (%tree-iter-compare-func callback)
+  (%tree-iter-compare-callback callback)
   ((register-callback-function function) unsigned-int)
-  (user-data-destroy-func callback))
+  (user-data-destroy-callback callback))
 
 (defbinding %tree-sortable-set-default-sort-func () nil
   (sortable tree-sortable)
-  (compare-func (or null pointer))
+  (compare-func (or null callback))
   (callback-id unsigned-int)
-  (destroy-func (or null pointer)))
+  (destroy-func (or null callback)))
 
 (defun tree-sortable-set-sort-func (sortable column function)
   "Sets the comparison function used when sorting to be FUNCTION. If
@@ -633,9 +634,9 @@ then the model will sort using this function."
     (%tree-sortable-set-default-sort-func sortable nil 0 nil))
    ((eq column :default) 
     (%tree-sortable-set-default-sort-func sortable 
-     (callback %tree-iter-compare-func)
+     %tree-iter-compare-callback
      (register-callback-function function)
-     (callback user-data-destroy-func)))
+     user-data-destroy-callback))
    ((%tree-sortable-set-sort-func sortable column function))))
 
 (defbinding tree-sortable-has-default-sort-func-p () boolean
@@ -849,11 +850,11 @@ then the model will sort using this function."
   (tree-view tree-view)
   (path tree-path))
 
-(def-callback-marshal %tree-view-mapping-func (nil tree-view (path (copy-of tree-path))))
+(define-callback-marshal %tree-view-mapping-callback nil (tree-view tree-path))
 
-(defbinding %tree-view-map-expanded-rows () nil
+(defbinding %tree-view-map-expanded-rows (tree-view callback-id) nil
   (tree-view tree-view)
-  ((progn %tree-view-mapping-func) callback)
+  (%tree-view-mapping-callback callback)
   (callback-id unsigned-int))
 
 (defun map-expanded-rows (function tree-view)
@@ -901,12 +902,11 @@ then the model will sort using this function."
     (icon-view icon-view)
     (x int) (y int))
 
-  (def-callback-marshal %icon-view-foreach-func 
-    (nil icon-view (path (copy-of tree-path))))
+  (define-callback-marshal %icon-view-foreach-callback nil (icon-view tree-path))
 
-  (defbinding %icon-view-selected-foreach () tree-path
+  (defbinding %icon-view-selected-foreach (icon-view callback-id) tree-path
     (icon-view icon-view)
-    ((progn %icon-view-foreach-func) callback)
+    (%icon-view-foreach-callback callback)
     (callback-id unsigned-int))
   
   (defun icon-view-foreach (icon-view function)

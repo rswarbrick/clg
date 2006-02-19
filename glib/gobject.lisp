@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.47 2006-02-15 09:45:41 espen Exp $
+;; $Id: gobject.lisp,v 1.48 2006-02-19 19:31:14 espen Exp $
 
 (in-package "GLIB")
 
@@ -64,7 +64,8 @@
 
 #+glib2.8
 (progn
-  (defcallback toggle-ref-callback (nil (data pointer) (location pointer) (last-ref-p boolean))
+  (define-callback toggle-ref-callback nil
+      ((data pointer) (location pointer) (last-ref-p boolean))
     #+debug-ref-counting
     (if last-ref-p
 	(format t "Object at 0x~8,'0X has no foreign references~%" (sap-int location))
@@ -75,12 +76,12 @@
 
   (defbinding %object-add-toggle-ref () pointer
     (location pointer)
-    ((callback toggle-ref-callback) pointer)
+    (toggle-ref-callback callback)
     (nil null))
 
   (defbinding %object-remove-toggle-ref () pointer
     (location pointer)
-    ((callback toggle-ref-callback) pointer)
+    (toggle-ref-callback callback)
     (nil null)))
 
 (defmethod reference-foreign ((class gobject-class) location)
@@ -93,12 +94,12 @@
 
 #+debug-ref-counting
 (progn
-  (defcallback weak-ref-callback (nil (data pointer) (location pointer))
+  (define-callback weak-ref-callback nil ((data pointer) (location pointer))
     (format t "Object at 0x~8,'0X being finalized~%" (sap-int location)))
   
   (defbinding %object-weak-ref () pointer
     (location pointer)
-    ((callback weak-ref-callback) pointer)
+    (weak-ref-callback callback)
     (nil null)))
 
 
@@ -381,16 +382,14 @@
   (object gobject)
   (id quark)
   (data unsigned-long)
-  (destroy-marshal pointer))
+  (destroy-marshal callback))
 
-(defcallback user-data-destroy-func (nil (id unsigned-int))
+(define-callback user-data-destroy-callback nil ((id unsigned-int))
   (destroy-user-data id))
-
-(export 'user-data-destroy-func)
 
 (defun (setf user-data) (data object key)
   (%object-set-qdata-full object (quark-intern key)
-   (register-user-data data) (callback user-data-destroy-func))
+   (register-user-data data) user-data-destroy-callback)
   data)
 
 ;; deprecated

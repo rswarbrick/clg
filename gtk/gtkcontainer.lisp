@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.18 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.19 2006-02-19 19:31:14 espen Exp $
 
 (in-package "GTK")
 
@@ -89,11 +89,11 @@
 (defbinding container-check-resize () nil
   (container container))
 
-(def-callback-marshal %foreach-callback (nil widget))
+(define-callback-marshal %foreach-callback nil (widget))
 
 (defbinding %container-foreach (container callback-id) nil
   (container container)
-  ((callback %foreach-callback) pointer)
+  (%foreach-callback callback)
   (callback-id unsigned-int))
 
 (defun container-foreach (container function)
@@ -102,7 +102,7 @@
 
 (defbinding %container-forall (container callback-id) nil
   (container container)
-  ((callback %foreach-callback) pointer)
+  (%foreach-callback callback)
   (callback-id unsigned-int))
 
 (defun container-forall (container function)

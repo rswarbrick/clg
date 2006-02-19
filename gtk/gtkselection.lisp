@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.5 2006-02-09 22:32:47 espen Exp $
+;; $Id: gtkselection.lisp,v 1.6 2006-02-19 19:31:15 espen Exp $
 
 
 (in-package "GTK")
@@ -183,22 +183,21 @@
   ((gdk:atom-intern selection) gdk:atom))
 
 
-(defcallback %clipboard-get-func (nil (clipboard pointer)
-				      (selection-data selection-data)
-				      (info int)
-				      (user-data unsigned-int))
-  (funcall (car (find-user-data user-data)) selection-data info))
+(define-callback %clipboard-get-callback nil
+    ((clipboard pointer) (selection-data selection-data)
+     (info int) (callback-ids unsigned-int))
+  (funcall (car (find-user-data callback-ids)) selection-data info))
 
-(defcallback %clipboard-clear-func (nil (clipboard pointer)
-					(user-data unsigned-int))
-  (funcall (cdr (find-user-data user-data))))
+(define-callback %clipboard-clear-callback nil
+    ((clipboard pointer) (callback-ids unsigned-int))
+  (funcall (cdr (find-user-data callback-ids))))
 
 (defbinding clipboard-set-with-data (clipboard targets get-func clear-func) gobject
   (clipboard clipboard)
   (targets (vector (inlined target-entry)))
   ((length targets) unsigned-int)
-  (%clipboard-get-func callback)
-  (%clipboard-clear-func callback)
+  (%clipboard-get-callback callback)
+  (%clipboard-clear-callback callback)
   ((register-user-data (cons get-func clear-func)) unsigned-int))
 
 (defbinding clipboard-clear () nil
@@ -220,50 +219,43 @@
     #+gtk2.6
     (gdk:pixbuf (clipboard-set-image clipboard object))))
 
-(defcallback %clipboard-receive-func (nil (clipboard pointer)
-					  (selection-data selection-data)
-					  (user-data unsigned-int))
-  (funcall (find-user-data user-data) selection-data))
+(define-callback-marshal %clipboard-receive-callback nil 
+ ((:ignore clipboard) selection-data))
 
 (defbinding clipboard-request-contents (clipboard target callback) nil
   (clipboard clipboard)
   ((gdk:atom-intern target) gdk:atom)
-  (%clipboard-receive-func callback)
+  (%clipboard-receive-callback callback)
   ((register-callback-function callback) unsigned-int))
 
-(defcallback %clipboard-text-receive-func (nil (clipboard pointer)
-					       (text (copy-of string))
-					       (user-data unsigned-int))
-  (funcall (find-user-data user-data) text))
+(define-callback-marshal %clipboard-text-receive-callback nil
+  ((:ignore clipboard) (text string)))
+
 
 (defbinding clipboard-request-text (clipboard callback) nil
   (clipboard clipboard)
-  (%clipboard-text-receive-func callback)
+  (%clipboard-text-receive-callback callback)
   ((register-callback-function callback) unsigned-int))
 
 #+gtk2.6
 (progn
-  (defcallback %clipboard-image-receive-func (nil (clipboard pointer)
-						  (image gdk:pixbuf)
-						  (user-data unsigned-int))
-    (funcall (find-user-data user-data) image))
+  (define-callback-marshal %clipboard-image-receive-callback nil 
+    ((:ignore clipboard) (image gdk:pixbuf)))
 
   (defbinding clipboard-request-image (clipboard callback) nil
     (clipboard clipboard)
-    (%clipboard-image-receive-func callback)
+    (%clipboard-image-receive-callback callback)
     ((register-callback-function callback) unsigned-int)))
 
 
-(defcallback %clipboard-targets-receive-func 
-    (nil (clipboard pointer)
-	 (atoms (vector gdk:atom n-atoms))
-	 (n-atoms unsigned-int)
-	 (user-data unsigned-int))
-  (funcall (find-user-data user-data) atoms))
+(define-callback %clipboard-targets-receive-callback nil
+    ((clipboard pointer) (atoms (vector gdk:atom n-atoms))
+     (n-atoms unsigned-int) (callback-id unsigned-int))
+  (funcall (find-user-data callback-id) atoms))
 
 (defbinding clipboard-request-targets (clipboard callback) nil
   (clipboard clipboard)
-  (%clipboard-targets-receive-func callback)
+  (%clipboard-targets-receive-callback callback)
   ((register-callback-function callback) unsigned-int))
 
 (defbinding clipboard-wait-for-contents () selection-data

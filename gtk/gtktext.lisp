@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktext.lisp,v 1.6 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtktext.lisp,v 1.7 2006-02-19 19:31:15 espen Exp $
 
 
 (in-package "GTK")
@@ -568,17 +568,17 @@
   (iter text-iter)
   ((%ensure-tag tag iter) text-tag))
 
-(def-callback-marshal %text-char-predicate (boolean int))
+(define-callback-marshal %text-char-predicate-callback boolean (int))
 
 (defbinding text-iter-forward-find-char (iter predicate &optional limit) boolean
   (iter text-iter)
-  ((callback %text-char-predicate) pointer)
+  (%text-char-predicate-callback callback)
   ((register-callback-function predicate) unsigned-int)
   (limit (or null text-iter)))
 
 (defbinding text-iter-backward-find-char (iter predicate &optional limit) boolean
   (iter text-iter)
-  ((callback %text-char-predicate) pointer)
+  (%text-char-predicate-callback callback)
   ((register-callback-function predicate) unsigned-int)
   (limit (or null text-iter)))
 
@@ -645,11 +645,11 @@
   (table text-tag-table)
   (name string))
 
-(def-callback-marshal %text-tag-table-foreach (nil text-tag))
+(define-callback-marshal %text-tag-table-foreach-callback nil (text-tag))
 
 (defbinding text-tag-table-foreach (table function) nil
   (table text-tag-table)
-  ((callback %text-tag-table-foreach) pointer)
+  (%text-tag-table-foreach-callback callback)
   ((register-callback-function function) unsigned-int))
 
 

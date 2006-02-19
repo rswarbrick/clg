@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.29 2006-02-08 19:56:25 espen Exp $
+;; $Id: gcallback.lisp,v 1.30 2006-02-19 19:31:14 espen Exp $
 
 (in-package "GLIB")
 
@@ -34,22 +34,17 @@
   (register-user-data function))
 
 ;; Callback marshal for regular signal handlers
-(defcallback closure-marshal (nil
-			      (gclosure pointer)
-			      (return-value gvalue)
-			      (n-params unsigned-int) 
-			      (param-values pointer)
-			      (invocation-hint pointer) 
-			      (callback-id unsigned-int))
+(define-callback closure-marshal nil
+    ((gclosure gclosure) (return-value gvalue) (n-params unsigned-int) 
+     (param-values pointer) (invocation-hint pointer) 
+     (callback-id unsigned-int))
   (declare (ignore gclosure invocation-hint))
   (callback-trampoline callback-id n-params param-values return-value))
 
 ;; Callback function for emission hooks
-(defcallback signal-emission-hook (nil
-				   (invocation-hint pointer)
-				   (n-params unsigned-int) 
-				   (param-values pointer)
-				   (callback-id unsigned-int))
+(define-callback signal-emission-hook nil
+    ((invocation-hint pointer) (n-params unsigned-int) (param-values pointer)
+     (callback-id unsigned-int))
   (callback-trampoline callback-id n-params param-values))
 
 (defun callback-trampoline (callback-id n-params param-values &optional
@@ -93,16 +88,16 @@
 (defbinding source-remove () boolean
   (tag unsigned-int))
 
-(defcallback source-callback-marshal (nil (callback-id unsigned-int))
+(define-callback source-callback-marshal nil ((callback-id unsigned-int))
   (callback-trampoline callback-id 0 nil))
 
 (defbinding (timeout-add "g_timeout_add_full")
     (interval function &optional (priority +priority-default+)) unsigned-int 
   (priority int)
   (interval unsigned-int)
-  ((callback source-callback-marshal) pointer)
+  (source-callback-marshal callback)
   ((register-callback-function function) unsigned-long)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-callback callback))
 
 (defun timeout-remove (timeout)
   (source-remove timeout))
@@ -110,9 +105,9 @@
 (defbinding (idle-add "g_idle_add_full")
     (function &optional (priority +priority-default-idle+)) unsigned-int 
   (priority int)
-  ((callback source-callback-marshal) pointer)
+  (source-callback-marshal callback)
   ((register-callback-function function) unsigned-long)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-callback callback))
 
 (defun idle-remove (idle)
   (source-remove idle))
@@ -283,9 +278,9 @@
     unsigned-int
   ((ensure-signal-id-from-type signal type) unsigned-int)
   (detail quark)
-  ((callback signal-emission-hook) pointer)
+  (signal-emission-hook callback)
   ((register-callback-function function) unsigned-int)
-  ((callback user-data-destroy-func) pointer))
+  (user-data-destroy-callback callback))
 
 (defbinding signal-remove-emission-hook (type signal hook-id) nil
   ((ensure-signal-id-from-type signal type) unsigned-int)
@@ -323,19 +318,17 @@
   (handler-id unsigned-int))
 
 (deftype gclosure () 'pointer)
-(register-type 'gclosure "GClosure")
+(register-type 'gclosure '|g_closure_get_type|)
 
 (defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
   (callback-id unsigned-int) 
-  (callback pointer)
-  (destroy-notify pointer))
+  (callback callback)
+  (destroy-notify callback))
 
 (defun make-callback-closure (function)
   (let ((callback-id (register-callback-function function)))
     (values
-     (callback-closure-new 
-      callback-id (callback closure-marshal) 
-      (callback user-data-destroy-func))
+     (callback-closure-new callback-id closure-marshal user-data-destroy-callback)
      callback-id)))
 
 (defgeneric compute-signal-function (gobject signal function object))
@@ -449,19 +442,41 @@ once."
 
 ;;;; Convenient macros
 
-(defmacro def-callback-marshal (name (return-type &rest args))
-  (let ((names (loop 
-		for arg in args 
-		collect (if (atom arg) (gensym) (first arg))))
-	(types (loop 
-		for arg in args 
-		collect (if (atom arg) arg (second arg)))))
-    `(defcallback ,name (,return-type ,@(mapcar #'list names types)
-			 (callback-id unsigned-int))
-      (invoke-callback callback-id ',return-type ,@names))))
+(defmacro define-callback-marshal (name return-type args &key (callback-id :last))
+  (let* ((ignore ())
+	 (params ())
+	 (names (loop 
+		 for arg in args 
+		 collect (if (or 
+			      (eq arg :ignore) 
+			      (and (consp arg) (eq (first arg) :ignore)))
+			     (let ((name (gensym "IGNORE")))
+			       (push name ignore)
+			       name)
+			   (let ((name (if (atom arg)
+					   (gensym (string arg))
+					 (first arg))))
+			     (push name params)
+			     name))))
+	 (types (loop 
+		 for arg in args 
+		 collect (cond
+			  ((eq arg :ignore) 'pointer)
+			  ((atom arg) arg)
+			  (t (second arg))))))
+    `(define-callback ,name ,return-type 
+       ,(ecase callback-id
+	  (:first `((callback-id unsigned-int) ,@(mapcar #'list names types)))
+	  (:last `(,@(mapcar #'list names types) (callback-id unsigned-int))))
+       (declare (ignore ,@ignore))
+       (invoke-callback callback-id ',return-type ,@params))))
 
 (defmacro with-callback-function ((id function) &body body)
   `(let ((,id (register-callback-function ,function)))
     (unwind-protect
 	 (progn ,@body)
       (destroy-user-data ,id))))
+
+;; For backward compatibility
+(defmacro def-callback-marshal (name (return-type &rest args))
+  `(define-callback-marshal ,name ,return-type ,args))
