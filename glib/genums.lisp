@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: genums.lisp,v 1.17 2006-02-06 18:12:19 espen Exp $
+;; $Id: genums.lisp,v 1.18 2006-02-19 22:25:31 espen Exp $
 
 (in-package "GLIB")
   
@@ -56,6 +56,9 @@
     ,@(%map-enum args :symbol-int)
     (t (error 'type-error :datum ,form :expected-type '(enum ,@args)))))
 
+
+(defmethod callback-from-alien-form (form (type (eql 'enum)) &rest args)
+  (apply #'from-alien-form form type args))
 
 (defmethod from-alien-form (form (type (eql 'enum)) &rest args)
   (declare (ignore type))
@@ -172,6 +175,9 @@
 	       ,@(%map-flags args :symbol-int)
 	       (t (error 'type-error :datum ,flags 
 		   :expected-type '(,type ,@args)))))))
+
+(defmethod callback-from-alien-form (form (type (eql 'flags)) &rest args)
+  (apply #'from-alien-form form type args))
 
 (defmethod from-alien-form (value (type (eql 'flags)) &rest args)
   (declare (ignore type))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.45 2006-02-19 19:27:32 espen Exp $
+;; $Id: gtype.lisp,v 1.46 2006-02-19 22:25:31 espen Exp $
 
 (in-package "GLIB")
 
@@ -376,8 +376,9 @@
   ;; A ginstance should never be invalidated since it is ref counted
   nil)
 
-(defmethod callback-from-alien-form (form (type t) &rest args)
-  (apply #'from-alien-form form type args))
+(defmethod callback-from-alien-form (form (class ginstance-class) &rest args)
+  (declare (ignore args))
+  (from-alien-form form class))
 
 (defmethod copy-from-alien-form (location (class ginstance-class) &rest args)
   (declare (ignore location class args))

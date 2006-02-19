@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.24 2006-02-19 19:17:45 espen Exp $
+;; $Id: ffi.lisp,v 1.25 2006-02-19 22:25:31 espen Exp $
 
 (in-package "GLIB")
 
@@ -274,7 +274,7 @@
       ,@(when documentation `((:documentation ,documentation))))
     (defmethod ,name (,@args (type symbol) &rest args)
       (let ((class (find-class type nil)))
-	(if class 
+	(if (typep class 'standard-class)
 	    (apply #',name ,@args class args)
 	  (multiple-value-bind (super-type expanded-p)
 	      (type-expand-1 (cons type args))
@@ -365,8 +365,11 @@
   (declare (ignore type args))
   #'identity)
 
+;; This does not really work as def-type-method is badly broken and
+;; needs a redesign, so we need to add a lots of redundant methods
 (defmethod callback-from-alien-form (form (type t) &rest args)
-  (apply #'copy-from-alien-form form type args))
+;  (apply #'copy-from-alien-form form type args))
+  (apply #'from-alien-form form type args))
 
 (defmethod callback-cleanup-form (form (type t) &rest args)
   (declare (ignore form type args))
@@ -625,6 +628,9 @@
       (let ((utf8 (%deport-utf8-string string)))
 	(copy-memory (vector-sap utf8) (length utf8)))))
 
+(defmethod callback-from-alien-form (form (type (eql 'string)) &rest args)
+  (apply #'copy-from-alien-form form type args))
+
 (defmethod from-alien-form (string (type (eql 'string)) &rest args)
   (declare (ignore type args))
   `(let ((string ,string))
@@ -654,6 +660,9 @@
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(deallocate-memory string))))
+
+(defmethod callback-from-alien-form (form (type (eql 'string)) &rest args)
+  (apply #'copy-from-alien-form form type args))
 
 (defmethod copy-from-alien-form (string (type (eql 'string)) &rest args)
   (declare (ignore type args))
@@ -776,6 +785,9 @@
   (declare (ignore type args))
   #'(lambda (boolean)
       (if boolean 1 0)))
+
+(defmethod callback-from-alien-form (form (type (eql 'boolean)) &rest args)
+  (apply #'from-alien-form form type args))
 
 (defmethod from-alien-form (boolean (type (eql 'boolean)) &rest args)
   (declare (ignore type args))
