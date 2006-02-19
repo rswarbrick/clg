@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.23 2006-02-06 18:12:19 espen Exp $
+;; $Id: ffi.lisp,v 1.24 2006-02-19 19:17:45 espen Exp $
 
 (in-package "GLIB")
 
@@ -205,33 +205,66 @@
 	  (mapc #'funcall cleanup-arguments args)))))
 
 
+
+;;;; C callbacks
+
+(defmacro define-callback (name return-type args &body body)
+  (let ((define-callback 
+	  #+cmu'alien:def-callback 	              
+	  #+(and sbcl alien-callbacks)'sb-alien::define-alien-callback
+	  #+(and sbcl (not alien-callbacks))'sb-alien:define-alien-function))
+    (multiple-value-bind (doc declaration body)
+	(cond
+	 ((and (stringp (first body)) (eq (cadr body) 'declare))
+	  (values (first body) (second body) (cddr body)))
+	 ((stringp (first body))
+	  (values (first body) nil (rest body)))
+	 ((eq (caar body) 'declare)
+	  (values nil (first body) (rest body)))
+	 (t (values nil nil body)))
+      `(,define-callback ,name 
+	 #+(and sbcl alien-callbacks),(alien-type return-type) 
+         (#+(or cmu (and sbcl (not alien-callbacks))),(alien-type return-type)
+	 ,@(mapcar #'(lambda (arg)
+		       (destructuring-bind (name type) arg
+			 `(,name ,(alien-type type))))
+		   args))
+	 ,@(when doc (list doc))
+	 ,(to-alien-form 
+	   `(let (,@(loop
+		     for (name type) in args
+		     as from-alien-form = (callback-from-alien-form name type)
+		     collect `(,name ,from-alien-form)))
+	      ,@(when declaration (list declaration))
+	      (unwind-protect
+		  (progn ,@body)	      
+ 	      ,@(loop 
+ 		 for (name type) in args
+ 		 do (callback-cleanup-form name type))))
+
+	 return-type)))))
+
+(defun callback-address (callback)
+  #+cmu(alien::callback-trampoline callback)
+  #+(and sbcl (not alien-callbacks))(sb-alien:alien-function-sap callback)
+  #+(and sbcl alien-callbacks)(sb-alien:alien-sap callback))
+
+#+sbcl
+(deftype callback () 
+  #-alien-callbacks'sb-alien:alien-function
+  #+alien-callbacks'sb-alien:alien)
+
+
+;;; These are for backward compatibility
+
 (defmacro defcallback (name (return-type &rest args) &body body)
-  (let ((def-callback #+cmu'alien:def-callback 
-	              #+sbcl'sb-alien:define-alien-function))
-    `(,def-callback ,name 
-         (,(alien-type return-type) 
-	  ,@(mapcar #'(lambda (arg)
-			(destructuring-bind (name type) arg
-			  `(,name ,(alien-type type))))
-		    args))
-       ,(to-alien-form 
-	 `(let (,@(delete nil
-		     (mapcar #'(lambda (arg)
-				 (destructuring-bind (name type) arg
-				   (let ((from-alien 
-					  (from-alien-form name type)))
-				     (unless (eq name from-alien)
-				       `(,name ,from-alien)))))
-		      args)))
-	    ,@body)
-	 return-type))))
+  `(define-callback ,name ,return-type ,args ,@body))
 
-#+sbcl
-(defun callback (af)
-  (sb-alien:alien-function-sap af))
+#-cmu
+(defun callback (callback)
+  (callback-address callback))
 
-#+sbcl
-(deftype callback () 'sb-alien:alien-function)
+
 
 ;;;; Definitons and translations of fundamental types
 
@@ -259,6 +292,8 @@
 (def-type-method from-alien-form (form))
 (def-type-method cleanup-form (form)
   "Creates a form to clean up after the alien call has finished.")
+(def-type-method callback-from-alien-form (form))
+(def-type-method callback-cleanup-form (form))
 
 (def-type-method to-alien-function ())
 (def-type-method from-alien-function ())
@@ -329,6 +364,13 @@
 (defmethod cleanup-function ((type t) &rest args)
   (declare (ignore type args))
   #'identity)
+
+(defmethod callback-from-alien-form (form (type t) &rest args)
+  (apply #'copy-from-alien-form form type args))
+
+(defmethod callback-cleanup-form (form (type t) &rest args)
+  (declare (ignore form type args))
+  nil)
 
 (defmethod destroy-function ((type t) &rest args)
   (declare (ignore type args))
@@ -878,20 +920,20 @@
   (declare (ignore type args))
   (alien-type 'pointer))
 
+#+nil
 (defmethod size-of ((type (eql 'callback)) &rest args)
   (declare (ignore type args))
   (size-of 'pointer))
 
 (defmethod to-alien-form (callback (type (eql 'callback)) &rest args)
   (declare (ignore type args))
-  #+cmu `(callback ,callback)
-  #+sbcl `(sb-alien:alien-function-sap ,callback))
+  `(callback-address ,callback))
 
 (defmethod to-alien-function ((type (eql 'callback)) &rest args)
   (declare (ignore type args))
-  #+cmu #'(lambda (callback) (callback callback))
-  #+sbcl #'sb-alien:alien-function-sap)
+  #'callback-address)
 
+#+nil(
 #+cmu
 (defun find-callback (pointer)
   (find pointer alien::*callbacks* :key #'callback-trampoline :test #'sap=))
@@ -926,3 +968,4 @@
 (defmethod unbound-value ((type (eql 'callback)) &rest args)
   (declare (ignore type args))
   (values t nil))
+)
