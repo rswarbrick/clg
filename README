@@ -14,10 +14,10 @@ http://sourceforge.net/projects/clg.
 Build instructions
 ------------------
 
-1. When building for SBCL you first need to add callback support,
-   since SBCL does not yet has a native callback facility. The
-   following instructions are borrowed from the Common Music
-   installation guide:
+1. If you are using a version of SBCL without native callback support
+   you need to upgrade or add third party callback code. The following 
+   instructions of how to add third party callback support, are borrowed 
+   from the Common Music installation guide:
 
    1. Download Thomas Burdick's Alien Function package¹ and restore it 
       to a directory on your machine.
