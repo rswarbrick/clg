@@ -52,7 +52,7 @@
 	       (signal-connect ,widget 'expose-event
 		#'(lambda (,event)
 		    (declare (ignore ,event))
-		    (let ((,cr (gdk:cairo-create (widget-window ,widget))))
+		    (gdk:with-cairo-context (,cr (widget-window ,widget))
 		      (multiple-value-bind (width height) 
 			  (widget-get-size-allocation ,widget)
 			(cairo:scale ,cr width height))
