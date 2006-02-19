@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.48 2006-02-19 19:31:14 espen Exp $
+;; $Id: gobject.lisp,v 1.49 2006-02-19 22:24:37 espen Exp $
 
 (in-package "GLIB")
 
@@ -74,12 +74,12 @@
 	(cache-instance (find-cached-instance location) t)
       (cache-instance (find-cached-instance location) nil)))
 
-  (defbinding %object-add-toggle-ref () pointer
+  (defbinding %object-add-toggle-ref (location) pointer
     (location pointer)
     (toggle-ref-callback callback)
     (nil null))
 
-  (defbinding %object-remove-toggle-ref () pointer
+  (defbinding %object-remove-toggle-ref (location) pointer
     (location pointer)
     (toggle-ref-callback callback)
     (nil null)))
@@ -97,7 +97,7 @@
   (define-callback weak-ref-callback nil ((data pointer) (location pointer))
     (format t "Object at 0x~8,'0X being finalized~%" (sap-int location)))
   
-  (defbinding %object-weak-ref () pointer
+  (defbinding %object-weak-ref (location) pointer
     (location pointer)
     (weak-ref-callback callback)
     (nil null)))
