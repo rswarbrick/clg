@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.30 2006-02-19 19:31:14 espen Exp $
+;; $Id: gcallback.lisp,v 1.31 2006-02-19 19:53:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -28,6 +28,9 @@
 
 
 ;;;; Callback invokation
+
+(deftype gclosure () 'pointer)
+(register-type 'gclosure '|g_closure_get_type|)
 
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
@@ -316,9 +319,6 @@
 (defbinding signal-handler-is-connected-p () boolean
   (instance ginstance)
   (handler-id unsigned-int))
-
-(deftype gclosure () 'pointer)
-(register-type 'gclosure '|g_closure_get_type|)
 
 (defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
   (callback-id unsigned-int) 
