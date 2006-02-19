@@ -30,6 +30,17 @@
 (when (string>= (lisp-implementation-version) "0.9.8")
   (push :sbcl>=0.9.8 *features*))
 
+#+(and sbcl (not alien-callbacks))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (find-symbol "DEFINE-ALIEN-FUNCTION" "SB-ALIEN")
+    (error "You need to upgrade SBCL to a version with native C callback support or see the README file about how to add third party callbacks to your current SBCL version.")))
+
+#+(and sbcl alien-callbacks)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (find-symbol "DEFINE-ALIEN-FUNCTION" "SB-ALIEN")
+    (error "Third party C callback code detected in a SBCL image with native callback support. As clg now uses native callbacks when available, you need to use a \"clean\" core file.")))
+
+
 (defsystem glib
     :depends-on (clg-tools)
     :components ((:file "defpackage")
