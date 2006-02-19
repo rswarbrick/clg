@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.34 2006-02-15 09:53:42 espen Exp $
+;; $Id: glib.lisp,v 1.35 2006-02-19 22:34:28 espen Exp $
 
 
 (in-package "GLIB")
@@ -47,11 +47,17 @@
   #+sbcl(system-area-ub8-copy from 0 to 0 length)
   to)
 
+(defun clear-memory (from length)
+  #+cmu(system-area-fill 0 0 from 0 (* 8 length))
+  #+sbcl(system-area-ub8-fill 0 from 0 length))
+
 (defmacro with-allocated-memory ((var size) &body body)
   (if (constantp size)
-      (let ((alien (make-symbol "ALIEN")))
-	`(with-alien ((,alien (array #+sbcl(sb-alien:unsigned 8) #+cmu(alien:unsigned 8) ,(eval size))))
+      (let ((alien (make-symbol "ALIEN"))
+	    (size (eval size)))
+	`(with-alien ((,alien (array #+sbcl(sb-alien:unsigned 8) #+cmu(alien:unsigned 8) ,size)))
 	   (let ((,var (alien-sap ,alien)))
+	     (clear-memory ,var ,size)
 	     ,@body)))
     `(let ((,var (allocate-memory ,size)))
        (unwind-protect
