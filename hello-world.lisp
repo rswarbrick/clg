@@ -1,13 +1,11 @@
-(use-package :gtk)
+(gtk:clg-init)
 
-(clg-init)
-
-(make-instance 'window
+(make-instance 'gtk:window
 ; :type :toplevel
  :title "Test"
  :border-width 5
  :visible t :show-children t
- :child (make-instance 'button
+ :child (make-instance 'gtk:button
 	 :label "Hello World!"
 	 :signal (list 'clicked
 		       #'(lambda ()
