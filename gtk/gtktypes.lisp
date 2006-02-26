@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.44 2006-02-26 15:30:01 espen Exp $
+;; $Id: gtktypes.lisp,v 1.45 2006-02-26 23:37:18 espen Exp $
 
 (in-package "GTK")
 
@@ -494,6 +494,22 @@
      :accessor menu-tearoff-state-p
      :initarg :tearoff-state
      :type boolean)))
+
+  ("GtkPlug"
+   :slots
+   ((id
+     :allocation :virtual
+     :getter "gtk_plug_get_id"
+     :reader plug-id
+     :type gdk:native-window)))
+
+  ("GtkSocket"
+   :slots
+   ((id
+     :allocation :virtual
+     :getter "gtk_socket_get_id"
+     :reader socket-id
+     :type gdk:native-window)))
 
   ("GtkToolbar"
    :slots
