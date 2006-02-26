@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.36 2006-02-26 15:30:01 espen Exp $
+;; $Id: proxy.lisp,v 1.37 2006-02-26 16:12:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -450,8 +450,12 @@
 
     (call-next-method))
   
-  ;; TODO: call some C code to detect this a compile time
-  (defconstant +struct-alignmen+ 4)
+  (defconstant +struct-alignmen+
+    #+sbcl (/ (sb-alien-internals:alien-type-alignment
+               (sb-alien-internals:parse-alien-type
+		'system-area-pointer nil))
+	      8)
+    #-sbcl 4)
 
   (defun align-offset (size)
     (if (zerop (mod size +struct-alignmen+))

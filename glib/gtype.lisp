@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.47 2006-02-26 15:30:01 espen Exp $
+;; $Id: gtype.lisp,v 1.48 2006-02-26 16:12:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -30,7 +30,7 @@
 (defbinding type-init () nil)
 (type-init)
 
-(deftype type-number () '(unsigned 32))
+(deftype type-number () 'unsigned-long)
 
 (deftype gtype () 'symbol)
 
@@ -197,7 +197,8 @@
       (unwind-protect
 	  (loop 
 	   as symbol = (let ((line (read-line (process-output process) nil)))
-			 (when line (subseq line 11)))			  
+			 (when line 
+			   (subseq line (1+ (position #\Space line :from-end t)))))
 	   while symbol
 	   when (and
 		 (> (length symbol) 9)

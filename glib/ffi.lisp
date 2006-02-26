@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.27 2006-02-26 15:50:32 espen Exp $
+;; $Id: ffi.lisp,v 1.28 2006-02-26 16:12:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -393,19 +393,48 @@
   "Returns a value which should be intepreted as unbound for slots with virtual allocation")
 
 
+#+sbcl
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun sb-sizeof-bits (type)
+    (sb-alien-internals:alien-type-bits
+     (sb-alien-internals:parse-alien-type type nil)))
+
+  (defun sb-sizeof (type)
+    (/ (sb-sizeof-bits type) 8)))
+
+
 ;; Sizes of fundamental C types in bytes (8 bits)
-(defconstant +size-of-short+ 2)
-(defconstant +size-of-int+ 4)
-(defconstant +size-of-long+ 4)
-(defconstant +size-of-pointer+ 4)
-(defconstant +size-of-float+ 4)
-(defconstant +size-of-double+ 8)
+(defconstant +size-of-short+
+  #+sbcl (sb-sizeof 'sb-alien:short)
+  #-sbcl 2)
+(defconstant +size-of-int+
+  #+sbcl (sb-sizeof 'sb-alien:int)
+  #-sbcl 4)
+(defconstant +size-of-long+
+  #+sbcl (sb-sizeof 'sb-alien:long)
+  #-sbcl 4)
+(defconstant +size-of-pointer+
+  #+sbcl (sb-sizeof 'sb-alien:system-area-pointer)
+  #-sbcl 4)
+(defconstant +size-of-float+
+  #+sbcl (sb-sizeof 'sb-alien:float)
+  #-sbcl 4)
+(defconstant +size-of-double+
+  #+sbcl (sb-sizeof 'sb-alien:double)
+  #-sbcl 8)
+
 
 ;; Sizes of fundamental C types in bits
 (defconstant +bits-of-byte+ 8)
-(defconstant +bits-of-short+ 16)
-(defconstant +bits-of-int+ 32)
-(defconstant +bits-of-long+ 32)
+(defconstant +bits-of-short+
+  #+sbcl (sb-sizeof-bits 'sb-alien:short)
+  #-sbcl 16)
+(defconstant +bits-of-int+
+  #+sbcl (sb-sizeof-bits 'sb-alien:int)
+  #-sbcl 32)
+(defconstant +bits-of-long+
+  #+sbcl (sb-sizeof-bits 'sb-alien:long)
+  #-sbcl 32)
 
 
 (deftype int () '(signed-byte #.+bits-of-int+))
