@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.55 2006-02-26 15:20:46 espen Exp $
+;; $Id: gtk.lisp,v 1.56 2006-02-26 21:19:02 espen Exp $
 
 
 (in-package "GTK")
@@ -2245,13 +2245,22 @@
   (location pointer))
 
 (defun stock-lookup (stock-id)
-  (let ((location 
-	 (allocate-memory (foreign-size (find-class 'stock-item)))))
-    (unwind-protect
-	(when (%stock-lookup stock-id location)
-	  (ensure-proxy-instance 'stock-item (%stock-item-copy location)))
-	(deallocate-memory location))))
+  (with-allocated-memory (stock-item (foreign-size (find-class 'stock-item)))
+    (when (%stock-lookup stock-id stock-item)
+      (ensure-proxy-instance 'stock-item (%stock-item-copy stock-item)))))
 
+#+gtk2.8
+(progn
+  (define-callback-marshal %stock-translate-callback string ((path string)))
+
+  (defbinding (stock-set-translate-function "gtk_stock_set_translate_func") 
+      (domain function) nil
+    (domain string)
+    (%stock-translate-callback callback)
+    ((register-callback-function function) unsigned-int)
+    (user-data-destroy-callback callback)))
+
+  
 
 ;;; Tooltips
 
