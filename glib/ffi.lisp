@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.26 2006-02-26 15:30:00 espen Exp $
+;; $Id: ffi.lisp,v 1.27 2006-02-26 15:50:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -31,7 +31,7 @@
 
 (defun set-package-prefix (prefix &optional (package *package*))
   (let ((package (find-package package)))
-    (delete-if #'(lambda (assoc) (eq (car assoc) package)) *package-prefix*)
+    (setq *package-prefix* (delete package *package-prefix* :key #'car))
     (push (cons package prefix) *package-prefix*))
   prefix)
 
