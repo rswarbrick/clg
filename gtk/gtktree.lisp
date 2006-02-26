@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.15 2006-02-19 19:31:15 espen Exp $
+;; $Id: gtktree.lisp,v 1.16 2006-02-26 15:30:01 espen Exp $
 
 
 (in-package "GTK")
@@ -221,67 +221,67 @@
       (map-c-vector 'vector #'identity indices 'int depth))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmethod alien-type ((type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
+  (define-type-method alien-type ((type tree-path))
+    (declare (ignore type))
     (alien-type 'pointer))
   
-  (defmethod size-of ((type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
+  (define-type-method size-of ((type tree-path))
+    (declare (ignore type))
     (size-of 'pointer))
   
-  (defmethod to-alien-form (path (type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
+  (define-type-method to-alien-form ((type tree-path) path)
+    (declare (ignore type))
     `(%make-tree-path ,path))
   
-  (defmethod from-alien-form (location (type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
+  (define-type-method from-alien-form ((type tree-path) location)
+    (declare (ignore type))
     `(let ((location ,location))
        (prog1
            (%tree-path-to-vector location)
 	 (%tree-path-free location))))
   
-  (defmethod copy-from-alien-form (location (type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
+  (define-type-method copy-from-alien-form ((type tree-path) location)
+    (declare (ignore type))
     `(%tree-path-to-vector ,location))
   
-  (defmethod cleanup-form (location (type (eql 'tree-path)) &rest args)
-    (declare (ignore type args))
+  (define-type-method cleanup-form ((type tree-path) location)
+    (declare (ignore type))
     `(%tree-path-free ,location)))
 
-(defmethod to-alien-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type tree-path))
+  (declare (ignore type))
   #'%make-tree-path)
   
-(defmethod from-alien-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-function ((type tree-path))
+  (declare (ignore type))
   #'(lambda (location)
       (prog1
 	  (%tree-path-to-vector location)
 	(%tree-path-free location))))
 
-(defmethod copy-from-alien-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method copy-from-alien-function ((type tree-path))
+  (declare (ignore type ))
   #'%tree-path-to-vector)
   
-(defmethod cleanup-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method cleanup-function ((type tree-path))
+  (declare (ignore type))
   #'%tree-path-free)
 
-(defmethod writer-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method writer-function ((type tree-path))
+  (declare (ignore type))
   (let ((writer (writer-function 'pointer)))
     #'(lambda (path location &optional (offset 0))
 	(funcall writer (%make-tree-path path) location offset))))
 
-(defmethod reader-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type tree-path))
+  (declare (ignore type))
   (let ((reader (reader-function 'pointer)))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
 	(%tree-path-to-vector (funcall reader location offset)))))
 
-(defmethod destroy-function ((type (eql 'tree-path)) &rest args)
-  (declare (ignore type args))
+(define-type-method destroy-function ((type tree-path))
+  (declare (ignore type))
   (let ((reader (reader-function 'pointer)))
     #'(lambda (location &optional (offset 0))
 	(%tree-path-free (funcall reader location offset)))))
@@ -405,6 +405,7 @@
 
 
 (defun column-types (model columns)
+  (declare (ignore model))
   (map 'vector 
        #'(lambda (column)
 	   (find-type-number (first (mklist column))))
@@ -762,6 +763,7 @@ then the model will sort using this function."
 
 (defmethod initialize-instance ((tree-view tree-view) &rest initargs 
 				&key column)
+  (declare (ignore column))
   (call-next-method)
   (mapc #'(lambda (column)
 	    (tree-view-append-column tree-view column))

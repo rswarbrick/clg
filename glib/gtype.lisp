@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.46 2006-02-19 22:25:31 espen Exp $
+;; $Id: gtype.lisp,v 1.47 2006-02-26 15:30:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -34,40 +34,40 @@
 
 (deftype gtype () 'symbol)
 
-(defmethod alien-type ((type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type gtype))
+  (declare (ignore type))
   (alien-type 'type-number))
 
-(defmethod size-of ((type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type gtype))
+  (declare (ignore type))
   (size-of 'type-number))
 
-(defmethod to-alien-form (gtype (type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type gtype) gtype)
+  (declare (ignore type))
   `(find-type-number ,gtype t)) 
 
-(defmethod to-alien-function ((type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type gtype))
+  (declare (ignore type))
   #'(lambda (gtype)
       (find-type-number gtype t)))
 
-(defmethod from-alien-form (type-number (type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-form ((type gtype) type-number)
+  (declare (ignore type))
   `(type-from-number ,type-number)) 
 
-(defmethod from-alien-function ((type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-function ((type gtype))
+  (declare (ignore type))
   #'(lambda (type-number)
       (type-from-number type-number)))
 
-(defmethod writer-function ((type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method writer-function ((type gtype))
+  (declare (ignore type))
   (let ((writer (writer-function 'type-number)))
     #'(lambda (gtype location &optional (offset 0))
 	(funcall writer (find-type-number gtype t) location offset))))
 
-(defmethod reader-function ((type (eql 'gtype)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type gtype))
+  (declare (ignore type))
   (let ((reader (reader-function 'type-number)))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
@@ -317,8 +317,8 @@
     (when (and
 	   (supertype type-number) 
 	   (not (eq (class-name super) (supertype type-number))))
-      (warn "~A is the super type for ~A in the gobject type system."
-       (supertype type-number) class-name)))
+      (warn "Super class mismatch between CLOS and GObject for ~A"
+       class-name)))
   
   (update-size class))
 
@@ -376,23 +376,18 @@
   ;; A ginstance should never be invalidated since it is ref counted
   nil)
 
-(defmethod callback-from-alien-form (form (class ginstance-class) &rest args)
-  (declare (ignore args))
-  (from-alien-form form class))
-
-(defmethod copy-from-alien-form (location (class ginstance-class) &rest args)
-  (declare (ignore location class args))
+(define-type-method copy-from-alien-form ((type ginstance) location)
+  (declare (ignore location type))
   (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
 
-(defmethod copy-from-alien-function ((class ginstance-class) &rest args)
-  (declare (ignore class args))  
+(define-type-method copy-from-alien-function ((type ginstance))
+  (declare (ignore type))  
   (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
 
-(defmethod reader-function ((class ginstance-class) &rest args)
-  (declare (ignore args))
+(define-type-method reader-function ((type ginstance))
   #'(lambda (location &optional (offset 0) weak-p)
       (declare (ignore weak-p))
-      (ensure-proxy-instance class (sap-ref-sap location offset))))
+      (ensure-proxy-instance type (sap-ref-sap location offset))))
 
 
 ;;;; Registering fundamental types

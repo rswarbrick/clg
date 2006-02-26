@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.14 2006-02-15 09:45:41 espen Exp $
+;; $Id: ginterface.lisp,v 1.15 2006-02-26 15:30:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -62,11 +62,12 @@
 (defmethod shared-initialize ((class ginterface-class) names &key name gtype)
   (declare (ignore names))
   (let* ((class-name (or name (class-name class)))
-	 (type-number
-	  (or
-	   (find-type-number class-name)
-	   (register-type class-name 
-	    (or (first gtype) (default-type-init-name class-name))))))
+;; 	 (type-number
+;; 	  (or
+;; 	   (find-type-number class-name)
+;; 	   (register-type class-name 
+;; 	    (or (first gtype) (default-type-init-name class-name)))))
+	 )
 ;    (type-default-interface-ref type-number)
     )
   (call-next-method))
@@ -76,40 +77,40 @@
   (subtypep (class-name super) 'ginterface))
 
 
-(defmethod alien-type ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method alien-type ((type ginterface))
+  (declare (ignore type))
   (alien-type 'gobject))
 
-(defmethod size-of ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method size-of ((type ginterface))
+  (declare (ignore type))
   (size-of 'gobject))
 
-(defmethod from-alien-form (location (class ginterface-class) &rest args)
-  (declare (ignore class args))
-  (from-alien-form location 'gobject))
+(define-type-method from-alien-form ((type ginterface) location)
+  (declare (ignore type))
+  (from-alien-form 'gobject location))
 
-(defmethod from-alien-function ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method from-alien-function ((type ginterface))
+  (declare (ignore type))
   (from-alien-function 'gobject))
 
-(defmethod to-alien-form (instance (class ginterface-class) &rest args)
-  (declare (ignore class args))
-  (to-alien-form instance 'gobject))
+(define-type-method to-alien-form ((type ginterface) instance)
+  (declare (ignore type))
+  (to-alien-form 'gobject instance))
 
-(defmethod to-alien-function ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method to-alien-function ((type ginterface))
+  (declare (ignore type))
   (to-alien-function 'gobject))
 
-(defmethod reader-function ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method reader-function ((type ginterface))
+  (declare (ignore type))
   (reader-function 'gobject))
 
-(defmethod writer-function ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method writer-function ((type ginterface))
+  (declare (ignore type))
   (writer-function 'gobject))
 
-(defmethod destroy-function ((class ginterface-class) &rest args)
-  (declare (ignore class args))
+(define-type-method destroy-function ((type ginterface))
+  (declare (ignore type))
   (destroy-function 'gobject))
 
 

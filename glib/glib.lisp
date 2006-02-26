@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.35 2006-02-19 22:34:28 espen Exp $
+;; $Id: glib.lisp,v 1.36 2006-02-26 15:30:01 espen Exp $
 
 
 (in-package "GLIB")
@@ -48,7 +48,7 @@
   to)
 
 (defun clear-memory (from length)
-  #+cmu(system-area-fill 0 0 from 0 (* 8 length))
+  #+cmu(vm::system-area-fill 0 from 0 (* 8 length))
   #+sbcl(system-area-ub8-fill 0 from 0 length))
 
 (defmacro with-allocated-memory ((var size) &body body)
@@ -128,7 +128,7 @@
 ;;;; Linked list (GList)
 
 (deftype glist (type) 
-  `(or (null (cons ,type list))))
+  `(or null (cons ,type list)))
 
 (defbinding (%glist-append "g_list_append") () pointer
   (glist pointer)
@@ -179,82 +179,71 @@
    do (funcall destroy tmp 0))
   (glist-free glist))
 
-(defmethod alien-type ((type (eql 'glist)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type glist))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'glist)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type glist))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (list (type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args    
+(define-type-method to-alien-form ((type glist) list)
+  (let ((element-type (second (type-expand-to 'glist type))))
     `(make-glist ',element-type ,list)))
 
-(defmethod to-alien-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args    
+(define-type-method to-alien-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (list)
 	(make-glist element-type list))))
 
-(defmethod from-alien-form (glist (type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method from-alien-form ((type glist) glist)
+  (let ((element-type (second (type-expand-to 'glist type))))
     `(let ((glist ,glist))
       (unwind-protect
 	   (map-glist 'list #'identity glist ',element-type)
 	(destroy-glist glist ',element-type)))))
 
-(defmethod from-alien-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method from-alien-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (glist)
 	(unwind-protect
 	     (map-glist 'list #'identity glist element-type)
 	  (destroy-glist glist element-type)))))
 
-(defmethod copy-from-alien-form (glist (type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-form ((type glist) glist)
+  (let ((element-type (second (type-expand-to 'glist type))))
     `(map-glist 'list #'identity ,glist ',element-type)))
 
-(defmethod copy-from-alien-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (glist)
 	(map-glist 'list #'identity glist element-type))))
 
-(defmethod cleanup-form (glist (type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method cleanup-form ((type glist) glist)
+  (let ((element-type (second (type-expand-to 'glist type))))
     `(destroy-glist ,glist ',element-type)))
 
-(defmethod cleanup-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method cleanup-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (glist)
 	(destroy-glist glist element-type))))
 
-(defmethod writer-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method writer-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (list location &optional (offset 0))
 	(setf 
 	 (sap-ref-sap location offset)
 	 (make-glist element-type list)))))
 
-(defmethod reader-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method reader-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
 
-(defmethod destroy-function ((type (eql 'glist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method destroy-function ((type glist))
+  (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (location &optional (offset 0))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (destroy-glist (sap-ref-sap location offset) element-type)
@@ -264,7 +253,7 @@
 
 ;;;; Single linked list (GSList)
 
-(deftype gslist (type) `(or (null (cons ,type list))))
+(deftype gslist (type) `(or null (cons ,type list)))
 
 (defbinding (%gslist-prepend "g_slist_prepend") () pointer
   (gslist pointer)
@@ -289,82 +278,71 @@
    do (funcall destroy tmp 0))
   (gslist-free gslist))
 
-(defmethod alien-type ((type (eql 'gslist)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type gslist))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'gslist)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type gslist))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (list (type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args    
+(define-type-method to-alien-form ((type gslist) list)
+  (let ((element-type (second (type-expand-to 'gslist type))))
     `(make-sglist ',element-type ,list)))
 
-(defmethod to-alien-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args    
+(define-type-method to-alien-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (list)
 	(make-gslist element-type list))))
 
-(defmethod from-alien-form (gslist (type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method from-alien-form ((type gslist) gslist)
+  (let ((element-type (second (type-expand-to 'gslist type))))
     `(let ((gslist ,gslist))
       (unwind-protect
 	   (map-glist 'list #'identity gslist ',element-type)
 	(destroy-gslist gslist ',element-type)))))
 
-(defmethod from-alien-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method from-alien-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (gslist)
 	(unwind-protect
 	     (map-glist 'list #'identity gslist element-type)
 	  (destroy-gslist gslist element-type)))))
 
-(defmethod copy-from-alien-form (gslist (type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-form ((type gslist) gslist)
+  (let ((element-type (second (type-expand-to 'gslist type))))
     `(map-glist 'list #'identity ,gslist ',element-type)))
 
-(defmethod copy-from-alien-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (gslist)
 	(map-glist 'list #'identity gslist element-type))))
 
-(defmethod cleanup-form (gslist (type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method cleanup-form ((type gslist) gslist)
+  (let ((element-type (second (type-expand-to 'gslist type))))
     `(destroy-gslist ,gslist ',element-type)))
 
-(defmethod cleanup-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method cleanup-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (gslist)
 	(destroy-gslist gslist element-type))))
 
-(defmethod writer-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method writer-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (list location &optional (offset 0))
 	(setf 
 	 (sap-ref-sap location offset)
 	 (make-gslist element-type list)))))
 
-(defmethod reader-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method reader-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
 
-(defmethod destroy-function ((type (eql 'gslist)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method destroy-function ((type gslist))
+  (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (location &optional (offset 0))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (destroy-gslist (sap-ref-sap location offset) element-type)
@@ -428,17 +406,17 @@
   (deallocate-memory location))
 
 
-(defmethod alien-type ((type (eql 'vector)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type vector))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'vector)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type vector))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (vector (type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method to-alien-form ((type vector) vector)
+  (destructuring-bind (element-type &optional (length '*)) 
+      (rest (type-expand-to 'vector type))
     (if (eq length '*)
 	`(let* ((vector ,vector)
 		(location (sap+
@@ -451,9 +429,9 @@
 	  location)	  
       `(make-c-vector ',element-type ,length ,vector))))
 
-(defmethod from-alien-form (c-vector (type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method from-alien-form ((type vector) c-vector)
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     (if (eq length '*)
 	(error "Can't use vector of variable size as return type")
       `(let ((c-vector ,c-vector))
@@ -461,24 +439,24 @@
 	    (map-c-vector 'vector #'identity c-vector ',element-type ,length)
 	  (destroy-c-vector c-vector ',element-type ,length))))))
 
-(defmethod copy-from-alien-form (c-vector (type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method copy-from-alien-form ((type vector) c-vector)
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     (if (eq length '*)
 	(error "Can't use vector of variable size as return type")
       `(map-c-vector 'vector #'identity ,c-vector ',element-type ,length))))
 
-(defmethod copy-from-alien-function ((type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method copy-from-alien-function ((type vector))
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     (if (eq length '*)
 	(error "Can't use vector of variable size as return type")
       #'(lambda (c-vector)
 	  (map-c-vector 'vector #'identity c-vector element-type length)))))
 
-(defmethod cleanup-form (location (type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method cleanup-form ((type vector) location)
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     `(let* ((location ,location)
 	    (length ,(if (eq length '*)
 			 `(sap-ref-32 location ,(- +size-of-int+))
@@ -492,17 +470,26 @@
 			      `(sap+ location  ,(- +size-of-int+))
 			    'location)))))
 
-(defmethod writer-function ((type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+;; We need these so that we can specify vectors with length given as
+;; a non constant in callbacks
+(define-type-method callback-from-alien-form ((type vector) form)
+  (copy-from-alien-form type form))
+(define-type-method callback-cleanup-form ((type vector) form)
+  (declare (ignore type form))
+  nil)
+
+
+(define-type-method writer-function ((type vector))
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     #'(lambda (vector location &optional (offset 0))
 	(setf 
 	 (sap-ref-sap location offset)
 	 (make-c-vector element-type length vector)))))
 
-(defmethod reader-function ((type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method reader-function ((type vector))
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     (if (eq length '*)
 	(error "Can't create reader function for vector of variable size")
       #'(lambda (location &optional (offset 0) weak-p)
@@ -511,9 +498,9 @@
 	    (map-c-vector 'vector #'identity (sap-ref-sap location offset) 
 	     element-type length))))))
 
-(defmethod destroy-function ((type (eql 'vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type &optional (length '*)) args
+(define-type-method destroy-function ((type vector))
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'vector type))
     (if (eq length '*)
 	(error "Can't create destroy function for vector of variable size")
       #'(lambda (location &optional (offset 0))
@@ -581,40 +568,40 @@
 
 (deftype null-terminated-vector (element-type) `(vector ,element-type))
 
-(defmethod alien-type ((type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type null-terminated-vector))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type null-terminated-vector))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (vector (type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method to-alien-form ((type null-terminated-vector) vector)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     `(make-0-vector ',element-type ,vector)))
 
-(defmethod from-alien-form (c-vector (type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method from-alien-form ((type null-terminated-vector) c-vector)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     `(let ((c-vector ,c-vector))
        (prog1
 	   (map-0-vector 'vector #'identity c-vector ',element-type)
 	 (destroy-0-vector c-vector ',element-type)))))
 
-(defmethod copy-from-alien-form (c-vector (type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-form ((type null-terminated-vector) c-vector)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     `(map-0-vector 'vector #'identity ,c-vector ',element-type)))
 
-(defmethod cleanup-form (location (type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method cleanup-form ((type null-terminated-vector) location)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     `(destroy-0-vector ,location ',element-type)))
 
-(defmethod writer-function ((type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method writer-function ((type null-terminated-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
     #'(lambda (vector location &optional (offset 0))
@@ -622,9 +609,9 @@
 	 (sap-ref-sap location offset)
 	 (make-0-vector element-type vector)))))
 
-(defmethod reader-function ((type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method reader-function ((type null-terminated-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
     #'(lambda (location &optional (offset 0) weak-p)
@@ -633,9 +620,9 @@
 	  (map-0-vector 'vector #'identity (sap-ref-sap location offset) 
 	   element-type)))))
 
-(defmethod destroy-function ((type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method destroy-function ((type null-terminated-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'null-terminated-vector type))
     (unless (eq (alien-type element-type) (alien-type 'pointer))
       (error "Elements in null-terminated vectors need to be of pointer types"))
     #'(lambda (location &optional (offset 0))
@@ -644,9 +631,11 @@
 	     (sap-ref-sap location offset) element-type)
 	    (setf (sap-ref-sap location offset) (make-pointer 0))))))
 
-(defmethod unbound-value ((type (eql 'null-terminated-vector)) &rest args)
-  (declare (ignore type args))
-  (values t nil))
+(define-type-method unbound-value ((type null-terminated-vector))
+  (declare (ignore type))
+  nil)
+
+
 
 
 ;;; Counted vector
@@ -677,63 +666,63 @@
 
 (deftype counted-vector (element-type) `(vector ,element-type))
 
-(defmethod alien-type ((type (eql 'counted-vector)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type counted-vector))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'counted-vector)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type counted-vector))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (vector (type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method to-alien-form ((type counted-vector) vector)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     `(make-counted-vector ',element-type ,vector)))
 
-(defmethod from-alien-form (c-vector (type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method from-alien-form ((type counted-vector) c-vector)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     `(let ((c-vector ,c-vector))
        (prog1
 	   (map-counted-vector 'vector #'identity c-vector ',element-type)
 	 (destroy-counted-vector c-vector ',element-type)))))
 
-(defmethod copy-from-alien-form (c-vector (type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-form ((type counted-vector) c-vector)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     `(map-counted-vector 'vector #'identity ,c-vector ',element-type)))
 
-(defmethod copy-from-alien-function ((type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method copy-from-alien-function ((type counted-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     #'(lambda (c-vector)
 	(map-counted-vector 'vector #'identity c-vector element-type))))
 
-(defmethod cleanup-form (location (type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method cleanup-form ((type counted-vector) location)
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     `(destroy-counted-vector ,location ',element-type)))
 
-(defmethod writer-function ((type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method writer-function ((type counted-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     #'(lambda (vector location &optional (offset 0))
 	(setf 
 	 (sap-ref-sap location offset)
 	 (make-counted-vector element-type vector)))))
 
-(defmethod reader-function ((type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method reader-function ((type counted-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (map-counted-vector 'vector #'identity 
 	   (sap-ref-sap location offset) element-type)))))
 
-(defmethod destroy-function ((type (eql 'counted-vector)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (element-type) args
+(define-type-method destroy-function ((type counted-vector))
+  (destructuring-bind (element-type)
+      (rest (type-expand-to 'counted-vector type))
     #'(lambda (location &optional (offset 0))
 	(unless (null-pointer-p (sap-ref-sap location offset))
 	  (destroy-counted-vector 

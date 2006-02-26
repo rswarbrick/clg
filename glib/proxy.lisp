@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.35 2006-02-19 19:23:23 espen Exp $
+;; $Id: proxy.lisp,v 1.36 2006-02-26 15:30:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -124,11 +124,14 @@
 			      (mkbinding boundp
 			       (slot-definition-type slotd) 'pointer)))
 			   (funcall reader (foreign-location object))))))))
-	((multiple-value-bind (unbound-p unbound-value)
-	     (unbound-value (slot-definition-type slotd))
-	   (when unbound-p
-	     #'(lambda (object)
-		 (not (eq (funcall getter-function object) unbound-value))))))
+	((let ((unbound-value-method
+		(find-applicable-type-method 'unbound-value 
+		 (slot-definition-type slotd) nil)))
+	   (when unbound-value-method
+	     (let ((unbound-value 
+		    (funcall unbound-value-method (slot-definition-type slotd))))
+	       #'(lambda (object)
+		   (not (eq (funcall getter-function object) unbound-value)))))))
 	(#'(lambda (object) (declare (ignore object)) t))))
 
       (setf
@@ -148,10 +151,13 @@
 	       (and
 		(funcall boundp-function object)
 		(funcall getter-function object)))))
-	((multiple-value-bind (unbound-p unbound-value)
-	     (unbound-value (slot-definition-type slotd))
-	   (let ((slot-name (slot-definition-name slotd)))
-	     (when unbound-p
+	((let ((unbound-value-method
+		(find-applicable-type-method 'unbound-value 
+		 (slot-definition-type slotd) nil)))
+	   (when unbound-value-method
+	     (let ((unbound-value 
+		    (funcall unbound-value-method (slot-definition-type slotd)))
+		   (slot-name (slot-definition-name slotd)))
 	       #'(lambda (object)
 		   (let ((value (funcall getter-function object)))
 		     (if (eq value unbound-value)
@@ -339,7 +345,7 @@
   (print-unreadable-object (instance stream :type t :identity nil)
     (if (slot-boundp instance 'location)
 	(format stream "at 0x~X" (sap-int (foreign-location instance)))
-      (write-string "at \"unbound\"" stream))))
+      (write-string "at <unbound>" stream))))
 
 (defmethod initialize-instance :around ((instance proxy) &rest initargs &key &allow-other-keys) 
   (setf  
@@ -481,75 +487,73 @@
   (foreign-size (class-of object)))
   
 
-(defmethod alien-type ((class proxy-class) &rest args)
-  (declare (ignore class args))
+(define-type-method alien-type ((class proxy))
+  (declare (ignore class))
   (alien-type 'pointer))
 
-(defmethod size-of ((class proxy-class) &rest args)
-  (declare (ignore class args))
+(define-type-method size-of ((class proxy))
+  (declare (ignore class))
   (size-of 'pointer))
 
-(defmethod from-alien-form (location (class proxy-class) &rest args)
-  (declare (ignore args))
-  `(ensure-proxy-instance ',(class-name class) ,location))
+(define-type-method from-alien-form ((type proxy) location)
+  (let ((class (type-expand type)))
+    `(ensure-proxy-instance ',class ,location)))
 
-(defmethod from-alien-function ((class proxy-class) &rest args)
-  (declare (ignore args))  
-  #'(lambda (location)
-      (ensure-proxy-instance class location)))
+(define-type-method from-alien-function ((type proxy))
+  (let ((class (type-expand type)))
+    #'(lambda (location)
+	(ensure-proxy-instance class location))))
 
-(defmethod to-alien-form (instance (class proxy-class) &rest args)
-  (declare (ignore class args))
+(define-type-method to-alien-form ((type proxy) instance)
+  (declare (ignore type))
   `(foreign-location ,instance))
 
-(defmethod to-alien-function ((class proxy-class) &rest args)
-  (declare (ignore class args))
+(define-type-method to-alien-function ((type proxy))
+  (declare (ignore type))
   #'foreign-location)
 
-(defmethod copy-from-alien-form (location (class proxy-class) &rest args)
-  (declare (ignore args))
-  (let ((class-name (class-name class)))
-    `(ensure-proxy-instance ',class-name
-      (reference-foreign ',class-name ,location))))
+(define-type-method copy-from-alien-form ((type proxy) location)
+  (let ((class (type-expand type)))
+    `(ensure-proxy-instance ',class (reference-foreign ',class ,location))))
 
-(defmethod copy-from-alien-function ((class proxy-class) &rest args)
-  (declare (ignore args))  
-  #'(lambda (location)
-      (ensure-proxy-instance class (reference-foreign class location))))
+(define-type-method copy-from-alien-function ((type proxy))
+  (let ((class (type-expand type)))
+    #'(lambda (location)
+	(ensure-proxy-instance class (reference-foreign class location)))))
 
-(defmethod copy-to-alien-form (instance (class proxy-class) &rest args)
-  (declare (ignore args))
-  `(reference-foreign ',(class-name class) (foreign-location ,instance)))
+(define-type-method copy-to-alien-form ((type proxy) instance)
+  (let ((class (type-expand type)))
+    `(reference-foreign ',class (foreign-location ,instance))))
 
-(defmethod copy-to-alien-function ((class proxy-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (instance)
-      (reference-foreign class (foreign-location instance))))
+(define-type-method copy-to-alien-function ((type proxy))
+  (let ((class (type-expand type)))
+    #'(lambda (instance)
+	(reference-foreign class (foreign-location instance)))))
 
-(defmethod writer-function ((class proxy-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (instance location &optional (offset 0))
-      (assert (null-pointer-p (sap-ref-sap location offset)))
-      (setf 
-       (sap-ref-sap location offset)
-       (reference-foreign class (foreign-location instance)))))
+(define-type-method writer-function ((type proxy))
+  (let ((class (type-expand type)))
+    #'(lambda (instance location &optional (offset 0))
+	(assert (null-pointer-p (sap-ref-sap location offset)))
+	(setf 
+	 (sap-ref-sap location offset)
+	 (reference-foreign class (foreign-location instance))))))
 
-(defmethod reader-function ((class proxy-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (location &optional (offset 0) weak-p)
-      (declare (ignore weak-p))
-      (let ((instance (sap-ref-sap location offset)))
-	(unless (null-pointer-p instance)
-	  (ensure-proxy-instance class (reference-foreign class instance))))))
+(define-type-method reader-function ((type proxy))
+  (let ((class (type-expand type)))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
+	(let ((instance (sap-ref-sap location offset)))
+	  (unless (null-pointer-p instance)
+	    (ensure-proxy-instance class (reference-foreign class instance)))))))
 
-(defmethod destroy-function ((class proxy-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (location &optional (offset 0))
-      (unreference-foreign class (sap-ref-sap location offset))))
+(define-type-method destroy-function ((type proxy))
+  (let ((class (type-expand type)))
+    #'(lambda (location &optional (offset 0))
+	(unreference-foreign class (sap-ref-sap location offset)))))
 
-(defmethod unbound-value ((class proxy-class) &rest args)
-  (declare (ignore args))
-  (values t nil))
+(define-type-method unbound-value ((type proxy))
+  (declare (ignore type))
+  nil)
 
 (defun ensure-proxy-instance (class location &rest initargs)
   "Returns a proxy object representing the foreign object at the give
@@ -603,8 +607,9 @@ will not be released when the proxy is garbage collected."))
 
 ;;;; Metaclasses used for subclasses of struct
 
-(defclass struct-class (proxy-class)
-  ())
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass struct-class (proxy-class)
+    ()))
 
 (defmethod direct-slot-definition-class ((class struct-class) &rest initargs)
   (if (not (getf initargs :allocation))
@@ -631,14 +636,22 @@ will not be released when the proxy is garbage collected."))
 	  (setf (slot-value class 'size) (+ size (mod size +struct-alignmen+)))))
       slots))
 
-(defmethod reader-function ((class struct-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (location &optional (offset 0) weak-p)
-      (let ((instance (sap-ref-sap location offset)))
-	(unless (null-pointer-p instance)
-	  (if weak-p
-	      (ensure-proxy-instance class instance :weak t)
-	    (ensure-proxy-instance class (reference-foreign class instance)))))))
+(define-type-method callback-from-alien-form ((type struct) form)
+  (let ((class (type-expand type)))
+    `(ensure-proxy-instance ',class ,form :weak t)))
+
+(define-type-method callback-cleanup-form ((type struct) form)
+  (declare (ignore type))
+  `(invalidate-instance ,form))
+
+(define-type-method reader-function ((type struct))
+  (let ((class (type-expand type)))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(let ((instance (sap-ref-sap location offset)))
+	  (unless (null-pointer-p instance)
+	    (if weak-p
+		(ensure-proxy-instance class instance :weak t)
+	      (ensure-proxy-instance class (reference-foreign class instance))))))))
 
 
 (defclass static-struct-class (struct-class)
@@ -652,45 +665,24 @@ will not be released when the proxy is garbage collected."))
   (declare (ignore class location))
   nil)
 
-(defmethod reader-function ((class struct-class) &rest args)
-  (declare (ignore args))
-  #'(lambda (location &optional (offset 0) weak-p)
-      (declare (ignore weak-p))
-      (let ((instance (sap-ref-sap location offset)))
-	(unless (null-pointer-p instance)
-	  (ensure-proxy-instance class instance :weak t)))))
-
-(defmethod callback-from-alien-form (form (class struct-class) &rest args)
-  `(ensure-proxy-instance ',(class-name class) ,form :weak t))
-
-(defmethod callback-cleanup-form (form (class struct-class) &rest args)
-  (declare (ignore class))
-  `(invalidate-instance ,form))
-
-
 ;;; Pseudo type for structs which are inlined in other objects
 
-(defmethod size-of ((type (eql 'inlined)) &rest args)
-  (declare (ignore type))
-  (foreign-size (first args)))
+(deftype inlined (type) type)
 
-(defmethod reader-function ((type (eql 'inlined)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (class) args
+(define-type-method size-of ((type inlined))
+  (let ((class (type-expand (second type))))
+    (foreign-size class)))
+
+(define-type-method reader-function ((type inlined))
+  (let ((class (type-expand (second type))))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
 	(ensure-proxy-instance class 
 	 (reference-foreign class (sap+ location offset))))))
 
-(defmethod writer-function ((type (eql 'inlined)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (class) args
+(define-type-method writer-function ((type inlined))
+  (let ((class (type-expand (second type))))
     #'(lambda (instance location &optional (offset 0))
 	(copy-memory (foreign-location instance) (foreign-size class) (sap+ location offset)))))
-
-(defmethod destroy-function ((type (eql 'inlined)) &rest args)
-  (declare (ignore args))
-  #'(lambda (location &optional (offset 0))
-      (declare (ignore location offset))))
 
 (export 'inlined)

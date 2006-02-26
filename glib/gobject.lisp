@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.49 2006-02-19 22:24:37 espen Exp $
+;; $Id: gobject.lisp,v 1.50 2006-02-26 15:30:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -66,6 +66,7 @@
 (progn
   (define-callback toggle-ref-callback nil
       ((data pointer) (location pointer) (last-ref-p boolean))
+    (declare (ignore data))
     #+debug-ref-counting
     (if last-ref-p
 	(format t "Object at 0x~8,'0X has no foreign references~%" (sap-int location))
@@ -215,7 +216,6 @@
     (setf (slot-value class 'instance-slots-p) t)))
 
 
-
 ;;;; Super class for all classes in the GObject type hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -224,6 +224,9 @@
      (ref-count :allocation :alien :type int :reader ref-count))
     (:metaclass gobject-class)
     (:gtype "GObject")))
+
+(define-type-method callback-from-alien-form ((type gobject) form)
+  (from-alien-form type form))
 
 #+debug-ref-counting
 (defmethod print-object ((instance gobject) stream)
@@ -554,16 +557,17 @@
 ;;; Pseudo type for gobject instances which have their reference count
 ;;; increased by the returning function
 
-(defmethod alien-type ((type (eql 'referenced)) &rest args)
-  (declare (ignore type args))
+;; (deftype referenced (type) type)
+
+(define-type-method alien-type ((type referenced))
+  (declare (ignore type))
   (alien-type 'gobject))
 
-(defmethod from-alien-form (form (type (eql 'referenced)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (type) args
+(define-type-method from-alien-form ((type referenced) form)
+  (let ((type (second type)))
     (if (subtypep type 'gobject)
 	(let ((instance (make-symbol "INSTANCE")))
-	  `(let ((,instance ,(from-alien-form form type)))
+	  `(let ((,instance ,(from-alien-form type form)))
 	     (when ,instance
 	       (%object-unref (foreign-location ,instance)))
 	     ,instance))

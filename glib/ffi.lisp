@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.25 2006-02-19 22:25:31 espen Exp $
+;; $Id: ffi.lisp,v 1.26 2006-02-26 15:30:00 espen Exp $
 
 (in-package "GLIB")
 
@@ -112,7 +112,7 @@
 			   ((and (namep expr) (eq style :out)) expr)
 			   ((namep expr) (make-symbol (string expr)))
 			   ((gensym)))
-			  expr (mklist type) style) args)))))
+			  expr type style) args)))))
       
       (%defbinding
        c-name lisp-name (or supplied-lambda-list (nreverse lambda-list))
@@ -125,7 +125,7 @@
     (dolist (arg args)
       (destructuring-bind (var expr type style) arg
 	(let ((declaration (alien-type type))
-	      (cleanup (cleanup-form var type)))
+	      (cleanup (cleanup-form type var)))
 
 	  (cond
 	    ((member style '(:out :in-out))
@@ -134,25 +134,25 @@
 	     (alien-bindings
 	      `(,var ,declaration
 		,@(cond 
-		   ((eq style :in-out) (list (to-alien-form expr type)))
+		   ((eq style :in-out) (list (to-alien-form type expr)))
 		   ((eq declaration 'system-area-pointer) 
 		    (list '(make-pointer 0))))))
-	     (return-values (from-alien-form var type)))
+	     (return-values (from-alien-form type var)))
 	    ((eq style :return)
 	     (alien-types declaration)
 	     (alien-bindings
-	      `(,var ,declaration ,(to-alien-form expr type)))
+	      `(,var ,declaration ,(to-alien-form type expr)))
 	     (alien-parameters var)
-	     (return-values (from-alien-form var type)))
+	     (return-values (from-alien-form type var)))
 	    (cleanup
 	     (alien-types declaration)
 	     (alien-bindings
-	      `(,var ,declaration ,(to-alien-form expr type)))
+	      `(,var ,declaration ,(to-alien-form type expr)))
 	     (alien-parameters var)
 	     (cleanup-forms cleanup))
 	    (t
 	     (alien-types declaration)
-	     (alien-parameters (to-alien-form expr type)))))))
+	     (alien-parameters (to-alien-form type expr)))))))
 
     (let* ((alien-name (make-symbol (string lisp-name)))
 	   (alien-funcall `(alien-funcall ,alien-name ,@(alien-parameters))))
@@ -169,7 +169,7 @@
 	   ,(if return-type
 		`(values
 		  (unwind-protect 
-		      ,(from-alien-form alien-funcall return-type)
+		      ,(from-alien-form return-type alien-funcall)
 		    ,@(cleanup-forms))
 		  ,@(return-values))
 	      `(progn
@@ -222,27 +222,27 @@
 	 ((eq (caar body) 'declare)
 	  (values nil (first body) (rest body)))
 	 (t (values nil nil body)))
-      `(,define-callback ,name 
-	 #+(and sbcl alien-callbacks),(alien-type return-type) 
-         (#+(or cmu (and sbcl (not alien-callbacks))),(alien-type return-type)
-	 ,@(mapcar #'(lambda (arg)
-		       (destructuring-bind (name type) arg
-			 `(,name ,(alien-type type))))
-		   args))
-	 ,@(when doc (list doc))
-	 ,(to-alien-form 
-	   `(let (,@(loop
+      `(progn
+	 #+cmu(defparameter ,name nil)
+	 (,define-callback ,name 
+	   #+(and sbcl alien-callbacks),(alien-type return-type) 
+	   (#+(or cmu (and sbcl (not alien-callbacks))),(alien-type return-type)
+	   ,@(mapcar #'(lambda (arg)
+			 (destructuring-bind (name type) arg
+			   `(,name ,(alien-type type))))
+		     args))
+	   ,@(when doc (list doc))
+	   ,(to-alien-form return-type
+	     `(let (,@(loop
+		       for (name type) in args
+		       as from-alien-form = (callback-from-alien-form type name)
+		       collect `(,name ,from-alien-form)))
+		,@(when declaration (list declaration))
+		(unwind-protect
+		    (progn ,@body)
+		  ,@(loop 
 		     for (name type) in args
-		     as from-alien-form = (callback-from-alien-form name type)
-		     collect `(,name ,from-alien-form)))
-	      ,@(when declaration (list declaration))
-	      (unwind-protect
-		  (progn ,@body)	      
- 	      ,@(loop 
- 		 for (name type) in args
- 		 do (callback-cleanup-form name type))))
-
-	 return-type)))))
+		     do (callback-cleanup-form type name))))))))))
 
 (defun callback-address (callback)
   #+cmu(alien::callback-trampoline callback)
@@ -266,50 +266,131 @@
 
 
 
-;;;; Definitons and translations of fundamental types
+;;;; The "type method" system
 
-(defmacro def-type-method (name args &optional documentation)
-  `(progn
-    (defgeneric ,name (,@args type &rest args)
-      ,@(when documentation `((:documentation ,documentation))))
-    (defmethod ,name (,@args (type symbol) &rest args)
-      (let ((class (find-class type nil)))
-	(if (typep class 'standard-class)
-	    (apply #',name ,@args class args)
-	  (multiple-value-bind (super-type expanded-p)
-	      (type-expand-1 (cons type args))
-	    (if expanded-p
-		(,name ,@args super-type)
-	      (call-next-method))))))
-    (defmethod ,name (,@args (type cons) &rest args)
-      (declare (ignore args))
-      (apply #',name ,@args (first type) (rest type)))))
-    
+(defun find-applicable-type-method (name type-spec &optional (error-p t))
+  (let ((type-methods (get name 'type-methods)))
+    (labels ((search-method-in-cpl-order (classes)
+	       (when classes
+		 (or 
+		  (gethash (class-name (first classes)) type-methods)
+		  (search-method-in-cpl-order (rest classes)))))
+	     (lookup-method (type-spec)
+	       (if (and (symbolp type-spec) (find-class type-spec nil))
+		   (search-method-in-cpl-order
+		    (class-precedence-list (find-class type-spec)))
+		 (or 
+		  (let ((specifier (etypecase type-spec
+				     (symbol type-spec)
+				     (list (first type-spec)))))
+		    (gethash specifier type-methods))
+		  (multiple-value-bind (expanded-type expanded-p) 
+		      (type-expand-1 type-spec)
+		    (when expanded-p
+		      (lookup-method expanded-type))))))
+	     (search-built-in-type-hierarchy (sub-tree)
+               (when (subtypep type-spec (first sub-tree))
+		 (or
+		  (search-nodes (cddr sub-tree))
+		  (second sub-tree))))
+	     (search-nodes (nodes)
+	       (loop
+		for node in nodes
+		as function = (search-built-in-type-hierarchy node)
+		until function
+		finally (return function))))
+    (or 
+     (lookup-method type-spec)
+     ;; This is to handle unexpandable types whichs doesn't name a class
+     (unless (and (symbolp type-spec) (find-class type-spec nil))
+       (search-nodes (get name 'built-in-type-hierarchy)))
+     (and 
+      error-p
+      (error "No applicable type method for ~A when call width type specifier ~A" name type-spec))))))
 
-(def-type-method alien-type ())
-(def-type-method size-of ())
-(def-type-method to-alien-form (form))
-(def-type-method from-alien-form (form))
-(def-type-method cleanup-form (form)
+
+(defun insert-type-in-hierarchy (specifier function nodes)
+  (cond
+   ((let ((node (find specifier nodes :key #'first)))
+      (when node
+	(setf (second node) function)
+	nodes)))
+   ((let ((node
+	   (find-if 
+	    #'(lambda (node)
+		(subtypep specifier (first node)))
+	    nodes)))
+      (when node
+	(setf (cddr node) 
+	 (insert-type-in-hierarchy specifier function (cddr node)))
+	nodes)))
+   ((let ((sub-nodes (remove-if-not 
+		      #'(lambda (node)
+			  (subtypep (first node) specifier))
+		      nodes)))
+      (cons
+       (list* specifier function sub-nodes)
+       (nset-difference nodes sub-nodes))))))
+
+
+(defun add-type-method (name specifier function)
+  (setf (gethash specifier (get name 'type-methods)) function)
+  (when (typep (find-class specifier nil) 'built-in-class)
+    (setf (get name 'built-in-type-hierarchy)
+     (insert-type-in-hierarchy specifier function 
+      (get name 'built-in-type-hierarchy)))))
+
+
+;; TODO: handle optional, key and rest arguments
+(defmacro define-type-generic (name lambda-list &optional documentation)
+  (if (or 
+       (not lambda-list) 
+       (find (first lambda-list) '(&optional &key &rest &allow-other-keys)))
+      (error "A type generic needs at least one required argument")
+    `(progn 
+       (setf (get ',name 'type-methods) (make-hash-table))
+       (setf (get ',name 'built-in-type-hierarchy) ())
+       (defun ,name ,lambda-list
+	 ,documentation
+	 (funcall 
+	  (find-applicable-type-method ',name ,(first lambda-list))
+	  ,@lambda-list)))))
+
+
+(defmacro define-type-method (name lambda-list &body body)
+  (let ((specifier (cadar lambda-list))
+	(args (cons (caar lambda-list) (rest lambda-list))))
+    `(progn
+       (add-type-method ',name ',specifier #'(lambda ,args ,@body))
+       ',name)))
+
+
+
+;;;; Definitons and translations of fundamental types    
+
+(define-type-generic alien-type (type-spec))
+(define-type-generic size-of (type-spec))
+(define-type-generic to-alien-form (type-spec form))
+(define-type-generic from-alien-form (type-spec form))
+(define-type-generic cleanup-form (type-spec form)
   "Creates a form to clean up after the alien call has finished.")
-(def-type-method callback-from-alien-form (form))
-(def-type-method callback-cleanup-form (form))
+(define-type-generic callback-from-alien-form (type-spec form))
+(define-type-generic callback-cleanup-form (type-spec form))
 
-(def-type-method to-alien-function ())
-(def-type-method from-alien-function ())
-(def-type-method cleanup-function ())
+(define-type-generic to-alien-function (type-spec))
+(define-type-generic from-alien-function (type-spec))
+(define-type-generic cleanup-function (type-spec))
 
-(def-type-method copy-to-alien-form (form))
-(def-type-method copy-to-alien-function ())
-(def-type-method copy-from-alien-form (form))
-(def-type-method copy-from-alien-function ())
+(define-type-generic copy-to-alien-form (type-spec form))
+(define-type-generic copy-to-alien-function (type-spec))
+(define-type-generic copy-from-alien-form (type-spec form))
+(define-type-generic copy-from-alien-function (type-spec))
+(define-type-generic writer-function (type-spec))
+(define-type-generic reader-function (type-spec))
+(define-type-generic destroy-function (type-spec))
 
-(def-type-method writer-function ())
-(def-type-method reader-function ())
-(def-type-method destroy-function ())
-
-(def-type-method unbound-value ()
-  "First return value is true if the type has an unbound value, second return value is the actual unbound value")
+(define-type-generic unbound-value (type-spec)
+  "Returns a value which should be intepreted as unbound for slots with virtual allocation")
 
 
 ;; Sizes of fundamental C types in bytes (8 bits)
@@ -337,86 +418,114 @@
 (deftype unsigned (&optional (size '*)) `(unsigned-byte ,size))
 (deftype char () 'base-char)
 (deftype pointer () 'system-area-pointer)
-(deftype boolean (&optional (size '*)) (declare (ignore size)) `(member t nil))
-;(deftype invalid () nil)
+(deftype boolean (&optional (size '*)) (declare (ignore size)) t)
+(deftype copy-of (type) type)
 
+(define-type-method alien-type ((type t))
+  (error "No alien type corresponding to the type specifier ~A" type))
 
-(defmethod to-alien-form (form (type t) &rest args)
-  (declare (ignore type args))
-  form)
+(define-type-method to-alien-form ((type t) form)
+  (declare (ignore form))
+  (error "Not a valid type specifier for arguments: ~A" type))
 
-(defmethod to-alien-function ((type t) &rest args)
-  (declare (ignore type args))
-  #'identity)
+(define-type-method to-alien-function ((type t))
+  (error "Not a valid type specifier for arguments: ~A" type))
 
-(defmethod from-alien-form (form (type t) &rest args)
-  (declare (ignore type args))
-  form)
+(define-type-method from-alien-form ((type t) form)
+  (declare (ignore form))
+  (error "Not a valid type specifier for return values: ~A" type))
 
-(defmethod from-alien-function ((type t) &rest args)
-  (declare (ignore type args))
-  #'identity)
+(define-type-method from-alien-function ((type t))
+  (error "Not a valid type specifier for return values: ~A" type))
  
-(defmethod cleanup-form (form (type t) &rest args)
-  (declare (ignore form type args))
+(define-type-method cleanup-form ((type t) form)
+  (declare (ignore form type))
   nil)
 
-(defmethod cleanup-function ((type t) &rest args)
-  (declare (ignore type args))
+(define-type-method cleanup-function ((type t))
+  (declare (ignore type))
   #'identity)
 
-;; This does not really work as def-type-method is badly broken and
-;; needs a redesign, so we need to add a lots of redundant methods
-(defmethod callback-from-alien-form (form (type t) &rest args)
-;  (apply #'copy-from-alien-form form type args))
-  (apply #'from-alien-form form type args))
+(define-type-method callback-from-alien-form ((type t) form)
+  (copy-from-alien-form type form))
 
-(defmethod callback-cleanup-form (form (type t) &rest args)
-  (declare (ignore form type args))
+(define-type-method callback-cleanup-form ((type t) form)
+  (declare (ignore form type))
   nil)
 
-(defmethod destroy-function ((type t) &rest args)
-  (declare (ignore type args))
+(define-type-method destroy-function ((type t))
+  (declare (ignore type))
   #'(lambda (location &optional offset)
       (declare (ignore location offset))))
 
-(defmethod copy-to-alien-form  (form (type t) &rest args)
-  (apply #'to-alien-form form type args))
+(define-type-method copy-to-alien-form ((type t) form)
+  (to-alien-form type form))
 
-(defmethod copy-to-alien-function  ((type t) &rest args)
-  (apply #'to-alien-function type args))
+(define-type-method copy-to-alien-function ((type t))
+  (to-alien-function type))
 
-(defmethod copy-from-alien-form  (form (type t) &rest args)
-  (apply #'from-alien-form form type args))
+(define-type-method copy-from-alien-form ((type t) form)
+  (from-alien-form type  form))
 
-(defmethod copy-from-alien-function  ((type t) &rest args)
-  (apply #'from-alien-function type args))
+(define-type-method copy-from-alien-function ((type t))
+  (from-alien-function type))
 
-(defmethod alien-type ((type (eql 'signed-byte)) &rest args)
+
+(define-type-method to-alien-form ((type real) form)
   (declare (ignore type))
-  (destructuring-bind (&optional (size '*)) args
+  form)
+
+(define-type-method to-alien-function ((type real))
+  (declare (ignore type))
+  #'identity)
+
+(define-type-method from-alien-form ((type real) form)
+  (declare (ignore type))
+  form)
+
+(define-type-method from-alien-function ((type real))
+  (declare (ignore type))
+  #'identity)
+
+
+(define-type-method alien-type ((type integer))
+  (declare (ignore type))
+  (alien-type 'signed-byte))
+
+(define-type-method size-of ((type integer))
+  (declare (ignore type))
+  (size-of 'signed-byte))
+
+(define-type-method writer-function ((type integer))
+  (declare (ignore type))
+  (writer-function 'signed-byte))
+
+(define-type-method reader-function ((type integer))
+  (declare (ignore type))
+  (reader-function 'signed-byte))
+
+  
+(define-type-method alien-type ((type signed-byte))
+  (destructuring-bind (&optional (size '*)) 
+      (rest (mklist (type-expand-to 'signed-byte type)))
     (ecase size
       (#.+bits-of-byte+ #+cmu'(alien:signed 8) #+sbcl'(sb-alien:signed 8))
       (#.+bits-of-short+ #+cmu 'c-call:short #+sbcl 'sb-alien:short)
       ((* #.+bits-of-int+) #+cmu 'c-call:int #+sbcl 'sb-alien:int)
       (#.+bits-of-long+ #+cmu 'c-call:long #+sbcl 'sb-alien:long))))
 
-(defmethod size-of ((type (eql 'signed-byte)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (&optional (size '*)) args
+(define-type-method size-of ((type signed-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'signed-byte type)))
     (ecase size
       (#.+bits-of-byte+ 1)
       (#.+bits-of-short+ +size-of-short+)
       ((* #.+bits-of-int+) +size-of-int+)
       (#.+bits-of-long+ +size-of-long+))))
 
-(defmethod unbound-value ((type t) &rest args)
-  (declare (ignore type args))
-  nil)
-
-(defmethod writer-function ((type (eql 'signed-byte)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (&optional (size '*)) args
+(define-type-method writer-function ((type signed-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'signed-byte type)))
     (let ((size (if (eq size '*) +bits-of-int+ size)))
       (ecase size
 	(8 #'(lambda (value location &optional (offset 0))
@@ -428,9 +537,9 @@
 	(64 #'(lambda (value location &optional (offset 0))
 		(setf (signed-sap-ref-64 location offset) value)))))))
   
-(defmethod reader-function ((type (eql 'signed-byte)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (&optional (size '*)) args
+(define-type-method reader-function ((type signed-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'signed-byte type)))
     (let ((size (if (eq size '*) +bits-of-int+ size)))
       (ecase size
 	(8 #'(lambda (sap &optional (offset 0) weak-p) 
@@ -446,8 +555,10 @@
 		(declare (ignore weak-p))
 		(signed-sap-ref-64 sap offset)))))))
 
-(defmethod alien-type ((type (eql 'unsigned-byte)) &rest args)
-  (destructuring-bind (&optional (size '*)) args
+
+(define-type-method alien-type ((type unsigned-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'unsigned-byte type)))
     (ecase size
       (#.+bits-of-byte+ #+cmu'(alien:unsigned 8) #+sbcl'(sb-alien:unsigned 8))
       (#.+bits-of-short+ #+cmu 'c-call:unsigned-short 
@@ -457,12 +568,15 @@
       (#.+bits-of-long+ #+cmu 'c-call:unsigned-long 
 			#+sbcl 'sb-alien:unsigned-long))))
 
-(defmethod size-of ((type (eql 'unsigned-byte)) &rest args)
-  (apply #'size-of 'signed args))
 
-(defmethod writer-function ((type (eql 'unsigned-byte)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (&optional (size '*)) args
+(define-type-method size-of ((type unsigned-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'unsigned-byte type)))
+  (size-of `(signed ,size))))
+
+(define-type-method writer-function ((type unsigned-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'unsigned-byte type)))
     (let ((size (if (eq size '*) +bits-of-int+ size)))
       (ecase size
 	(8 #'(lambda (value location &optional (offset 0))
@@ -474,9 +588,9 @@
 	(64 #'(lambda (value location &optional (offset 0))
 		(setf (sap-ref-64 location offset) value)))))))
       
-(defmethod reader-function ((type (eql 'unsigned-byte)) &rest args)
-  (declare (ignore type))
-  (destructuring-bind (&optional (size '*)) args
+(define-type-method reader-function ((type unsigned-byte))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'unsigned-byte type)))
     (let ((size (if (eq size '*) +bits-of-int+ size)))
       (ecase size
 	(8 #'(lambda (sap &optional (offset 0) weak-p)
@@ -491,122 +605,111 @@
 	(64 #'(lambda (sap &optional (offset 0) weak-p)
 		(declare (ignore weak-p))
 		(sap-ref-64 sap offset)))))))
-  
-  
-(defmethod alien-type ((type (eql 'integer)) &rest args)
-  (declare (ignore type args))
-  (alien-type 'signed-byte))
 
-(defmethod size-of ((type (eql 'integer)) &rest args)
-  (declare (ignore type args))
-  (size-of 'signed-byte))
-
-(defmethod writer-function ((type (eql 'integer)) &rest args)
-  (declare (ignore type args))
-  (writer-function 'signed-byte))
-
-(defmethod reader-function ((type (eql 'integer)) &rest args)
-  (declare (ignore type args))
-  (reader-function 'signed-byte))
-
-
-(defmethod alien-type ((type (eql 'fixnum)) &rest args)
-  (declare (ignore type args))
-  (alien-type 'signed-byte))
-
-(defmethod size-of ((type (eql 'fixnum)) &rest args)
-  (declare (ignore type args))
-  (size-of 'signed-byte))
-
-
-(defmethod alien-type ((type (eql 'single-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type single-float))
+  (declare (ignore type))
   #+cmu 'alien:single-float #+sbcl 'sb-alien:single-float)
 
-(defmethod size-of ((type (eql 'single-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type single-float))
+  (declare (ignore type))
   +size-of-float+)
 
-(defmethod to-alien-form (form (type (eql 'single-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type single-float) form)
+  (declare (ignore type))
   `(coerce ,form 'single-float))
 
-(defmethod to-alien-function ((type (eql 'single-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type single-float))
+  (declare (ignore type))
   #'(lambda (number)
       (coerce number 'single-float)))
 
-(defmethod writer-function ((type (eql 'single-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method writer-function ((type single-float))
+  (declare (ignore type))
   #'(lambda (value location &optional (offset 0))
       (setf (sap-ref-single location offset) (coerce value 'single-float))))
 
-(defmethod reader-function ((type (eql 'single-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type single-float))
+  (declare (ignore type))
   #'(lambda (sap &optional (offset 0) weak-p)
       (declare (ignore weak-p))
       (sap-ref-single sap offset)))
 
 
-(defmethod alien-type ((type (eql 'double-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type double-float))
+  (declare (ignore type))
   #+cmu 'alien:double-float #+sbcl 'sb-alien:double-float)
 
-(defmethod size-of ((type (eql 'double-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type double-float))
+  (declare (ignore type))
   +size-of-double+)
 
-(defmethod to-alien-form (form (type (eql 'double-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type double-float) form)
+  (declare (ignore type))
   `(coerce ,form 'double-float))
 
-(defmethod to-alien-function ((type (eql 'double-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type double-float))
+  (declare (ignore type))
   #'(lambda (number)
       (coerce number 'double-float)))
 
-(defmethod writer-function ((type (eql 'double-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method writer-function ((type double-float))
+  (declare (ignore type))
   #'(lambda (value location &optional (offset 0))
       (setf (sap-ref-double location offset) (coerce value 'double-float))))
 
-(defmethod reader-function ((type (eql 'double-float)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type double-float))
+  (declare (ignore type))
   #'(lambda (sap &optional (offset 0) weak-p)
       (declare (ignore weak-p))
       (sap-ref-double sap offset)))
 
 
-(defmethod alien-type ((type (eql 'base-char)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type base-char))
+  (declare (ignore type))
   #+cmu 'c-call:char #+sbcl 'sb-alien:char)
 
-(defmethod size-of ((type (eql 'base-char)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type base-char))
+  (declare (ignore type))
   1)
 
-(defmethod writer-function ((type (eql 'base-char)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type base-char) form)
+  (declare (ignore type))
+  form)
+
+(define-type-method to-alien-function ((type base-char))
+  (declare (ignore type))
+  #'identity)
+
+(define-type-method from-alien-form ((type base-char) form)
+  (declare (ignore type))
+  form)
+
+(define-type-method from-alien-function ((type base-char))
+  (declare (ignore type))
+  #'identity)
+
+(define-type-method writer-function ((type base-char))
+  (declare (ignore type))
   #'(lambda (char location &optional (offset 0))
       (setf (sap-ref-8 location offset) (char-code char))))
 
-(defmethod reader-function ((type (eql 'base-char)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type base-char))
+  (declare (ignore type))
   #'(lambda (location &optional (offset 0) weak-p)
       (declare (ignore weak-p))
       (code-char (sap-ref-8 location offset))))
 
 
-(defmethod alien-type ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type string))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type string))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (string (type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type string) string)
+  (declare (ignore type))
   `(let ((string ,string))
      ;; Always copy strings to prevent seg fault due to GC
      #+cmu
@@ -617,8 +720,8 @@
      (let ((utf8 (%deport-utf8-string string)))
        (copy-memory (vector-sap utf8) (length utf8)))))
   
-(defmethod to-alien-function ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type string))
+  (declare (ignore type))
   #'(lambda (string)
       #+cmu
       (copy-memory
@@ -628,11 +731,8 @@
       (let ((utf8 (%deport-utf8-string string)))
 	(copy-memory (vector-sap utf8) (length utf8)))))
 
-(defmethod callback-from-alien-form (form (type (eql 'string)) &rest args)
-  (apply #'copy-from-alien-form form type args))
-
-(defmethod from-alien-form (string (type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-form ((type string) string)
+  (declare (ignore type))
   `(let ((string ,string))
     (unless (null-pointer-p string)
       (prog1
@@ -640,8 +740,8 @@
 	  #+sbcl(%naturalize-utf8-string string)
 	(deallocate-memory string)))))
 
-(defmethod from-alien-function ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-function ((type string))
+  (declare (ignore type))
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(prog1
@@ -649,37 +749,34 @@
 	    #+sbcl(%naturalize-utf8-string string)
 	  (deallocate-memory string)))))
 
-(defmethod cleanup-form (string (type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method cleanup-form ((type string) string)
+  (declare (ignore type))
   `(let ((string ,string))
     (unless (null-pointer-p string)
       (deallocate-memory string))))
 
-(defmethod cleanup-function ((type (eql 'string)) &rest args)
-  (declare (ignore args))
+(define-type-method cleanup-function ((type string))
+  (declare (ignore type))
   #'(lambda (string)
       (unless (null-pointer-p string)
 	(deallocate-memory string))))
 
-(defmethod callback-from-alien-form (form (type (eql 'string)) &rest args)
-  (apply #'copy-from-alien-form form type args))
-
-(defmethod copy-from-alien-form (string (type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method copy-from-alien-form ((type string) string)
+  (declare (ignore type))
   `(let ((string ,string))
     (unless (null-pointer-p string)
       #+cmu(%naturalize-c-string string)
       #+sbcl(%naturalize-utf8-string string))))
 
-(defmethod copy-from-alien-function ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method copy-from-alien-function ((type string))
+  (declare (ignore type))
   #'(lambda (string)
       (unless (null-pointer-p string)
 	#+cmu(%naturalize-c-string string)
 	#+sbcl(%naturalize-utf8-string string))))
 
-(defmethod writer-function ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method writer-function ((type string))
+  (declare (ignore type))
   #'(lambda (string location &optional (offset 0))
       (assert (null-pointer-p (sap-ref-sap location offset)))
       (setf (sap-ref-sap location offset)
@@ -691,70 +788,70 @@
        (let ((utf8 (%deport-utf8-string string)))
 	 (copy-memory (vector-sap utf8) (length utf8))))))
 
-(defmethod reader-function ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type string))
+  (declare (ignore type))
   #'(lambda (location &optional (offset 0) weak-p)
       (declare (ignore weak-p))
       (unless (null-pointer-p (sap-ref-sap location offset))
 	#+cmu(%naturalize-c-string (sap-ref-sap location offset))
 	#+sbcl(%naturalize-utf8-string (sap-ref-sap location offset)))))
 
-(defmethod destroy-function ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
+(define-type-method destroy-function ((type string))
+  (declare (ignore type))
   #'(lambda (location &optional (offset 0))
       (unless (null-pointer-p (sap-ref-sap location offset))
 	(deallocate-memory (sap-ref-sap location offset))
 	(setf (sap-ref-sap location offset) (make-pointer 0)))))
 
-(defmethod unbound-value ((type (eql 'string)) &rest args)
-  (declare (ignore type args))
-  (values t nil))
+(define-type-method unbound-value ((type string))
+  (declare (ignore type))
+  nil)
 
 
-(defmethod alien-type ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type pathname))
+  (declare (ignore type))
   (alien-type 'string))
 
-(defmethod size-of ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type pathname))
+  (declare (ignore type))
   (size-of 'string))
 
-(defmethod to-alien-form (path (type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
-  (to-alien-form `(namestring (translate-logical-pathname ,path)) 'string))
+(define-type-method to-alien-form ((type pathname) path)
+  (declare (ignore type))
+  (to-alien-form 'string `(namestring (translate-logical-pathname ,path))))
 
-(defmethod to-alien-function ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type pathname))
+  (declare (ignore type))
   (let ((string-function (to-alien-function 'string)))
     #'(lambda (path)
 	(funcall string-function (namestring path)))))
 
-(defmethod from-alien-form (string (type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
-  `(parse-namestring ,(from-alien-form string 'string)))
+(define-type-method from-alien-form ((type pathname) string)
+  (declare (ignore type))
+  `(parse-namestring ,(from-alien-form 'string string)))
 
-(defmethod from-alien-function ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-function ((type pathname))
+  (declare (ignore type))
   (let ((string-function (from-alien-function 'string)))
     #'(lambda (string)
 	(parse-namestring (funcall string-function string)))))
 
-(defmethod cleanup-form (string (type (eql 'pathnanme)) &rest args)
-  (declare (ignore type args))
-  (cleanup-form string 'string))
+(define-type-method cleanup-form ((type pathnanme) string)
+  (declare (ignore type))
+  (cleanup-form 'string string))
 
-(defmethod cleanup-function ((type (eql 'pathnanme)) &rest args)
-  (declare (ignore type args))
+(define-type-method cleanup-function ((type pathnanme))
+  (declare (ignore type))
   (cleanup-function 'string))
 
-(defmethod writer-function ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method writer-function ((type pathname))
+  (declare (ignore type))
   (let ((string-writer (writer-function 'string)))
     #'(lambda (path location &optional (offset 0))
 	(funcall string-writer (namestring path) location offset))))
 
-(defmethod reader-function ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type pathname))
+  (declare (ignore type))
   (let ((string-reader (reader-function 'string)))
   #'(lambda (location &optional (offset 0) weak-p)
       (declare (ignore weak-p))
@@ -762,222 +859,178 @@
 	(when string
 	  (parse-namestring string))))))
 
-(defmethod destroy-function ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method destroy-function ((type pathname))
+  (declare (ignore type))
   (destroy-function 'string))
 
-(defmethod unbound-value ((type (eql 'pathname)) &rest args)
-  (declare (ignore type args))
+(define-type-method unbound-value ((type pathname))
+  (declare (ignore type))
   (unbound-value 'string))
 
 
-(defmethod alien-type ((type (eql 'boolean)) &rest args)
-  (apply #'alien-type 'signed-byte args))
+(define-type-method alien-type ((type boolean))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'boolean type)))
+    (alien-type `(signed-byte ,size))))
 
-(defmethod size-of ((type (eql 'boolean)) &rest args)
-  (apply #'size-of 'signed-byte args))
+(define-type-method size-of ((type boolean))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'boolean type)))
+    (size-of `(signed-byte ,size))))
 
-(defmethod to-alien-form (boolean (type (eql 'boolean)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type boolean) boolean)
+  (declare (ignore type))
   `(if ,boolean 1 0))
 
-(defmethod to-alien-function ((type (eql 'boolean)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type boolean))
+  (declare (ignore type))
   #'(lambda (boolean)
       (if boolean 1 0)))
 
-(defmethod callback-from-alien-form (form (type (eql 'boolean)) &rest args)
-  (apply #'from-alien-form form type args))
-
-(defmethod from-alien-form (boolean (type (eql 'boolean)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-form ((type boolean) boolean)
+  (declare (ignore type))
   `(not (zerop ,boolean)))
 
-(defmethod from-alien-function ((type (eql 'boolean)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-function ((type boolean))
+  (declare (ignore type))
   #'(lambda (boolean)
       (not (zerop boolean))))
 
-(defmethod writer-function ((type (eql 'boolean)) &rest args)
-  (declare (ignore type))
-  (let ((writer (apply #'writer-function 'signed-byte args)))
-    #'(lambda (boolean location &optional (offset 0))
-	(funcall writer (if boolean 1 0) location offset))))
+(define-type-method writer-function ((type boolean))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'boolean type)))
+    (let ((writer (writer-function `(signed-byte ,size))))
+      #'(lambda (boolean location &optional (offset 0))
+	  (funcall writer (if boolean 1 0) location offset)))))
 
-(defmethod reader-function ((type (eql 'boolean)) &rest args)
-  (declare (ignore type))
-  (let ((reader (apply #'reader-function 'signed-byte args)))
-  #'(lambda (location &optional (offset 0) weak-p)
-      (declare (ignore weak-p))
-      (not (zerop (funcall reader location offset))))))
+(define-type-method reader-function ((type boolean))
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'boolean type)))
+    (let ((reader (reader-function `(signed-byte ,size))))
+      #'(lambda (location &optional (offset 0) weak-p)
+	  (declare (ignore weak-p))
+	  (not (zerop (funcall reader location offset)))))))
 
 
-(defmethod alien-type ((type (eql 'or)) &rest args)
-  (let ((alien-type (alien-type (first args))))
+(define-type-method alien-type ((type or))
+  (let* ((expanded-type (type-expand-to 'or type))
+	 (alien-type (alien-type (second expanded-type))))
     (unless (every #'(lambda (type)
 		       (eq alien-type (alien-type type)))
-		   (rest args))
-      (error "No common alien type specifier for union type: ~A" 
-       (cons type args)))
+		   (cddr expanded-type))
+      (error "No common alien type specifier for union type: ~A" type))
     alien-type))
 
-(defmethod size-of ((type (eql 'or)) &rest args)
-  (declare (ignore type))
-  (size-of (first args)))
+(define-type-method size-of ((type or))
+  (size-of (second (type-expand-to 'or type))))
 
-(defmethod to-alien-form (form (type (eql 'or)) &rest args)
-  (declare (ignore type))
+(define-type-method to-alien-form ((type or) form)
   `(let ((value ,form))
-    (etypecase value
-      ,@(mapcar	 
-	 #'(lambda (type)
-	     `(,type ,(to-alien-form 'value type)))
-	 args))))
+     (etypecase value
+       ,@(mapcar	 
+	  #'(lambda (type)
+	      `(,type ,(to-alien-form type 'value)))
+	  (rest (type-expand-to 'or type))))))
 
-(defmethod to-alien-function ((type (eql 'or)) &rest types)
-  (declare (ignore type))
-  (let ((functions (mapcar #'to-alien-function types)))
+(define-type-method to-alien-function ((type or))
+  (let* ((expanded-type (type-expand-to 'or type))
+	 (functions (mapcar #'to-alien-function (rest expanded-type))))
     #'(lambda (value)
 	(loop
 	 for function in functions
-	 for type in types
-	 when (typep value type)
+	 for alt-type in (rest expanded-type)
+	 when (typep value alt-type)
 	 do (return (funcall function value))
-	 finally (error "~S is not of type ~A" value `(or ,@types))))))
+	 finally (error "~S is not of type ~A" value type)))))
 
-(defmethod alien-type ((type (eql 'system-area-pointer)) &rest args)
-  (declare (ignore type args))
+
+(define-type-method alien-type ((type pointer))
+  (declare (ignore type))
   'system-area-pointer)
 
-(defmethod size-of ((type (eql 'system-area-pointer)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type pointer))
+  (declare (ignore type))
   +size-of-pointer+)
 
-(defmethod writer-function ((type (eql 'system-area-pointer)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type pointer) form)
+  (declare (ignore type))
+  form)
+
+(define-type-method to-alien-function ((type pointer))
+  (declare (ignore type))
+  #'identity)
+
+(define-type-method from-alien-form ((type pointer) form)
+  (declare (ignore type))
+  form)
+
+(define-type-method from-alien-function ((type pointer))
+  (declare (ignore type))
+  #'identity)
+
+(define-type-method writer-function ((type pointer))
+  (declare (ignore type))
   #'(lambda (sap location &optional (offset 0))
       (setf (sap-ref-sap location offset) sap)))
 
-(defmethod reader-function ((type (eql 'system-area-pointer)) &rest args)
-  (declare (ignore type args))
+(define-type-method reader-function ((type pointer))
+  (declare (ignore type))
   #'(lambda (location &optional (offset 0) weak-p)
       (declare (ignore weak-p))
       (sap-ref-sap location offset)))
 
 
-(defmethod alien-type ((type (eql 'null)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type null))
+  (declare (ignore type))
   (alien-type 'pointer))
 
-(defmethod size-of ((type (eql 'null)) &rest args)
-  (declare (ignore type args))
+(define-type-method size-of ((type null))
+  (declare (ignore type))
   (size-of 'pointer))
 
-(defmethod to-alien-form (null (type (eql 'null)) &rest args)
-  (declare (ignore null type args))
+(define-type-method to-alien-form ((type null) null)
+  (declare (ignore null type))
   `(make-pointer 0))
 
-(defmethod to-alien-function ((type (eql 'null)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-function ((type null))
+  (declare (ignore type))
   #'(lambda (null)
       (declare (ignore null))
       (make-pointer 0)))
 
 
-(defmethod alien-type ((type (eql 'nil)) &rest args)
-  (declare (ignore type args))
+(define-type-method alien-type ((type nil))
+  (declare (ignore type))
   'void)
 
-(defmethod from-alien-function ((type (eql 'nil)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-function ((type nil))
+  (declare (ignore type))
   #'(lambda (value)
       (declare (ignore value))
       (values)))
 
-
-(defmethod alien-type ((type (eql 'copy-of)) &rest args)
+(define-type-method to-alien-form ((type nil) form)
   (declare (ignore type))
-  (alien-type (first args)))
+  form)
 
-(defmethod size-of ((type (eql 'copy-of)) &rest args)
+
+(define-type-method to-alien-form ((type copy-of) form)
+  (copy-to-alien-form (second (type-expand-to 'copy-of type)) form))
+
+(define-type-method to-alien-function ((type copy-of))
+  (copy-to-alien-function (second (type-expand-to 'copy-of type))))
+
+(define-type-method from-alien-form ((type copy-of) form)
+  (copy-from-alien-form (second (type-expand-to 'copy-of type)) form))
+
+(define-type-method from-alien-function ((type copy-of))
+  (copy-from-alien-function (second (type-expand-to 'copy-of type))))
+
+
+(define-type-method alien-type ((type callback))
   (declare (ignore type))
-  (size-of (first args)))
-
-(defmethod to-alien-form (form (type (eql 'copy-of)) &rest args)
-  (declare (ignore type))
-  (copy-to-alien-form form (first args)))
-
-(defmethod to-alien-function ((type (eql 'copy-of)) &rest args)
-  (declare (ignore type))
-  (copy-to-alien-function (first args)))
-
-(defmethod from-alien-form (form (type (eql 'copy-of)) &rest args)
-  (declare (ignore type))
-  (copy-from-alien-form form (first args)))
-
-(defmethod from-alien-function ((type (eql 'copy-of)) &rest args)
-  (declare (ignore type))
-  (copy-from-alien-function (first args)))
-
-(defmethod reader-function ((type (eql 'copy-of)) &rest args)
-  (declare (ignore type))
-  (reader-function (first args)))
-
-(defmethod writer-function ((type (eql 'copy-of)) &rest args)
-  (declare (ignore type))
-  (writer-function (first args)))
-
-
-(defmethod alien-type ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
   (alien-type 'pointer))
 
-#+nil
-(defmethod size-of ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  (size-of 'pointer))
-
-(defmethod to-alien-form (callback (type (eql 'callback)) &rest args)
-  (declare (ignore type args))
+(define-type-method to-alien-form ((type callback) callback)
+  (declare (ignore type ))
   `(callback-address ,callback))
-
-(defmethod to-alien-function ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  #'callback-address)
-
-#+nil(
-#+cmu
-(defun find-callback (pointer)
-  (find pointer alien::*callbacks* :key #'callback-trampoline :test #'sap=))
-
-(defmethod from-alien-form (pointer (type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  #+cmu  `(find-callback ,pointer)
-  #+sbcl `(sb-alien::%find-alien-function ,pointer))
-
-(defmethod from-alien-function ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  #+cmu  #'find-callback
-  #+sbcl #'sb-alien::%find-alien-function)
-
-(defmethod writer-function ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  (let ((writer (writer-function 'pointer))
-	(to-alien (to-alien-function 'callback)))
-    #'(lambda (callback location &optional (offset 0))
-	(funcall writer (funcall to-alien callback) location offset))))
-
-(defmethod reader-function ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  (let ((reader (reader-function 'pointer))
-	(from-alien (from-alien-function 'callback)))
-  #'(lambda (location &optional (offset 0) weak-p)
-      (declare (ignore weak-p))
-      (let ((pointer (funcall reader location offset)))
-	(unless (null-pointer-p pointer)
-	  (funcall from-alien pointer))))))
-
-(defmethod unbound-value ((type (eql 'callback)) &rest args)
-  (declare (ignore type args))
-  (values t nil))
-)

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: export.lisp,v 1.5 2005-04-23 16:48:50 espen Exp $
+;; $Id: export.lisp,v 1.6 2006-02-26 15:30:00 espen Exp $
 
 
 ;;; Autogenerating exported symbols
@@ -34,7 +34,7 @@
 	name
       (first name)))
 
-  (defexport def-type-method (name &rest args)
+  (defexport define-type-generic (name &rest args)
     (declare (ignore args))
     name)
 

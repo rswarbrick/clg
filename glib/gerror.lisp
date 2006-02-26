@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.4 2006-02-19 19:31:14 espen Exp $
+;; $Id: gerror.lisp,v 1.5 2006-02-26 15:30:01 espen Exp $
 
 
 (in-package "GLIB")
@@ -67,9 +67,9 @@
 
 (deftype gerror-signal () 'gerror)
 
-(defmethod from-alien-form (gerror (type (eql 'gerror-signal)) &rest args)
-  (declare (ignore type args))
-  `(let ((gerror ,(from-alien-form gerror 'gerror)))
+(define-type-method from-alien-form ((type gerror-signal) gerror)
+  (declare (ignore type))
+  `(let ((gerror ,(from-alien-form 'gerror gerror)))
      (when gerror
        (signal-gerror gerror))))
 

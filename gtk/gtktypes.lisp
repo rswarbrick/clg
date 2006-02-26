@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.43 2006-02-15 09:47:42 espen Exp $
+;; $Id: gtktypes.lisp,v 1.44 2006-02-26 15:30:01 espen Exp $
 
 (in-package "GTK")
 
@@ -136,8 +136,16 @@
 (deftype position () 
   '(or int (enum (:start 0) (:end -1) (:first 0) (:last -1))))
 
-(defmethod reader-function ((type (eql 'position)) &rest args)
-  (declare (ignore type args))
+(define-type-method from-alien-form ((type position) form)
+  (declare (ignore type))
+  (from-alien-form 'int form))
+
+(define-type-method from-alien-function ((type position))
+  (declare (ignore type))
+  (from-alien-function 'int))
+
+(define-type-method reader-function ((type position))
+  (declare (ignore type))
   (reader-function 'int))
 
 
