@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.21 2006-01-30 15:40:16 espen Exp $
+;; $Id: gdktypes.lisp,v 1.22 2006-02-26 23:47:50 espen Exp $
 
 (in-package "GDK")
 
@@ -274,3 +274,5 @@
   :shift :lock :control :mod1 :mod2 :mod3 :mod4 :mod5 
   :button1 :button2 :button3 :button4 :button5
   (:release #.(ash 1 30)))
+
+(deftype native-window () '(unsigned 32))
