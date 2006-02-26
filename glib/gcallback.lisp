@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.31 2006-02-19 19:53:52 espen Exp $
+;; $Id: gcallback.lisp,v 1.32 2006-02-26 15:16:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -48,6 +48,7 @@
 (define-callback signal-emission-hook nil
     ((invocation-hint pointer) (n-params unsigned-int) (param-values pointer)
      (callback-id unsigned-int))
+  (declare (ignore invocation-hint))
   (callback-trampoline callback-id n-params param-values))
 
 (defun callback-trampoline (callback-id n-params param-values &optional
