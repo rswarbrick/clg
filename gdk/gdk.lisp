@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.21 2006-02-09 22:31:28 espen Exp $
+;; $Id: gdk.lisp,v 1.22 2006-02-26 15:09:44 espen Exp $
 
 
 (in-package "GDK")
@@ -688,8 +688,14 @@
 (defbinding keyval-name () string
   (keyval unsigned-int))
 
-(defbinding keyval-from-name () unsigned-int
+(defbinding %keyval-from-name () unsigned-int
   (name string))
+
+(defun keyval-from-name (name)
+  "Returns the keysym value for the given key name or NIL if it is not a valid name."
+  (let ((keyval (%keyval-from-name name)))
+    (unless (zerop keyval)
+      keyval)))
 
 (defbinding keyval-to-upper () unsigned-int
   (keyval unsigned-int))
