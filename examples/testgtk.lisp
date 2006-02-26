@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.33 2006-02-13 16:05:29 espen Exp $
+;; $Id: testgtk.lisp,v 1.34 2006-02-26 23:46:55 espen Exp $
 
 #+sbcl(require :gtk)
 #+sbcl(require :sb-posix)
@@ -306,7 +306,8 @@
     (signal-connect dialog :cancel #'widget-destroy :object t)))
 
 
-;;; Cursors
+;;; Cursors (Note: using the drawing function in Gdk is considered
+;;; deprecated in clg, new code should use Cairo instead)
 
 (defun clamp (n min-val max-val)
   (declare (number n min-val max-val))
@@ -666,7 +667,8 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 	              :pattern  "_________________________ _ _________ _ _____ _ __ __  ___ ____ _____")))))
 
 
-;;; Layout
+;;; Layout (Note: using the drawing function in Gdk is considered
+;;; deprecated in clg, new code should use Cairo instead)
 
 (defun layout-expose (layout event)
   (when (eq (gdk:event-window event) (layout-bin-window layout))
