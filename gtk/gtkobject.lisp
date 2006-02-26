@@ -20,20 +20,10 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.31 2006-02-15 09:47:42 espen Exp $
+;; $Id: gtkobject.lisp,v 1.32 2006-02-26 15:22:07 espen Exp $
 
 
 (in-package "GTK")
-
-
-;;;; Misc utils
-
-; (defun name-to-string (name)
-;   (substitute #\_ #\- (string-downcase (string name))))
-
-; (defun string-to-name (name &optional (package "KEYWORD"))
-;   (intern (substitute #\- #\_ (string-upcase name)) package))
-
 
 
 ;;;; Superclass for the gtk class hierarchy
@@ -128,8 +118,6 @@
   (if (eq (slot-definition-allocation (first direct-slotds)) :property)
       (nconc 
        (list :pname (most-specific-slot-value direct-slotds 'pname))
-       ;; Need this to prevent type expansion in SBCL (>= 0.9.8)
-       (list :type (most-specific-slot-value direct-slotds 'type))
        (call-next-method))
     (call-next-method)))
 
