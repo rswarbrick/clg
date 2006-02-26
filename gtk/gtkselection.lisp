@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.6 2006-02-19 19:31:15 espen Exp $
+;; $Id: gtkselection.lisp,v 1.7 2006-02-26 15:22:47 espen Exp $
 
 
 (in-package "GTK")
@@ -186,10 +186,12 @@
 (define-callback %clipboard-get-callback nil
     ((clipboard pointer) (selection-data selection-data)
      (info int) (callback-ids unsigned-int))
+  (declare (ignore clipboard))
   (funcall (car (find-user-data callback-ids)) selection-data info))
 
 (define-callback %clipboard-clear-callback nil
     ((clipboard pointer) (callback-ids unsigned-int))
+  (declare (ignore clipboard))
   (funcall (cdr (find-user-data callback-ids))))
 
 (defbinding clipboard-set-with-data (clipboard targets get-func clear-func) gobject
@@ -251,6 +253,7 @@
 (define-callback %clipboard-targets-receive-callback nil
     ((clipboard pointer) (atoms (vector gdk:atom n-atoms))
      (n-atoms unsigned-int) (callback-id unsigned-int))
+  (declare (ignore clipboard n-atoms))
   (funcall (find-user-data callback-id) atoms))
 
 (defbinding clipboard-request-targets (clipboard callback) nil
