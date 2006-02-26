@@ -20,10 +20,20 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.19 2006-02-08 22:00:09 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.20 2006-02-26 15:24:46 espen Exp $
 
 (in-package "GTK")
 
+
+#-debug-ref-counting
+(defmethod print-object ((widget widget) stream)
+  (if (and 
+       (proxy-valid-p widget) 
+       (slot-boundp widget 'name) (not (zerop (length (widget-name widget)))))
+      (print-unreadable-object (widget stream :type t :identity nil)
+        (format stream "~S at 0x~X" 
+	 (widget-name widget) (sap-int (foreign-location widget))))
+    (call-next-method)))
 
 (defmethod shared-initialize ((widget widget) names &key (visible nil visible-p))
   (when (and visible-p (not visible)) ; widget explicit set as not visible
@@ -150,7 +160,7 @@
 (defbinding widget-add-accelerator
     (widget signal accel-group key modifiers flags) nil
   (widget widget)
-  ((name-to-string signal) string)
+  ((signal-name-to-string signal) string)
   (accel-group accel-group)
   ((gdk:keyval-from-name key) unsigned-int)
   (modifiers gdk:modifier-type)
