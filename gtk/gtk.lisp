@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.56 2006-02-26 21:19:02 espen Exp $
+;; $Id: gtk.lisp,v 1.57 2006-02-26 23:38:03 espen Exp $
 
 
 (in-package "GTK")
@@ -2295,16 +2295,64 @@
 
 ;;; Resource Files
 
-(defbinding rc-add-default-file (filename) nil
-  ((namestring (truename filename)) string))
+(defbinding rc-get-style () style
+  (widget widget))
 
-(defbinding rc-parse (filename) nil
-  ((namestring (truename filename)) string))
+(defbinding rc-get-style-by-paths (&key path class-path class) style
+  (path (or null string))
+  (class-path (or null string))
+  (class gtype))
+
+(defbinding rc-parse () nil
+  (filename pathname))
 
 (defbinding rc-parse-string () nil
   (rc-string string))
 
-(defbinding rc-reparse-all () nil)
+(defbinding %rc-reparse-all () boolean)
 
-(defbinding rc-get-style () style
-  (widget widget))
+(defbinding %rc-reparse-all-for-settings () boolean
+  (settings settings)
+  (force-load-p boolean))
+
+(defun rc-reparse-all (&optional setting force-load-p)
+  (if setting
+      (%rc-reparse-all-for-settings setting force-load-p)
+    (%rc-reparse-all)))
+
+(defbinding rc-reset-styles () nil
+  (settings settings))
+
+(defbinding rc-add-default-file () nil
+  (filename pathname))
+
+(defbinding rc-get-default-files ()
+    (copy-of (null-terminated-vector (copy-of string))))
+
+(defbinding rc-get-module-dir () string)
+
+(defbinding rc-get-im-module-path () string)
+
+(defbinding rc-get-im-module-file () string)
+
+(defbinding rc-get-theme-dir () string)
+
+
+;;; Settings
+
+(defbinding (settings-get "gtk_settings_get_for_screen")
+    (&optional (screen (gdk:display-get-default-screen))) settings
+  (screen gdk:screen))
+
+
+;;; Plug and Socket
+
+(defbinding socket-add-id () nil
+  (socket socket)
+  (id gdk:native-window))
+
+(defbinding %plug-new () pointer
+  (id gdk:native-window))
+
+(defmethod allocate-foreign ((plug plug) &key id)
+  (%plug-new (or id 0)))
