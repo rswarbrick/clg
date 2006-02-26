@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.54 2006-02-19 19:31:14 espen Exp $
+;; $Id: gtk.lisp,v 1.55 2006-02-26 15:20:46 espen Exp $
 
 
 (in-package "GTK")
@@ -695,8 +695,8 @@
 
 #+gtk2.6
 (defbinding (dialog-set-alternative-button-order 
-	     "gtk_dialog_set_alternative_button_order_from_array") 
-    (dialog new-order)
+	     "gtk_dialog_set_alternative_button_order_from_array")
+    (dialog new-order) nil
   (dialog dialog)
   ((length new-order) int)
   ((map 'vector #'(lambda (response)
@@ -1202,6 +1202,16 @@
     (initial-add window #'window-add-accel-group 
      initargs :accel-group :accel-groups)))
 
+#-debug-ref-counting
+(defmethod print-object ((window window) stream)
+  (if (and 
+       (proxy-valid-p window) 
+       (slot-boundp window 'title) 
+       (not (zerop (length (window-title window)))))
+      (print-unreadable-object (window stream :type t :identity nil)
+        (format stream "~S at 0x~X" 
+	 (window-title window) (sap-int (foreign-location window))))
+    (call-next-method)))
 
 (defbinding window-set-wmclass () nil
   (window window)
@@ -1825,7 +1835,7 @@
 (define-callback %menu-detach-callback nil ((widget widget) (menu menu))
   (funcall (object-data menu 'detach-func) widget menu))
 
-(defbinding %menu-attach-to-widget () nil
+(defbinding %menu-attach-to-widget (menu widget) nil
   (menu menu)
   (widget widget)
   (%menu-detach-callback callback))
