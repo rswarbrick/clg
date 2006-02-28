@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.16 2006-02-26 15:30:01 espen Exp $
+;; $Id: gtktree.lisp,v 1.17 2006-02-28 16:33:39 espen Exp $
 
 
 (in-package "GTK")
@@ -88,6 +88,7 @@
      for row in initial-content
      do (list-store-append list-store row iter))))
 
+(defgeneric column-setter-name (store))
 
 (defmethod column-setter-name ((list-store list-store))
   (declare (ignore list-store))
