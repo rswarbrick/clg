@@ -20,9 +20,15 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.19 2006-02-19 19:31:14 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.20 2006-02-28 16:32:18 espen Exp $
 
 (in-package "GTK")
+
+(defgeneric container-add (container widget &rest args))
+(defgeneric container-remove (container widget))
+(defgeneric container-children (container))
+(defgeneric (setf container-children) (children container))
+
 
 (defmethod shared-initialize ((container container) names &rest initargs 
 			      &key child children child-args 
