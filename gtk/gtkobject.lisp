@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.32 2006-02-26 15:22:07 espen Exp $
+;; $Id: gtkobject.lisp,v 1.33 2006-02-28 16:34:37 espen Exp $
 
 
 (in-package "GTK")
@@ -120,12 +120,6 @@
        (list :pname (most-specific-slot-value direct-slotds 'pname))
        (call-next-method))
     (call-next-method)))
-
-(progn
-  #+cmu(declaim (optimize (inhibit-warnings 3)))
-  #+sbcl(declaim (muffle-conditions compiler-note))
-  (defun %container-child-get-property (parent child pname gvalue))
-  (defun %container-child-set-property (parent child pname gvalue)))
 
 
 (defmethod initialize-internal-slot-functions ((slotd effective-child-slot-definition))
