@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.15 2006-02-26 15:30:01 espen Exp $
+;; $Id: ginterface.lisp,v 1.16 2006-02-28 00:11:24 espen Exp $
 
 (in-package "GLIB")
 
@@ -61,15 +61,13 @@
 
 (defmethod shared-initialize ((class ginterface-class) names &key name gtype)
   (declare (ignore names))
-  (let* ((class-name (or name (class-name class)))
-;; 	 (type-number
-;; 	  (or
-;; 	   (find-type-number class-name)
-;; 	   (register-type class-name 
-;; 	    (or (first gtype) (default-type-init-name class-name)))))
-	 )
-;    (type-default-interface-ref type-number)
-    )
+  (let* ((class-name (or name (class-name class)))	 
+	 (type-number
+	  (or
+	   (find-type-number class-name)
+	   (register-type class-name 
+	    (or (first gtype) (default-type-init-name class-name))))))
+    (type-default-interface-ref type-number))
   (call-next-method))
 
 
@@ -120,8 +118,8 @@
 (defbinding type-default-interface-ref (type) pointer
   ((find-type-number type t) type-number))
 
-(defbinding type-default-interface-unref (type) nil
-  ((find-type-number type t) type-number))
+(defbinding type-default-interface-unref () nil
+  (iface pointer))
 
 (defbinding type-default-interface-peek (type) pointer
   ((find-type-number type t) type-number))
@@ -140,8 +138,7 @@
 	     (unwind-protect
 		 (%map-params array length type-number inherited-p)
 	       (deallocate-memory array))))
-;      (type-default-interface-unref type-number)
-      )))
+      (type-default-interface-unref iface))))
 
 
 (defun expand-ginterface-type (type forward-p options &rest args)
