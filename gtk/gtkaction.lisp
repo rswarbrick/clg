@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.7 2006-02-05 12:54:55 espen Exp $
+;; $Id: gtkaction.lisp,v 1.8 2006-02-28 16:30:37 espen Exp $
 
 
 (in-package "GTK")
@@ -180,24 +180,20 @@
   (ui-manager ui-manager)
   (ui string)
   ((length ui) int)
-  (gerror pointer :out))
+  (gerror gerror-signal :out))
+
+(defgeneric ui-manager-add-ui (ui-manager ui-spec))
 
 (defmethod ui-manager-add-ui ((ui-manager ui-manager) (ui-spec string))
-  (let ((id (%ui-manager-add-ui-from-string ui-manager ui-spec)))
-    (when (zerop id)
-      (error "We need to handle GError in som way"))
-    id))
+  (%ui-manager-add-ui-from-string ui-manager ui-spec))
 
 (defbinding %ui-manager-add-ui-from-file () int
   (ui-manager ui-manager)
   (filename pathname)
-  (gerror pointer :out))
+  (gerror gerror-signal :out))
 
 (defmethod ui-manager-add-ui ((ui-manager ui-manager) (path pathname))
-  (let ((id (%ui-manager-add-ui-from-file ui-manager path)))
-    (when (zerop id)
-      (error "We need to handle GError in som way"))
-    id))
+  (%ui-manager-add-ui-from-file ui-manager path))
 
 (defbinding %ui-manager-new-merge-id () unsigned-int
   (ui-manager ui-manager))
