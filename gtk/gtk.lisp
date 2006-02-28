@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.58 2006-02-27 12:26:47 espen Exp $
+;; $Id: gtk.lisp,v 1.59 2006-02-28 16:29:45 espen Exp $
 
 
 (in-package "GTK")
@@ -72,6 +72,14 @@
       (setq *periodic-polling-function* #'main-iterate-all)
       (setq *max-event-to-sec* 0)
       (setq *max-event-to-usec* 1000))))
+
+;;; Generic functions 
+
+(defgeneric add-to-radio-group (item1 item2))
+(defgeneric activate-radio-widget (item))
+(defgeneric (setf tool-item-tip-text) (tip-text tool-item))
+(defgeneric (setf tool-item-tip-private) (tip-private tool-item))
+
 
 
 ;;; Misc
