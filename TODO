@@ -6,9 +6,6 @@
 
 * Use CMUCL's native mechanism for callbacks from C -- done
 
-* Create all foreign function bindings at compile time (necessary for
-  CLisp port)
-
 * Add documentation and more examples
 
 * Make subclassing of gobjects possible -- done
@@ -17,4 +14,6 @@
 
 * Improve load time
 
-* Porting to amd64
+* Porting to amd64 -- done (patch supplied by Gabriel Ebner)
+
+* CLisp port
