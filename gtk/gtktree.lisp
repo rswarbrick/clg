@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.17 2006-02-28 16:33:39 espen Exp $
+;; $Id: gtktree.lisp,v 1.18 2006-03-03 19:00:12 espen Exp $
 
 
 (in-package "GTK")
@@ -81,7 +81,9 @@
   (call-next-method)
   (%list-store-set-column-types list-store column-types)
   (when column-names
-    (setf (object-data list-store 'column-names) column-names))
+    (setf 
+     (object-data list-store 'column-names) 
+     (coerce column-names 'vector)))
   (when initial-content
     (loop
      with iter = (make-instance 'tree-iter)
@@ -322,7 +324,9 @@
   (column int)
   (gvalue gvalue))
 
-(defun tree-model-value (model row column)
+(defgeneric tree-model-value (model row column))
+
+(defmethod tree-model-value ((model tree-model) row column)
   (let ((index (column-index model column))
 	(iter (etypecase row
 		(tree-iter row)
@@ -461,7 +465,9 @@
 			 (funcall setter value iter))
 		 row setters)))))))
 
-(defun (setf tree-model-value) (value model row column)
+(defgeneric (setf tree-model-value) (value model row column))
+
+(defmethod (setf tree-model-value) (value (model tree-model) row column)
   (let ((iter (etypecase row
 		(tree-iter row)
 		(tree-path (multiple-value-bind (valid iter)
