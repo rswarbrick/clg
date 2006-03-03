@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.37 2006-02-26 16:12:25 espen Exp $
+;; $Id: proxy.lisp,v 1.38 2006-03-03 10:01:47 espen Exp $
 
 (in-package "GLIB")
 
@@ -674,19 +674,25 @@ will not be released when the proxy is garbage collected."))
 (deftype inlined (type) type)
 
 (define-type-method size-of ((type inlined))
-  (let ((class (type-expand (second type))))
+  (let ((class (second (type-expand-to 'inlined type))))
     (foreign-size class)))
 
 (define-type-method reader-function ((type inlined))
-  (let ((class (type-expand (second type))))
+  (let ((class (second (type-expand-to 'inlined type))))
     #'(lambda (location &optional (offset 0) weak-p)
 	(declare (ignore weak-p))
 	(ensure-proxy-instance class 
 	 (reference-foreign class (sap+ location offset))))))
 
 (define-type-method writer-function ((type inlined))
-  (let ((class (type-expand (second type))))
+  (let ((class (second (type-expand-to 'inlined type))))
     #'(lambda (instance location &optional (offset 0))
 	(copy-memory (foreign-location instance) (foreign-size class) (sap+ location offset)))))
+
+(define-type-method destroy-function ((type inlined))
+  (declare (ignore type))
+  #'(lambda (location &optional offset)
+      (declare (ignore location offset))))
+
 
 (export 'inlined)
