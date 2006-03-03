@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.28 2006-02-26 16:12:25 espen Exp $
+;; $Id: ffi.lisp,v 1.29 2006-03-03 19:10:21 espen Exp $
 
 (in-package "GLIB")
 
@@ -348,8 +348,9 @@
        (find (first lambda-list) '(&optional &key &rest &allow-other-keys)))
       (error "A type generic needs at least one required argument")
     `(progn 
-       (setf (get ',name 'type-methods) (make-hash-table))
-       (setf (get ',name 'built-in-type-hierarchy) ())
+       (unless (get ',name 'type-methods)
+	 (setf (get ',name 'type-methods) (make-hash-table))
+	 (setf (get ',name 'built-in-type-hierarchy) ()))
        (defun ,name ,lambda-list
 	 ,documentation
 	 (funcall 
