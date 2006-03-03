@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.50 2006-02-26 15:30:01 espen Exp $
+;; $Id: gobject.lisp,v 1.51 2006-03-03 10:01:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -557,17 +557,17 @@
 ;;; Pseudo type for gobject instances which have their reference count
 ;;; increased by the returning function
 
-;; (deftype referenced (type) type)
+(deftype referenced (type) type)
 
 (define-type-method alien-type ((type referenced))
   (declare (ignore type))
   (alien-type 'gobject))
 
 (define-type-method from-alien-form ((type referenced) form)
-  (let ((type (second type)))
+  (let ((class (second (type-expand-to 'referenced type))))
     (if (subtypep type 'gobject)
 	(let ((instance (make-symbol "INSTANCE")))
-	  `(let ((,instance ,(from-alien-form type form)))
+	  `(let ((,instance ,(from-alien-form class form)))
 	     (when ,instance
 	       (%object-unref (foreign-location ,instance)))
 	     ,instance))
