@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ffi.lisp,v 1.29 2006-03-03 19:10:21 espen Exp $
+;; $Id: ffi.lisp,v 1.30 2006-03-03 20:31:24 espen Exp $
 
 (in-package "GLIB")
 
@@ -1055,6 +1055,15 @@
 
 (define-type-method from-alien-function ((type copy-of))
   (copy-from-alien-function (second (type-expand-to 'copy-of type))))
+
+(define-type-method cleanup-function ((type copy-of))
+  (declare (ignore type))
+  #'identity)
+
+(define-type-method destroy-function ((type copy-of))
+  (declare (ignore type))
+  #'(lambda (location &optional offset)
+      (declare (ignore location offset))))
 
 
 (define-type-method alien-type ((type callback))
