@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.38 2006-03-03 10:01:47 espen Exp $
+;; $Id: proxy.lisp,v 1.39 2006-03-06 14:28:03 espen Exp $
 
 (in-package "GLIB")
 
@@ -211,8 +211,9 @@
        (let ((boundp (most-specific-slot-value direct-slotds 'boundp)))
 	 (unless (eq boundp *unbound-marker*)
 	   (setf (getf initargs :boundp) boundp)))
-       ;; Need this to prevent type expansion in SBCL >= 0.9.8
-       (let ((type (most-specific-slot-value direct-slotds 'type)))
+       ;; This is needed to avoid type expansion in SBCL version >= 0.9.8
+       #+sbcl>=0.9.8
+       (let ((type (most-specific-slot-value direct-slotds #-sbcl>=0.9.10'type #+sbcl>=0.9.10'sb-pcl::%type)))
 	 (unless (eq type *unbound-marker*)
 	   (setf (getf initargs :type) type)))
        (nconc initargs (call-next-method))))

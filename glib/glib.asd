@@ -27,8 +27,24 @@
   (push :glib2.8 *features*))
 
 #+sbcl
-(when (string>= (lisp-implementation-version) "0.9.8")
-  (push :sbcl>=0.9.8 *features*))
+(progn
+  (defun sbcl-version ()
+    (let ((dot1 (position #\. (lisp-implementation-version)))
+	  (dot2 (position #\. (lisp-implementation-version) :from-end t)))
+      (values 
+       (parse-integer (lisp-implementation-version) :end dot1)
+       (parse-integer (lisp-implementation-version) :start (1+ dot1) :end dot2)
+       (parse-integer (lisp-implementation-version) :start (1+ dot2)))))
+  (defun sbcl-version>= (req-major req-minor req-micro)
+    (multiple-value-bind (major minor micro) (sbcl-version)      
+      (or 
+       (> major req-major)
+       (and (= major req-major) (> minor req-minor))
+       (and (= major req-major) (= minor req-minor) (>= micro req-micro)))))
+  (when (sbcl-version>= 0 9 8)
+    (push :sbcl>=0.9.8 *features*))
+  (when (sbcl-version>= 0 9 10)
+    (push :sbcl>=0.9.10 *features*)))
 
 #+(and sbcl (not alien-callbacks))
 (eval-when (:compile-toplevel :load-toplevel :execute)
