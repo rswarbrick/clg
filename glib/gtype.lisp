@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.48 2006-02-26 16:12:25 espen Exp $
+;; $Id: gtype.lisp,v 1.49 2006-03-06 20:57:08 espen Exp $
 
 (in-package "GLIB")
 
@@ -386,9 +386,10 @@
   (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
 
 (define-type-method reader-function ((type ginstance))
-  #'(lambda (location &optional (offset 0) weak-p)
-      (declare (ignore weak-p))
-      (ensure-proxy-instance type (sap-ref-sap location offset))))
+  (let ((class (type-expand type)))
+    #'(lambda (location &optional (offset 0) weak-p)
+	(declare (ignore weak-p))
+	(ensure-proxy-instance class (sap-ref-sap location offset)))))
 
 
 ;;;; Registering fundamental types
