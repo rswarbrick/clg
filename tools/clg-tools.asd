@@ -9,6 +9,7 @@
 
 (defsystem clg-tools
     :components ((:file "autoexport")
-		 (:file "config")
+		 (:file "utils")
+		 (:file "config" :depends-on ("utils"))
 		 (:file "asdf-extensions")))
 
