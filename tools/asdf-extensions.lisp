@@ -51,10 +51,16 @@
 			      (module-components dso)))))
       (error 'operation-error :operation operation :component dso))))
 
+#+clisp
+(defvar *loaded-libraries* ())
 
 (defun load-dso (filename)
   #+sbcl(sb-alien:load-shared-object filename)
-  #+cmu(ext:load-foreign filename))
+  #+cmu(ext:load-foreign filename)
+  #+clisp
+  (unless (find filename *loaded-libraries* :test #'equal)
+    (ffi::foreign-library (namestring filename))
+    (push filename *loaded-libraries*)))
 
 
 (defmethod perform ((o load-op) (c unix-dso))
@@ -135,7 +141,8 @@
 	system::*global-table* 
 	:key #'(lambda (pathname)
 		 (when pathname (unix::unix-namestring pathname)))
-	:test #'equal))
+	:test #'equal)
+  #+clisp(find (component-pathname c) *loaded-libraries* :test #'equal))
 
 (defmethod operation-done-p ((o operation) (c library))
   t)
