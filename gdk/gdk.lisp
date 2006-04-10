@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.23 2006-04-10 18:27:58 espen Exp $
+;; $Id: gdk.lisp,v 1.24 2006-04-10 18:38:42 espen Exp $
 
 
 (in-package "GDK")
@@ -531,7 +531,7 @@
 
 (defbinding color-parse (spec &optional (make-instance 'color)) boolean
   (spec string)
-  (color color :in/return))
+  (color color :return))
 
 (defun ensure-color (color)
   (etypecase color
