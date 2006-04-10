@@ -118,12 +118,12 @@
 #+sbcl
 (progn
   (defun sbcl-version ()
-    (let ((dot1 (position #\. (lisp-implementation-version)))
-	  (dot2 (position #\. (lisp-implementation-version) :from-end t)))
+    (let* ((dot1 (position #\. (lisp-implementation-version)))
+	   (dot2 (position #\. (lisp-implementation-version) :start (1+ dot1))))
       (values 
        (parse-integer (lisp-implementation-version) :end dot1)
        (parse-integer (lisp-implementation-version) :start (1+ dot1) :end dot2)
-       (parse-integer (lisp-implementation-version) :start (1+ dot2)))))
+       (parse-integer (lisp-implementation-version) :start (1+ dot2) :junk-allowed t))))
   (defun sbcl>= (req-major req-minor req-micro)
     (multiple-value-bind (major minor micro) (sbcl-version)      
       (or 
