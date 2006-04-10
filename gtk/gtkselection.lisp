@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.7 2006-02-26 15:22:47 espen Exp $
+;; $Id: gtkselection.lisp,v 1.8 2006-04-10 18:54:47 espen Exp $
 
 
 (in-package "GTK")
@@ -97,7 +97,8 @@
     boolean
   (display gdk:display)
   (widget widget)
-  ((gdk:atom-intern selection) gdk:atom))
+  ((gdk:atom-intern selection) gdk:atom)
+  (time (unsigned 32)))
 
 (defbinding selection-add-target () nil
   (widget widget)
