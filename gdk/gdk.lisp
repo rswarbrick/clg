@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.22 2006-02-26 15:09:44 espen Exp $
+;; $Id: gdk.lisp,v 1.23 2006-04-10 18:27:58 espen Exp $
 
 
 (in-package "GDK")
@@ -503,6 +503,17 @@
 
 ;;; Color
 
+(defbinding %color-copy () pointer
+  (location pointer))
+
+(defmethod allocate-foreign ((color color)  &rest initargs)
+  (declare (ignore color initargs))
+  ;; Color structs are allocated as memory chunks by gdk, and since
+  ;; there is no gdk_color_new we have to use this hack to get a new
+  ;; color chunk
+  (with-memory (location #.(foreign-size (find-class 'color)))
+    (%color-copy location)))
+
 (defun %scale-value (value)
   (etypecase value
     (integer value)
@@ -518,14 +529,22 @@
      %green (%scale-value green)
      %blue (%scale-value blue))))
 
+(defbinding color-parse (spec &optional (make-instance 'color)) boolean
+  (spec string)
+  (color color :in/return))
+
 (defun ensure-color (color)
   (etypecase color
     (null nil)
     (color color)
     (vector
-     (make-instance
-      'color :red (svref color 0) :green (svref color 1)
-      :blue (svref color 2)))))
+     (make-instance 'color 
+      :red (svref color 0) :green (svref color 1) :blue (svref color 2)))
+    (string
+     (multiple-value-bind (succeeded-p color) (parse-color color)
+       (if succeeded-p
+	   color
+	 (error "Parsing color specification ~S failed." color))))))
        
 
   
