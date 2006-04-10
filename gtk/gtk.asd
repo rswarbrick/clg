@@ -9,14 +9,14 @@
 
 (pkg-exists-p "gtk+-2.0" :atleast-version "2.4.0")
 
-(when (string>= (pkg-version "gtk+-2.0") "2.6.0")
+(when (pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0" :error nil)
   (pushnew :gtk2.6 *features*))
 
-(when (string>= (pkg-version "gtk+-2.0") "2.8.0")
+(when (pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0" :error nil)
   (pushnew :gtk2.8 *features*))
 
 (defsystem gtk
-    :depends-on (glib gdk pango atk)
+    :depends-on (gffi glib gdk pango atk)
     :components ((:file "defpackage")
 		 (:library "libgtk-x11-2.0" 
 			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
