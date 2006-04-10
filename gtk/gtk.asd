@@ -16,7 +16,7 @@
   (pushnew :gtk2.8 *features*))
 
 (defsystem gtk
-    :depends-on (gffi glib gdk pango atk)
+    :depends-on (glib gdk pango atk)
     :components ((:file "defpackage")
 		 (:library "libgtk-x11-2.0" 
 			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
