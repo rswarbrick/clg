@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pango.lisp,v 1.9 2005-04-23 16:48:52 espen Exp $
+;; $Id: pango.lisp,v 1.10 2006-04-10 18:39:31 espen Exp $
 
 (in-package "PANGO")
 
@@ -35,4 +35,9 @@
 			  (pkg-config:pkg-variable "pango" "libdir")
 		          "/libpangoft2-1.0.so") :prefix "pango_fc"))
 
-(define-types-by-introspection "Pango")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (define-types-by-introspection "Pango"))
+
+(defbinding font-description-from-string () font-description
+  (desc string))
+
