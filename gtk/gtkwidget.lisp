@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.20 2006-02-26 15:24:46 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.21 2006-04-10 18:42:08 espen Exp $
 
 (in-package "GTK")
 
@@ -333,10 +333,12 @@ received."
   (state state-type)
   (color gdk:color))
 
-(defbinding widget-modify-font () nil
+(defbinding widget-modify-font (widget font-desc) nil
   (widget widget)
-  (state state-type)
-  (font-desc pango:font-description))
+  ((etypecase font-desc
+     (pango:font-description font-desc)
+     (string (pango:font-description-from-string font-desc)))
+   pango:font-description))
 
 (defbinding widget-create-pango-context () pango:context
   (widget widget))
