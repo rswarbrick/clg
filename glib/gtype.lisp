@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.49 2006-03-06 20:57:08 espen Exp $
+;; $Id: gtype.lisp,v 1.50 2006-04-10 17:34:45 espen Exp $
 
 (in-package "GLIB")
 
@@ -298,7 +298,6 @@
 
 
 (defmethod finalize-inheritance ((class ginstance-class))
-  (call-next-method)
   (let* ((class-name (class-name class))
 	 (super (most-specific-proxy-superclass class))
 	 (gtype (or 
@@ -320,8 +319,8 @@
 	   (not (eq (class-name super) (supertype type-number))))
       (warn "Super class mismatch between CLOS and GObject for ~A"
        class-name)))
-  
-  (update-size class))
+  (update-size class)
+  (call-next-method))
 
 
 (defmethod shared-initialize ((class ginstance-class) names &rest initargs)
