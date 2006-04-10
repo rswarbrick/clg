@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.22 2006-02-26 23:47:50 espen Exp $
+;; $Id: gdktypes.lisp,v 1.23 2006-04-10 18:16:24 espen Exp $
 
 (in-package "GDK")
 
@@ -36,19 +36,19 @@
 (defclass color (boxed)
   ((pixel
     :allocation :alien
-    :type unsigned-long)
+    :type (unsigned 32))
    (red
     :allocation :alien
     :accessor color-red
-    :type unsigned-short)
+    :type (unsigned 16))
    (green
     :allocation :alien :offset 6
     :accessor color-green
-    :type unsigned-short)
+    :type (unsigned 16))
    (blue
     :allocation :alien  :offset 8
     :accessor color-blue
-    :type unsigned-short))
+    :type (unsigned 16)))
   (:metaclass boxed-class))
 
 
