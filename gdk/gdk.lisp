@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.24 2006-04-10 18:38:42 espen Exp $
+;; $Id: gdk.lisp,v 1.25 2006-04-11 18:28:38 espen Exp $
 
 
 (in-package "GDK")
@@ -511,7 +511,7 @@
   ;; Color structs are allocated as memory chunks by gdk, and since
   ;; there is no gdk_color_new we have to use this hack to get a new
   ;; color chunk
-  (with-memory (location #.(foreign-size (find-class 'color)))
+  (with-allocated-memory (location #.(foreign-size (find-class 'color)))
     (%color-copy location)))
 
 (defun %scale-value (value)
@@ -520,7 +520,7 @@
     (float (truncate (* value 65535)))))
 
 (defmethod initialize-instance ((color color) &rest initargs
-				&key red green blue)
+				&key (red 0.0) (green 0.0) (blue 0.0))
   (declare (ignore initargs))
   (call-next-method)
   (with-slots ((%red red) (%green green) (%blue blue)) color
@@ -529,23 +529,25 @@
      %green (%scale-value green)
      %blue (%scale-value blue))))
 
-(defbinding color-parse (spec &optional (make-instance 'color)) boolean
+(defbinding %color-parse () boolean
   (spec string)
   (color color :return))
+
+(defun color-parse (spec &optional (color (make-instance 'color)))
+  (multiple-value-bind (succeeded-p color) (%color-parse spec color)
+    (if succeeded-p
+	color
+      (error "Parsing color specification ~S failed." spec))))
 
 (defun ensure-color (color)
   (etypecase color
     (null nil)
     (color color)
+    (string (color-parse color))
     (vector
      (make-instance 'color 
-      :red (svref color 0) :green (svref color 1) :blue (svref color 2)))
-    (string
-     (multiple-value-bind (succeeded-p color) (parse-color color)
-       (if succeeded-p
-	   color
-	 (error "Parsing color specification ~S failed." color))))))
-       
+      :red (svref color 0) :green (svref color 1) :blue (svref color 2)))))
+
 
   
 ;;; Drawable
