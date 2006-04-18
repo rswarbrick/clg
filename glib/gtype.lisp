@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.50 2006-04-10 17:34:45 espen Exp $
+;; $Id: gtype.lisp,v 1.51 2006-04-18 11:42:20 espen Exp $
 
 (in-package "GLIB")
 
@@ -143,6 +143,9 @@
   (mapc #'(lambda (type) 
 	    (register-type (car type) (cdr type)))
 	*registered-types*)
+  (mapc #'(lambda (type) 
+	        (apply #'register-new-type type))
+	*registered-static-types*)
   (mapc #'(lambda (type) 
 	    (register-type-alias (car type) (cdr type)))
 	*registered-type-aliases*))
