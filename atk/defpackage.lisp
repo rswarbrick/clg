@@ -1,4 +1,4 @@
 (defpackage "ATK"
-  (:use "GLIB" "COMMON-LISP" "AUTOEXPORT"))
+  (:use "GFFI" "GLIB" "COMMON-LISP" "AUTOEXPORT"))
 
 
