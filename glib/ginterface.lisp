@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.16 2006-02-28 00:11:24 espen Exp $
+;; $Id: ginterface.lisp,v 1.17 2006-04-25 22:02:34 espen Exp $
 
 (in-package "GLIB")
 
@@ -79,37 +79,37 @@
   (declare (ignore type))
   (alien-type 'gobject))
 
-(define-type-method size-of ((type ginterface))
-  (declare (ignore type))
+(define-type-method size-of ((type ginterface) &key inlined)
+  (assert-not-inlined type inlined)
   (size-of 'gobject))
 
-(define-type-method from-alien-form ((type ginterface) location)
+(define-type-method from-alien-form ((type ginterface) location &key (ref :copy))
   (declare (ignore type))
-  (from-alien-form 'gobject location))
+  (from-alien-form 'gobject location :ref ref))
 
-(define-type-method from-alien-function ((type ginterface))
+(define-type-method from-alien-function ((type ginterface) &key (ref :copy))
   (declare (ignore type))
-  (from-alien-function 'gobject))
+  (from-alien-function 'gobject :ref ref))
 
-(define-type-method to-alien-form ((type ginterface) instance)
+(define-type-method to-alien-form ((type ginterface) instance &optional copy-p)
   (declare (ignore type))
-  (to-alien-form 'gobject instance))
+  (to-alien-form 'gobject instance copy-p))
 
-(define-type-method to-alien-function ((type ginterface))
+(define-type-method to-alien-function ((type ginterface) &optional copy-p)
   (declare (ignore type))
-  (to-alien-function 'gobject))
+  (to-alien-function 'gobject copy-p))
 
-(define-type-method reader-function ((type ginterface))
-  (declare (ignore type))
-  (reader-function 'gobject))
+(define-type-method reader-function ((type ginterface) &key ref inlined)
+  (assert-not-inlined type inlined)
+  (reader-function 'gobject :ref ref))
 
-(define-type-method writer-function ((type ginterface))
-  (declare (ignore type))
-  (writer-function 'gobject))
+(define-type-method writer-function ((type ginterface) &key temp inlined)
+  (assert-not-inlined type inlined)
+  (writer-function 'gobject :temp temp))
 
-(define-type-method destroy-function ((type ginterface))
-  (declare (ignore type))
-  (destroy-function 'gobject))
+(define-type-method destroy-function ((type ginterface) &key temp inlined)
+  (assert-not-inlined type inlined)
+  (destroy-function 'gobject :temp temp))
 
 
 ;;;;
@@ -151,10 +151,17 @@
       (:metaclass ginterface-class)
       (:gtype ,(register-type-as type)))))
 
-(defun ginterface-dependencies (type)
+(defun ginterface-dependencies (type options)
   (delete-duplicates 
    (cons
     (supertype type)
-    (mapcar #'param-value-type (query-object-interface-properties type)))))
+    (append
+     (mapcar #'param-value-type (query-object-interface-properties type))
+     (loop
+      for slot in (getf options :slots)
+      as type = (getf (rest slot) :type)
+      when (and type (symbolp type) (find-type-number type))
+      collect (find-type-number type))))))
+
 
 (register-derivable-type 'ginterface "GInterface" 'expand-ginterface-type 'ginterface-dependencies)
