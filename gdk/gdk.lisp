@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2000-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2000-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.27 2006-04-25 20:19:32 espen Exp $
+;; $Id: gdk.lisp,v 1.28 2006-04-25 22:27:13 espen Exp $
 
 
 (in-package "GDK")
@@ -150,7 +150,8 @@
   ((or time 0) (unsigned 32)))
 
 (defbinding (pointer-is-grabbed-p "gdk_display_pointer_is_grabbed") 
-    (&optional (display (display-get-default))) boolean)
+    (&optional (display (display-get-default))) boolean
+  (display display))
 
 (defbinding keyboard-grab (window &key owner-events time) grab-status
   (window window)
@@ -340,7 +341,7 @@
   (root-y int)
   (timestamp unsigned-int))
 
-;; komplett så langt
+;;
 
 (defbinding window-set-user-data () nil
   (window window)
@@ -459,14 +460,6 @@
 (defbinding %cursor-unref () nil
   (location pointer))
 
-(defmethod reference-foreign ((class (eql (find-class 'cursor))) location)
-  (declare (ignore class))
-  (%cursor-ref location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'cursor))) location)
-  (declare (ignore class))
-  (%cursor-unref location))
-
 
 ;;; Pixmaps
 
@@ -481,7 +474,7 @@
   (colormap (or null colormap))
   (mask bitmap :out)
   (color (or null color))
-  (filename string))
+  (filename pathname))
 
 (defbinding %pixmap-colormap-create-from-xpm-d () pixmap
   (window (or null window))
@@ -498,12 +491,9 @@
     (multiple-value-bind (pixmap mask)
         (etypecase source
 	  ((or string pathname)
-	   (%pixmap-colormap-create-from-xpm
-	    window colormap color (namestring (truename source))))
+	   (%pixmap-colormap-create-from-xpm window colormap color  source))
  	  ((vector string)
 	   (%pixmap-colormap-create-from-xpm-d window colormap color source)))
-;;       (unreference-instance pixmap)
-;;       (unreference-instance mask)
       (values pixmap mask))))
 
 
@@ -518,7 +508,7 @@
   ;; Color structs are allocated as memory chunks by gdk, and since
   ;; there is no gdk_color_new we have to use this hack to get a new
   ;; color chunk
-  (with-allocated-memory (location #.(foreign-size (find-class 'color)))
+  (with-memory (location #.(foreign-size (find-class 'color)))
     (%color-copy location)))
 
 (defun %scale-value (value)
@@ -526,9 +516,7 @@
     (integer value)
     (float (truncate (* value 65535)))))
 
-(defmethod initialize-instance ((color color) &rest initargs
-				&key (red 0.0) (green 0.0) (blue 0.0))
-  (declare (ignore initargs))
+(defmethod initialize-instance ((color color) &key (red 0.0) (green 0.0) (blue 0.0))
   (call-next-method)
   (with-slots ((%red red) (%green green) (%blue blue)) color
     (setf
@@ -538,7 +526,7 @@
 
 (defbinding %color-parse () boolean
   (spec string)
-  (color color :return))
+  (color color :in/return))
 
 (defun color-parse (spec &optional (color (make-instance 'color)))
   (multiple-value-bind (succeeded-p color) (%color-parse spec color)
@@ -557,7 +545,8 @@
 
 
   
-;;; Drawable
+;;; Drawable -- all the draw- functions are dprecated and will be
+;;; removed, use cairo for drawing instead.
 
 (defbinding drawable-get-size () nil
   (drawable drawable)
@@ -589,19 +578,10 @@
   (points pointer)
   (n-points int))
 
-;; (defun draw-points (drawable gc &rest points)
-  
-;;   )
-
 (defbinding draw-line () nil
   (drawable drawable) (gc gc) 
   (x1 int) (y1 int)
   (x2 int) (y2 int))
-
-;; (defbinding draw-lines (drawable gc &rest points) nil
-;;   (drawable drawable) (gc gc) 
-;;   (points (vector point))
-;;   ((length points) int))
 
 (defbinding draw-pixbuf
     (drawable gc pixbuf src-x src-y dest-x dest-y &optional
@@ -613,11 +593,6 @@
   ((or width -1) int) ((or height -1) int)
   (dither rgb-dither)
   (x-dither int) (y-dither int))
-
-;; (defbinding draw-segments (drawable gc &rest points) nil
-;;   (drawable drawable) (gc gc) 
-;;   (segments (vector segments))
-;;   ((length segments) int))
 
 (defbinding draw-rectangle () nil
   (drawable drawable) (gc gc) 
@@ -631,35 +606,6 @@
   (x int) (y int) 
   (width int) (height int)
   (angle1 int) (angle2 int))
-
-;; (defbinding draw-polygon (drawable gc &rest points) nil
-;;   (drawable drawable) (gc gc) 
-;;   (points (vector point))
-;;   ((length points) int))
-
-;; (defbinding draw-trapezoid (drawable gc &rest points) nil
-;;   (drawable drawable) (gc gc) 
-;;   (points (vector point))
-;;   ((length points) int))
-
-;; (defbinding %draw-layout-line () nil
-;;   (drawable drawable) (gc gc) 
-;;   (font pango:font)
-;;   (x int) (y int)
-;;   (line pango:layout-line))
-
-;; (defbinding %draw-layout-line-with-colors () nil
-;;   (drawable drawable) (gc gc) 
-;;   (font pango:font)
-;;   (x int) (y int)
-;;   (line pango:layout-line)
-;;   (foreground (or null color))
-;;   (background (or null color)))
-
-;; (defun draw-layout-line (drawable gc font x y line &optional foreground background)
-;;   (if (or foreground background)
-;;       (%draw-layout-line-with-colors drawable gc font x y line foreground background)
-;;     (%draw-layout-line drawable gc font x y line)))
 
 (defbinding %draw-layout () nil
   (drawable drawable) (gc gc) 
@@ -739,7 +685,7 @@
 
 ;;; Cairo interaction
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (progn
   (defbinding cairo-create () cairo:context
     (drawable drawable))
@@ -748,8 +694,7 @@
     `(let ((,cr (cairo-create ,drawable)))
        (unwind-protect
 	   (progn ,@body)
-	 (unreference-foreign 'cairo:context (foreign-location ,cr))
-	 (invalidate-instance ,cr))))
+	 (invalidate-instance ,cr t))))
 
   (defbinding cairo-set-source-color () nil
     (cr cairo:context)
@@ -769,6 +714,7 @@
 ;;     (cr cairo:context)
 ;;     (region region))
 )
+
 
 
 ;;; Multi-threading support
@@ -804,5 +750,5 @@
     `(progn
        (threads-enter)
        (unwind-protect
-	   (progn ,@body)
+	   ,@body
 	 (threads-leave t)))))

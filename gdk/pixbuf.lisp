@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pixbuf.lisp,v 1.3 2005-04-23 16:48:50 espen Exp $
+;; $Id: pixbuf.lisp,v 1.4 2006-04-25 22:27:13 espen Exp $
 
 
 (in-package "GDK")
@@ -39,7 +39,7 @@
   (height int)
   (nil gerror :out))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding %pixbuf-new-from-file-at-scale () (referenced pixbuf)
   (filename pathname)
   (width int)
@@ -48,18 +48,22 @@
   (nil gerror :out))
 
 (defun pixbuf-load (filename &key width height size (preserve-aspect-ratio t))
-  #-gtk2.6
+  #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
   (unless preserve-aspect-ratio 
     (warn ":preserve-aspect-ratio not supported with this version of Gtk"))
 
   (multiple-value-bind (pixbuf gerror)
       (cond
        (size 
-	#-gtk2.6(%pixbuf-new-from-file-at-size filename size size)
-	#+gtk2.6(%pixbuf-new-from-file-at-scale filename size size preserve-aspect-ratio))
+	#?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+	(%pixbuf-new-from-file-at-size filename size size)
+	#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+	(%pixbuf-new-from-file-at-scale filename size size preserve-aspect-ratio))
        ((and width height)
-	#-gtk2.6(%pixbuf-new-from-file-at-size filename width height)
-	#+gtk2.6(%pixbuf-new-from-file-at-scale filename width height preserve-aspect-ratio))
+	#?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+	(%pixbuf-new-from-file-at-size filename width height)
+	#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+	(%pixbuf-new-from-file-at-scale filename width height preserve-aspect-ratio))
        ((or width height)
 	(error "Both :width and :height must be specified"))
        (t (%pixbuf-new-from-file filename)))
