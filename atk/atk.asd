@@ -6,11 +6,11 @@
 
 (in-package "ATK-SYSTEM")
 
-(pkg-exists-p "atk" :atleast-version "1.6.0")
+(pkg-exists-p "atk" :atleast-version "1.6.0" :error t)
 
 
 (defsystem atk
-    :depends-on (glib gdk)
+    :depends-on (gffi glib gdk)
     :components ((:library "libatk-1.0"
 			   :libdir #.(pkg-variable "atk" "libdir"))
 		 (:file "defpackage")

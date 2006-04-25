@@ -6,11 +6,11 @@
 
 (in-package "CAIRO-SYSTEM")
 
-(pkg-exists-p "cairo" :atleast-version "1.0.2")
+(pkg-exists-p "cairo" :atleast-version "1.0.2" :error t)
 
 
 (defsystem cairo
-    :depends-on (glib)
+    :depends-on (gffi glib)
     :components ((:library "libcairo" 
 		  :libdir #.(pkg-variable "cairo" "libdir"))
 		 (:file "defpackage")

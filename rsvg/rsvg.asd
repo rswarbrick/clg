@@ -6,11 +6,11 @@
 
 (in-package "RSVG-SYSTEM")
 
-(pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
+(pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93" :error t)
 
 
 (defsystem rsvg
-    :depends-on (glib gdk cairo)
+    :depends-on (gffi glib gdk cairo)
     :components ((:library "librsvg-2" 
 		  :libdir #.(pkg-variable "librsvg-2.0" "libdir"))
 		 (:file "defpackage")

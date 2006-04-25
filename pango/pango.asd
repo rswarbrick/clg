@@ -6,11 +6,11 @@
 
 (in-package "PANGO-SYSTEM")
 
-(pkg-exists-p "pango" :atleast-version "1.4.0")
+(pkg-exists-p "pango" :atleast-version "1.4.0" :error t)
 
 
 (defsystem pango
-    :depends-on (glib)
+    :depends-on (gffi glib)
     :components ((:library "libpango-1.0" :libdir #.(pkg-variable "pango" "libdir"))
 		 (:library "libpangoxft-1.0" :libdir #.(pkg-variable "pango" "libdir"))
 		 (:library "libpangoft2-1.0" :libdir #.(pkg-variable "pango" "libdir"))
