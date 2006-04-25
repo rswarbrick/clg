@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.0
-;; Copyright 2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2005-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.5 2006-02-26 15:30:01 espen Exp $
+;; $Id: gerror.lisp,v 1.6 2006-04-25 22:01:12 espen Exp $
 
 
 (in-package "GLIB")
@@ -29,22 +29,15 @@
   ((domain :allocation :alien :type quark :reader gerror-domain)
    (code :allocation :alien :type int :reader gerror-code)
    (message :allocation :alien :type string :reader gerror-message))
-  (:metaclass struct-class))
+  (:metaclass struct-class)
+  (:ref gerror-copy)
+  (:unref gerror-free))
 
 (defbinding (%gerror-copy "g_error_copy") () pointer
   (location pointer))
 
 (defbinding (%gerror-free "g_error_free") () nil
   (location pointer))
-
-(defmethod reference-foreign ((class (eql (find-class 'gerror))) location)
-  (declare (ignore class))
-  (%gerror-copy location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'gerror))) location)
-  (declare (ignore class))
-  (%gerror-free location))
-
 
 (define-condition glib-error (error)
   ((code :initarg :domain :reader gerror-code)
@@ -67,9 +60,9 @@
 
 (deftype gerror-signal () 'gerror)
 
-(define-type-method from-alien-form ((type gerror-signal) gerror)
+(define-type-method from-alien-form ((type gerror-signal) gerror &key (ref :free))
   (declare (ignore type))
-  `(let ((gerror ,(from-alien-form 'gerror gerror)))
+  `(let ((gerror ,(from-alien-form 'gerror gerror :ref ref)))
      (when gerror
        (signal-gerror gerror))))
 
@@ -130,18 +123,21 @@
     (funcall (if fatal-p #'error #'warn) condition
      :domain domain :message message)))
 
-(setf (extern-alien "log_handler" system-area-pointer) 
+#-clisp
+(setf 
+ #+cmu(alien:extern-alien "log_handler" alien:system-area-pointer) 
+ #+sbcl(sb-alien:extern-alien "log_handler" sb-alien:system-area-pointer)
  (callback-address log-handler))
 
 
-#+glib2.6
+#?(pkg-exists-p "glib-2.0" :atleast-version "2.6.0")
 (progn
   ;; Unfortunately this will only work as long as we don't abort to
   ;; toplevel from within the log handler. If we do that, the next
   ;; invocation of g_log will be handled as a recursion and cause an
   ;; abort (SIGABORT being signaled). To make things even worse, SBCL
   ;; doesn't handle SIGABRT at all.
-  (defbinding %log-set-default-handler () pointer
-    ((progn log-handler) callback)
+  (defbinding %log-set-default-handler (nil) pointer
+    (log-handler callback)
     (nil null))
   (%log-set-default-handler))
