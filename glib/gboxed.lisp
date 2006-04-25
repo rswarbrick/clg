@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2001-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2001-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gboxed.lisp,v 1.20 2006-02-04 12:15:31 espen Exp $
+;; $Id: gboxed.lisp,v 1.21 2006-04-25 21:55:42 espen Exp $
 
 (in-package "GLIB")
 
@@ -33,7 +33,6 @@
   (let ((location (foreign-location instance))
 	(type-number (type-number-of instance)))
     #'(lambda ()
-	(remove-cached-instance location)
 	(%boxed-free type-number location))))
 
 
@@ -47,14 +46,6 @@
     (subtypep (class-name super) 'boxed)))
 
 
-(defmethod shared-initialize ((class boxed-class) names &key name gtype)
-  (declare (ignore names))
-  (call-next-method)
-  (let ((class-name (or name (class-name class))))
-    (unless (find-type-number class-name)
-      (register-type class-name 
-       (or (first gtype) (default-type-init-name class-name))))))
-
 (defbinding %boxed-copy () pointer
   (type-number type-number)
   (location pointer))
@@ -63,14 +54,27 @@
   (type-number type-number)
   (location pointer))
 
-(defmethod reference-foreign ((class boxed-class) location)
-  (%boxed-copy (find-type-number class) location))
+(defmethod shared-initialize ((class boxed-class) names 
+			      &key name gtype ref unref)
+  (declare (ignore names))
+  (let* ((class-name (or name (class-name class)))
+	 (type-number 
+	  (register-type class-name 
+	  (or 
+	   (first gtype) 
+	   (default-type-init-name class-name)))))
+    (unless (or ref (slot-boundp class 'ref))
+      (setf 
+       (slot-value class 'ref)
+       #'(lambda (location)
+	   (%boxed-copy type-number location))))
+    (unless (or unref (slot-boundp class 'unref))
+      (setf 
+       (slot-value class 'unref)
+       #'(lambda (location)
+	   (%boxed-free type-number location)))))
+  (call-next-method))
 
-(defmethod unreference-foreign ((class boxed-class) location)
-  (%boxed-free (find-type-number class) location))
-
-
-;;;; 
 
 (defun expand-boxed-type (type-number forward-p slots)
   `(defclass ,(type-from-number type-number) (boxed)
@@ -80,37 +84,6 @@
      (:gtype ,(register-type-as type-number))))
 
 (register-derivable-type 'boxed "GBoxed" 'expand-boxed-type)
-
-;;;; Special boxed types
-
-;; (defclass gstring (boxed)
-;;   ()
-;;   (:metaclass boxed-class)
-;;   (:alien-name "GString"))
-
-;; (deftype-method translate-from-alien
-;;     gstring (type-spec location &optional weak-ref)
-;;   `(let ((location ,location))
-;;      (unless (null-pointer-p location)
-;;        (prog1
-;; 	   (c-call::%naturalize-c-string location)
-;; 	 ,(unless weak-ref
-;; 	    (unreference-alien type-spec location))))))
-
-;; (deftype-method translate-to-alien
-;;     gstring (type-spec string &optional weak-ref)
-;;   (declare (ignore weak-ref))
-;;   `(let ((string ,string))
-;;      ;; Always copy strings to prevent seg fault due to GC
-;;      (funcall
-;;       ',(proxy-class-copy (find-class type-spec))
-;;       ',type-spec
-;;       (make-pointer (1+ (kernel:get-lisp-obj-address string))))))
-
-;; (deftype-method cleanup-alien gstring (type-spec c-string &optional weak-ref)
-;;   (when weak-ref
-;;     (unreference-alien type-spec c-string)))
-
 
 
 ;;;; NULL terminated vector of strings
