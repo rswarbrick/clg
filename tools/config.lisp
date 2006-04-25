@@ -68,8 +68,7 @@
   (split-string (first (run-pkg-config package t "--libs"))))
 
 
-(defun pkg-exists-p (package &key version atleast-version max-version
-		     ( error t))
+(defun pkg-exists-p (package &key version atleast-version max-version error)
   (let ((version-check
 	 (cond
 	  (version (format nil "= ~A" version))
