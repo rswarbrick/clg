@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.33 2006-03-02 21:13:01 espen Exp $
+;; $Id: gcallback.lisp,v 1.34 2006-04-25 21:57:44 espen Exp $
 
 (in-package "GLIB")
 
@@ -58,14 +58,16 @@
 	 (args (loop
 		for n from 0 below n-params
 		for offset from 0 by +gvalue-size+
-		collect (gvalue-get (sap+ param-values offset) t))))
+		collect (gvalue-peek (pointer+ param-values offset)))))
     (unwind-protect
 	(let ((result (apply #'invoke-callback callback-id return-type args)))
 	  (when return-type
 	    (gvalue-set return-value result)))
+      ;; TODO: this should be made more general, by adding a type
+      ;; method to return invalidate functions.
       (loop 
        for arg in args
-       when (typep arg 'proxy)
+       when (typep arg 'struct)
        do (invalidate-instance arg)))))
 
 
@@ -165,7 +167,7 @@
 (defbinding signal-query 
     (signal-id &optional (signal-query (make-instance 'signal-query))) nil
   (signal-id unsigned-int)
-  (signal-query signal-query :return))
+  (signal-query signal-query :in/return))
 
 (defun signal-param-types (info)
   (with-slots (n-params param-types) info
@@ -225,7 +227,7 @@
      for arg in args
      for type in types
      for offset from 0 by +gvalue-size+
-     do (gvalue-init (sap+ params offset) type arg))
+     do (gvalue-init (pointer+ params offset) type arg))
 
     (unwind-protect
 	(if return-type
@@ -236,7 +238,7 @@
 	(loop
 	 repeat n-params
 	 for offset from 0 by +gvalue-size+
-	 do (gvalue-unset (sap+ params offset)))
+	 do (gvalue-unset (pointer+ params offset)))
 	(deallocate-memory params)))))
 
 
@@ -414,7 +416,7 @@ once."
 	      (loop
 	       for arg in (cons object args)
 	       for type in param-types
-	       as tmp = params then (sap+ tmp +gvalue-size+)
+	       as tmp = params then (pointer+ tmp +gvalue-size+)
 	       do (gvalue-init tmp type arg)	      
 	       finally 
 	       (if return-type
@@ -424,7 +426,7 @@ once."
 		 (%signal-emitv params signal-id detail (make-pointer 0))))
 	    (loop
 	     repeat n-params
-	     as tmp = params then (sap+ tmp +gvalue-size+)
+	     as tmp = params then (pointer+ tmp +gvalue-size+)
 	     while (gvalue-p tmp)
 	     do (gvalue-unset tmp)))))))
 
@@ -477,7 +479,3 @@ once."
     (unwind-protect
 	 (progn ,@body)
       (destroy-user-data ,id))))
-
-;; For backward compatibility
-(defmacro def-callback-marshal (name (return-type &rest args))
-  `(define-callback-marshal ,name ,return-type ,args))
