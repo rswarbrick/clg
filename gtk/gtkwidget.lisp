@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.21 2006-04-10 18:42:08 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.22 2006-04-25 20:19:32 espen Exp $
 
 (in-package "GTK")
 
@@ -488,8 +488,12 @@ received."
   (event gdk:event))
 
 (defun (setf widget-cursor) (cursor-type widget)
-  (let ((cursor (make-instance 'gdk:cursor :type cursor-type)))
-    (gdk:window-set-cursor (widget-window widget) cursor)))
+  (warn "(SETF WIDGET-CURSOR) is deprecated, use WIDGET-SET-CURSOR instead")
+  (widget-set-cursor widget cursor-type))
+
+(defun widget-set-cursor (widget cursor &rest args)
+  (gdk:window-set-cursor (widget-window widget) 
+   (apply #'gdk:ensure-cursor cursor args)))
 
 (defbinding %widget-get-parent-window () gdk:window
   (widget widget))

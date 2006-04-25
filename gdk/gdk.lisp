@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.26 2006-04-25 13:37:28 espen Exp $
+;; $Id: gdk.lisp,v 1.27 2006-04-25 20:19:32 espen Exp $
 
 
 (in-package "GDK")
@@ -422,13 +422,20 @@
 
 ;;; Cursor
 
-(defmethod allocate-foreign ((cursor cursor) &key type mask fg bg 
+(defmethod allocate-foreign ((cursor cursor) &key source mask fg bg 
 			     (x 0) (y 0) (display (display-get-default)))
-  (etypecase type
-    (keyword (%cursor-new-for-display display type))
-    (pixbuf (%cursor-new-from-pixbuf display type x y))
-    (pixmap (%cursor-new-from-pixmap type mask fg bg x y))))
+  (etypecase source
+    (keyword (%cursor-new-for-display display source))
+    (pixbuf (%cursor-new-from-pixbuf display source x y))
+    (pixmap (%cursor-new-from-pixmap source mask 
+	     (or fg (ensure-color #(0.0 0.0 0.0)))
+	     (or bg (ensure-color #(1.0 1.0 1.0))) x y))
+    (pathname (%cursor-new-from-pixbuf display (pixbuf-load source) x y))))
 
+(defun ensure-cursor (cursor &rest args)
+  (if (typep cursor 'cursor)
+      cursor
+    (apply #'make-instance 'cursor :type cursor args)))
 
 (defbinding %cursor-new-for-display () pointer
   (display display)
