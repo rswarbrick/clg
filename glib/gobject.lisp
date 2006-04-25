@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2000-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2000-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.51 2006-03-03 10:01:01 espen Exp $
+;; $Id: gobject.lisp,v 1.52 2006-04-25 22:10:36 espen Exp $
 
 (in-package "GLIB")
 
@@ -30,8 +30,15 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
 ;;   (push :debug-ref-counting *features*)
   (defclass gobject-class (ginstance-class)
-    ((instance-slots-p :initform nil
+    ((instance-slots-p :initform nil :reader instance-slots-p
       :documentation "Non NIL if the class has slots with instance allocation")))
+  (defmethod shared-initialize ((class gobject-class) names &rest initargs)
+    (declare (ignore names initargs))
+    (call-next-method)
+    (unless (slot-boundp class 'ref)
+      (setf (slot-value class 'ref) '%object-ref))
+    (unless (slot-boundp class 'unref)
+      (setf (slot-value class 'unref) '%object-unref)))
 
   (defmethod validate-superclass ((class gobject-class) (super standard-class))
 ;  (subtypep (class-name super) 'gobject)
@@ -45,9 +52,9 @@
 
 (defclass effective-property-slot-definition (effective-virtual-slot-definition)
   ((pname :reader slot-definition-pname :initarg :pname)
-   (readable :reader slot-readable-p :initarg :readable)
-   (writable :reader slot-writable-p :initarg :writable)
-   (construct-only :initarg :construct-only :reader construct-only-property-p)))
+   (readable :initform t :reader slot-readable-p :initarg :readable)
+   (writable :initform t :reader slot-writable-p :initarg :writable)
+   (construct-only :initform nil :initarg :construct-only :reader construct-only-property-p)))
 
 (defclass direct-user-data-slot-definition (direct-virtual-slot-definition)
   ())
@@ -56,21 +63,30 @@
   ())
 
 
+(defmethod slot-readable-p ((slotd standard-effective-slot-definition))
+  (declare (ignore slotd))
+  t)
+
+(defmethod slot-writable-p ((slotd standard-effective-slot-definition))
+  (declare (ignore slotd))
+  t)
+
+
 (defbinding %object-ref () pointer
   (location pointer))
 
 (defbinding %object-unref () nil
   (location pointer))
 
-#+glib2.8
+#?(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
 (progn
   (define-callback toggle-ref-callback nil
       ((data pointer) (location pointer) (last-ref-p boolean))
     (declare (ignore data))
     #+debug-ref-counting
     (if last-ref-p
-	(format t "Object at 0x~8,'0X has no foreign references~%" (sap-int location))
-      (format t "Foreign reference added to object at 0x~8,'0X~%" (sap-int location)))
+	(format t "Object at 0x~8,'0X has no foreign references~%" (pointer-address location))
+      (format t "Foreign reference added to object at 0x~8,'0X~%" (pointer-address location)))
     (if last-ref-p
 	(cache-instance (find-cached-instance location) t)
       (cache-instance (find-cached-instance location) nil)))
@@ -85,18 +101,10 @@
     (toggle-ref-callback callback)
     (nil null)))
 
-(defmethod reference-foreign ((class gobject-class) location)
-  (declare (ignore class))
-  (%object-ref location))
-
-(defmethod unreference-foreign ((class gobject-class) location)
-  (declare (ignore class))
-  (%object-unref location))
-
 #+debug-ref-counting
 (progn
   (define-callback weak-ref-callback nil ((data pointer) (location pointer))
-    (format t "Object at 0x~8,'0X being finalized~%" (sap-int location)))
+    (format t "Object at 0x~8,'0X (~A) being finalized~%" (pointer-address location) (type-from-number (%type-number-of-ginstance location))))
   
   (defbinding %object-weak-ref (location) pointer
     (location pointer)
@@ -131,14 +139,9 @@
 
 (defmethod compute-effective-slot-definition-initargs ((class gobject-class) direct-slotds)
   (if (eq (slot-definition-allocation (first direct-slotds)) :property)
-      (nconc 
-       (list :pname (signal-name-to-string 
-		     (most-specific-slot-value direct-slotds 'pname
-		      (slot-definition-name (first direct-slotds))))
-	     :readable (most-specific-slot-value direct-slotds 'readable t)
-	     :writable (most-specific-slot-value direct-slotds 'writable t)
-	     :construct-only (most-specific-slot-value direct-slotds 
-                              'construct-only nil))
+      (nconc
+       (compute-most-specific-initargs direct-slotds
+        '(pname construct-only readable writable))
        (call-next-method))
     (call-next-method)))
 
@@ -146,74 +149,69 @@
 (defvar *ignore-setting-construct-only-property* nil)
 (declaim (special *ignore-setting-construct-only-property*))
 
-(defmethod initialize-internal-slot-functions ((slotd effective-property-slot-definition))
-  (let ((type (slot-definition-type slotd))
-	(pname (slot-definition-pname slotd)))
-    (when (and (not (slot-boundp slotd 'getter)) (slot-readable-p slotd))
-      (setf 
-       (slot-value slotd 'getter)
-       (let ((reader nil))
-	 #'(lambda (object)
-	     (unless reader
-	       (setq reader (reader-function type)))
-	     (let ((gvalue (gvalue-new type)))
-	       (%object-get-property object pname gvalue)
-	       (unwind-protect
-		 (funcall reader  gvalue +gvalue-value-offset+)
-		 (gvalue-free gvalue t)))))))
-    
-    (when (not (slot-boundp slotd 'setter))
-      (cond
-       ((slot-writable-p slotd)
-	(setf 
-	 (slot-value slotd 'setter)
-	 (let ((writer nil))
-	   #'(lambda (value object)
-	       (unless writer
-		 (setq writer (writer-function type)))
-	       (let ((gvalue (gvalue-new type)))
-		 (funcall writer value gvalue +gvalue-value-offset+)
-		 (%object-set-property object pname gvalue)
-		 (gvalue-free gvalue t)
-		 value)))))
+(defmethod compute-slot-reader-function ((slotd effective-property-slot-definition))
+  (if (slot-readable-p slotd)
+      (let* ((type (slot-definition-type slotd))
+	     (pname (slot-definition-pname slotd))
+	     (reader (reader-function type :ref :get)))
+	#'(lambda (object)
+	    (with-memory (gvalue +gvalue-size+)
+	      (%gvalue-init gvalue (find-type-number type))
+	      (%object-get-property object pname gvalue)
+	      (funcall reader gvalue +gvalue-value-offset+))))
+    (call-next-method)))
 
-       ((construct-only-property-p slotd)
-	(setf 
-	 (slot-value slotd 'setter)
-	 #'(lambda (value object)
-	     (declare (ignore value object))
-	     (unless *ignore-setting-construct-only-property*
-	       (error "Slot is not writable: ~A" (slot-definition-name slotd)))))))))
+(defmethod compute-slot-writer-function ((slotd effective-property-slot-definition))
+  (cond
+   ((slot-writable-p slotd)
+    (let* ((type (slot-definition-type slotd))
+	   (pname (slot-definition-pname slotd))
+	   (writer (writer-function type :temp t))
+	   (destroy (destroy-function type :temp t)))
+      #'(lambda (value object)
+	  (with-memory (gvalue +gvalue-size+)
+	    (%gvalue-init gvalue (find-type-number type))
+	    (funcall writer value gvalue +gvalue-value-offset+)
+	    (%object-set-property object pname gvalue)
+	    (funcall destroy gvalue +gvalue-value-offset+))
+	  value)))
 
-  (call-next-method))
+   ((construct-only-property-p slotd)
+    #'(lambda (value object)
+	(declare (ignore value object))
+	(unless *ignore-setting-construct-only-property*
+	  (error 'unwritable-slot :name (slot-definition-name slotd) :instance object))))
+   ((call-next-method))))
 
-(defmethod initialize-internal-slot-functions ((slotd effective-user-data-slot-definition))
+(defmethod compute-slot-reader-function ((slotd effective-user-data-slot-definition))
   (let ((slot-name (slot-definition-name slotd)))
-    (unless (slot-boundp slotd 'getter)
-      (setf 
-       (slot-value slotd 'getter)
-       #'(lambda (object)
-	   (prog1 (user-data object slot-name)))))
-    (unless (slot-boundp slotd 'setter)
-      (setf 
-       (slot-value slotd 'setter)
-       #'(lambda (value object)
-	   (setf (user-data object slot-name) value))))
-    (unless (slot-boundp slotd 'boundp)
-      (setf 
-       (slot-value slotd 'boundp)
-       #'(lambda (object)
-	   (user-data-p object slot-name)))))
-  (call-next-method))
+    #'(lambda (object)
+	(user-data object slot-name))))
 
-(defmethod shared-initialize :after ((class gobject-class) names &rest initargs)
-  (declare (ignore initargs))
-  (when (some #'(lambda (slotd)
-		  (and
-		   (eq (slot-definition-allocation slotd) :instance)
-		   (not (typep slotd 'effective-special-slot-definition))))
-	      (class-slots class))
-    (setf (slot-value class 'instance-slots-p) t)))
+(defmethod compute-slot-boundp-function ((slotd effective-user-data-slot-definition))
+  (let ((slot-name (slot-definition-name slotd)))
+    #'(lambda (object)
+	(user-data-p object slot-name))))
+
+(defmethod compute-slot-writer-function ((slotd effective-user-data-slot-definition))
+  (let ((slot-name (slot-definition-name slotd)))
+    #'(lambda (value object)
+	(setf (user-data object slot-name) value))))
+
+(defmethod compute-slot-makunbound-function ((slotd effective-user-data-slot-definition))
+  (let ((slot-name (slot-definition-name slotd)))
+    #'(lambda (object)
+	(unset-user-data object slot-name))))
+
+(defmethod compute-slots :around ((class gobject-class))
+  (let ((slots (call-next-method)))
+    (when (some #'(lambda (slotd)
+		    (and
+		     (eq (slot-definition-allocation slotd) :instance)
+		     (not (typep slotd 'effective-special-slot-definition))))
+		slots)
+      (setf (slot-value class 'instance-slots-p) t))
+    slots))
 
 
 ;;;; Super class for all classes in the GObject type hierarchy
@@ -225,16 +223,33 @@
     (:metaclass gobject-class)
     (:gtype "GObject")))
 
-(define-type-method callback-from-alien-form ((type gobject) form)
-  (from-alien-form type form))
-
 #+debug-ref-counting
 (defmethod print-object ((instance gobject) stream)
   (print-unreadable-object (instance stream :type t :identity nil)
     (if (proxy-valid-p instance)
-	(format stream "at 0x~X (~D)" (sap-int (foreign-location instance)) (ref-count instance))
+	(format stream "at 0x~X (~D)" (pointer-address (foreign-location instance)) (ref-count instance))
       (write-string "at \"unbound\"" stream))))
 
+
+(define-type-method reader-function ((type gobject) &key (ref :read) inlined)
+  (assert-not-inlined type inlined)
+  (ecase ref
+    ((:read :peek) (call-next-method type :ref :read))
+    (:get
+     #'(lambda (location &optional (offset 0))
+	 (let ((instance (ref-pointer location offset)))
+	   (unless (null-pointer-p instance)
+	     (multiple-value-bind (gobject new-p)
+		 (ensure-proxy-instance 'gobject instance :reference nil)
+	       (unless new-p
+		 (%object-unref instance))
+	       (setf (ref-pointer location offset) (make-pointer 0))
+	       gobject)))))))
+
+(define-type-method callback-wrapper ((type gobject) var arg form)
+  (let ((class (type-expand type)))
+    `(let ((,var (ensure-proxy-instance ',class ,arg)))
+       ,form)))
 
 (defun initial-add (object function initargs key pkey)
   (loop 
@@ -255,7 +270,7 @@
 (defmethod make-proxy-instance ((class gobject-class) location &rest initargs)
   (declare (ignore location initargs))
   (if (slot-value class 'instance-slots-p)
-      (error "An object of class ~A has instance slots and should only be created with MAKE-INSTANCE" class)
+      (error "Objects of class ~A has instance slots and should only be created with MAKE-INSTANCE" class)
     (call-next-method)))
 
 
@@ -283,17 +298,18 @@
 
     (cond
      (init-slots
-      (let ((element-size (+ +gvalue-size+ +size-of-pointer+))
-	    (num-slots (length init-slots)))
-	(with-allocated-memory (params (* num-slots element-size))
+      (let* ((pointer-size (size-of 'pointer))
+	     (element-size (+ +gvalue-size+ pointer-size))
+	     (num-slots (length init-slots)))
+	(with-memory (params (* num-slots element-size))
           (loop
 	   with string-writer = (writer-function 'string)
 	   for (slotd . value) in init-slots
-	   as offset = params then (sap+ offset element-size)
+	   as param = params then (pointer+ param element-size)
 	   as type = (slot-definition-type slotd)
 	   as pname = (slot-definition-pname slotd)
-	   do (funcall string-writer pname offset)
-              (gvalue-init (sap+ offset +size-of-pointer+) type value))
+	   do (funcall string-writer pname param)
+              (gvalue-init (pointer+ param pointer-size) type value))
 
 	  (unwind-protect
 	      (%gobject-newv (type-number-of object) num-slots params)
@@ -301,9 +317,9 @@
 	    (loop
 	     with string-destroy = (destroy-function 'string)
 	     repeat num-slots
-	     as offset = params then (sap+ offset element-size)
-	     do (funcall string-destroy offset)
-	        (gvalue-unset (sap+ offset +size-of-pointer+)))))))
+	     as param = params then (pointer+ param element-size)
+	     do (funcall string-destroy param)
+	        (gvalue-unset (pointer+ param pointer-size)))))))
 
      (t (%gobject-new (type-number-of object))))))
 
@@ -318,31 +334,27 @@
   (prog1
       (call-next-method)
     #+debug-ref-counting(%object-weak-ref (foreign-location object))
-    #+glib2.8
+    #?(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
     (when (slot-value (class-of object) 'instance-slots-p)
-      (with-slots (location) object
-        (%object-add-toggle-ref location)
-	(%object-unref location)))))
+      (%object-add-toggle-ref (foreign-location object))
+      (%object-unref (foreign-location object)))))
 
 
 (defmethod instance-finalizer ((instance gobject))
   (let ((location (foreign-location instance)))
-    #+glib2.8
+    #?(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
     (if (slot-value (class-of instance) 'instance-slots-p)
 	#'(lambda ()
 	    #+debug-ref-counting
-	    (format t "Finalizing proxy for 0x~8,'0X~%" (sap-int location))
-	    (remove-cached-instance location)
+	    (format t "Finalizing proxy for 0x~8,'0X~%" (pointer-address location))
 	    (%object-remove-toggle-ref location))
       #'(lambda ()
 	  #+debug-ref-counting
-	  (format t "Finalizing proxy for 0x~8,'0X~%" (sap-int location))
-	  (remove-cached-instance location)
+	  (format t "Finalizing proxy for 0x~8,'0X~%" (pointer-address location))
 	  (%object-unref location)))
-    #-glib2.8
+    #?-(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
     #'(lambda ()
-	(remove-cached-instance location)
-	  (%object-unref location))))
+	(%object-unref location))))
 
 
 (defbinding (%gobject-new "g_object_new") () pointer
@@ -395,22 +407,12 @@
    (register-user-data data) user-data-destroy-callback)
   data)
 
-;; deprecated
-(defun (setf object-data) (data object key &key (test #'eq))
-  (assert (eq test #'eq))
-  (setf (user-data object key) data))
-
 (defbinding %object-get-qdata () unsigned-long
   (object gobject)		 
   (id quark))
 
 (defun user-data (object key)
   (find-user-data (%object-get-qdata object (quark-intern key))))
-
-;; deprecated
-(defun object-data (object key &key (test #'eq))
-  (assert (eq test #'eq))
-  (user-data object key))
 
 (defun user-data-p (object key)
   (user-data-exists-p (%object-get-qdata object (quark-intern key))))
@@ -456,7 +458,14 @@
 
 
 (defun default-slot-name (name)
-  (intern (substitute #\- #\_ (string-upcase (string-upcase name)))))
+  (let ((prefix-len (length (package-prefix))))
+    (intern (substitute #\- #\_
+	     (string-upcase
+	      (if (and
+		   (string-prefix-p (package-prefix) name)
+		   (char= #\- (char name prefix-len)))
+		  (subseq name (1+ prefix-len))
+		name))))))
 
 (defun default-slot-accessor (class-name slot-name type)
   (intern
@@ -535,20 +544,26 @@
 (defun expand-gobject-type (type forward-p options &optional (metaclass 'gobject-class))
   (let ((supers (cons (supertype type) (implements type)))
 	(class  (type-from-number type))
-	(slots (getf options :slots)))    
+	(slots (getf options :slots)))
     `(defclass ,class ,supers
 	 ,(unless forward-p
 	    (slot-definitions class (query-object-class-properties type) slots))
 	 (:metaclass ,metaclass)
 	 (:gtype ,(register-type-as type)))))
 
-(defun gobject-dependencies (type)
+(defun gobject-dependencies (type options)
   (delete-duplicates 
    (cons
     (supertype type)
     (append 
      (type-interfaces type)
-     (mapcar #'param-value-type (query-object-class-properties type))))))
+     (mapcar #'param-value-type (query-object-class-properties type))
+     (getf options :dependencies)
+     (loop
+      for slot in (getf options :slots)
+      as type = (getf (rest slot) :type)
+      when (and type (symbolp type) (find-type-number type))
+      collect (find-type-number type))))))
 
 
 (register-derivable-type 'gobject "GObject" 'expand-gobject-type 'gobject-dependencies)
@@ -559,18 +574,17 @@
 
 (deftype referenced (type) type)
 
-(define-type-method alien-type ((type referenced))
-  (declare (ignore type))
-  (alien-type 'gobject))
+(define-type-method from-alien-form ((type referenced) form &key (ref :free))
+  (cond
+   ((not (eq ref :free))
+    (error "Keyword arg :REF to FROM-ALIEN-FORM should be :FREE for type ~A. It was give ~A" type ref))
+   ((subtypep type 'gobject)
+    (from-alien-form (second (type-expand-to 'referenced type)) form :ref ref))))
 
-(define-type-method from-alien-form ((type referenced) form)
-  (let ((class (second (type-expand-to 'referenced type))))
-    (if (subtypep type 'gobject)
-	(let ((instance (make-symbol "INSTANCE")))
-	  `(let ((,instance ,(from-alien-form class form)))
-	     (when ,instance
-	       (%object-unref (foreign-location ,instance)))
-	     ,instance))
-      (error "~A is not a subclass of GOBJECT" type))))
-
-(export 'referenced)
+(define-type-method from-alien-function ((type referenced) &key (ref :free))
+  (cond
+   ((not (eq ref :free))
+    (error "Keyword arg :REF to FROM-ALIEN-FUNCTION should be :FREE for type ~A. It was give ~A" type ref))
+;   ((subtypep type 'gobject) (call-next-method type ref :free))))
+   ((subtypep type 'gobject) 
+    (from-alien-function (second (type-expand-to 'referenced type)) :ref ref))))

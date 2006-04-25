@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2000-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2000-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.51 2006-04-18 11:42:20 espen Exp $
+;; $Id: gtype.lisp,v 1.52 2006-04-25 22:10:37 espen Exp $
 
 (in-package "GLIB")
 
@@ -38,46 +38,47 @@
   (declare (ignore type))
   (alien-type 'type-number))
 
-(define-type-method size-of ((type gtype))
-  (declare (ignore type))
+(define-type-method size-of ((type gtype) &key (inlined t))
+  (assert-inlined type inlined)
   (size-of 'type-number))
 
-(define-type-method to-alien-form ((type gtype) gtype)
-  (declare (ignore type))
+(define-type-method to-alien-form ((type gtype) gtype &optional copy-p)
+  (declare (ignore type copy-p))
   `(find-type-number ,gtype t)) 
 
-(define-type-method to-alien-function ((type gtype))
-  (declare (ignore type))
+(define-type-method to-alien-function ((type gtype) &optional copy-p)
+  (declare (ignore type copy-p))
   #'(lambda (gtype)
       (find-type-number gtype t)))
 
-(define-type-method from-alien-form ((type gtype) type-number)
-  (declare (ignore type))
-  `(type-from-number ,type-number)) 
+(define-type-method from-alien-form ((type gtype) form &key ref)
+  (declare (ignore type ref))
+  `(type-from-number ,form))
 
-(define-type-method from-alien-function ((type gtype))
-  (declare (ignore type))
+(define-type-method from-alien-function ((type gtype) &key ref)
+  (declare (ignore type ref))
   #'(lambda (type-number)
       (type-from-number type-number)))
 
-(define-type-method writer-function ((type gtype))
-  (declare (ignore type))
+(define-type-method writer-function ((type gtype) &key temp (inlined t))
+  (declare (ignore temp))
+  (assert-inlined type inlined)
   (let ((writer (writer-function 'type-number)))
     #'(lambda (gtype location &optional (offset 0))
 	(funcall writer (find-type-number gtype t) location offset))))
 
-(define-type-method reader-function ((type gtype))
-  (declare (ignore type))
+(define-type-method reader-function ((type gtype) &key ref (inlined t))
+  (declare (ignore ref))
+  (assert-inlined type inlined)
   (let ((reader (reader-function 'type-number)))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
+    #'(lambda (location &optional (offset 0))
 	(type-from-number (funcall reader location offset)))))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass type-query (struct)
     ((type-number :allocation :alien :type type-number)
-     (name :allocation :alien :type string)
+     (name :allocation :alien :type (copy-of string))
      (class-size :allocation :alien :type unsigned-int)
      (instance-size :allocation :alien :type unsigned-int))
     (:metaclass struct-class)))
@@ -85,7 +86,7 @@
 
 (defbinding type-query (type) nil
   ((find-type-number type t) type-number)
-  ((make-instance 'type-query) type-query :return))
+  ((make-instance 'type-query) type-query :in/return))
 
 (defun type-instance-size (type)
   (slot-value (type-query type) 'instance-size))
@@ -96,11 +97,12 @@
 (defbinding type-class-ref (type) pointer
   ((find-type-number type t) type-number))
 
-(defbinding type-class-unref (type) nil
-  ((find-type-number type t) type-number))
+(defbinding type-class-unref () nil
+  (class pointer))
 
 (defbinding type-class-peek (type) pointer
   ((find-type-number type t) type-number))
+
 
 
 ;;;; Mapping between lisp types and glib types
@@ -121,14 +123,18 @@
      (error-p (error "Invalid gtype name: ~A" name)))))
 
 (defun register-type (type id)
-  (pushnew (cons type id) *registered-types* :key #'car)
-  (let ((type-number 
-	 (typecase id
-	   (string (type-number-from-glib-name id))
-	   (symbol (funcall id)))))
-       (setf (gethash type *lisp-type-to-type-number*) type-number)
-       (setf (gethash type-number *type-number-to-lisp-type*) type)
-       type-number))
+  (cond
+   ((find-type-number type))
+   ((not id) (warn "Can't register type with no foreign id: ~A" type))
+   (t    
+    (pushnew (cons type id) *registered-types* :key #'car)
+    (let ((type-number 
+	   (typecase id
+	     (string (type-number-from-glib-name id))
+	     (symbol (funcall id)))))
+      (setf (gethash type *lisp-type-to-type-number*) type-number)
+      (setf (gethash type-number *type-number-to-lisp-type*) type)
+      type-number))))
 
 (defun register-type-alias (type alias)
   (pushnew (cons type alias) *registered-type-aliases* :key #'car)
@@ -144,7 +150,7 @@
 	    (register-type (car type) (cdr type)))
 	*registered-types*)
   (mapc #'(lambda (type) 
-	        (apply #'register-new-type type))
+	    (apply #'register-new-type type))
 	*registered-static-types*)
   (mapc #'(lambda (type) 
 	    (register-type-alias (car type) (cdr type)))
@@ -152,7 +158,8 @@
 
 (pushnew 'reinitialize-all-types 
   #+cmu *after-save-initializations*
-  #+sbcl *init-hooks*)
+  #+sbcl *init-hooks*
+  #+clisp custom:*init-hooks*)
 
 #+cmu
 (pushnew 'system::reinitialize-global-table ; we shouldn't have to do this?
@@ -194,12 +201,19 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *type-initializers* ())
   (defun %find-types-in-library (pathname prefixes ignore)
-    (let ((process (run-program
-		    "/usr/bin/nm" (list "--defined-only" "-D" (namestring (truename pathname)))
-		    :output :stream :wait nil)))
+    (let ((process 
+	   (run-program
+	    "/usr/bin/nm" 
+	    #+clisp :arguments
+	    (list "--defined-only" "-D" (namestring (truename pathname)))
+	    :output :stream :wait nil)))
       (unwind-protect
 	  (loop 
-	   as symbol = (let ((line (read-line (process-output process) nil)))
+	   as symbol = (let ((line (read-line 
+				    #+(or cmu sbcl)
+				    (process-output process)
+				    #+clisp process
+				    nil)))
 			 (when line 
 			   (subseq line (1+ (position #\Space line :from-end t)))))
 	   while symbol
@@ -215,7 +229,9 @@
 		 (string= "_get_type" symbol :start2 (- (length symbol) 9))
 		 (not (member symbol ignore :test #'string=)))
 	   collect symbol)
-	(process-close process)))))
+	(#+(or cmu sbcl)process-close 
+	 #+clisp close
+	 process)))))
 
 
 (defmacro init-types-in-library (filename &key prefix ignore)
@@ -292,42 +308,44 @@
 (defun update-size (class)
   (let ((type-number (find-type-number class)))
     (cond
-     ((not (slot-boundp class 'size))
-      (setf (slot-value class 'size) (type-instance-size type-number)))
+     ((not (foreign-size-p class))
+      (setf (foreign-size class) (type-instance-size type-number)))
      ((and 
-       (slot-boundp class 'size) 
-       (not (= (type-instance-size type-number) (slot-value class 'size))))
+       (foreign-size-p class)
+       (not (= (type-instance-size type-number) (foreign-size class))))
       (warn "Size mismatch for class ~A" class)))))
 
 
 (defmethod finalize-inheritance ((class ginstance-class))
-  (let* ((class-name (class-name class))
-	 (super (most-specific-proxy-superclass class))
-	 (gtype (or 
-		 (first (ginstance-class-gtype class))
-		 (default-alien-type-name class-name)))
-	 (type-number
-	  (or 
-	   (find-type-number class-name)
-	   (let ((type-number
-		  (if (or 
-		       (symbolp gtype)
-		       (type-number-from-glib-name gtype nil))
-		      (register-type class-name gtype)
-		    (register-new-type class-name (class-name super) gtype))))
-	     (type-class-ref type-number)
-	     type-number))))
-    (when (and
-	   (supertype type-number) 
-	   (not (eq (class-name super) (supertype type-number))))
-      (warn "Super class mismatch between CLOS and GObject for ~A"
-       class-name)))
-  (update-size class)
-  (call-next-method))
+  (prog1
+      #+clisp(call-next-method)
+    (let* ((class-name (class-name class))
+	   (super (most-specific-proxy-superclass class))
+	   (gtype (or 
+		   (first (ginstance-class-gtype class))
+		   (default-alien-type-name class-name)))
+	   (type-number
+	    (or 
+	     (find-type-number class-name)
+	     (let ((type-number
+		    (if (or 
+			 (symbolp gtype)
+			 (type-number-from-glib-name gtype nil))
+			(register-type class-name gtype)
+		      (register-new-type class-name (class-name super) gtype))))
+	       (type-class-ref type-number)
+	       type-number))))
+      (when (and
+	     (supertype type-number) 
+	     (not (eq (class-name super) (supertype type-number))))
+	(warn "Super class mismatch between CLOS and GObject for ~A" 
+	      class-name)))
+    (update-size class))
+  #-clisp(call-next-method))
 
 
 (defmethod shared-initialize ((class ginstance-class) names &rest initargs)
-  (declare (ignore initargs))
+  (declare (ignore names initargs))
   (call-next-method)
   (when (class-finalized-p class)
     (update-size class)))
@@ -346,11 +364,17 @@
     (:metaclass proxy-class)
     (:size #.(size-of 'pointer))))
 
-(defun %type-number-of-ginstance (location)
-  (let ((class (sap-ref-sap location 0)))
-    (sap-ref-32 class 0)))
+(defun ref-type-number (location &optional offset)
+  (declare (ignore location offset)))
 
-(defmethod make-proxy-instance :around ((class ginstance-class) location &rest initargs)
+(setf (symbol-function 'ref-type-number) (reader-function 'type-number))
+
+(defun %type-number-of-ginstance (location)
+  (let ((class (ref-pointer location)))
+    (ref-type-number class)))
+
+(defmethod make-proxy-instance :around ((class ginstance-class) location 
+					&rest initargs)
   (declare (ignore class))
   (let ((class (labels ((find-known-class (type-number)
 		          (or
@@ -358,7 +382,7 @@
 			   (unless (zerop type-number)
 			     (find-known-class (type-parent type-number))))))
 		 (find-known-class (%type-number-of-ginstance location)))))
-    ;; Note that chancing the class argument must not alter "the
+    ;; Note that chancing the class argument should not alter "the
     ;; ordered set of applicable methods" as specified in the
     ;; Hyperspec
     (if class
@@ -366,32 +390,11 @@
       (error "Object at ~A has an unkown type number: ~A"
        location (%type-number-of-ginstance location)))))
 
-(defmethod make-proxy-instance ((class ginstance-class) location &rest initargs)
-  (declare (ignore initargs))
-  (reference-foreign class location)
-  ;; Since we make an explicit reference to the foreign object, we
-  ;; always have to release it when the proxy is garbage collected
-  ;; and therefor ignore the weak-p argument.
-  (call-next-method class location :weak nil))
+(define-type-method from-alien-form ((type ginstance) form &key (ref :copy))
+  (call-next-method type form :ref ref))
 
-(defmethod invalidate-instance ((instance ginstance))
-  (declare (ignore instance))
-  ;; A ginstance should never be invalidated since it is ref counted
-  nil)
-
-(define-type-method copy-from-alien-form ((type ginstance) location)
-  (declare (ignore location type))
-  (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
-
-(define-type-method copy-from-alien-function ((type ginstance))
-  (declare (ignore type))  
-  (error "Doing copy-from-alien on a ref. counted class is most certainly an error, but if it really is what you want you should use REFERENCE-FOREIGN on the returned instance instead."))
-
-(define-type-method reader-function ((type ginstance))
-  (let ((class (type-expand type)))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
-	(ensure-proxy-instance class (sap-ref-sap location offset)))))
+(define-type-method from-alien-function ((type ginstance) &key (ref :copy))
+  (call-next-method type :ref ref))
 
 
 ;;;; Registering fundamental types
@@ -432,6 +435,7 @@
 (defun expand-type-definition (type forward-p options)
   (let ((expander (first (find-type-info type))))
     (funcall expander (find-type-number type t) forward-p options)))
+
 
 (defbinding type-parent (type) type-number
   ((find-type-number type t) type-number))
@@ -492,39 +496,65 @@
      *derivable-type-info*)
     type-list))
 
-(defun find-type-dependencies (type)
-  (let ((list-dependencies (second (find-type-info type))))
-    (when list-dependencies
-      (funcall list-dependencies (find-type-number type t)))))
+(defun find-type-dependencies (type &optional options)
+  (let ((find-dependencies (second (find-type-info type))))
+    (when find-dependencies
+      (remove-duplicates
+       (mapcar #'find-type-number
+        (funcall find-dependencies (find-type-number type t) options))))))
 
-(defun %sort-types-topologicaly (types)
-  (let ((partial-sorted
-	 (sort
-	  (mapcar 
-	   #'(lambda (type)
-	       (cons type (remove-if #'(lambda (dep)
-					 (not (find dep types)))
-				     (find-type-dependencies type))))
-	   types)
-	  #'(lambda (type1 type2) (type-is-p type2 type1)) :key #'car))
-	(sorted ()))
 
-    (loop
-     as tmp = partial-sorted then (or (rest tmp) partial-sorted)
-     while tmp
-     do (destructuring-bind (type . dependencies) (first tmp)
-	  (cond
-	   ((every #'(lambda (dep)
-		       (assoc dep sorted))
-		   dependencies)
-	    (push (cons type nil) sorted) ; no forward definition needed
-	    (setq partial-sorted (delete type partial-sorted :key #'first)))
-	   ((some #'(lambda (dep)
-		      (find type (find-type-dependencies dep)))
-		  dependencies)
-	    (push (cons type t) sorted) ; forward definition needed
-	    (setq partial-sorted (delete type partial-sorted :key #'first))))))
-    (nreverse sorted)))
+;; The argument is a list where each elements is on the form 
+;; (type . dependencies)
+(defun sort-types-topologicaly (unsorted)
+  (flet ((depend-p (type1)
+           (find-if #'(lambda (type2)
+			(and
+			 ;; If a type depends a subtype it has to be
+			 ;; forward defined
+			 (not (type-is-p (car type2) (car type1)))
+			 (find (car type2) (cdr type1))))
+		    unsorted)))
+    (let ((sorted
+	   (loop
+	    while unsorted
+	    nconc (multiple-value-bind (sorted remaining)
+		      (delete-collect-if 
+		       #'(lambda (type)
+			   (or (not (cdr type)) (not (depend-p type))))
+		       unsorted)
+		    (cond
+		     ((not sorted)
+		      ;; We have a circular dependency which have to
+		      ;; be resolved
+		      (let ((selected
+			     (find-if 
+			      #'(lambda (type)			
+				  (every 
+				   #'(lambda (dep)
+				       (or
+					(not (type-is-p (car type) dep))
+					(not (find dep unsorted :key #'car))))
+				   (cdr type)))
+			      unsorted)))
+			(unless selected
+			  (error "Couldn't resolve circular dependency"))
+			(setq unsorted (delete selected unsorted))
+			(list selected)))
+		     (t
+		      (setq unsorted remaining)
+		      sorted))))))
+
+      ;; Mark types which have to be forward defined
+      (loop
+       for tmp on sorted
+       as (type . dependencies) = (first tmp)
+       collect (cons type (and
+			   dependencies
+			   (find-if #'(lambda (type)
+					(find (car type) dependencies))
+				    (rest tmp))
+			   t))))))
 
 
 (defun expand-type-definitions (prefix &optional args)
@@ -556,7 +586,17 @@
 	  (getf (type-options type-number) :type (default-type-name name))
 	  (register-type-as type-number))))
 
-     (let ((sorted-type-list (%sort-types-topologicaly type-list)))
+     ;; This is needed for some unknown reason to get type numbers right
+     (mapc #'find-type-dependencies type-list)
+
+     (let ((sorted-type-list 
+	    #+clisp (mapcar #'list type-list)
+	    #-clisp
+	    (sort-types-topologicaly 
+	     (mapcar 
+	      #'(lambda (type)
+		  (cons type (find-type-dependencies type (type-options type))))
+	      type-list))))
        `(progn
 	  ,@(mapcar
 	     #'(lambda (pair)
@@ -572,6 +612,9 @@
 
 (defmacro define-types-by-introspection (prefix &rest args)
   (expand-type-definitions prefix args))
+
+(defexport define-types-by-introspection (prefix &rest args)
+  (list-autoexported-symbols (expand-type-definitions prefix args))))
 
 
 ;;;; Initialize all non static types in GObject
