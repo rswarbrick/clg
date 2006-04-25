@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.36 2006-02-26 15:30:01 espen Exp $
+;; $Id: glib.lisp,v 1.37 2006-04-25 21:51:32 espen Exp $
 
 
 (in-package "GLIB")
@@ -30,44 +30,18 @@
 
 ;;;; Memory management
 
-(defbinding (allocate-memory "g_malloc0") () pointer
+(defbinding (%allocate-memory "g_malloc0") () pointer
   (size unsigned-long))
 
-(defbinding (reallocate-memory "g_realloc") () pointer
-  (address pointer)
-  (size unsigned-long))
-
-(defbinding (deallocate-memory "g_free") () nil
+(defbinding (%deallocate-memory "g_free") () nil
   (address pointer))
-;; (defun deallocate-memory (address)
-;;   (declare (ignore address)))
 
-(defun copy-memory (from length &optional (to (allocate-memory length)))
-  #+cmu(system-area-copy from 0 to 0 (* 8 length))
-  #+sbcl(system-area-ub8-copy from 0 to 0 length)
-  to)
-
-(defun clear-memory (from length)
-  #+cmu(vm::system-area-fill 0 from 0 (* 8 length))
-  #+sbcl(system-area-ub8-fill 0 from 0 length))
-
-(defmacro with-allocated-memory ((var size) &body body)
-  (if (constantp size)
-      (let ((alien (make-symbol "ALIEN"))
-	    (size (eval size)))
-	`(with-alien ((,alien (array #+sbcl(sb-alien:unsigned 8) #+cmu(alien:unsigned 8) ,size)))
-	   (let ((,var (alien-sap ,alien)))
-	     (clear-memory ,var ,size)
-	     ,@body)))
-    `(let ((,var (allocate-memory ,size)))
-       (unwind-protect
-	   (progn ,@body)
-	 (deallocate-memory ,var)))))
+(setf
+ (symbol-function 'allocate-memory) #'%allocate-memory
+ (symbol-function 'deallocate-memory) #'%deallocate-memory)
 
 
 ;;;; User data mechanism
-
-(internal *user-data* *user-data-count*)
 
 (defvar *user-data* (make-hash-table))
 (defvar *user-data-count* 0)
@@ -121,7 +95,7 @@
 				 (package-name (symbol-package object)) 
 				 object)))))
 
-(defbinding quark-to-string () (copy-of string)
+(defbinding quark-to-string () (static string)
   (quark quark))
 
 
@@ -131,124 +105,174 @@
   `(or null (cons ,type list)))
 
 (defbinding (%glist-append "g_list_append") () pointer
-  (glist pointer)
+  (glist (or null pointer))
   (nil null))
 
-(defun make-glist (type list)
-  (loop
-   with writer = (writer-function type)
-   for element in list
-   as glist = (%glist-append (or glist (make-pointer 0)))
-   do (funcall writer element glist)
-   finally (return glist)))
+(defun make-glist (element-type list &optional temp-p)
+  (let ((writer (if (functionp element-type)
+		    element-type
+		  (writer-function element-type :temp temp-p))))
+    (loop
+     for element in list
+     as glist = (%glist-append nil) then (%glist-append glist)
+     do (funcall writer element glist)
+     finally (return glist))))
 
 (defun glist-next (glist)
   (unless (null-pointer-p glist)
-    (sap-ref-sap glist +size-of-pointer+)))
+    (ref-pointer glist #.(size-of 'pointer))))
   
 ;; Also used for gslists
-(defun map-glist (seqtype function glist element-type)
-  (let ((reader (reader-function element-type)))
+(defun map-glist (seqtype function glist element-type &optional (ref :read))
+  (let ((reader (if (functionp element-type)
+		    element-type
+		  (reader-function element-type :ref ref))))
     (case seqtype 
      ((nil)
       (loop
-       as tmp = glist then (glist-next tmp)
-       until (null-pointer-p tmp)
-       do (funcall function (funcall reader tmp))))
+       as element = glist then (glist-next element)
+       until (null-pointer-p element)
+       do (funcall function (funcall reader element))))
      (list
       (loop
-       as tmp = glist then (glist-next tmp)
-       until (null-pointer-p tmp)
-       collect (funcall function (funcall reader tmp))))
+       as element = glist then (glist-next element)
+       until (null-pointer-p element)
+       collect (funcall function (funcall reader element))))
      (t
       (coerce 
        (loop
-	as tmp = glist then (glist-next tmp)
-	until (null-pointer-p tmp)
-	collect (funcall function (funcall reader tmp)))
+	as element = glist then (glist-next element)
+	until (null-pointer-p element)
+	collect (funcall function (funcall reader element)))
        seqtype)))))
 
 (defbinding (glist-free "g_list_free") () nil
   (glist pointer))
 
-(defun destroy-glist (glist element-type)
-  (loop
-   with destroy = (destroy-function element-type)
-   as tmp = glist then (glist-next tmp)
-   until (null-pointer-p tmp)
-   do (funcall destroy tmp 0))
+(defun destroy-glist (glist element-type &optional temp-p)
+  (let ((destroy (if (functionp element-type)
+		     element-type
+		   (destroy-function element-type :temp temp-p))))
+    (loop
+     as element = glist then (glist-next element)
+     until (null-pointer-p element)
+     do (funcall destroy element)))
   (glist-free glist))
 
 (define-type-method alien-type ((type glist))
   (declare (ignore type))
   (alien-type 'pointer))
 
-(define-type-method size-of ((type glist))
-  (declare (ignore type))
+(define-type-method size-of ((type glist) &key inlined)
+  (assert-not-inlined type inlined)
   (size-of 'pointer))
 
-(define-type-method to-alien-form ((type glist) list)
-  (let ((element-type (second (type-expand-to 'glist type))))
+
+(define-type-method alien-arg-wrapper ((type glist) var list style form &optional copy-in-p)
+  (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
+    (cond
+      ((and (in-arg-p style) (not (out-arg-p style)))
+       `(with-pointer (,var (make-glist ',element-type ,list ,(not copy-in-p)))
+	  (unwind-protect
+	      ,form
+	    ,(unless copy-in-p
+	       `(destroy-glist ,var ',element-type t)))))
+      ((and (in-arg-p style) (out-arg-p style))
+       (let ((glist (make-symbol "GLIST")))
+	 `(with-pointer (,glist (make-glist ',element-type ,list ,(not copy-in-p)))
+            (with-pointer (,var ,glist)		      
+	      (unwind-protect
+		  ,form
+		,(unless copy-in-p
+		   `(destroy-glist ,glist ',element-type t)))))))
+      ((and (out-arg-p style) (not (in-arg-p style)))
+       `(with-pointer (,var)
+	  ,form)))))
+
+(define-type-method to-alien-form ((type glist) list &optional copy-p)
+  (declare (ignore copy-p))
+  (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
     `(make-glist ',element-type ,list)))
 
-(define-type-method to-alien-function ((type glist))
-  (let ((element-type (second (type-expand-to 'glist type))))
-    #'(lambda (list)
-	(make-glist element-type list))))
+(define-type-method to-alien-function ((type glist) &optional copy-p)
+  (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
+    (values
+     #'(lambda (list)
+	 (make-glist element-type list (not copy-p)))
+     (unless copy-p
+       #'(lambda (list glist)
+	   (declare (ignore list))
+	   (destroy-glist glist element-type t))))))
 
-(define-type-method from-alien-form ((type glist) glist)
-  (let ((element-type (second (type-expand-to 'glist type))))
-    `(let ((glist ,glist))
-      (unwind-protect
-	   (map-glist 'list #'identity glist ',element-type)
-	(destroy-glist glist ',element-type)))))
+(define-type-method from-alien-form ((type glist) form &key (ref :free))
+  (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
+    `(let ((glist ,form))
+       (unwind-protect
+	   (map-glist 'list #'identity glist ',element-type 
+	    ,(ecase ref (:free :get) ((:static :temp) :peek) (:copy :read)))
+	 ,(when (eq ref :free)
+	    `(destroy-glist glist ',element-type))))))
 
-(define-type-method from-alien-function ((type glist))
-  (let ((element-type (second (type-expand-to 'glist type))))
-    #'(lambda (glist)
-	(unwind-protect
-	     (map-glist 'list #'identity glist element-type)
-	  (destroy-glist glist element-type)))))
+(define-type-method from-alien-function ((type glist) &key (ref :free))
+  (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
+    (ecase ref
+      (:free 
+       #'(lambda (glist)
+	   (prog1
+	       (map-glist 'list #'identity glist element-type :get)
+	     (glist-free glist))))
+      (:copy
+       #'(lambda (glist)
+	   (map-glist 'list #'identity glist element-type :read)))
+      ((:static :temp)
+       #'(lambda (glist)
+	   (map-glist 'list #'identity glist element-type :peek))))))
 
-(define-type-method copy-from-alien-form ((type glist) glist)
-  (let ((element-type (second (type-expand-to 'glist type))))
-    `(map-glist 'list #'identity ,glist ',element-type)))
-
-(define-type-method copy-from-alien-function ((type glist))
-  (let ((element-type (second (type-expand-to 'glist type))))
-    #'(lambda (glist)
-	(map-glist 'list #'identity glist element-type))))
-
-(define-type-method cleanup-form ((type glist) glist)
-  (let ((element-type (second (type-expand-to 'glist type))))
-    `(destroy-glist ,glist ',element-type)))
-
-(define-type-method cleanup-function ((type glist))
-  (let ((element-type (second (type-expand-to 'glist type))))
-    #'(lambda (glist)
-	(destroy-glist glist element-type))))
-
-(define-type-method writer-function ((type glist))
+(define-type-method writer-function ((type glist) &key temp inlined)
+  (assert-not-inlined type inlined)
   (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (list location &optional (offset 0))
 	(setf 
-	 (sap-ref-sap location offset)
-	 (make-glist element-type list)))))
+	 (ref-pointer location offset)
+	 (make-glist element-type list temp)))))
 
-(define-type-method reader-function ((type glist))
+(define-type-method reader-function ((type glist) &key (ref :read) inlined)
+  (assert-not-inlined type inlined)
   (let ((element-type (second (type-expand-to 'glist type))))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
+    (ecase ref
+      ((:read :peek)
+       #'(lambda (location &optional (offset 0))
+	   (unless (null-pointer-p (ref-pointer location offset))
+	     (map-glist 'list #'identity (ref-pointer location offset) element-type ref))))
+      (:get
+       #'(lambda (location &optional (offset 0))
+	   (unless (null-pointer-p (ref-pointer location offset))
+	     (prog1
+		 (map-glist 'list #'identity (ref-pointer location offset) element-type :get)
+	       (glist-free (ref-pointer location offset))
+	       (setf (ref-pointer location offset) (make-pointer 0)))))))))
 
-(define-type-method destroy-function ((type glist))
+(define-type-method destroy-function ((type glist) &key temp inlined)
+  (assert-not-inlined type inlined)
   (let ((element-type (second (type-expand-to 'glist type))))
     #'(lambda (location &optional (offset 0))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (destroy-glist (sap-ref-sap location offset) element-type)
-	  (setf (sap-ref-sap location offset) (make-pointer 0))))))
+	(unless (null-pointer-p (ref-pointer location offset))
+	  (destroy-glist (ref-pointer location offset) element-type temp)
+	  (setf (ref-pointer location offset) (make-pointer 0))))))
 
+(define-type-method copy-function ((type glist) &key inlined)
+  (assert-not-inlined type inlined)
+  (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
+    (let ((copy-element (copy-function element-type)))
+      #'(lambda (from to &optional (offset 0))
+	  (unless (null-pointer-p (ref-pointer from offset))
+	    (loop
+	     as from-list = (ref-pointer from offset) 
+	                    then (glist-next from-list)
+	     as to-list = (setf (ref-pointer to offset) (%glist-append nil)) 
+	                  then (%glist-append to-list)
+	     do (funcall copy-element from-list to-list)
+	     while (glist-next from-lisT)))))))
 
 
 ;;;; Single linked list (GSList)
@@ -259,472 +283,143 @@
   (gslist pointer)
   (nil null))
 
-(defun make-gslist (type list)
-  (loop
-   with writer = (writer-function type)
-   for element in (reverse list)
-   as gslist = (%gslist-prepend (or gslist (make-pointer 0)))
-   do (funcall writer element gslist)
-   finally (return gslist)))
+(defbinding (%gslist-append "g_slist_append") () pointer
+  (glist (or null pointer))
+  (nil null))
+
+
+(defun make-gslist (element-type list &optional temp-p)
+  (let ((writer (if (functionp element-type)
+		    element-type
+		  (writer-function element-type :temp temp-p))))
+    (loop
+     for element in (reverse list)
+     as gslist = (%gslist-prepend (make-pointer 0)) then (%gslist-prepend gslist)
+     do (funcall writer element gslist)
+     finally (return gslist))))
 
 (defbinding (gslist-free "g_slist_free") () nil
   (gslist pointer))
 
-(defun destroy-gslist (gslist element-type)
+(defun destroy-gslist (gslist element-type &optional temp-p)
   (loop
-   with destroy = (destroy-function element-type)
-   as tmp = gslist then (glist-next tmp)
-   until (null-pointer-p tmp)
-   do (funcall destroy tmp 0))
+   with destroy = (destroy-function element-type :temp temp-p)
+   as element = gslist then (glist-next element)
+   until (null-pointer-p element)
+   do (funcall destroy element 0))
   (gslist-free gslist))
 
 (define-type-method alien-type ((type gslist))
   (declare (ignore type))
   (alien-type 'pointer))
 
-(define-type-method size-of ((type gslist))
-  (declare (ignore type))
+(define-type-method size-of ((type gslist) &key inlined)
+  (assert-not-inlined type inlined)
   (size-of 'pointer))
 
-(define-type-method to-alien-form ((type gslist) list)
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    `(make-sglist ',element-type ,list)))
+(define-type-method alien-arg-wrapper ((type gslist) var list style form &optional copy-in-p)
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    (cond
+      ((and (in-arg-p style) (not (out-arg-p style)))
+       `(with-pointer (,var (make-gslist ',element-type ,list ,(not copy-in-p)))
+	  (unwind-protect
+	      ,form
+	    ,(unless copy-in-p
+	       `(destroy-gslist ,var ',element-type t)))))
+      ((and (in-arg-p style) (out-arg-p style))
+       (let ((gslist (make-symbol "GSLIST")))
+	 `(with-pointer (,gslist (make-gslist ',element-type ,list ,(not copy-in-p)))
+            (with-pointer (,var ,gslist)		      
+	      (unwind-protect
+		  ,form
+		,(unless copy-in-p
+		   `(destroy-gslist ,gslist ',element-type t)))))))
+      ((and (out-arg-p style) (not (in-arg-p style)))
+       `(with-pointer (,var)
+	  ,form)))))
 
-(define-type-method to-alien-function ((type gslist))
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    #'(lambda (list)
-	(make-gslist element-type list))))
+(define-type-method to-alien-form ((type gslist) list &optional copy-p)
+  (declare (ignore copy-p))
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    `(make-gslist ',element-type ,list)))
 
-(define-type-method from-alien-form ((type gslist) gslist)
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    `(let ((gslist ,gslist))
-      (unwind-protect
-	   (map-glist 'list #'identity gslist ',element-type)
-	(destroy-gslist gslist ',element-type)))))
+(define-type-method to-alien-function ((type gslist) &optional copy-p)
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    (values
+     #'(lambda (list)
+	 (make-gslist element-type list (not copy-p)))
+     (unless copy-p
+       #'(lambda (list gslist)
+	   (declare (ignore list))
+	   (destroy-gslist gslist element-type t))))))
 
-(define-type-method from-alien-function ((type gslist))
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    #'(lambda (gslist)
-	(unwind-protect
-	     (map-glist 'list #'identity gslist element-type)
-	  (destroy-gslist gslist element-type)))))
+(define-type-method from-alien-form ((type gslist) form &key (ref :free))
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    `(let ((gslist ,form))
+       (unwind-protect
+	   (map-glist 'list #'identity gslist ',element-type
+	    ,(ecase ref (:free :get) ((:static :temp) :peek) (:copy :read)))
+	 ,(when (eq ref :free)
+	    `(destroy-gslist gslist ',element-type))))))
 
-(define-type-method copy-from-alien-form ((type gslist) gslist)
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    `(map-glist 'list #'identity ,gslist ',element-type)))
+(define-type-method from-alien-function ((type gslist)  &key (ref :free))
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    (ecase ref
+      (:free 
+       #'(lambda (glist)
+	   (prog1
+	       (map-glist 'list #'identity glist element-type :get)
+	     (gslist-free glist))))
+      (:copy
+       #'(lambda (glist)
+	   (map-glist 'list #'identity glist element-type :read)))
+      ((:static :temp)
+       #'(lambda (glist)
+	   (map-glist 'list #'identity glist element-type :peek))))))
 
-(define-type-method copy-from-alien-function ((type gslist))
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    #'(lambda (gslist)
-	(map-glist 'list #'identity gslist element-type))))
+(define-type-method writer-function ((type gslist) &key temp inlined)
+  (assert-not-inlined type inlined)
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    (let ((element-writer (writer-function element-type :temp temp)))
+      #'(lambda (list location &optional (offset 0))
+	  (setf 
+	   (ref-pointer location offset)
+	   (make-gslist element-writer list))))))
 
-(define-type-method cleanup-form ((type gslist) gslist)
+(define-type-method reader-function ((type gslist) &key (ref :read) inlined)
+  (assert-not-inlined type inlined)
   (let ((element-type (second (type-expand-to 'gslist type))))
-    `(destroy-gslist ,gslist ',element-type)))
+    (ecase ref
+      ((:read :peek)
+       #'(lambda (location &optional (offset 0))
+	   (unless (null-pointer-p (ref-pointer location offset))
+	     (map-glist 'list #'identity (ref-pointer location offset) element-type ref))))
+      (:get
+       #'(lambda (location &optional (offset 0))
+	   (unless (null-pointer-p (ref-pointer location offset))
+	     (prog1
+		 (map-glist 'list #'identity (ref-pointer location offset) element-type :get)
+	       (gslist-free (ref-pointer location offset))
+	       (setf (ref-pointer location offset) (make-pointer 0)))))))))
 
-(define-type-method cleanup-function ((type gslist))
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    #'(lambda (gslist)
-	(destroy-gslist gslist element-type))))
-
-(define-type-method writer-function ((type gslist))
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    #'(lambda (list location &optional (offset 0))
-	(setf 
-	 (sap-ref-sap location offset)
-	 (make-gslist element-type list)))))
-
-(define-type-method reader-function ((type gslist))
-  (let ((element-type (second (type-expand-to 'gslist type))))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (map-glist 'list #'identity (sap-ref-sap location offset) element-type)))))
-
-(define-type-method destroy-function ((type gslist))
+(define-type-method destroy-function ((type gslist) &key temp inlined)
+  (assert-not-inlined type inlined)
   (let ((element-type (second (type-expand-to 'gslist type))))
     #'(lambda (location &optional (offset 0))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (destroy-gslist (sap-ref-sap location offset) element-type)
-	  (setf (sap-ref-sap location offset) (make-pointer 0))))))
+	(unless (null-pointer-p (ref-pointer location offset))
+	  (destroy-gslist (ref-pointer location offset) element-type temp)
+	  (setf (ref-pointer location offset) (make-pointer 0))))))
 
-
-;;; Vector
-
-(defun make-c-vector (type length &optional content location)
-  (let* ((size-of-type (size-of type))
-	 (location (or location (allocate-memory (* size-of-type length))))
-	 (writer (writer-function type)))
-    (etypecase content
-      (vector
-       (loop
-	for element across content
-	for i from 0 below length
-	as offset = 0 then (+ offset size-of-type)
-	do (funcall writer element location offset)))
-      (list
-       (loop
-	for element in content
-	for i from 0 below length
-	as offset = 0 then (+ offset size-of-type)
-	do (funcall writer element location offset))))
-    location))
-
-
-(defun map-c-vector (seqtype function location element-type length)
-  (let ((reader (reader-function element-type))
-	(size-of-element (size-of element-type)))
-    (case seqtype 
-     ((nil)
-      (loop
-       for i from 0 below length
-       as offset = 0 then (+ offset size-of-element)
-       do (funcall function (funcall reader location offset))))
-     (list
-      (loop
-       for i from 0 below length
-       as offset = 0 then (+ offset size-of-element)
-       collect (funcall function (funcall reader location offset))))
-     (t
-      (loop
-       with sequence = (make-sequence seqtype length)
-       for i from 0 below length
-       as offset = 0 then (+ offset size-of-element)
-       do (setf 
-	   (elt sequence i)
-	   (funcall function (funcall reader location offset)))
-       finally (return sequence))))))
-
-
-(defun destroy-c-vector (location element-type length)
-  (loop
-   with destroy = (destroy-function element-type)
-   with element-size = (size-of element-type)
-   for i from 0 below length
-   as offset = 0 then (+ offset element-size)
-   do (funcall destroy location offset))
-  (deallocate-memory location))
-
-
-(define-type-method alien-type ((type vector))
-  (declare (ignore type))
-  (alien-type 'pointer))
-
-(define-type-method size-of ((type vector))
-  (declare (ignore type))
-  (size-of 'pointer))
-
-(define-type-method to-alien-form ((type vector) vector)
-  (destructuring-bind (element-type &optional (length '*)) 
-      (rest (type-expand-to 'vector type))
-    (if (eq length '*)
-	`(let* ((vector ,vector)
-		(location (sap+
-			   (allocate-memory (+ ,+size-of-int+ 
-					       (* ,(size-of element-type) 
-						  (length vector))))
-			   ,+size-of-int+)))
-	  (make-c-vector ',element-type (length vector) vector location)
-	  (setf (sap-ref-32 location ,(- +size-of-int+)) (length vector))
-	  location)	  
-      `(make-c-vector ',element-type ,length ,vector))))
-
-(define-type-method from-alien-form ((type vector) c-vector)
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    (if (eq length '*)
-	(error "Can't use vector of variable size as return type")
-      `(let ((c-vector ,c-vector))
-	(prog1
-	    (map-c-vector 'vector #'identity c-vector ',element-type ,length)
-	  (destroy-c-vector c-vector ',element-type ,length))))))
-
-(define-type-method copy-from-alien-form ((type vector) c-vector)
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    (if (eq length '*)
-	(error "Can't use vector of variable size as return type")
-      `(map-c-vector 'vector #'identity ,c-vector ',element-type ,length))))
-
-(define-type-method copy-from-alien-function ((type vector))
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    (if (eq length '*)
-	(error "Can't use vector of variable size as return type")
-      #'(lambda (c-vector)
-	  (map-c-vector 'vector #'identity c-vector element-type length)))))
-
-(define-type-method cleanup-form ((type vector) location)
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    `(let* ((location ,location)
-	    (length ,(if (eq length '*)
-			 `(sap-ref-32 location ,(- +size-of-int+))
-			 length)))
-      (loop
-       with destroy = (destroy-function ',element-type)
-       for i from 0 below length
-       as offset = 0 then (+ offset ,(size-of element-type))
-       do (funcall destroy location offset))
-      (deallocate-memory ,(if (eq length '*) 
-			      `(sap+ location  ,(- +size-of-int+))
-			    'location)))))
-
-;; We need these so that we can specify vectors with length given as
-;; a non constant in callbacks
-(define-type-method callback-from-alien-form ((type vector) form)
-  (copy-from-alien-form type form))
-(define-type-method callback-cleanup-form ((type vector) form)
-  (declare (ignore type form))
-  nil)
-
-
-(define-type-method writer-function ((type vector))
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    #'(lambda (vector location &optional (offset 0))
-	(setf 
-	 (sap-ref-sap location offset)
-	 (make-c-vector element-type length vector)))))
-
-(define-type-method reader-function ((type vector))
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    (if (eq length '*)
-	(error "Can't create reader function for vector of variable size")
-      #'(lambda (location &optional (offset 0) weak-p)
-	  (declare (ignore weak-p))
-	  (unless (null-pointer-p (sap-ref-sap location offset))
-	    (map-c-vector 'vector #'identity (sap-ref-sap location offset) 
-	     element-type length))))))
-
-(define-type-method destroy-function ((type vector))
-  (destructuring-bind (element-type &optional (length '*))
-      (rest (type-expand-to 'vector type))
-    (if (eq length '*)
-	(error "Can't create destroy function for vector of variable size")
-      #'(lambda (location &optional (offset 0))
-	  (unless (null-pointer-p (sap-ref-sap location offset))
-	    (destroy-c-vector 
-	     (sap-ref-sap location offset) element-type length)
-	    (setf (sap-ref-sap location offset) (make-pointer 0)))))))
-
-
-;;;; Null terminated vector
-
-(defun make-0-vector (type content &optional location)
-  (let* ((size-of-type (size-of type))
-	 (location (or 
-		    location 
-		    (allocate-memory (* size-of-type (1+ (length content))))))
-	 (writer (writer-function type)))
-    (etypecase content
-      (vector
-       (loop
-	for element across content
-	as offset = 0 then (+ offset size-of-type)
-	do (funcall writer element location offset)
-	finally (setf (sap-ref-sap location offset) (make-pointer 0))))
-      (list
-       (loop
-	for element in content
-	as offset = 0 then (+ offset size-of-type)
-	do (funcall writer element location offset)
-	finally (setf (sap-ref-sap location (+ offset size-of-type)) (make-pointer 0)))))
-    location))
-
-
-(defun map-0-vector (seqtype function location element-type)
-  (let ((reader (reader-function element-type))
-	(size-of-element (size-of element-type)))
-    (case seqtype 
-     ((nil)
-      (loop
-       as offset = 0 then (+ offset size-of-element)
-       until (null-pointer-p (sap-ref-sap location offset))
-       do (funcall function (funcall reader location offset))))
-     (list
-      (loop
-       as offset = 0 then (+ offset size-of-element)
-       until (null-pointer-p (sap-ref-sap location offset))
-       collect (funcall function (funcall reader location offset))))
-     (t
-      (coerce 
-       (loop
-	as offset = 0 then (+ offset size-of-element)
-	until (null-pointer-p (sap-ref-sap location offset))
-	collect (funcall function (funcall reader location offset)))
-       seqtype)))))
-
-
-(defun destroy-0-vector (location element-type)
-  (loop
-   with destroy = (destroy-function element-type)
-   with element-size = (size-of element-type)
-   as offset = 0 then (+ offset element-size)
-   until (null-pointer-p (sap-ref-sap location offset))
-   do (funcall destroy location offset))
-  (deallocate-memory location))
-
-(deftype null-terminated-vector (element-type) `(vector ,element-type))
-
-(define-type-method alien-type ((type null-terminated-vector))
-  (declare (ignore type))
-  (alien-type 'pointer))
-
-(define-type-method size-of ((type null-terminated-vector))
-  (declare (ignore type))
-  (size-of 'pointer))
-
-(define-type-method to-alien-form ((type null-terminated-vector) vector)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    `(make-0-vector ',element-type ,vector)))
-
-(define-type-method from-alien-form ((type null-terminated-vector) c-vector)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    `(let ((c-vector ,c-vector))
-       (prog1
-	   (map-0-vector 'vector #'identity c-vector ',element-type)
-	 (destroy-0-vector c-vector ',element-type)))))
-
-(define-type-method copy-from-alien-form ((type null-terminated-vector) c-vector)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    `(map-0-vector 'vector #'identity ,c-vector ',element-type)))
-
-(define-type-method cleanup-form ((type null-terminated-vector) location)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    `(destroy-0-vector ,location ',element-type)))
-
-(define-type-method writer-function ((type null-terminated-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    (unless (eq (alien-type element-type) (alien-type 'pointer))
-      (error "Elements in null-terminated vectors need to be of pointer types"))
-    #'(lambda (vector location &optional (offset 0))
-	(setf 
-	 (sap-ref-sap location offset)
-	 (make-0-vector element-type vector)))))
-
-(define-type-method reader-function ((type null-terminated-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    (unless (eq (alien-type element-type) (alien-type 'pointer))
-      (error "Elements in null-terminated vectors need to be of pointer types"))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (map-0-vector 'vector #'identity (sap-ref-sap location offset) 
-	   element-type)))))
-
-(define-type-method destroy-function ((type null-terminated-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'null-terminated-vector type))
-    (unless (eq (alien-type element-type) (alien-type 'pointer))
-      (error "Elements in null-terminated vectors need to be of pointer types"))
-    #'(lambda (location &optional (offset 0))
-	  (unless (null-pointer-p (sap-ref-sap location offset))
-	    (destroy-0-vector 
-	     (sap-ref-sap location offset) element-type)
-	    (setf (sap-ref-sap location offset) (make-pointer 0))))))
-
-(define-type-method unbound-value ((type null-terminated-vector))
-  (declare (ignore type))
-  nil)
-
-
-
-
-;;; Counted vector
-
-(defun make-counted-vector (type content)
-  (let* ((size-of-type (size-of type))
-	 (length (length content))
-	 (location 
-	  (allocate-memory (+ +size-of-int+ (* size-of-type length)))))
-    (setf (sap-ref-32 location 0) length)
-    (make-c-vector type length content (sap+ location +size-of-int+))))
-
-(defun map-counted-vector (seqtype function location element-type)
-  (let ((length (sap-ref-32 location 0)))
-    (map-c-vector 
-     seqtype function (sap+ location +size-of-int+)
-     element-type length)))
-
-(defun destroy-counted-vector (location element-type)
-  (loop
-   with destroy = (destroy-function element-type)
-   with element-size = (size-of element-type)
-   for i from 0 below (sap-ref-32 location 0)
-   as offset = +size-of-int+ then (+ offset element-size)
-   do (funcall destroy location offset))
-  (deallocate-memory location))
-
-
-(deftype counted-vector (element-type) `(vector ,element-type))
-
-(define-type-method alien-type ((type counted-vector))
-  (declare (ignore type))
-  (alien-type 'pointer))
-
-(define-type-method size-of ((type counted-vector))
-  (declare (ignore type))
-  (size-of 'pointer))
-
-(define-type-method to-alien-form ((type counted-vector) vector)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    `(make-counted-vector ',element-type ,vector)))
-
-(define-type-method from-alien-form ((type counted-vector) c-vector)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    `(let ((c-vector ,c-vector))
-       (prog1
-	   (map-counted-vector 'vector #'identity c-vector ',element-type)
-	 (destroy-counted-vector c-vector ',element-type)))))
-
-(define-type-method copy-from-alien-form ((type counted-vector) c-vector)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    `(map-counted-vector 'vector #'identity ,c-vector ',element-type)))
-
-(define-type-method copy-from-alien-function ((type counted-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    #'(lambda (c-vector)
-	(map-counted-vector 'vector #'identity c-vector element-type))))
-
-(define-type-method cleanup-form ((type counted-vector) location)
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    `(destroy-counted-vector ,location ',element-type)))
-
-(define-type-method writer-function ((type counted-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    #'(lambda (vector location &optional (offset 0))
-	(setf 
-	 (sap-ref-sap location offset)
-	 (make-counted-vector element-type vector)))))
-
-(define-type-method reader-function ((type counted-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (map-counted-vector 'vector #'identity 
-	   (sap-ref-sap location offset) element-type)))))
-
-(define-type-method destroy-function ((type counted-vector))
-  (destructuring-bind (element-type)
-      (rest (type-expand-to 'counted-vector type))
-    #'(lambda (location &optional (offset 0))
-	(unless (null-pointer-p (sap-ref-sap location offset))
-	  (destroy-counted-vector 
-	   (sap-ref-sap location offset) element-type)
-	  (setf (sap-ref-sap location offset) (make-pointer 0))))))
+(define-type-method copy-function ((type gslist) &key inlined)
+  (assert-not-inlined type inlined)
+  (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))
+    (let ((copy-element (copy-function element-type)))
+      #'(lambda (from to &optional (offset 0))
+	  (unless (null-pointer-p (ref-pointer from offset))
+	    (loop
+	     as from-list = (ref-pointer from offset) 
+	                    then (glist-next from-list)
+	     as to-list = (setf (ref-pointer to offset) (%gslist-append nil)) 
+	                  then (%gslist-append to-list)
+	     do (funcall copy-element from-list to-list)
+	     while (glist-next from-list)))))))
