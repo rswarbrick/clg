@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2000-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2000-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.20 2006-02-15 09:55:50 espen Exp $
+;; $Id: gparam.lisp,v 1.21 2006-04-25 22:12:48 espen Exp $
 
 (in-package "GLIB")
 
@@ -31,9 +31,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defbinding (size-of-gvalue "size_of_gvalue") () unsigned-int))
 
-;(defconstant +gvalue-size+ (+ (size-of 'type-number) (* 2 (size-of 'double-float))))
-(defconstant +gvalue-size+ #.(size-of-gvalue))
-
+(defconstant +gvalue-size+ (size-of-gvalue))
 (defconstant +gvalue-value-offset+ (size-of 'type-number))
 
 (defbinding (%gvalue-init "g_value_init") () nil
@@ -62,11 +60,19 @@
     (deallocate-memory gvalue)))
 
 (defun gvalue-type (gvalue)
-  (type-from-number (sap-ref-32 gvalue 0)))
+  (type-from-number (ref-type-number gvalue)))
 
-(defun gvalue-get (gvalue &optional weak-p)
+(defun gvalue-get (gvalue)
   (funcall (reader-function (gvalue-type gvalue))
-   gvalue +gvalue-value-offset+ weak-p))
+   gvalue +gvalue-value-offset+))
+
+(defun gvalue-peek (gvalue)
+  (funcall (reader-function (gvalue-type gvalue) :ref :peek)
+   gvalue +gvalue-value-offset+))
+
+(defun gvalue-take (gvalue)
+  (funcall (reader-function (gvalue-type gvalue) :ref :get)
+   gvalue +gvalue-value-offset+))
 
 (defun gvalue-set (gvalue value)
   (funcall (writer-function (gvalue-type gvalue))
@@ -77,12 +83,12 @@
   (location pointer))
 
 (defmacro with-gvalue ((gvalue &optional type (value nil value-p)) &body body)
-  `(with-allocated-memory (,gvalue +gvalue-size+)
+  `(with-memory (,gvalue +gvalue-size+)
      ,(cond
        ((and type value-p) `(gvalue-init ,gvalue ,type ,value))
        (type `(gvalue-init ,gvalue ,type)))
      ,@body
-     ,(unless value-p `(gvalue-get ,gvalue))))
+     ,(unless value-p `(gvalue-take ,gvalue))))
 
 
 (deftype param-flag-type ()
@@ -98,6 +104,14 @@
   (defclass param-spec-class (ginstance-class)
     ())
 
+  (defmethod shared-initialize ((class param-spec-class) names &rest initargs)
+    (declare (ignore names initargs))
+    (call-next-method)
+    (unless (slot-boundp class 'ref)
+      (setf (slot-value class 'ref) '%param-spec-ref))
+    (unless (slot-boundp class 'unref)
+      (setf (slot-value class 'unref) '%param-spec-unref)))
+  
   (defmethod validate-superclass  ((class param-spec-class) (super standard-class))
     t ;(subtypep (class-name super) 'param)
 ))
@@ -108,15 +122,6 @@
   
 (defbinding %param-spec-unref () nil
   (location pointer))
-
-(defmethod reference-foreign ((class param-spec-class) location)
-  (declare (ignore class))
-  (%param-spec-ref location))
-
-(defmethod unreference-foreign ((class param-spec-class) location)
-  (declare (ignore class))
-  (%param-spec-unref location))
-
 
 
 ;; TODO: rename to param-spec
@@ -154,15 +159,15 @@
 (defclass param-char (param)
   ((minimum
     :allocation :alien
-    :reader param-char-minimum
+    :reader param-minimum
     :type char)
    (maximum
     :allocation :alien
-    :reader param-char-maximum
+    :reader param-maximum
     :type char)
    (default-value
     :allocation :alien
-    :reader param-char-default-value
+    :reader param-default-value
     :type char))
   (:metaclass param-spec-class)
   (:gtype "GParamChar"))
@@ -188,7 +193,7 @@
 (defclass param-boolean (param)
   ((default-value
      :allocation :alien
-     :reader param-boolean-default-value
+     :reader param-default-value
      :type boolean))
   (:metaclass param-spec-class)
   (:gtype "GParamBoolean"))
@@ -196,15 +201,15 @@
 (defclass param-int (param)
   ((minimum
     :allocation :alien
-    :reader param-int-minimum
+    :reader param-minimum
     :type int)
    (maximum
     :allocation :alien
-    :reader param-int-maximum
+    :reader param-maximum
     :type int)
    (default-value
     :allocation :alien
-    :reader param-int-default-value
+    :reader param-default-value
     :type int))
   (:metaclass param-spec-class)
   (:gtype "GParamInt"))
@@ -212,15 +217,15 @@
 (defclass param-unsigned-int (param)
   ((minimum
     :allocation :alien
-    :reader param-unsigned-int-minimum
+    :reader param-minimum
     :type unsigned-int)
    (maximum
     :allocation :alien
-    :reader param-unsigned-int-maximum
+    :reader param-maximum
     :type unsigned-int)
    (default-value
     :allocation :alien
-    :reader param-unsigned-int-default-value
+    :reader param-default-value
     :type unsigned-int))
   (:metaclass param-spec-class)
   (:gtype "GParamUInt"))
@@ -228,15 +233,15 @@
 (defclass param-long (param)
   ((minimum
     :allocation :alien
-    :reader param-long-minimum
+    :reader param-minimum
     :type long)
    (maximum
     :allocation :alien
-    :reader param-long-maximum
+    :reader param-maximum
     :type long)
    (default-value
     :allocation :alien
-    :reader param-long-default-value
+    :reader param-default-value
     :type long))
   (:metaclass param-spec-class)
   (:gtype "GParam"))
@@ -244,15 +249,15 @@
 (defclass param-unsigned-long (param)
   ((minimum
     :allocation :alien
-    :reader param-unsigned-long-minimum
+    :reader param-minimum
     :type unsigned-long)
    (maximum
     :allocation :alien
-    :reader param-unsigned-long-maximum
+    :reader param-maximum
     :type unsigned-long)
    (default-value
     :allocation :alien
-    :reader param-unsigned-long-default-value
+    :reader param-default-value
     :type unsigned-long))
   (:metaclass param-spec-class)
   (:gtype "GParamULong"))
@@ -269,7 +274,7 @@
     :type pointer)
    (default-value
     :allocation :alien
-    :reader param-enum-default-value
+    :reader param-default-value
     :type long))
   (:metaclass param-spec-class)
   (:gtype "GParamEnum"))
@@ -281,7 +286,7 @@
     :type pointer)
    (default-value
     :allocation :alien
-    :reader param-flags-default-value
+    :reader param-default-value
     :type long))
   (:metaclass param-spec-class)
   (:gtype "GParamFlags"))
@@ -289,19 +294,19 @@
 (defclass param-single-float (param)
   ((minimum
     :allocation :alien
-    :reader param-single-float-minimum
+    :reader param-minimum
     :type single-float)
    (maximum
     :allocation :alien
-    :reader param-single-float-maximum
+    :reader param-maximum
     :type single-float)
    (default-value
     :allocation :alien
-    :reader param-single-float-default-value
+    :reader param-default-value
     :type single-float)
    (epsilon
     :allocation :alien
-    :reader param-single-float-epsilon
+    :reader param-float-epsilon
     :type single-float))
   (:metaclass param-spec-class)
   (:gtype "GParamFloat"))
@@ -309,19 +314,19 @@
 (defclass param-double-float (param)
   ((minimum
     :allocation :alien
-    :reader param-double-float-minimum
+    :reader param-minimum
     :type double-float)
    (maximum
     :allocation :alien
-    :reader param-double-float-maximum
+    :reader param-maximum
     :type double-float)
    (default-value
     :allocation :alien
-    :reader param-double-float-default-value
+    :reader param-default-value
     :type double-float)
    (epsilon
     :allocation :alien
-    :reader param-double-float-epsilon
+    :reader param-float-epsilon
     :type double-float))
   (:metaclass param-spec-class)
   (:gtype "GParamDouble"))
@@ -329,7 +334,7 @@
 (defclass param-string (param)
   ((default-value
     :allocation :alien
-    :reader param-string-default-value
+    :reader param-default-value
     :type string))
   (:metaclass param-spec-class)
   (:gtype "GParamString"))
