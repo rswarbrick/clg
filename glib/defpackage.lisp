@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 1999-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 1999-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,9 +20,8 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: defpackage.lisp,v 1.13 2006-04-25 20:55:22 espen Exp $
+;; $Id: defpackage.lisp,v 1.14 2006-04-25 20:56:26 espen Exp $
 
-;(export 'kernel::type-expand-1 "KERNEL")
 
 (defpackage "GLIB"
   (:use "COMMON-LISP" "GFFI" "AUTOEXPORT" "PKG-CONFIG" "CLG-UTILS")
