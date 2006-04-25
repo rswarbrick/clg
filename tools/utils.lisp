@@ -20,13 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: utils.lisp,v 1.1 2006-03-29 09:51:55 espen Exp $
+;; $Id: utils.lisp,v 1.2 2006-04-25 20:26:04 espen Exp $
 
 (defpackage #:clg-utils
   (:use #:common-lisp)
   (:export #:read-lines #:mklist #:namep #:funcallable #:return-if #:when-bind
 	   #:visible-char-p #:whitespace-p #:split-string-if #:split-string
-	   #:concatenate-strings #:string-prefix-p #:get-all))
+	   #:concatenate-strings #:string-prefix-p #:get-all 
+	   #:delete-collect-if))
 	   
 (in-package #:clg-utils)
 
@@ -74,8 +75,8 @@
        (subseq string 0 pos)
        (split-string-if (subseq string pos) predicate)))))
 
-(defun split-string (string &optional (delimiter #'whitespace-p) 
-		     &key (start 0) (end (length string)))
+(defun split-string (string &key (delimiter #'whitespace-p) 
+		     (start 0) (end (length string)))
   (let* ((predicate (if (functionp delimiter)
 			delimiter
 		      #'(lambda (char)
@@ -86,7 +87,7 @@
 	(cons 
 	 (subseq string from (or to end))
 	 (when to
-	   (split-string string predicate :start to :end end)))))))
+	   (split-string string :delimiter predicate :start to :end end)))))))
 
 (defun concatenate-strings (strings &optional delimiter)
   (if (not (rest strings))
@@ -107,3 +108,16 @@
       (get-properties plist (list property))
     (when tail
       (cons value (get-all (cddr tail) property)))))
+
+
+(defun delete-collect-if (predicate seq)
+  (let ((head (cons nil seq)))
+    (values
+     (loop
+      for tmp on head
+      while (cdr tmp)
+      when (funcall predicate (second tmp))
+      collect (let ((elm (second tmp)))
+		(setf (cdr tmp) (cddr tmp))
+		elm))
+     (cdr head))))
