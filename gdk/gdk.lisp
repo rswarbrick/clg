@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.25 2006-04-11 18:28:38 espen Exp $
+;; $Id: gdk.lisp,v 1.26 2006-04-25 13:37:28 espen Exp $
 
 
 (in-package "GDK")
@@ -762,3 +762,40 @@
 ;;     (cr cairo:context)
 ;;     (region region))
 )
+
+
+;;; Multi-threading support
+
+#+sbcl
+(progn
+  (defvar *global-lock* (sb-thread:make-mutex :name "global GDK lock"))
+  (let ((recursive-level 0))
+    (defun threads-enter ()
+      (if (eq (sb-thread:mutex-value *global-lock*) sb-thread:*current-thread*)
+	  (incf recursive-level)
+ 	(sb-thread:get-mutex *global-lock*)))
+
+    (defun threads-leave (&optional flush-p)
+      (cond
+       ((zerop recursive-level)	  
+	(when flush-p
+	  (display-flush))
+	(sb-thread:release-mutex *global-lock*))
+       (t (decf recursive-level)))))
+
+  (define-callback %enter-fn nil ()
+    (threads-enter))
+  
+  (define-callback %leave-fn nil ()
+    (threads-leave))
+  
+  (defbinding threads-set-lock-functions (&optional) nil
+    (%enter-fn callback)
+    (%leave-fn callback))
+
+  (defmacro with-global-lock (&body body)
+    `(progn
+       (threads-enter)
+       (unwind-protect
+	   (progn ,@body)
+	 (threads-leave t)))))

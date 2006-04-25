@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.60 2006-04-10 18:56:19 espen Exp $
+;; $Id: gtk.lisp,v 1.61 2006-04-25 13:37:29 espen Exp $
 
 
 (in-package "GTK")
@@ -72,6 +72,21 @@
       (setq *periodic-polling-function* #'main-iterate-all)
       (setq *max-event-to-sec* 0)
       (setq *max-event-to-usec* 1000))))
+
+#+sbcl	  
+(defun clg-init-with-threading (&optional display)
+  "Initializes the system and starts the event handling"
+  (unless (gdk:display-get-default)
+    (gdk:gdk-init)
+    (gdk:threads-set-lock-functions)
+    (unless (gtk-init)
+      (error "Initialization of GTK+ failed."))
+    (sb-thread:make-thread 
+     #'(lambda () 
+	 (gdk:display-open display)
+	 (gdk:with-global-lock (main)))
+     :name "gtk event loop")))
+
 
 ;;; Generic functions 
 
