@@ -52,9 +52,8 @@ Build instructions
 
    - Make sure ASDF finds the system definition files:
        
-       (push 
-	#+sbcl(truename #p"clg:systems") 
-	#+cmu(concatenate 'string (unix-namestring #p"clg:systems") "/")
+       (push
+	(logical-pathname-translations "clg:systems;") 
 	asdf:*central-registry*)
 
      When checking out of CVS also do the following:
