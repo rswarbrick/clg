@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.62 2006-04-26 12:33:52 espen Exp $
+;; $Id: gtk.lisp,v 1.63 2006-04-26 13:00:28 espen Exp $
 
 
 (in-package "GTK")
@@ -91,20 +91,6 @@
 		  (:eof (read-char stream))
 		  (otherwise (main-iterate-all))))))
 	#-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit.")))))
-
-#+sbcl	  
-(defun clg-init-with-threading (&optional display)
-  "Initializes the system and starts the event handling"
-  (unless (gdk:display-get-default)
-    (gdk:gdk-init)
-    (gdk:threads-set-lock-functions)
-    (unless (gtk-init)
-      (error "Initialization of GTK+ failed."))
-    (sb-thread:make-thread 
-     #'(lambda () 
-	 (gdk:display-open display)
-	 (gdk:with-global-lock (main)))
-     :name "gtk event loop")))
 
 #+sbcl	  
 (defun clg-init-with-threading (&optional display)
