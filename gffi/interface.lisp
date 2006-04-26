@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.1 2006-04-25 20:36:05 espen Exp $
+;; $Id: interface.lisp,v 1.2 2006-04-26 19:19:14 espen Exp $
 
 (in-package "GFFI")
 
@@ -53,17 +53,11 @@
 
 (defun default-alien-fname (lisp-name)
   (let* ((name (substitute #\_ #\- (string-downcase lisp-name)))
-	 (stripped-name
-	  (cond
-	   ((and 
-	     (char= (char name 0) #\%)
-	     (string= "_p" name :start2 (- (length name) 2)))
-	    (subseq name 1 (- (length name) 2)))
-	   ((char= (char name 0) #\%)
-	    (subseq name 1))
-	   ((string= "_p" name :start2 (- (length name) 2))
-	    (subseq name 0 (- (length name) 2)))
-	   (name)))
+	 (start (position-if-not #'(lambda (char) (char= char #\%)) name))
+	 (end (if (string= "_p" name :start2 (- (length name) 2))
+		  (- (length name) 2)
+		(length name)))
+	 (stripped-name (subseq name start end))
 	 (prefix (package-prefix *package*)))
     (if (or (not prefix) (string= prefix ""))
 	stripped-name
