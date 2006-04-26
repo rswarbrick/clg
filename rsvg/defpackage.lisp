@@ -1,3 +1,3 @@
 (defpackage "RSVG"
-  (:use "COMMON-LISP" "GLIB" "AUTOEXPORT"))
+  (:use "COMMON-LISP" "GFFI" "GLIB" "AUTOEXPORT"))
 
