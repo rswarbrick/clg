@@ -1,3 +1,3 @@
 (defpackage "PANGO"
-  (:use "GLIB" "COMMON-LISP" "AUTOEXPORT"))
+  (:use "GFFI" "GLIB" "COMMON-LISP" "PKG-CONFIG" "AUTOEXPORT"))
 
