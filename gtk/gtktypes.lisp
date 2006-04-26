@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.46 2006-04-26 12:12:37 espen Exp $
+;; $Id: gtktypes.lisp,v 1.47 2006-04-26 20:31:12 espen Exp $
 
 (in-package "GTK")
 
@@ -1053,9 +1053,27 @@
   #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
   ("GtkIconView"
    :slots
-   ((text-column :merge t :setter %icon-view-set-text-column)
-    (markup-column :merge t :setter %icon-view-set-markup-column)
-    (pixbuf-column :merge t :setter %icon-view-set-pixbuf-column)))
+   ((text-column
+     :allocation :virtual
+     :getter %icon-view-get-text-column
+     :setter %icon-view-set-text-column
+     :boundp %icon-view-text-column-boundp
+     :initarg :text-column
+     :accessor icon-view-text-column)
+    (markup-column
+     :allocation :virtual
+     :getter %icon-view-get-markup-column
+     :setter %icon-view-set-tmarkup-column
+     :boundp %icon-view-markup-column-boundp
+     :initarg :markup-column
+     :accessor icon-view-markup-column)
+    (pixbuf-column
+     :allocation :virtual
+     :getter %icon-view-get-pixbuf-column
+     :setter %icon-view-set-pixbuf-column
+     :boundp %icon-view-pixbuf-column-boundp
+     :initarg :pixbuf-column
+     :accessor icon-view-pixbuf-column)))
 
   ;; Not needed
   ("GtkFundamentalType" :ignore t)

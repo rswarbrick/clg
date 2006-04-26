@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.19 2006-04-26 12:13:38 espen Exp $
+;; $Id: gtktree.lisp,v 1.20 2006-04-26 20:31:12 espen Exp $
 
 
 (in-package "GTK")
@@ -969,17 +969,53 @@ then the model will sort using this function."
 	 column 
        (column-index (icon-view-model icon-view) column)) int))
 
+  (defbinding %%icon-view-get-text-column () int
+    (icon-view icon-view))
+
+  (defun %icon-view-get-text-column (icon-view)
+    (column-index 
+     (icon-view-model icon-view) 
+     (%%icon-view-get-text-column icon-view)))
+
+  (defun %icon-view-text-column-boundp (icon-view)
+    (not (eql (%%icon-view-get-text-column icon-view) -1)))
+
+
   (defbinding %icon-view-set-markup-column (column icon-view) nil
     (icon-view icon-view)
     ((if (integerp column) 
 	 column 
        (column-index (icon-view-model icon-view) column)) int))
 
+  (defbinding %%icon-view-get-markup-column () int
+    (icon-view icon-view))
+
+  (defun %icon-view-get-markup-column (icon-view)
+    (column-index 
+     (icon-view-model icon-view) 
+     (%%icon-view-get-markup-column icon-view)))
+
+  (defun %icon-view-markup-column-boundp (icon-view)
+    (not (eql (%%icon-view-get-markup-column icon-view) -1)))
+
+
   (defbinding %icon-view-set-pixbuf-column (column icon-view) nil
     (icon-view icon-view)
     ((if (integerp column) 
 	 column 
        (column-index (icon-view-model icon-view) column)) int)))
+
+  (defbinding %%icon-view-get-pixbuf-column () int
+    (icon-view icon-view))
+
+  (defun %icon-view-get-pixbuf-column (icon-view)
+    (column-index 
+     (icon-view-model icon-view) 
+     (%%icon-view-get-pixbuf-column icon-view)))
+
+  (defun %icon-view-pixbuf-column-boundp (icon-view)
+    (not (eql (%%icon-view-get-pixbuf-column icon-view) -1)))
+
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (progn
