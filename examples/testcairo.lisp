@@ -2,18 +2,17 @@
 ;; See http://cairographics.org/samples/
 
 #+sbcl(require :gtk)
-#+cmu(asdf:oos 'asdf:load-op :gtk)
 #+sbcl(require :cairo)
-#+cmu(asdf:oos 'asdf:load-op :cairo)
+#+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
+#+(or cmu clisp)(asdf:oos 'asdf:load-op :cairo)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (if (pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93" :error nil)
-      (push :rsvg *features*)
+  (unless (pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
     (warn "SVG tests disabled as the required version of librsvg is not available.")))
 
-
-#+(and sbcl rsvg)(require :rsvg)
-#+(and cmu  rsvg)(asdf:oos 'asdf:load-op :rsvg)
+#?(pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
+#+sbcl(require :rsvg)
+#+(or cmu clisp)(asdf:oos 'asdf:load-op :rsvg)
 
 (defpackage "TESTCAIRO"
   (:use "COMMON-LISP" "GTK")
@@ -151,53 +150,54 @@
   (cairo:stroke cr))
 
 
+(defun %curve-rectangle (cr x0 y0 width height radius)
+  (unless (and (zerop width) (zerop height))
+    (let ((x1 (+ x0 width))
+	  (y1 (+ y0 height)))
+      (cond
+       ((and (< (* 0.5 width) radius) (< (* 0.5 height) radius))
+	(cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
+	(cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
+	(cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
+	(cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
+	(cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
+       ((< (* 0.5 width) radius)
+	(cairo:move-to  cr x0 (+ y0 radius))
+	(cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
+	(cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
+	(cairo:line-to cr x1  (- y1 radius))
+	(cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
+	(cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius)))
+       ((< (* 0.5 height) radius)
+	(cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
+	(cairo:curve-to cr x0  y0 x0  y0 (+ x0 radius) y0)
+	(cairo:line-to cr (- x1 radius) y0)
+	(cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
+	(cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
+	(cairo:line-to cr (+ x0 radius) y1)
+	(cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
+       (t
+	(cairo:move-to cr x0 (+ y0 radius))
+	(cairo:curve-to cr x0 y0 x0 y0 (+ x0 radius) y0)
+	(cairo:line-to cr (- x1 radius) y0)
+	(cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
+	(cairo:line-to cr x1 (- y1 radius))
+	(cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
+	(cairo:line-to cr (+ x0 radius) y1)
+	(cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius))))
+      (cairo:close-path cr))))
+
 (define-snippet curve-rectangle (cr)
   (let ((x0 0.1)
 	(y0 0.1)
 	(width 0.8)
 	(height 0.8)
 	(radius 0.4))
-    (unless (and (zerop width) (zerop height))
-      (let ((x1 (+ x0 width))
-	    (y1 (+ y0 height)))
-	(cond
-	 ((and (< (* 0.5 width) radius) (< (* 0.5 height) radius))
-	  (cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
-	  (cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
-	  (cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
-	  (cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
-	  (cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
-	 ((< (* 0.5 width) radius)
-	  (cairo:move-to  cr x0 (+ y0 radius))
-	  (cairo:curve-to cr x0 y0 x0 y0 (* 0.5 (+ x0 x1)) y0)
-	  (cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
-	  (cairo:line-to cr x1  (- y1 radius))
-	  (cairo:curve-to cr x1 y1 x1 y1 (* 0.5 (+ x0 x1)) y1)
-	  (cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius)))
-	 ((< (* 0.5 height) radius)
-	  (cairo:move-to cr x0 (* 0.5 (+ y0 y1)))
-	  (cairo:curve-to cr x0  y0 x0  y0 (+ x0 radius) y0)
-	  (cairo:line-to cr (- x1 radius) y0)
-	  (cairo:curve-to cr x1 y0 x1 y0 x1 (* 0.5 (+ y0 y1)))
-	  (cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
-	  (cairo:line-to cr (+ x0 radius) y1)
-	  (cairo:curve-to cr x0 y1 x0 y1 x0 (* 0.5 (+ y0 y1))))
-	 (t
-	  (cairo:move-to cr x0 (+ y0 radius))
-	  (cairo:curve-to cr x0 y0 x0 y0 (+ x0 radius) y0)
-	  (cairo:line-to cr (- x1 radius) y0)
-	  (cairo:curve-to cr x1 y0 x1 y0 x1 (+ y0 radius))
-	  (cairo:line-to cr x1 (- y1 radius))
-	  (cairo:curve-to cr x1 y1 x1 y1 (- x1 radius) y1)
-	  (cairo:line-to cr (+ x0 radius) y1)
-	  (cairo:curve-to cr x0 y1 x0 y1 x0 (- y1 radius))))
-	(cairo:close-path cr)
-
-	(cairo:set-source-color cr 0.5 0.5 1.0)
-	(cairo:fill cr t)
- 	(cairo:set-source-color cr 0.5 0.0 0.0 0.5)
- 	(cairo:stroke cr)))))
-
+    (%curve-rectangle cr x0 y0 width height radius)
+    (cairo:set-source-color cr 0.5 0.5 1.0)
+    (cairo:fill cr t)
+    (cairo:set-source-color cr 0.5 0.0 0.0 0.5)
+    (cairo:stroke cr)))
 
 
 (define-snippet curve-to (cr)
@@ -309,7 +309,8 @@
     (cairo:fill cr)))
 
 
-#+rsvg(progn
+#?(pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
+(progn
 (defun snippet-set-bg-svg (cr filename)
   (let ((handle (make-instance 'rsvg:handle :filename filename)))
     (cairo:with-context (cr)
@@ -492,7 +493,7 @@
 			   :vscrollbar-policy :automatic
 			   :border-width 10))
 	 (close-button (make-instance 'button 
-		        :label "close" :can-default t
+		        :stock "gtk-close" :can-default t
 			:signal (list 'clicked #'widget-destroy 
 			         :object main-window))))
 
@@ -508,9 +509,14 @@
      :child (list (make-instance 'label :label (gtk-version)) :fill nil)
      :child (list (make-instance 'label :label (clg-version)) :fill nil)
      :child (list (make-instance 'label 			  
-		   :label #-cmu(format nil "~A (~A)" 
-			        (lisp-implementation-type)
-				(lisp-implementation-version))
+		   :label #-cmu
+		          (format nil "~A (~A)" 
+			   (lisp-implementation-type)
+			   #-clisp
+			   (lisp-implementation-version)
+			   #+clisp
+			   (let ((version (lisp-implementation-version)))
+			     (subseq version 0 (position #\sp version))))
 		          ;; The version string in CMUCL is far too long
 		          #+cmu(lisp-implementation-type))
 		  :fill nil)
@@ -534,7 +540,8 @@
 
 
 (clg-init)
-#+rsvg(rsvg:init)
+#?(pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
+(rsvg:init)
 
 ;; We need to turn off floating point exceptions, because Cairo is
 ;; presumably using internal code which generates NaNs in some cases.

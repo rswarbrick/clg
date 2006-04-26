@@ -1,7 +1,7 @@
 ;;;; Translation of dragndrop.py from the PyGTK 2.0 Tutorial
 
 #+sbcl(require :gtk)
-#+cmu(asdf:oos 'asdf:load-op :gtk)
+#+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "TESTDND"
   (:use "COMMON-LISP" "GTK")
@@ -70,8 +70,6 @@
 (defvar to-canvas 
   (make-instance 'target-entry :target "image/png" :id *target-type-image*))
 
-
-
 (defun add-image (layout pixbuf xd yd)
   (let ((button (make-instance 'button
 		 :child (make-instance 'image :pixbuf pixbuf))))
@@ -84,12 +82,14 @@
 	  ((= target-type *target-type-text*)
 	   (selection-data-set-text selection 
 	    #+cmu(ext:format-universal-time nil (get-universal-time) :style :rfc1123 :print-timezone nil)
-	    #+sbcl(sb-int:format-universal-time nil (get-universal-time) :style :abbreviated :print-timezone nil)))
+	    #+sbcl(sb-int:format-universal-time nil (get-universal-time) :style :abbreviated :print-timezone nil)
+	    #+clisp(os:string-time "%x %X")
+	    #-(or cmu sbcl clisp)(format nil "~D" (get-universal-time))))
 	  ((= target-type *target-type-image*)
 	   (selection-data-set-pixbuf selection pixbuf)))))
      
     (drag-source-set button :button1 from-image :copy)
-      
+ 
     (with-slots (hadjustment vadjustment) layout
       (layout-put layout button
        (truncate (+ xd (adjustment-value hadjustment)))
