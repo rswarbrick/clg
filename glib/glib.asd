@@ -43,5 +43,4 @@
 		 (:file "gobject" :depends-on ("gparam"))
 		 (:file "ginterface" :depends-on ("gobject"))
 		 (:file "gcallback" :depends-on ("gtype" "gparam" "gobject" "alien"))
-		 (:file "gerror" :depends-on ("gcallback"))
-		 (:file "export" :depends-on ("glib" "gboxed" "gtype" "gparam" "gcallback" "genums" "gobject" "gerror"))))
+		 (:file "gerror" :depends-on ("gcallback"))))
