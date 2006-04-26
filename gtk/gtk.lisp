@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 1999-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 1999-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.61 2006-04-25 13:37:29 espen Exp $
+;; $Id: gtk.lisp,v 1.62 2006-04-26 12:33:52 espen Exp $
 
 
 (in-package "GTK")
@@ -45,7 +45,7 @@
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
 (defun clg-version ()
-  "clg 0.92.1")
+  "clg 0.93pre")
 
 
 ;;;; Initalization
@@ -54,6 +54,8 @@
   "Initializes the library without opening the display."
   (nil null)
   (nil null))
+
+(defparameter *event-poll-interval* 10000)
 
 (defun clg-init (&optional display)
   "Initializes the system and starts the event handling"
@@ -68,10 +70,41 @@
       (error "Initialization of GTK+ failed."))
     (prog1
 	(gdk:display-open display)
-      (add-fd-handler (gdk:display-connection-number) :input #'main-iterate-all)
-      (setq *periodic-polling-function* #'main-iterate-all)
-      (setq *max-event-to-sec* 0)
-      (setq *max-event-to-usec* 1000))))
+      #+(or cmu sbcl)
+      (progn
+	(add-fd-handler (gdk:display-connection-number) :input #'main-iterate-all)
+	(setq *periodic-polling-function* #'main-iterate-all)
+	(setq *max-event-to-sec* 0)
+	(setq *max-event-to-usec* *event-poll-interval*))
+      #+(and clisp readline)
+      ;; Readline will call the event hook at most ten times per second
+      (setf readline:event-hook #'main-iterate-all)
+      #+clisp      
+      ;; When running in Slime we need to hook into the Swank server
+      ;; to handle events asynchronously
+      (if (find-symbol "WAIT-UNTIL-READABLE" "SWANK")
+	  (setf (symbol-function 'swank::wait-until-readable)
+	   #'(lambda (stream)
+	       (loop
+		(case (socket:socket-status (cons stream :input) 0 *event-poll-interval*)
+		  (:input (return t))
+		  (:eof (read-char stream))
+		  (otherwise (main-iterate-all))))))
+	#-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit.")))))
+
+#+sbcl	  
+(defun clg-init-with-threading (&optional display)
+  "Initializes the system and starts the event handling"
+  (unless (gdk:display-get-default)
+    (gdk:gdk-init)
+    (gdk:threads-set-lock-functions)
+    (unless (gtk-init)
+      (error "Initialization of GTK+ failed."))
+    (sb-thread:make-thread 
+     #'(lambda () 
+	 (gdk:display-open display)
+	 (gdk:with-global-lock (main)))
+     :name "gtk event loop")))
 
 #+sbcl	  
 (defun clg-init-with-threading (&optional display)
@@ -112,7 +145,7 @@
 
 ;;; About dialog
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (define-callback-marshal %about-dialog-activate-link-callback nil
     (about-dialog (link string)))
@@ -146,7 +179,7 @@
 (defbinding accel-group-connect-by-path (group path function) nil
   (group accel-group)
   (path string)
-  ((make-callback-closure function) gclosure :return))
+  ((make-callback-closure function) gclosure :in/return))
 
 (defbinding %accel-group-disconnect (group gclosure) boolean
   (group accel-group)
@@ -247,7 +280,7 @@
   (key unsigned-int)
   (modifiers gdk:modifier-type))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding accelerator-get-label () string
   (key unsigned-int)
   (modifiers gdk:modifier-type))
@@ -273,8 +306,6 @@
 
 ;;; Accel map
 
-(defbinding (accel-map-init "_gtk_accel_map_init") () nil)
-
 (defbinding %accel-map-add-entry () nil
   (path string)
   (key unsigned-int)
@@ -286,7 +317,7 @@
 
 (defbinding %accel-map-lookup-entry () boolean
   (path string)
-  ((make-instance 'accel-key) accel-key :return))
+  ((make-instance 'accel-key) accel-key :in/return))
 
 (defun accel-map-lookup-entry (path)
   (multiple-value-bind (found-p accel-key) (%accel-map-lookup-entry path)
@@ -463,7 +494,8 @@
 
 (defmethod initialize-instance ((button button) &rest initargs &key stock)
   (if stock
-      (apply #'call-next-method button :label stock :use-stock t initargs)
+      (apply #'call-next-method button 
+       :label stock :use-stock t :use-underline t initargs)
     (call-next-method)))
 
 
@@ -577,7 +609,7 @@
   (combo-box combo-box)
   (text string))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding combo-box-get-active-text () string
   (combo-box combo-box))
 
@@ -601,7 +633,7 @@
 
 (defmethod shared-initialize ((dialog dialog) names &rest initargs 
 			      &key button buttons)
-  (declare (ignore button buttons))
+  (declare (ignore names button buttons))
   (prog1
       (call-next-method)
     (initial-apply-add dialog #'dialog-add-button initargs :button :buttons)))
@@ -611,7 +643,7 @@
   "Returns a numeric response id"
   (if (typep response 'response-type)
       (response-type-to-int response)
-    (let ((responses (object-data dialog 'responses)))
+    (let ((responses (user-data dialog 'responses)))
       (cond
        ((and responses (position response responses :test #'equal)))
        (create-p
@@ -621,7 +653,7 @@
 	  (1- (length responses)))
 	 (t
 	  (setf 
-	   (object-data dialog 'responses)
+	   (user-data dialog 'responses)
 	   (make-array 1 :adjustable t :fill-pointer t 
 		       :initial-element response))
 	  0)))
@@ -632,7 +664,7 @@
   "Finds a symbolic response given a numeric id"
   (if (< id 0)
       (int-to-response-type id)
-    (aref (object-data dialog 'responses) id)))
+    (aref (user-data dialog 'responses) id)))
 
 
 (defmethod compute-signal-id ((dialog dialog) signal)
@@ -712,11 +744,11 @@
   ((dialog-response-id dialog response nil t) int)
   (sensitive boolean))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding alternative-dialog-button-order-p (&optional screen) boolean
   (screen (or null gdk:screen)))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding (dialog-set-alternative-button-order 
 	     "gtk_dialog_set_alternative_button_order_from_array")
     (dialog new-order) nil
@@ -727,7 +759,7 @@
 	new-order) (vector int)))
 
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (progn
   (defbinding %dialog-get-response-for-widget () int
     (dialog dialog)
@@ -781,7 +813,7 @@
 (defbinding entry-completion-complete () nil
   (completion entry-completion))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding entry-completion-insert-prefix () nil
   (completion entry-completion))
 
@@ -893,8 +925,10 @@
   (prog1
       (call-next-method)
     (when pixbuf-formats
-      #-gtk2.6(warn "Initarg :PIXBUF-FORMATS not supportet in this version of Gtk")
-      #+gtk2.6(file-filter-add-pixbuf-formats file-filter))
+      #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+      (warn "Initarg :PIXBUF-FORMATS not supportet in this version of Gtk")
+      #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+      (file-filter-add-pixbuf-formats file-filter))
     (initial-add file-filter #'file-filter-add-mime-type
      initargs :mime-type :mime-types)
     (initial-add file-filter #'file-filter-add-pattern
@@ -909,7 +943,7 @@
   (filter file-filter)
   (pattern string))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding file-filter-add-pixbuf-formats () nil
   (filter file-filter))
 
@@ -961,7 +995,7 @@
     ((or list vector) (make-instance 'image :pixmap source))
     (gdk:pixmap (make-instance 'image :pixmap source :mask mask))))
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (defbinding image-clear () nil
   (image image))
 
@@ -1107,7 +1141,7 @@
 
 ;;; Menu tool button
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding menu-tool-button-set-arrow-tooltip () nil
   (menu-tool-button menu-tool-button)
   (tooltips tooltips)
@@ -1122,12 +1156,13 @@
   (%message-dialog-new transient-parent flags message-type buttons))
 
 
-(defmethod shared-initialize ((dialog message-dialog) names
-			      &key text #+gtk 2.6 secondary-text)
+(defmethod shared-initialize ((dialog message-dialog) names &key text 
+			      #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+			      secondary-text)
   (declare (ignore names))
   (when text
     (message-dialog-set-markup dialog text))
-  #+gtk2.6
+  #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
   (when secondary-text
     (message-dialog-format-secondary-markup dialog secondary-text))
   (call-next-method))
@@ -1144,12 +1179,12 @@
   (message-dialog message-dialog)
   (markup string))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding message-dialog-format-secondary-text () nil
   (message-dialog message-dialog)
   (text string))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding message-dialog-format-secondary-markup () nil
   (message-dialog message-dialog)
   (markup string))
@@ -1233,7 +1268,7 @@
        (not (zerop (length (window-title window)))))
       (print-unreadable-object (window stream :type t :identity nil)
         (format stream "~S at 0x~X" 
-	 (window-title window) (sap-int (foreign-location window))))
+	 (window-title window) (pointer-address (foreign-location window))))
     (call-next-method)))
 
 (defbinding window-set-wmclass () nil
@@ -1322,11 +1357,11 @@
   (window window)
   (event gdk:key-event))
 
-#-gtk2.8
+#?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (defbinding window-present () nil
   (window window))
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (progn
   (defbinding %window-present () nil
     (window window))
@@ -1582,21 +1617,21 @@
      (t (notebook-get-nth-page notebook position))))
 
 (defbinding (notebook-insert "gtk_notebook_insert_page_menu")
-    (notebook position child tab-label &optional menu-label) nil
+    (notebook position child &optional tab-label menu-label) nil
   (notebook notebook)
   (child widget)
   ((if (stringp tab-label)
        (make-instance 'label :label tab-label)
-     tab-label) widget)
+     tab-label) (or null widget))
   ((if (stringp menu-label)
        (make-instance 'label :label menu-label)
      menu-label) (or null widget))
   ((%ensure-notebook-position notebook position) position))
 
-(defun notebook-append (notebook child tab-label &optional menu-label)
+(defun notebook-append (notebook child &optional tab-label menu-label)
   (notebook-insert notebook :last child tab-label menu-label))
 
-(defun notebook-prepend (notebook child tab-label &optional menu-label)
+(defun notebook-prepend (notebook child &optional tab-label menu-label)
   (notebook-insert notebook :first child tab-label menu-label))
   
 (defbinding notebook-remove-page (notebook page) nil
@@ -1640,7 +1675,7 @@
     (notebook-get-nth-page notebook (notebook-current-page-num notebook))))
 
 (defun (setf notebook-current-page) (page notebook)
-  (setf (notebook-current-page notebook) (notebook-page-num notebook page)))
+  (setf (notebook-current-page-num notebook) (notebook-page-num notebook page)))
 
 (defbinding (notebook-tab-label "gtk_notebook_get_tab_label")
     (notebook page) widget
@@ -1856,7 +1891,7 @@
   child)
   
 (define-callback %menu-detach-callback nil ((widget widget) (menu menu))
-  (funcall (object-data menu 'detach-func) widget menu))
+  (funcall (user-data menu 'detach-func) widget menu))
 
 (defbinding %menu-attach-to-widget (menu widget) nil
   (menu menu)
@@ -1864,13 +1899,13 @@
   (%menu-detach-callback callback))
 
 (defun menu-attach-to-widget (menu widget function)
-  (setf (object-data menu 'detach-func) function)
+  (setf (user-data menu 'detach-func) function)
   (%menu-attach-to-widget menu widget))
 
 (defbinding menu-detach () nil
   (menu menu))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding menu-get-for-attach-widget () (copy-of (glist widget))
   (widget widget))
 
@@ -2055,7 +2090,7 @@
   (%tool-item-set-proxy-menu-item menu-item-id tool-item menu-item)
    menu-item)
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding tool-item-rebuild-menu () nil
   (tool-item tool-item))
 
@@ -2076,7 +2111,7 @@
   (editable editable)
   (text string)
   ((length text) int)
-  (position position :in-out))
+  (position position :in/out))
 
 (defun editable-append-text (editable text)
   (editable-insert-text editable text nil))
@@ -2251,12 +2286,6 @@
 (defbinding %stock-item-free () nil
   (location pointer))
 
-(defmethod reference-foreign ((class (eql (find-class 'stock-item))) location)
-  (%stock-item-copy location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'stock-item))) location)
-  (%stock-item-free location))
-
 (defbinding stock-add (stock-item) nil
   (stock-item stock-item)
   (1 unsigned-int))
@@ -2268,11 +2297,11 @@
   (location pointer))
 
 (defun stock-lookup (stock-id)
-  (with-allocated-memory (stock-item (foreign-size (find-class 'stock-item)))
+  (with-memory (stock-item (foreign-size (find-class 'stock-item)))
     (when (%stock-lookup stock-id stock-item)
       (ensure-proxy-instance 'stock-item (%stock-item-copy stock-item)))))
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (progn
   (define-callback-marshal %stock-translate-callback string ((path string)))
 

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.8 2006-02-28 16:30:37 espen Exp $
+;; $Id: gtkaction.lisp,v 1.9 2006-04-26 12:32:04 espen Exp $
 
 
 (in-package "GTK")
@@ -33,7 +33,7 @@
     (apply #'signal-connect action 'activate (mklist callback))))
 
 (defmethod action-accelerator ((action action))
-  (object-data action 'accelerator))
+  (user-data action 'accelerator))
 
 (defbinding (action-is-sensitive-p "gtk_action_is_sensitive") () boolean
   (action action))
@@ -85,7 +85,7 @@
 
 (defmethod initialize-instance ((action radio-action) &key group)
   (call-next-method)
-  (setf (slot-value action 'self) (sap-int (foreign-location action)))
+  (setf (slot-value action 'self) (pointer-address (foreign-location action)))
   (when group
     (add-to-radio-group action group)))
 

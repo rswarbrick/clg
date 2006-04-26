@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2005-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.8 2006-04-10 18:54:47 espen Exp $
+;; $Id: gtkselection.lisp,v 1.9 2006-04-26 12:30:30 espen Exp $
 
 
 (in-package "GTK")
@@ -33,14 +33,6 @@
   
 (defbinding %target-list-unref () nil
   (location pointer))
-
-(defmethod reference-foreign ((class (eql (find-class 'target-list))) location)
-  (declare (ignore class))
-  (%target-list-ref location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'target-list))) location)
-  (declare (ignore class))
-  (%target-list-unref location))
 
 (defbinding %target-list-new () pointer
   (targets (vector (inlined target-entry)))
@@ -66,7 +58,7 @@
      (target-entry 1))
    int))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (defbinding target-list-add-text-targets (target-list info &optional writable-p) nil
     (target-list target-list)
@@ -143,7 +135,7 @@
 (defbinding selection-data-get-text () string
   (selection-data selection-data))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (defbinding selection-data-set-pixbuf () boolean
     (selection-data selection-data)
@@ -164,7 +156,7 @@
   (targets (vector gdk:atom n-atoms))
   (n-atoms int))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding selection-data-targets-include-image-p (selection-data &optional writable-p) boolean
   (selection-data selection-data)
   (writable-p boolean))
@@ -211,7 +203,7 @@
   (text string)
   ((length text) int))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-set-image () nil
   (clipboard clipboard)
   (pixbuf gdk:pixbuf))
@@ -219,7 +211,7 @@
 (defun clipboard-set (clipboard object)
   (etypecase object
     (string (clipboard-set-text clipboard object))
-    #+gtk2.6
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
     (gdk:pixbuf (clipboard-set-image clipboard object))))
 
 (define-callback-marshal %clipboard-receive-callback nil 
@@ -240,7 +232,7 @@
   (%clipboard-text-receive-callback callback)
   ((register-callback-function callback) unsigned-int))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (define-callback-marshal %clipboard-image-receive-callback nil 
     ((:ignore clipboard) (image gdk:pixbuf)))
@@ -254,7 +246,7 @@
 (define-callback %clipboard-targets-receive-callback nil
     ((clipboard pointer) (atoms (vector gdk:atom n-atoms))
      (n-atoms unsigned-int) (callback-id unsigned-int))
-  (declare (ignore clipboard n-atoms))
+  (declare (ignore clipboard))
   (funcall (find-user-data callback-id) atoms))
 
 (defbinding clipboard-request-targets (clipboard callback) nil
@@ -268,14 +260,14 @@
 (defbinding clipboard-wait-for-text () string
   (clipboard clipboard))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-wait-for-image () (referenced gdk:pixbuf)
   (clipboard clipboard))
 
 (defbinding clipboard-wait-is-text-available-p () boolean
   (clipboard clipboard))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-wait-is-image-available-p () boolean
   (clipboard clipboard))
 
@@ -284,18 +276,18 @@
   (targets (vector gdk:atom n-targets) :out)
   (n-targets unsigned-int :out))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-wait-is-target-available-p () boolean
   (clipboard clipboard)
   (target gdk:atom))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-set-can-store () nil
   (clipboard clipboard)
   (targets (vector gdk:atom))
   ((length targets) int))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-store () nil
   (clipboard clipboard))
 
@@ -336,7 +328,7 @@
   (widget widget)
   (targets target-list))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (defbinding drag-dest-add-text-targets () nil
     (widget widget))
@@ -460,7 +452,7 @@
 (defbinding drag-source-get-target-list () target-list
   (widget widget))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (defbinding drag-source-add-text-targets () nil
     (widget widget))

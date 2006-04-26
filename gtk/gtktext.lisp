@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktext.lisp,v 1.7 2006-02-19 19:31:15 espen Exp $
+;; $Id: gtktext.lisp,v 1.8 2006-04-26 12:29:11 espen Exp $
 
 
 (in-package "GTK")
@@ -91,7 +91,7 @@
   (end text-iter)
   (default-editable boolean))
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding text-buffer-backspace () boolean
   (buffer text-buffer)
   (iter text-iter)
@@ -243,14 +243,14 @@
 (defbinding text-buffer-get-iter-at-line-offset 
     (buffer line offset &optional (iter (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (line int)
   (offset int))
 
 (defbinding text-buffer-get-iter-at-offset 
     (buffer offset &optional (iter (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   ((case offset
      (:start 0)
      (:end -1)
@@ -259,20 +259,20 @@
 (defbinding text-buffer-get-iter-at-line 
     (buffer line &optional (iter (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (line int))
 
 (defbinding text-buffer-get-iter-at-line-index 
     (buffer line index &optional (iter (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (line int)
   (index int))
 
 (defbinding text-buffer-get-iter-at-mark 
     (buffer mark &optional (iter (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (mark text-mark))
 
 (defun text-buffer-get-iter-at-insert (buffer &optional (iter (make-instance 'text-iter)))
@@ -281,15 +281,15 @@
 (defbinding text-buffer-get-iter-at-child-anchor 
     (buffer anchor &optional (iter (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (anchor text-child-anchor))
 
 (defbinding text-buffer-get-bounds 
     (buffer &optional (start (make-instance 'text-iter))
      (end (make-instance 'text-iter))) nil
   (buffer text-buffer)
-  (start text-iter :return)
-  (end text-iter :return))
+  (start text-iter :in/return)
+  (end text-iter :in/return))
 
 (defbinding text-buffer-delete-selection () boolean
   (buffer text-buffer)
@@ -315,8 +315,8 @@
     (buffer &optional (start (make-instance 'text-iter))
      (end (make-instance 'text-iter))) boolean
   (buffer text-buffer)
-  (start text-iter :return)
-  (end text-iter :return))
+  (start text-iter :in/return)
+  (end text-iter :in/return))
 
 (defbinding text-buffer-begin-user-action () nil
   (buffer text-buffer))
@@ -445,7 +445,7 @@
 (defbinding text-iter-get-attributes 
     (iter &optional (values (make-instance 'text-attributes))) boolean
   (iter text-iter)
-  (values text-attributes :return))
+  (values text-attributes :in/return))
 
 (defbinding text-iter-get-language () pango:language
   (iter text-iter))
@@ -588,8 +588,8 @@
   (iter text-iter)
   (text string)
   (flags text-search-flags)
-  (match-start text-iter :return)
-  (match-end text-iter :return)
+  (match-start text-iter :in/return)
+  (match-end text-iter :in/return)
   (limit (or null text-iter)))
 
 (defbinding text-iter-backward-search 
@@ -598,8 +598,8 @@
   (iter text-iter)
   (text string)
   (flags text-search-flags)
-  (match-start text-iter :return)
-  (match-end text-iter :return)
+  (match-start text-iter :in/return)
+  (match-end text-iter :in/return)
   (limit (or null text-iter)))
 
 (defbinding text-iter-equal-p () boolean
@@ -685,18 +685,18 @@
 (defbinding text-view-get-visible-rect 
     (text-view &optional (rect (make-instance 'gdk:rectangle))) nil
   (text-view text-view)
-  (rect gdk:rectangle :return))
+  (rect gdk:rectangle :in/return))
 
 (defbinding text-view-get-iter-location 
     (text-view iter &optional (location (make-instance 'gdk:rectangle))) nil
   (text-view text-view)
   (iter text-iter)
-  (location gdk:rectangle :return))
+  (location gdk:rectangle :in/return))
 
 (defbinding text-view-get-line-at-y 
     (text-view y &optional (iter (make-instance 'text-iter))) nil
   (text-view text-view)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (y int)
   (line-top int :out))
 
@@ -709,7 +709,7 @@
 (defbinding text-view-get-iter-at-location 
     (text-view x y &optional (iter (make-instance 'text-iter))) nil
   (text-view text-view)
-  (iter text-iter :return)
+  (iter text-iter :in/return)
   (x int)
   (y int))
 
