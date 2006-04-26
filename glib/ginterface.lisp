@@ -20,34 +20,35 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.17 2006-04-25 22:02:34 espen Exp $
+;; $Id: ginterface.lisp,v 1.18 2006-04-26 21:00:22 espen Exp $
 
 (in-package "GLIB")
 
 (use-prefix "g")
 
-;;;; 
+;;;; Superclass for interfaces
 
-(defclass ginterface ()
+(defclass interface ()
   ())
+
 
 ;;;; Metaclass for interfaces
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginterface-class (virtual-slots-class)
+  (defclass interface-class (virtual-slots-class)
     ()))
 
-(defmethod direct-slot-definition-class ((class ginterface-class) &rest initargs)
+(defmethod direct-slot-definition-class ((class interface-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'direct-property-slot-definition))
     (t (call-next-method))))
 
-(defmethod effective-slot-definition-class ((class ginterface-class) &rest initargs)
+(defmethod effective-slot-definition-class ((class interface-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'effective-property-slot-definition))
     (t (call-next-method))))
 
-(defmethod compute-effective-slot-definition-initargs ((class ginterface-class) direct-slotds)
+(defmethod compute-effective-slot-definition-initargs ((class interface-class) direct-slotds)
   (if (eq (slot-definition-allocation (first direct-slotds)) :property)
       (nconc 
        (list :pname (signal-name-to-string 
@@ -59,7 +60,7 @@
     (call-next-method)))
 
 
-(defmethod shared-initialize ((class ginterface-class) names &key name gtype)
+(defmethod shared-initialize ((class interface-class) names &key name gtype)
   (declare (ignore names))
   (let* ((class-name (or name (class-name class)))	 
 	 (type-number
@@ -71,43 +72,43 @@
   (call-next-method))
 
 
-(defmethod validate-superclass ((class ginterface-class) (super standard-class))
-  (subtypep (class-name super) 'ginterface))
+(defmethod validate-superclass ((class interface-class) (super standard-class))
+  (subtypep (class-name super) 'interface))
 
 
-(define-type-method alien-type ((type ginterface))
+(define-type-method alien-type ((type interface))
   (declare (ignore type))
   (alien-type 'gobject))
 
-(define-type-method size-of ((type ginterface) &key inlined)
+(define-type-method size-of ((type interface) &key inlined)
   (assert-not-inlined type inlined)
   (size-of 'gobject))
 
-(define-type-method from-alien-form ((type ginterface) location &key (ref :copy))
+(define-type-method from-alien-form ((type interface) location &key (ref :copy))
   (declare (ignore type))
   (from-alien-form 'gobject location :ref ref))
 
-(define-type-method from-alien-function ((type ginterface) &key (ref :copy))
+(define-type-method from-alien-function ((type interface) &key (ref :copy))
   (declare (ignore type))
   (from-alien-function 'gobject :ref ref))
 
-(define-type-method to-alien-form ((type ginterface) instance &optional copy-p)
+(define-type-method to-alien-form ((type interface) instance &optional copy-p)
   (declare (ignore type))
   (to-alien-form 'gobject instance copy-p))
 
-(define-type-method to-alien-function ((type ginterface) &optional copy-p)
+(define-type-method to-alien-function ((type interface) &optional copy-p)
   (declare (ignore type))
   (to-alien-function 'gobject copy-p))
 
-(define-type-method reader-function ((type ginterface) &key ref inlined)
+(define-type-method reader-function ((type interface) &key ref inlined)
   (assert-not-inlined type inlined)
   (reader-function 'gobject :ref ref))
 
-(define-type-method writer-function ((type ginterface) &key temp inlined)
+(define-type-method writer-function ((type interface) &key temp inlined)
   (assert-not-inlined type inlined)
   (writer-function 'gobject :temp temp))
 
-(define-type-method destroy-function ((type ginterface) &key temp inlined)
+(define-type-method destroy-function ((type interface) &key temp inlined)
   (assert-not-inlined type inlined)
   (destroy-function 'gobject :temp temp))
 
@@ -141,17 +142,17 @@
       (type-default-interface-unref iface))))
 
 
-(defun expand-ginterface-type (type forward-p options &rest args)
+(defun expand-interface-type (type forward-p options &rest args)
   (declare (ignore args))
   (let ((class (type-from-number type))
 	(slots (getf options :slots))) 
     `(defclass ,class (,(supertype type))
        ,(unless forward-p
 	  (slot-definitions class (query-object-interface-properties type) slots))
-      (:metaclass ginterface-class)
+      (:metaclass interface-class)
       (:gtype ,(register-type-as type)))))
 
-(defun ginterface-dependencies (type options)
+(defun interface-dependencies (type options)
   (delete-duplicates 
    (cons
     (supertype type)
@@ -164,4 +165,4 @@
       collect (find-type-number type))))))
 
 
-(register-derivable-type 'ginterface "GInterface" 'expand-ginterface-type 'ginterface-dependencies)
+(register-derivable-type 'interface "GInterface" 'expand-interface-type 'interface-dependencies)
