@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.45 2006-02-26 23:37:18 espen Exp $
+;; $Id: gtktypes.lisp,v 1.46 2006-04-26 12:12:37 espen Exp $
 
 (in-package "GTK")
 
@@ -110,7 +110,9 @@
     :accessor stock-item-translation-domain
     :initarg :translation-domain
     :type string))
-  (:metaclass struct-class))
+  (:metaclass struct-class)
+  (:ref stock-item-copy)
+  (:unref stock-item-free))
 
 ;; We don't really need to access any slots in this class, so we just
 ;; specify the total size
@@ -136,19 +138,17 @@
 (deftype position () 
   '(or int (enum (:start 0) (:end -1) (:first 0) (:last -1))))
 
-(define-type-method from-alien-form ((type position) form)
-  (declare (ignore type))
+(define-type-method from-alien-form ((type position) form &key ref)
+  (declare (ignore type ref))
   (from-alien-form 'int form))
 
-(define-type-method from-alien-function ((type position))
-  (declare (ignore type))
+(define-type-method from-alien-function ((type position) &key ref)
+  (declare (ignore type ref))
   (from-alien-function 'int))
 
-(define-type-method reader-function ((type position))
-  (declare (ignore type))
+(define-type-method reader-function ((type position) &optional ref)
+  (declare (ignore type ref))
   (reader-function 'int))
-
-
 
 (define-types-by-introspection "Gtk"
   ;; Manually defined
@@ -235,14 +235,13 @@
    ((child :ignore t)
     (children
      :allocation :virtual
-     :getter container-children
      :setter (setf container-children)
-     ;; The following doesn't work because gtk_container_get_children doesn't
-     ;; increase the reference count of the children
-;     :getter "gtk_container_get_children"
-;     :reader container-children
-;     :type (glist widget)
-     )
+     :getter "gtk_container_get_children"
+     :reader container-children
+     :type (glist (copy-of widget)))
+    (internal-children ; for debugging
+     :allocation :virtual
+     :getter container-internal-children)
     (child-type
      :allocation :virtual
      :getter "gtk_container_child_type"
@@ -345,6 +344,7 @@
     (default-height :merge t :unbound -1)))
   
   ("GtkWindowGroup"
+   :dependencies (window)
    :slots
    ((grabs
      :allocation :alien
@@ -418,26 +418,26 @@
 
   ("GtkScrolledWindow"
    :slots
-   (#-gtk2.8
+   (#?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
     (hscrollbar
      :allocation  :alien
      :reader scrolled-window-hscrollbar
      :type widget)
-    #-gtk2.8
+    #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
     (vscrollbar
      :allocation :alien
      :reader scrolled-window-vscrollbar
      :type widget)
-    #+gtk2.8
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
     (hscrollbar
      :allocation :virtual
      :getter "gtk_scrolled_window_get_hscrollbar"
      :reader scrolled-window-hscrollbar
      :type widget)
-    #+gtk2.8
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
     (vscrollbar
      :allocation :virtual
-     :getter "gtk_scrolled_window_get_hscrollbar"
+     :getter "gtk_scrolled_window_get_vscrollbar"
      :reader scrolled-window-vscrollbar
      :type widget)))
 
@@ -486,7 +486,7 @@
      :getter "gtk_menu_get_attach_widget"
      :reader menu-attach-widget
      :type widget)
-    #-gtk2.6
+    #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
     (tearoff-state
      :allocation :virtual
      :getter "gtk_menu_get_tearoff_state"
@@ -675,7 +675,7 @@
      :accessor entry-completion
      :type entry-completion)
     (max-length :merge t :unbound 0)
-    #+gtk2.6
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
     (width-chars :merge t :unbound -1)))
 
   ("GtkEntryCompletion"
@@ -686,7 +686,7 @@
      :reader entry-completion-entry
      :type entry)
     (minimum-key-length :merge t :unbound -1)
-    #+gtk2.6
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
     (text-column :merge t :unbound -1)))
 
   ("GtkRadioButton"
@@ -766,7 +766,7 @@
   ("GtkImage"
    :slots
    ((file :ignore t)
-    #+gtk2.6
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
     (pixel-size :merge t :unbound -1)))
 
   ("GtkLabel"
@@ -1050,7 +1050,7 @@
      :reader clipboard-display
      :type gdk:display)))
 
-  #+gtk2.6
+  #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
   ("GtkIconView"
    :slots
    ((text-column :merge t :setter %icon-view-set-text-column)
@@ -1202,7 +1202,7 @@
     :type quark))
   (:metaclass struct-class))
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (define-enum-type drop-position
   :no-drop :drop-into :drop-left :drop-right :drop-above :drop-below)
 
@@ -1253,4 +1253,6 @@
 
 (defclass target-list (proxy)
   ()
-  (:metaclass proxy-class))
+  (:metaclass proxy-class)
+  (:ref target-list-ref)
+  (:unref target-list-unref))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.18 2006-03-03 19:00:12 espen Exp $
+;; $Id: gtktree.lisp,v 1.19 2006-04-26 12:13:38 espen Exp $
 
 
 (in-package "GTK")
@@ -82,7 +82,7 @@
   (%list-store-set-column-types list-store column-types)
   (when column-names
     (setf 
-     (object-data list-store 'column-names) 
+     (user-data list-store 'column-names) 
      (coerce column-names 'vector)))
   (when initial-content
     (loop
@@ -210,7 +210,7 @@
   (location pointer))
 
 (defun %make-tree-path (path)
-  (let ((c-vector (make-c-vector 'int (length path) path))
+  (let ((c-vector (make-c-vector 'int (length path) :content path))
 	(location (allocate-memory (+ (size-of 'int) (size-of 'pointer)))))
     (funcall (writer-function 'int) (length path) location)
     (funcall (writer-function 'pointer) c-vector location (size-of 'int))
@@ -223,71 +223,88 @@
 	#()
       (map-c-vector 'vector #'identity indices 'int depth))))
 
+(defmacro %with-tree-path ((var path) &body body)
+  (let ((vector-offset (+ (size-of 'int) (size-of 'pointer))))
+    `(with-memory (,var (+ ,(size-of 'int) ,(size-of 'pointer) (* ,(size-of 'int) (length ,path))))
+      (funcall (writer-function 'int) (length ,path) ,var)
+      (setf (ref-pointer ,var ,(size-of 'int)) (pointer+ ,var ,vector-offset))
+      (make-c-vector 'int (length ,path) :content ,path :location (pointer+ ,var ,vector-offset))
+      ,@body)))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-type-method alien-type ((type tree-path))
     (declare (ignore type))
     (alien-type 'pointer))
   
-  (define-type-method size-of ((type tree-path))
-    (declare (ignore type))
+  (define-type-method size-of ((type tree-path) &key inlined)
+    (assert-not-inlined type inlined)
     (size-of 'pointer))
   
-  (define-type-method to-alien-form ((type tree-path) path)
+  (define-type-method alien-arg-wrapper ((type tree-path) var path style form &optional copy-in-p)
     (declare (ignore type))
+    (cond
+     ((and (in-arg-p style) copy-in-p)
+      `(with-pointer (,var (%make-tree-path ,path))
+         ,form))
+     ((and (in-arg-p style) (not (out-arg-p style)))
+      `(%with-tree-path (,var ,path)
+         ,form))
+     ((and (in-arg-p style) (out-arg-p style))
+      (let ((tree-path (make-symbol "SYMBOL")))
+	`(%with-tree-path (,tree-path ,path)
+	   (with-pointer (,var ,tree-path)
+             ,form))))
+     ((and (out-arg-p style) (not (in-arg-p style)))
+      `(with-pointer (,var)
+         ,form))))
+
+  (define-type-method to-alien-form ((type tree-path) path &optional copy-p)
+    (declare (ignore type copy-p))
     `(%make-tree-path ,path))
   
-  (define-type-method from-alien-form ((type tree-path) location)
+  (define-type-method from-alien-form ((type tree-path) location &key (ref :free))
     (declare (ignore type))
-    `(let ((location ,location))
-       (prog1
-           (%tree-path-to-vector location)
-	 (%tree-path-free location))))
+    `(prog1
+	 (%tree-path-to-vector ,location)
+       ,(when (eq ref :free)
+	  `(%tree-path-free ,location)))))
   
-  (define-type-method copy-from-alien-form ((type tree-path) location)
-    (declare (ignore type))
-    `(%tree-path-to-vector ,location))
-  
-  (define-type-method cleanup-form ((type tree-path) location)
-    (declare (ignore type))
-    `(%tree-path-free ,location)))
-
-(define-type-method to-alien-function ((type tree-path))
+(define-type-method to-alien-function ((type tree-path) &optional copy-p)
   (declare (ignore type))
-  #'%make-tree-path)
-  
-(define-type-method from-alien-function ((type tree-path))
-  (declare (ignore type))
-  #'(lambda (location)
-      (prog1
-	  (%tree-path-to-vector location)
+  #'%make-tree-path
+  (unless copy-p
+    #'(lambda (tree-path location)
+	(declare (ignore tree-path))
 	(%tree-path-free location))))
-
-(define-type-method copy-from-alien-function ((type tree-path))
-  (declare (ignore type ))
-  #'%tree-path-to-vector)
   
-(define-type-method cleanup-function ((type tree-path))
+(define-type-method from-alien-function ((type tree-path) &key (ref :free))
   (declare (ignore type))
-  #'%tree-path-free)
-
-(define-type-method writer-function ((type tree-path))
-  (declare (ignore type))
+  (if (eq ref :free)
+      #'(lambda (location)
+	  (prog1
+	      (%tree-path-to-vector location)
+	    (%tree-path-free location)))
+    #'(lambda (location)
+	(%tree-path-to-vector location))))
+  
+(define-type-method writer-function ((type tree-path) &key temp inlined)
+  (declare (ignore temp))
+  (assert-not-inlined type inlined)
   (let ((writer (writer-function 'pointer)))
     #'(lambda (path location &optional (offset 0))
 	(funcall writer (%make-tree-path path) location offset))))
 
-(define-type-method reader-function ((type tree-path))
-  (declare (ignore type))
-  (let ((reader (reader-function 'pointer)))
-    #'(lambda (location &optional (offset 0) weak-p)
-	(declare (ignore weak-p))
-	(%tree-path-to-vector (funcall reader location offset)))))
+(define-type-method reader-function ((type tree-path) &key ref inlined)
+  (declare (ignore ref))
+  (assert-not-inlined type inlined)
+  #'(lambda (location &optional (offset 0))
+      (%tree-path-to-vector (ref-pointer location offset))))
 
-(define-type-method destroy-function ((type tree-path))
-  (declare (ignore type))
-  (let ((reader (reader-function 'pointer)))
-    #'(lambda (location &optional (offset 0))
-	(%tree-path-free (funcall reader location offset)))))
+(define-type-method destroy-function ((type tree-path) &key temp inlined)
+  (declare (ignore temp))
+  (assert-not-inlined type inlined)
+  #'(lambda (location &optional (offset 0))
+      (%tree-path-free (ref-pointer location offset))))
 
 
 (defbinding %tree-row-reference-new () pointer
@@ -311,7 +328,7 @@
 (defbinding tree-model-get-iter 
     (model path &optional (iter (make-instance 'tree-iter))) boolean
   (model tree-model)
-  (iter tree-iter :return)
+  (iter tree-iter :in/return)
   (path tree-path))
  
 (defbinding tree-model-get-path () tree-path
@@ -340,12 +357,12 @@
 
 (defbinding tree-model-iter-next () boolean
   (tree-model tree-model)
-  (iter tree-iter :return))
+  (iter tree-iter :in/return))
 
 (defbinding tree-model-iter-children 
     (tree-model parent &optional (iter (make-instance 'tree-iter))) boolean
   (tree-model tree-model)
-  (iter tree-iter :return)
+  (iter tree-iter :in/return)
   (parent (or null tree-iter)))
 
 (defbinding (tree-model-iter-has-child-p "gtk_tree_model_iter_has_child") 
@@ -360,14 +377,14 @@
 (defbinding tree-model-iter-nth-child
     (tree-model parent n &optional (iter (make-instance 'tree-iter))) boolean
   (tree-model tree-model)
-  (iter tree-iter :return)
+  (iter tree-iter :in/return)
   (parent (or null tree-iter))
   (n int))
 
 (defbinding tree-model-iter-parent
     (tree-model child &optional (iter (make-instance 'tree-iter))) boolean
   (tree-model tree-model)
-  (iter tree-iter :return)
+  (iter tree-iter :in/return)
   (child tree-iter))
 
 (define-callback-marshal %tree-model-foreach-callback boolean 
@@ -420,19 +437,19 @@
   (or
    (etypecase column
      (number column)
-     (symbol (position column (object-data model 'column-names)))
-     (string (position column (object-data model 'column-names)
+     (symbol (position column (user-data model 'column-names)))
+     (string (position column (user-data model 'column-names)
 		   :test #'string=)))
    (error "~A has no column ~S" model column)))
 
 (defun column-name (model index)
-  (svref (object-data model 'column-names) index))
+  (svref (user-data model 'column-names) index))
 
 (defun tree-model-column-value-setter (model column)
   (let ((setters (or
-		  (object-data model 'column-setters)
+		  (user-data model 'column-setters)
 		  (setf 
-		   (object-data model 'column-setters)
+		   (user-data model 'column-setters)
 		   (make-array (tree-model-n-columns model) 
 		    :initial-element nil)))))
     (let ((index (column-index model column)))
@@ -443,7 +460,6 @@
       (let ((setter 
 	     (mkbinding (column-setter-name model)
 	      nil (type-of model) 'tree-iter 'int
-;	      (type-from-number (tree-model-get-column-type model index))
 	      (tree-model-get-column-type model index)
 	      'int)))
 	#'(lambda (value iter)
@@ -451,15 +467,15 @@
 
 (defun tree-model-row-setter (model)
   (or 
-   (object-data model 'row-setter)
+   (user-data model 'row-setter)
    (progn
      ;; This will create any missing column setter
      (loop 
       for i from 0 below (tree-model-n-columns model)
       do (tree-model-column-value-setter model i))
-     (let ((setters (object-data model 'column-setters)))
+     (let ((setters (user-data model 'column-setters)))
        (setf    
-	(object-data model 'row-setter)
+	(user-data model 'row-setter)
 	#'(lambda (row iter)
 	    (map nil #'(lambda (value setter)
 			 (funcall setter value iter))
@@ -507,7 +523,7 @@
     (selection &optional (iter (make-instance 'tree-iter))) boolean
   (selection tree-selection)
   (nil null) 
-  (iter tree-iter :return))
+  (iter tree-iter :in/return))
 
 (define-callback-marshal %tree-selection-foreach-callback nil (tree-model tree-path tree-iter))
 
@@ -663,7 +679,7 @@ then the model will sort using this function."
   (call-next-method)
   (%tree-store-set-column-types tree-store column-types)
   (when column-names
-    (setf (object-data tree-store 'column-names) column-names)))
+    (setf (user-data tree-store 'column-names) column-names)))
 
 (defmethod column-setter-name ((tree-store tree-store))
   (declare (ignore tree-store))
@@ -888,24 +904,24 @@ then the model will sort using this function."
   (tree-view tree-view)
   (path (or null tree-path))
   (column (or null tree-view-column))
-  ((make-instance 'gdk:rectangle) gdk:rectangle :return))
+  ((make-instance 'gdk:rectangle) gdk:rectangle :in/return))
 
 (defbinding tree-view-get-background-area () nil
   (tree-view tree-view)
   (path (or null tree-path))
   (column (or null tree-view-column))
-  ((make-instance 'gdk:rectangle) gdk:rectangle :return))
+  ((make-instance 'gdk:rectangle) gdk:rectangle :in/return))
 
 (defbinding tree-view-get-visible-rect () nil
   (tree-view tree-view)
-  ((make-instance 'gdk:rectangle) gdk:rectangle :return))
+  ((make-instance 'gdk:rectangle) gdk:rectangle :in/return))
 
 ;; and many more functions which we'll add later
 
 
 ;;;; Icon View
 
-#+gtk2.6
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
   (defbinding icon-view-get-path-at-pos () tree-path
     (icon-view icon-view)
@@ -965,7 +981,7 @@ then the model will sort using this function."
 	 column 
        (column-index (icon-view-model icon-view) column)) int)))
 
-#+gtk2.8
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
 (progn
   (defbinding icon-view-get-item-at-pos () boolean
     (icon-view icon-view)
