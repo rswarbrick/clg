@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.33 2006-02-28 16:34:37 espen Exp $
+;; $Id: gtkobject.lisp,v 1.34 2006-04-26 10:30:02 espen Exp $
 
 
 (in-package "GTK")
@@ -50,15 +50,13 @@
   (call-next-method)
   ;; Add a temorary reference which will be removed when the object is
   ;; sinked
-  (reference-foreign (class-of object) (foreign-location object))
+  (funcall (reference-function '%object) (foreign-location object))
   (%object-sink object))
 
 (defbinding %object-sink () nil
   (object %object))
 
 ;;;; Main loop and event handling
-
-(declaim (inline events-pending-p main-iteration))
 
 (defbinding events-pending-p () boolean)
 
@@ -80,7 +78,8 @@
   (declare (ignore args))
   (loop
    while (events-pending-p)
-   do (main-iteration-do nil)))
+   do (main-iteration-do nil))
+  #+clisp 0)
 
 
 ;;;; Metaclass for child classes
@@ -88,67 +87,81 @@
 (defvar *container-to-child-class-mappings* (make-hash-table))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass child-class (virtual-slots-class)
+  (defclass container-child-class (virtual-slots-class)
     ())
 
   (defclass direct-child-slot-definition (direct-virtual-slot-definition)
     ((pname :reader slot-definition-pname :initarg :pname)))
 
   (defclass effective-child-slot-definition (effective-virtual-slot-definition)
-    ((pname :reader slot-definition-pname :initarg :pname)))
+    ((pname :reader slot-definition-pname :initarg :pname))))
 
 
-(defmethod shared-initialize ((class child-class) names &key container)
+(defmethod shared-initialize ((class container-child-class) names &key container)
+  (declare (ignore names))
   (call-next-method)
   (setf
    (gethash (find-class (first container)) *container-to-child-class-mappings*)
-    class))
+    class)
+  #+clisp
+  (loop
+   for slotd in (class-direct-slots class)
+   when (typep slotd 'direct-child-slot-definition)
+   do (loop
+       for reader in (slot-definition-readers slotd)
+       do (add-reader-method class 
+	   (ensure-generic-function reader :lambda-list '(object)) 
+	   (slot-definition-name slotd)))
+      (loop
+       for writer in (slot-definition-writers slotd)
+       do (add-writer-method class 
+	   (ensure-generic-function writer :lambda-list '(value object)) 
+	   (slot-definition-name slotd)))))
 
-(defmethod direct-slot-definition-class ((class child-class) &rest initargs)
+(defmethod direct-slot-definition-class ((class container-child-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'direct-child-slot-definition))
     (t (call-next-method))))
 
-(defmethod effective-slot-definition-class ((class child-class) &rest initargs)
+(defmethod effective-slot-definition-class ((class container-child-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'effective-child-slot-definition))
     (t (call-next-method))))
 
-(defmethod compute-effective-slot-definition-initargs ((class child-class) direct-slotds)
+(defmethod compute-effective-slot-definition-initargs ((class container-child-class) direct-slotds)
   (if (eq (slot-definition-allocation (first direct-slotds)) :property)
       (nconc 
        (list :pname (most-specific-slot-value direct-slotds 'pname))
        (call-next-method))
     (call-next-method)))
 
+(defmethod compute-slot-reader-function ((slotd effective-child-slot-definition))
+  (let* ((type (slot-definition-type slotd))
+	 (pname (slot-definition-pname slotd))
+	 (reader (reader-function type :ref :get)))
+    #'(lambda (object)
+	(with-slots (parent child) object	   
+	  (with-memory (gvalue +gvalue-size+)
+	    (glib::%gvalue-init gvalue (find-type-number type))
+	    (%container-child-get-property parent child pname gvalue)
+	    (funcall reader gvalue +gvalue-value-offset+))))))
 
-(defmethod initialize-internal-slot-functions ((slotd effective-child-slot-definition))
-  (let ((type (slot-definition-type slotd))
-	(pname (slot-definition-pname slotd)))
-    (setf 
-     (slot-value slotd 'getter)
-     #'(lambda (object)
-	 (with-slots (parent child) object	   
-	   (let ((gvalue (gvalue-new type)))
-	     (%container-child-get-property parent child pname gvalue)
-	     (unwind-protect
-		 (funcall (reader-function type) gvalue +gvalue-value-offset+)
-	       (gvalue-free gvalue t))))))
-    
-    (setf 
-     (slot-value slotd 'setter)
-     #'(lambda (value object)
-	 (with-slots (parent child) object	   
-	   (let ((gvalue (gvalue-new type)))
-	     (funcall (writer-function type) value gvalue +gvalue-value-offset+)
-	     (%container-child-set-property parent child pname gvalue)
-	     (gvalue-free gvalue t)
-	     value)))))
- 
-  (call-next-method)))
+(defmethod compute-slot-writer-function ((slotd effective-child-slot-definition))
+  (let* ((type (slot-definition-type slotd))
+	 (pname (slot-definition-pname slotd))
+	 (writer (writer-function type :temp t))
+	 (destroy (destroy-function type :temp t)))
+    #'(lambda (value object)
+	(with-slots (parent child) object	   
+	  (with-memory (gvalue +gvalue-size+)
+	    (glib::%gvalue-init gvalue (find-type-number type))
+	    (funcall writer value gvalue +gvalue-value-offset+)
+	    (%container-child-set-property parent child pname gvalue)
+	    (funcall destroy gvalue +gvalue-value-offset+))
+	  value))))
 
 
-(defmethod add-reader-method ((class child-class) generic-function slot-name)
+(defmethod add-reader-method ((class container-child-class) generic-function slot-name)
   (add-method
    generic-function
    (make-instance 'standard-method
@@ -158,8 +171,7 @@
 		  (declare (ignore next-methods))
 		  (child-property-value (first args) slot-name)))))
 
-(defmethod add-writer-method
-    ((class child-class) generic-function slot-name)
+(defmethod add-writer-method ((class container-child-class) generic-function slot-name)
   (add-method
    generic-function
    (make-instance 'standard-method
@@ -171,7 +183,7 @@
 		    (setf (child-property-value widget slot-name) value))))))
 
 
-(defmethod validate-superclass ((class child-class) (super standard-class))
+(defmethod validate-superclass ((class container-child-class) (super standard-class))
   ;(subtypep (class-name super) 'container-child)
   t)
 
@@ -209,7 +221,7 @@
 	 (defclass ,child-class (,(default-container-child-name super))
 	   ,(slot-definitions child-class 
 	     (query-container-class-child-properties type) nil)
-	   (:metaclass child-class)
+	   (:metaclass container-child-class)
 	   (:container ,class))))))
 
 
