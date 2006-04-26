@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.20 2006-02-28 16:32:18 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.21 2006-04-26 12:31:34 espen Exp $
 
 (in-package "GTK")
 
@@ -30,10 +30,26 @@
 (defgeneric (setf container-children) (children container))
 
 
+(defun initial-add (object function initargs key pkey)
+  (loop 
+   as (initarg value . rest) = initargs then rest
+   do (cond
+       ((eq initarg key) (funcall function object value))
+       ((eq initarg pkey) (mapc #'(lambda (value)
+				    (funcall function object value))
+				value)))
+       while rest))
+
+(defun initial-apply-add (object function initargs key pkey)
+  (initial-add object #'(lambda (object value)
+			  (apply function object (mklist value)))
+	       initargs key pkey))
+
+
 (defmethod shared-initialize ((container container) names &rest initargs 
 			      &key child children child-args 
-			           (show-children nil show-children-p))
-  (declare (ignore child children))
+			      (show-children nil show-children-p))
+  (declare (ignore names child children))
   (when show-children-p
     (if (not show-children)
 	(setf (user-data container 'show-recursive-p) nil)
@@ -48,11 +64,12 @@
 
 
 (defmethod compute-signal-function ((container container) signal function object)
+  (declare (ignore signal))
   (if (eq object :children)
       #'(lambda (&rest args)
-	  (mapc #'(lambda (child)
-		    (apply function child (rest args)))
-		(container-children container)))
+	  (container-foreach container
+	   #'(lambda (child)
+	       (apply function child (rest args)))))
     (call-next-method)))
 
 
@@ -122,23 +139,33 @@
      nil)
     (list
      (let ((list nil))
-       (container-foreach
-	container
+       (container-foreach container
 	#'(lambda (child)
 	    (push (funcall func child) list)))
        (nreverse list)))
     (t
      (let ((seq (make-sequence seqtype (container-length container)))
 	   (index 0))
-       (container-foreach
-	container
+       (container-foreach container
 	#'(lambda (child)
 	    (setf (elt seq index) (funcall func child))
 	    (incf index)))
        seq))))
 
-(defmethod container-children ((container container))
-  (map-container 'list #'identity container))
+(defmethod container-all-children ((container container))
+  (let ((internal ()))
+    (container-forall container 
+     #'(lambda (child)
+	 (push child internal)))
+    (nreverse internal)))
+
+(defmethod container-internal-children ((container container))
+  (let ((public-children (container-children container))
+	(all-children (container-all-children container)))
+    (loop
+     for child in all-children
+     unless (find child public-children)
+     collect child)))
 
 (defmethod (setf container-children) (children (container container))
   (dolist (child (container-children container))
@@ -188,7 +215,7 @@
 (defgeneric container-show-recursive (container))
 
 (defmethod container-show-recursive ((container container))
-  "Recursively shows any child widgets except widgets explicit hidden during construction."
+  "Recursively show any child widgets except widgets explicit hidden during construction."
   (labels ((recursive-show (widget)
 	     (when (typep widget 'container)
 	       (if (not (user-data-p widget 'show-recursive-p))
