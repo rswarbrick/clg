@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.5 2006-02-09 22:30:39 espen Exp $
+;; $Id: cairo.lisp,v 1.6 2006-04-26 12:37:48 espen Exp $
 
 (in-package "CAIRO")
 
@@ -72,7 +72,9 @@
 
   (defclass font-face (proxy)
     ()
-    (:metaclass proxy-class))
+    (:metaclass proxy-class)
+    (:ref %font-face-reference)
+    (:unref %font-face-destroy))
 
   (defclass font-options (proxy)
     ((antialias
@@ -99,11 +101,15 @@
       :setter "font_options_set_hint_metrics"
       :accessor font-options-hint-metrics
       :type hint-metrics))
-    (:metaclass proxy-class))
+    (:metaclass proxy-class)    
+    (:ref %font-options-reference)
+    (:unref %font-options-destroy))
 
   (defclass scaled-font (proxy)
     ()
-    (:metaclass proxy-class))
+    (:metaclass proxy-class)
+    (:ref %scaled-font-reference)
+    (:unref %scaled-font-destroy))
 
   (defclass matrix (struct)
     ((xx :allocation :alien :initarg :xx :initform 1.0
@@ -149,7 +155,16 @@
       :setter "cairo_pattern_set_matrix"
       :accessor pattern-matrix
       :type matrix))
-    (:metaclass proxy-class))
+    (:metaclass proxy-class)
+    (:ref %pattern-reference)
+    (:unref %pattern-destroy))
+
+
+  (defclass surface (proxy)
+    ()
+    (:metaclass proxy-class)
+    (:ref %surface-reference)
+    (:unref %surface-destroy))
 
   (defclass context (proxy)
     ((target
@@ -236,11 +251,9 @@
       :writer (setf matrix)
       :type matrix)
      )
-    (:metaclass proxy-class))
-
-  (defclass surface (proxy)
-    ()
-    (:metaclass proxy-class))
+    (:metaclass proxy-class)
+    (:ref %reference)
+    (:unref %destroy))
 
   (defclass image-surface (surface)
     ((width
@@ -253,7 +266,10 @@
       :getter "cairo_image_surface_get_height"
       :reader surface-height
       :type int))
-    (:metaclass proxy-class))
+    (:metaclass proxy-class)
+    (:ref %surface-reference)
+    (:unref %surface-destroy))
+
 
 ;;   (defclass path (proxy)
 ;;     ()
@@ -269,12 +285,6 @@
 
 (defbinding %destroy () nil
   (location pointer))
-
-(defmethod reference-foreign ((class (eql (find-class 'context))) location)
-  (%reference location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'context))) location)
-  (%destroy location))
 
 (defbinding (save-context "cairo_save") () nil
   (cr context))
@@ -484,12 +494,6 @@
 (defbinding %pattern-destroy () nil
   (location pointer))
 
-(defmethod reference-foreign ((class (eql (find-class 'pattern))) location)
-  (%pattern-reference location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'pattern))) location)
-  (%pattern-destroy location))
-
 (defbinding pattern-status () status
   (pattern pattern))
 
@@ -517,30 +521,30 @@
 
 (defbinding (matrix "cairo_get_matrix") () nil
   (cr context)
-  ((make-instance 'matrix) matrix :return))
+  ((make-instance 'matrix) matrix :in/return))
 
 (defbinding identity-matrix () nil
   (cr context))
 
 (defbinding user-to-device () nil
   (cr context)
-  (x double-float :in-out)
-  (y double-float :in-out))
+  (x double-float :in/out)
+  (y double-float :in/out))
 
 (defbinding user-to-device-distance () nil
   (cr context)
-  (dx double-float :in-out)
-  (dy double-float :in-out))
+  (dx double-float :in/out)
+  (dy double-float :in/out))
 
 (defbinding device-to-user () nil
   (cr context)
-  (x double-float :in-out)
-  (y double-float :in-out))
+  (x double-float :in/out)
+  (y double-float :in/out))
 
 (defbinding device-to-user-distance () nil
   (cr context)
-  (dx double-float :in-out)
-  (dy double-float :in-out))
+  (dx double-float :in/out)
+  (dy double-float :in/out))
 
 
 ;;; Text
@@ -570,13 +574,13 @@
 (defbinding text-extents (cr text &optional (extents (make-instance 'text-extents))) nil
   (cr context)
   (text string)
-  (extents text-extents :return))
+  (extents text-extents :in/return))
 
 (defbinding glyph-extents (cr glyphs &optional (extents (make-instance 'text-extents))) nil
   (cr context)
   (glyphs (vector glyph))
   ((length glyphs) int)
-  (extents text-extents :return))
+  (extents text-extents :in/return))
 
 
 ;;; Fonts
@@ -586,12 +590,6 @@
 
 (defbinding %font-face-destroy () nil
   (location pointer))
-
-(defmethod reference-foreign ((class (eql (find-class 'font-face))) location)
-  (%font-face-reference location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'font-face))) location)
-  (%font-face-destroy location))
 
 (defbinding font-face-status () status
   (font-face font-face))
@@ -606,24 +604,18 @@
 (defbinding %scaled-font-destroy () nil
   (location pointer))
 
-(defmethod reference-foreign ((class (eql (find-class 'scaled-font))) location)
-  (%scaled-font-reference location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'scaled-font))) location)
-  (%scaled-font-destroy location))
-
 (defbinding scaled-font-status () status
   (scaled-font scaled-font))
 
 (defbinding scaled-font-extents (scaled-font &optional (extents (make-instance 'text-extents))) nil
   (scaled-font scaled-font)
-  (extents text-extents :return))
+  (extents text-extents :in/return))
 
 (defbinding scaled-font-glyph-extents (scaled-font glyphs &optional (extents (make-instance 'text-extents))) nil
   (scaled-font scaled-font)
   (glyphs (vector glyph))
   ((length glyphs) int)
-  (extents text-extents :return))
+  (extents text-extents :in/return))
 
 (defbinding %scaled-font-create () pointer
   (font-face font-face)
@@ -645,12 +637,6 @@
 (defbinding %font-options-destroy () nil
   (location pointer))
 
-(defmethod reference-foreign ((class (eql (find-class 'font-options))) location)
-  (%font-options-copy location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'font-options))) location)
-  (%font-options-destroy location))
-
 (defbinding font-options-status () status
   (font-options font-options))
 
@@ -661,7 +647,7 @@
   (%font-options-create))
 
 (defbinding font-options-merge () nil
-  (options1 font-options :return)
+  (options1 font-options :in/return)
   (options2 font-options))
 
 (defbinding font-options-hash () unsigned-int
@@ -681,12 +667,6 @@
 (defbinding %surface-destroy () nil
   (location pointer))
 
-(defmethod reference-foreign ((class (eql (find-class 'surface))) location)
-  (%surface-reference location))
-
-(defmethod unreference-foreign ((class (eql (find-class 'surface))) location)
-  (%surface-destroy location))
-
 (defbinding surface-create-similar () surface
   (other surface)
   (format surface-format )
@@ -701,7 +681,7 @@
 
 (defbinding surface-get-font-options () nil
   (surface surface)
-  ((make-instance 'font-options) font-options :return))
+  ((make-instance 'font-options) font-options :in/return))
 
 (defbinding surface-set-device-offset () nil
   (surface surface)
@@ -767,44 +747,44 @@
 ;;; Matrices
 
 (defbinding matrix-init () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (xx double-float) (yx double-float) 
   (xy double-float) (yy double-float) 
   (x0 double-float) (y0 double-float))
 
 (defbinding matrix-init-identity () nil
-  (matrix matrix :return))
+  (matrix matrix :in/return))
 
 (defbinding matrix-init-translate () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (tx double-float)
   (ty double-float))
 
 (defbinding matrix-init-scale () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (sx double-float)
   (sy double-float))
 
 (defbinding matrix-init-rotate () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (radians double-float))
 
 (defbinding matrix-translate () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (tx double-float)
   (ty double-float))
 
 (defbinding matrix-scale () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (sx double-float)
   (sy double-float))
 
 (defbinding matrix-rotate () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (radians double-float))
 
 (defbinding matrix-invert () nil
-  (matrix matrix :return))
+  (matrix matrix :in/return))
 
 (defbinding matrix-multiply () nil
   (result matrix :out)
@@ -812,12 +792,12 @@
   (b matrix))
 
 (defbinding matrix-transform-distance () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (dx double-float)
   (dy double-float))
 
 (defbinding matrix-transform-point () nil
-  (matrix matrix :return)
+  (matrix matrix :in/return)
   (x double-float)
   (y double-float))
 
