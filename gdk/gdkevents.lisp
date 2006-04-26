@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 1999-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 1999-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,69 +20,43 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdkevents.lisp,v 1.11 2006-02-05 15:39:40 espen Exp $
+;; $Id: gdkevents.lisp,v 1.12 2006-04-26 09:20:20 espen Exp $
 
 (in-package "GDK")
 
 
-(define-flags-type event-mask
-  (:exposure 2)
-  :pointer-motion
-  :pointer-motion-hint
-  :button-motion
-  :button1-motion
-  :button2-motion
-  :button3-motion
-  :button-press
-  :button-release
-  :key-press
-  :key-release
-  :enter-notify
-  :leave-notify
-  :focus-change
-  :structure
-  :property-change
-  :visibility-notify
-  :proximity-in
-  :proximity-out
-  :substructure
-  :scroll
-  (:all-events #x3FFFFE))
-
-(register-type 'event-mask '|gdk_event_mask_get_type|)
-
-
 ;;;; Metaclass for event classes
 
-(defvar *event-classes* (make-hash-table))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *event-classes* (make-hash-table))
+
   (defclass event-class (boxed-class)
-    ((event-type :reader event-class-type)))
+    ((event-type :reader event-class-type :initform nil)))
 
   (defmethod validate-superclass ((class event-class) (super standard-class))
     ;(subtypep (class-name super) 'event)
-    t))
+    t)
 
-(defmethod shared-initialize ((class event-class) names &key name type)
-  (let ((class-name (or name (class-name class))))
-    (unless (eq class-name 'event)
-      (register-type-alias class-name 'event)))
-  (call-next-method)
-  (setf (slot-value class 'event-type) (first type))
-  (setf (gethash (first type) *event-classes*) class))
+  (defmethod shared-initialize ((class event-class) names &key name event-type)
+    (declare (ignore names))
+    (register-type-alias (or name (class-name class)) 'event)
+    (call-next-method)
+    (when event-type
+      (setf (slot-value class 'event-type) (first event-type))
+      (setf (gethash (first event-type) *event-classes*) class))))
   
 (let ((reader (reader-function 'event-type)))
   (defun %event-class (location)
     (gethash (funcall reader location 0) *event-classes*)))
 
-(defmethod make-proxy-instance :around ((class event-class) location &rest initargs)
-  (declare (ignore class))
+(defmethod make-proxy-instance :around ((class event-class) location 
+					&rest initargs)
   (let ((class (%event-class location)))
     (apply #'call-next-method class location initargs)))
 
 
-;;;;
+;; The class event is the only class that actually exists in the
+;; GObject class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass event (boxed)
@@ -98,14 +72,17 @@
       :allocation :alien
       :accessor event-send-event
       :initarg :send-event
-      :type (boolean 8)))
-    (:metaclass event-class)))
-
+      :type (bool 8)))
+    (:metaclass boxed-class)))
 
 (defmethod initialize-instance ((event event) &rest initargs)
   (declare (ignore initargs))
   (call-next-method)
   (setf (slot-value event '%type) (event-class-type (class-of event))))
+
+(defmethod make-proxy-instance :around ((class (eql (find-class 'event))) location &rest initargs)
+  (let ((class (%event-class location)))
+    (apply #'call-next-method class location initargs)))
 
 
 (defclass timed-event (event)
@@ -119,13 +96,13 @@
 (defclass delete-event (event)
   ()
   (:metaclass event-class)
-  (:type :delete))
+  (:event-type :delete))
 
 
 (defclass destroy-event (event)
   ()
   (:metaclass event-class)
-  (:type :destroy))
+  (:event-type :destroy))
 
 (defclass expose-event (event)
   ((x
@@ -159,7 +136,7 @@
     :initarg :count
     :type int))
   (:metaclass event-class)
-  (:type :expose))
+  (:event-type :expose))
 
 (defclass input-event (timed-event)
   ((x
@@ -209,7 +186,7 @@
     :initarg :root-y
     :type double-float))
   (:metaclass event-class)
-  (:type :motion-notify))
+  (:event-type :motion-notify))
   
 (defclass button-event (input-event)
   ((button
@@ -237,22 +214,22 @@
 (defclass button-press-event (button-event)
   ()
   (:metaclass event-class)
-  (:type :button-press))
+  (:event-type :button-press))
 
 (defclass 2-button-press-event (button-press-event)
   ()
   (:metaclass event-class)
-  (:type :2button-press))
+  (:event-type :2button-press))
 
 (defclass 3-button-press-event (button-press-event)
   ()
   (:metaclass event-class)
-  (:type :3button-press))
+  (:event-type :3button-press))
 
 (defclass button-release-event (button-event)
   ()
   (:metaclass event-class)
-  (:type :button-release))
+  (:event-type :button-release))
 
 
 (defclass key-event (timed-event)
@@ -291,12 +268,12 @@
 (defclass key-press-event (key-event)
   ()
   (:metaclass event-class)
-  (:type :key-press))
+  (:event-type :key-press))
 
 (defclass key-release-event (key-event)
   ()
   (:metaclass event-class)
-  (:type :key-release))
+  (:event-type :key-release))
 
 
 (defclass crossing-event (event)
@@ -356,21 +333,21 @@
 (defclass enter-notify-event (crossing-event)
   ()
   (:metaclass event-class)
-  (:type :enter-notify))
+  (:event-type :enter-notify))
 
 (defclass leave-notify-event (crossing-event)
   ()
   (:metaclass event-class)
-  (:type :leave-notify))
+  (:event-type :leave-notify))
 
 (defclass focus-change-event (event)
   ((in
     :allocation :alien
     :accessor event-in
     :initarg :in
-    :type (boolean 16)))
+    :type (bool 16)))
   (:metaclass event-class)
-  (:type :focus-change))
+  (:event-type :focus-change))
 
 (defclass configure-event (event)
   ((x
@@ -394,37 +371,37 @@
     :initarg :height
     :type int))
   (:metaclass event-class)
-  (:type :configure))
+  (:event-type :configure))
 
 (defclass map-event (event)
   ()
   (:metaclass event-class)
-  (:type :map))
+  (:event-type :map))
 
 (defclass unmap-event (event)
   ()
   (:metaclass event-class)
-  (:type :unmap))
+  (:event-type :unmap))
 
 (defclass property-notify-event (event)
   ()
   (:metaclass event-class)
-  (:type :property-notify))
+  (:event-type :property-notify))
 
 (defclass selection-clear-event (event)
   ()
   (:metaclass event-class)
-  (:type :selection-clear))
+  (:event-type :selection-clear))
 
 (defclass selection-request-event (event)
   ()
   (:metaclass event-class)
-  (:type :selection-request))
+  (:event-type :selection-request))
 
 (defclass selection-notify-event (event)
   ()
   (:metaclass event-class)
-  (:type :selection-notify))
+  (:event-type :selection-notify))
 
 (defclass dnd-event (event)
   ((context
@@ -452,37 +429,37 @@
 (defclass drag-enter-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drag-enter))
+  (:event-type :drag-enter))
 
 (defclass drag-leave-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drag-leave))
+  (:event-type :drag-leave))
 
 (defclass drag-motion-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drag-motion))
+  (:event-type :drag-motion))
 
 (defclass drag-status-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drag-status))
+  (:event-type :drag-status))
 
 (defclass drot-start-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drop-start))
+  (:event-type :drop-start))
 
 (defclass drop-finished-event (dnd-event)
   ()
   (:metaclass event-class)
-  (:type :drop-finished))
+  (:event-type :drop-finished))
 
 (defclass client-event (event)
   ()
   (:metaclass event-class)
-  (:type :client-event))
+  (:event-type :client-event))
 
 (defclass visibility-notify-event (event)
   ((state
@@ -491,12 +468,12 @@
     :initarg :state
     :type visibility-state))
   (:metaclass event-class)
-  (:type :visibility-notify))
+  (:event-type :visibility-notify))
 
 (defclass no-expose-event (event)
   ()
   (:metaclass event-class)
-  (:type :no-expose))
+  (:event-type :no-expose))
   
 (defclass scroll-event (timed-event)
   ((x
@@ -530,7 +507,7 @@
     :initarg :root-y
     :type double-float))
   (:metaclass event-class)
-  (:type :scroll))
+  (:event-type :scroll))
 
 (defclass setting-event (event)
   ((action
@@ -544,7 +521,7 @@
     :initarg :name
     :type string))
   (:metaclass event-class)
-  (:type :setting))
+  (:event-type :setting))
 
 (defclass proximity-event (timed-event)
   ((device
@@ -557,12 +534,12 @@
 (defclass proximity-in-event (proximity-event)
   ()
   (:metaclass event-class)
-  (:type :proximity-in))
+  (:event-type :proximity-in))
 
 (defclass proximity-out-event (proximity-event)
   ()
   (:metaclass event-class)
-  (:type :proximity-out))
+  (:event-type :proximity-out))
 
 (defclass window-state-event (event)
   ((change-mask
@@ -576,10 +553,10 @@
     :initarg :new-window-state
     :type window-state))
   (:metaclass event-class)
-  (:type :window-state))
+  (:event-type :window-state))
   
 (defclass owner-change-event (event)
   ()
   (:metaclass event-class)
-  (:type :owner-change))
+  (:event-type :owner-change))
 
