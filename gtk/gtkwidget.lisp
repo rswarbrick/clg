@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2000-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2000-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.22 2006-04-25 20:19:32 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.23 2006-04-26 12:11:21 espen Exp $
 
 (in-package "GTK")
 
@@ -32,10 +32,11 @@
        (slot-boundp widget 'name) (not (zerop (length (widget-name widget)))))
       (print-unreadable-object (widget stream :type t :identity nil)
         (format stream "~S at 0x~X" 
-	 (widget-name widget) (sap-int (foreign-location widget))))
+	 (widget-name widget) (pointer-address (foreign-location widget))))
     (call-next-method)))
 
 (defmethod shared-initialize ((widget widget) names &key (visible nil visible-p))
+  (declare (ignore names))
   (when (and visible-p (not visible)) ; widget explicit set as not visible
     (setf (user-data widget 'hidden-p) t)
     (signal-connect widget 'show 
@@ -67,6 +68,7 @@
 
 
 (defmethod compute-signal-function ((widget widget) signal function object)
+  (declare (ignore signal))
   (if (eq object :parent)
       #'(lambda (&rest args)
 	  (if (slot-boundp widget 'parent)
@@ -146,12 +148,12 @@
 (defbinding widget-size-request
     (widget &optional (requisition (make-instance 'requisition))) nil
   (widget widget)
-  (requisition requisition :return))
+  (requisition requisition :in/return))
 
 (defbinding widget-get-child-requisition 
     (widget &optional (requisition (make-instance 'requisition))) nil
   (widget widget)
-  (requisition requisition :return))
+  (requisition requisition :in/return))
 
 (defbinding widget-size-allocate () nil
   (widget widget)
