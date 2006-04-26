@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 1999-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 1999-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -26,11 +26,10 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.34 2006-02-26 23:46:55 espen Exp $
+;; $Id: testgtk.lisp,v 1.35 2006-04-26 14:59:50 espen Exp $
 
 #+sbcl(require :gtk)
-#+sbcl(require :sb-posix)
-#+cmu(asdf:oos 'asdf:load-op :gtk)
+#+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "TESTGTK"
   (:use "COMMON-LISP" "GTK"))
@@ -315,11 +314,11 @@
 
 (defun set-cursor (spinner drawing-area label)
   (let ((cursor
-	 (glib:int-enum
+	 (gffi:int-enum
 	  (logand (clamp (spin-button-value-as-int spinner) 0 152) #xFE)
 	  'gdk:cursor-type)))
     (setf (label-label label) (string-downcase cursor))
-    (setf (widget-cursor drawing-area) cursor)))
+    (widget-set-cursor drawing-area cursor)))
 
 (defun cursor-expose (drawing-area event)
   (declare (ignore event))
@@ -342,7 +341,7 @@
   (let ((spinner (make-instance 'spin-button 
 		  :adjustment (adjustment-new 
 			       0 0 
-			       (1- (glib:enum-int :last-cursor 'gdk:cursor-type))
+			       (1- (gffi:enum-int :last-cursor 'gdk:cursor-type))
 			       2 10 0)))
 	(drawing-area (make-instance 'drawing-area
 		       :width-request 80 :height-request 80
@@ -498,15 +497,15 @@
 
 ;;; Icon View
 
-#+gtk2.6
+#?(pkg-config:pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0" :error nil)
 (let ((file-pixbuf nil)
       (folder-pixbuf nil))
   (defun load-pixbufs ()
     (unless file-pixbuf
       (handler-case 
           (setf
-	   file-pixbuf (gdk:pixbuf-load #p"clg:examples;gnome-fs-regular.png")
-	   folder-pixbuf (gdk:pixbuf-load #p"clg:examples;gnome-fs-directory.png"))
+	   file-pixbuf (gdk:pixbuf-load #p"/usr/share/icons/gnome/48x48/filesystems/gnome-fs-regular.png")
+	   folder-pixbuf (gdk:pixbuf-load #p"/usr/share/icons/gnome/48x48/filesystems/gnome-fs-directory.png"))
 	(glib:glib-error (condition)
 	  (make-instance 'message-dialog 
 	   :message-type :error :visible t
@@ -518,27 +517,26 @@
 
   (defun fill-store (store directory)
     (list-store-clear store)
-    (let ((dir #+cmu(unix:open-dir directory)
-	       #+sbcl(sb-posix:opendir directory)))
-      (unwind-protect 
-	  (loop
-	   as filename = #+cmu(unix:read-dir dir)
-	                 #+sbcl(let ((dirent (sb-posix:readdir dir)))
-				 (unless (sb-grovel::foreign-nullp dirent)
-				   (sb-posix:dirent-name dirent)))
-	   while filename
-	   unless (or (equal filename ".") (equal filename ".."))
-	   do (let* ((pathname (format nil "~A~A" directory filename))
-		     (directory-p
-		      #+cmu(eq (unix:unix-file-kind pathname) :directory)
-		      #+sbcl(sb-posix:s-isdir (sb-posix:stat-mode (sb-posix:stat pathname)))))
-		(list-store-append store 
-		 (vector
-		  filename 
-		  (if directory-p folder-pixbuf file-pixbuf)
-		  directory-p))))
-	#+cmu(unix:close-dir dir)
-	#+sbcl(sb-posix:closedir dir))))
+    (let ((dir-listing 
+	   (mapcar #'namestring
+	    (nconc
+	     (directory (format nil "~A*" directory))
+	     #+clisp(directory (format nil "~A*/" directory))))))
+      (loop
+       for pathname in dir-listing
+       do (let* ((directory-p 
+		  (char= #\/ (char pathname (1- (length pathname)))))
+		 (filename
+		  (subseq pathname 
+		   (length directory) 
+		   (if directory-p
+		       (1- (length pathname))
+		     (length pathname)))))
+	    (list-store-append store 
+	     (vector
+	      filename 
+	      (if directory-p folder-pixbuf file-pixbuf)
+	      directory-p))))))
 
   (defun sort-func (store a b)
     (let ((a-dir-p (tree-model-value store a 'directory-p))
@@ -551,6 +549,7 @@
        ((string< a-name b-name) :before)
        ((string> a-name b-name) :after)
        (t :equal))))
+
 
   (defun parent-dir (dir)
     (let ((end (1+ (position #\/ dir :from-end t :end (1- (length dir))))))
@@ -567,7 +566,8 @@
 		     :column-names '(filename pixbuf directory-p)))
 	     (icon-view (make-instance 'icon-view
 			 :model store :selection-mode :multiple
-			 :text-column 'filename :pixbuf-column 'pixbuf))
+			 :text-column 0 ;'filename
+			 :pixbuf-column 1)) ;'pixbuf))
 	     (up (make-instance 'tool-button 
 		  :stock "gtk-go-up" :is-important t :sensitive nil))
 	     (home (make-instance 'tool-button 
@@ -580,7 +580,7 @@
          #'(lambda (path)
 	     (when (tree-model-value store path 'directory-p)
 	       (setq directory
-		     (concatenate 'string directory (tree-model-value store path 'filename) "/"))
+		(concatenate 'string directory (tree-model-value store path 'filename) "/"))
 	       (fill-store store directory)
 	       (setf (widget-sensitive-p up) t))))
 
@@ -621,16 +621,14 @@
       
 (define-toplevel create-labels (window "Labels" :border-width 5 :resizable nil)
   (flet ((create-label-in-frame (frame-label label-text &rest args)
-	   (list 
-	    (make-instance 'frame
-	     :label frame-label
-	     :child (apply #'make-instance 'label :label label-text :xpad 5 :ypad 5 args))
-	    :fill nil :expand nil)))
+	   (make-instance 'frame
+	    :label frame-label
+	    :child (apply #'make-instance 'label :label label-text :xpad 5 :ypad 5 args))))
     (make-instance 'h-box
      :spacing 5 :parent window
      :child-args '(:fill nil :expand nil)
      :child (make-instance 'v-box
-             :spacing 5
+             :spacing 5 :child-args '(:fill nil :expand nil)
 	     :child (create-label-in-frame "Normal Label" "This is a Normal label")
 	     :child (create-label-in-frame "Multi-line Label"
 "This is a Multi-line label.
@@ -647,7 +645,7 @@ Multi-line.
 Third line"
                      :justify :right))
      :child (make-instance 'v-box
-	     :spacing 5
+	     :spacing 5 :child-args '(:fill nil :expand nil)
 	     :child (create-label-in-frame "Line wrapped label"
 "This is an example of a line-wrapped label.  It should not be taking up the entire             width allocated to it, but automatically wraps the words to fit.  The time has come, for all good men, to come to the aid of their party.  The sixth sheik's six sheep's sick.
      It supports multiple paragraphs correctly, and  correctly   adds many          extra  spaces. "
@@ -660,9 +658,8 @@ Third line"
                       :justify :fill :wrap t)
 
 	     :child (create-label-in-frame "Underlined label"
-(#+cmu glib:latin1-to-unicode #+sbcl identity
 "This label is underlined!
-This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
+This one is underlined in quite a funky fashion"
                       :justify :left
 	              :pattern  "_________________________ _ _________ _ _____ _ __ __  ___ ____ _____")))))
 
@@ -916,6 +913,7 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 	     :label "Hide page"
 	     :signal (list 'clicked #'(lambda () (widget-hide page)))))
 
+
     (let ((label-box (make-instance 'h-box 
 		      :show-children t
 		      :child-args '(:expand nil)
@@ -927,16 +925,15 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 		     :child (make-instance 'image :pixbuf book-closed)
 		     :child (make-instance 'label :label title))))
 
-      (widget-show-all page)
       (notebook-append notebook page label-box menu-box))))
 	
-
 (define-simple-dialog create-notebook (dialog "Notebook")
   (let ((main (make-instance 'v-box :parent dialog)))
     (let ((book-open (gdk:pixbuf-new-from-xpm-data book-open-xpm))
-	  (book-closed (gdk:pixbuf-new-from-xpm-data book-closed-xpm))
-	  (notebook (make-instance 'notebook 
+ 	  (book-closed (gdk:pixbuf-new-from-xpm-data book-closed-xpm))
+ 	  (notebook (make-instance 'notebook 
 		     :border-width 10 :tab-pos :top :parent main)))
+
       (flet ((set-image (page func pixbuf)
 	       (setf
 		(image-pixbuf 
@@ -1019,13 +1016,13 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
        :spacing 5 :border-width 10
        :parent (list main :expand nil)
        :child (make-instance 'button 
-	       :label "prev"
+	       :label "Prev"
 	       :signal (list 'clicked #'notebook-prev-page :object notebook))
        :child (make-instance 'button 
-	       :label "next"
+	       :label "Next"
 	       :signal (list 'clicked #'notebook-next-page :object notebook))
        :child (make-instance 'button 
-	       :label "rotate"
+	       :label "Rotate"
 	       :signal (let ((tab-pos 0))
 			 (list 'clicked 
 			  #'(lambda ()
@@ -1034,6 +1031,7 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 			       (notebook-tab-pos notebook)
 			       (svref #(:top :right :bottom :left) tab-pos))))))))
     (widget-show-all main)))
+
 
 
 ;;; Panes
@@ -1864,9 +1862,6 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
 ;;; Main window
       
 (defun create-main-window ()
-;;   (rc-parse "clg:examples;testgtkrc2")
-;;   (rc-parse "clg:examples;testgtkrc")
-
   (let* ((button-specs
 	  '(("button box" create-button-box)
  	    ("buttons" create-buttons)
@@ -1875,14 +1870,13 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
  	    ("color selection" create-color-selection)
  	    ("cursors" create-cursors)
  	    ("dialog" create-dialog)
-;; ;  	    ("dnd")
  	    ("entry" create-entry)
-;; 	    ("event watcher")
  	    ("enxpander" create-expander)
  	    ("file chooser" create-file-chooser)
  	    ("font selection" create-font-selection)
  	    ("handle box" create-handle-box)
-#+gtk2.6    ("icon view" create-icon-view)
+	    #?(pkg-config:pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0" :error nil)
+	    ("icon view" create-icon-view)
  	    ("image" create-image)
  	    ("labels" create-labels)
  	    ("layout" create-layout)
@@ -1904,29 +1898,24 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
  	    ("spinbutton" create-spins)
  	    ("statusbar" create-statusbar)
  	    ("test idle" create-idle-test)
-;; 	    ("test mainloop")
-;; 	    ("test scrolling")
-;; 	    ("test selection")
  	    ("test timeout" create-timeout-test)
  	    ("text" create-text)
  	    ("toggle buttons" create-toggle-buttons)
  	    ("toolbar" create-toolbar-window)
  	    ("tooltips" create-tooltips)
-;; 	    ("tree" #|create-tree|#)
-	    ("UI manager" create-ui-manager)
-))
-	(main-window (make-instance 'window
-		      :title "testgtk.lisp" :name "main_window"
-		      :default-width 200 :default-height 400
-		      :allow-grow t :allow-shrink nil))
-	(scrolled-window (make-instance 'scrolled-window
-	                  :hscrollbar-policy :automatic 
-			  :vscrollbar-policy :automatic
-			  :border-width 10))
-	(close-button (make-instance 'button 
-		       :label "close" :can-default t
-		       :signal (list 'clicked #'widget-destroy 
-				     :object main-window)))) 
+	    ("UI manager" create-ui-manager)))
+
+	 (main-window (make-instance 'window
+		       :title "testgtk.lisp" :name "main_window"
+		       :default-width 200 :default-height 400
+		       :allow-grow t :allow-shrink nil))
+	 (scrolled-window (make-instance 'scrolled-window
+	                   :hscrollbar-policy :automatic 
+			   :vscrollbar-policy :automatic
+			   :border-width 10))
+	 (close-button (make-instance 'button 
+		        :stock "gtk-close" :can-default t
+		        :signal (list 'clicked #'widget-destroy :object main-window)))) 
 
     (let ((icon (gdk:pixbuf-load #p"clg:examples;gtk.png")))
       (setf 
@@ -1940,9 +1929,14 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
      :child (list (make-instance 'label :label (gtk-version)) :fill nil)
      :child (list (make-instance 'label :label (clg-version)) :fill nil)
      :child (list (make-instance 'label 			  
-		   :label #-cmu(format nil "~A (~A)" 
-			        (lisp-implementation-type)
-				(lisp-implementation-version))
+		   :label #-cmu
+		          (format nil "~A (~A)" 
+			   (lisp-implementation-type)
+			   #-clisp
+			   (lisp-implementation-version)
+			   #+clisp
+			   (let ((version (lisp-implementation-version)))
+			     (subseq version 0 (position #\sp version))))
 		          ;; The version string in CMUCL is far too long
 		          #+cmu(lisp-implementation-type))
 		  :fill nil)
@@ -1955,9 +1949,9 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
     (let ((content-box 
 	   (make-instance 'v-box
 	    :focus-vadjustment (scrolled-window-vadjustment scrolled-window)
-	    :children (mapcar #'(lambda (spec) 
+	    :children (mapcar #'(lambda (spec)
 				  (apply #'create-button spec))
-			      button-specs))))
+		       button-specs))))
       (scrolled-window-add-with-viewport scrolled-window content-box))
     
     (widget-grab-focus close-button)
@@ -1966,3 +1960,4 @@ This one is underlined (Ê¯Â∆ÿ≈) in quite a funky fashion")
  
 (clg-init)
 (create-main-window)
+
