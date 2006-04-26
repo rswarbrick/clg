@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.52 2006-04-25 22:10:37 espen Exp $
+;; $Id: gtype.lisp,v 1.53 2006-04-26 10:29:01 espen Exp $
 
 (in-package "GLIB")
 
@@ -614,7 +614,7 @@
   (expand-type-definitions prefix args))
 
 (defexport define-types-by-introspection (prefix &rest args)
-  (list-autoexported-symbols (expand-type-definitions prefix args))))
+  (list-autoexported-symbols (expand-type-definitions prefix args)))
 
 
 ;;;; Initialize all non static types in GObject
