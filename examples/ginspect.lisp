@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.9 2006-02-09 22:34:09 espen Exp $
+;; $Id: ginspect.lisp,v 1.10 2006-04-26 14:56:59 espen Exp $
 
 #+sbcl(require :gtk)
 #+cmu(asdf:oos 'asdf:load-op :gtk)
@@ -132,13 +132,15 @@
 		       *ginspect-unbound-object-marker*))
     (cons "Plist" (symbol-plist object)))))
 
-#+cmu
 (defmethod decompose-describe-object ((object standard-object))
   (values 
-   (call-next-method) t
+   (format nil "The instance is an object of type ~A." 
+    (class-name (class-of object)))
+   t
    (loop
     for slotd in (class-slots (class-of object))
-    collect (let* ((slot-name (pcl:slot-definition-name slotd))
+    when (slot-readable-p slotd)
+    collect (let* ((slot-name (slot-definition-name slotd))
 		   (slot-value (if (slot-boundp object slot-name)
 				   (slot-value object slot-name)
 				 *ginspect-unbound-object-marker*)))

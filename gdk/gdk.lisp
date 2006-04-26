@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.28 2006-04-25 22:27:13 espen Exp $
+;; $Id: gdk.lisp,v 1.29 2006-04-26 15:01:05 espen Exp $
 
 
 (in-package "GDK")
@@ -436,7 +436,7 @@
 (defun ensure-cursor (cursor &rest args)
   (if (typep cursor 'cursor)
       cursor
-    (apply #'make-instance 'cursor :type cursor args)))
+    (apply #'make-instance 'cursor :source cursor args)))
 
 (defbinding %cursor-new-for-display () pointer
   (display display)
