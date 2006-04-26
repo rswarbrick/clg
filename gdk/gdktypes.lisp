@@ -1,5 +1,5 @@
 ;; Common Lisp bindings for GTK+ v2.x
-;; Copyright 2000-2005 Espen S. Johnsen <espen@users.sf.net>
+;; Copyright 2000-2006 Espen S. Johnsen <espen@users.sf.net>
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining
 ;; a copy of this software and associated documentation files (the
@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.23 2006-04-10 18:16:24 espen Exp $
+;; $Id: gdktypes.lisp,v 1.24 2006-04-26 09:21:39 espen Exp $
 
 (in-package "GDK")
 
@@ -42,14 +42,15 @@
     :accessor color-red
     :type (unsigned 16))
    (green
-    :allocation :alien :offset 6
+    :allocation :alien
     :accessor color-green
     :type (unsigned 16))
    (blue
-    :allocation :alien  :offset 8
+    :allocation :alien
     :accessor color-blue
     :type (unsigned 16)))
-  (:metaclass boxed-class))
+  (:metaclass boxed-class)
+  (:packed t))
 
 
 (deftype point () '(vector int 2))
@@ -82,7 +83,36 @@
     :type int))
   (:metaclass boxed-class))
 
+(register-type 'event-mask '|gdk_event_mask_get_type|)
+(define-flags-type event-mask
+  (:exposure 2)
+  :pointer-motion
+  :pointer-motion-hint
+  :button-motion
+  :button1-motion
+  :button2-motion
+  :button3-motion
+  :button-press
+  :button-release
+  :key-press
+  :key-release
+  :enter-notify
+  :leave-notify
+  :focus-change
+  :structure
+  :property-change
+  :visibility-notify
+  :proximity-in
+  :proximity-out
+  :substructure
+  :scroll
+  (:all-events #x3FFFFE))
 
+(register-type 'event-mask '|gdk_modifier_type_get_type|)
+(define-flags-type modifier-type
+  :shift :lock :control :mod1 :mod2 :mod3 :mod4 :mod5 
+  :button1 :button2 :button3 :button4 :button5
+  (:release #.(ash 1 30)))
 
 
 (define-types-by-introspection "Gdk"
@@ -209,7 +239,9 @@
     :getter "gdk_cursor_get_display"
     :reader cursor-display
     :type display))
-  (:metaclass boxed-class))
+  (:metaclass boxed-class)
+  (:ref %cursor-ref)
+  (:unref %cursor-unref))  
 
 
 (defclass geometry (struct)
@@ -269,10 +301,5 @@
     :initarg :gravity
     :type gravity))
   (:metaclass struct-class))
-
-(define-flags-type modifier-type
-  :shift :lock :control :mod1 :mod2 :mod3 :mod4 :mod5 
-  :button1 :button2 :button3 :button4 :button5
-  (:release #.(ash 1 30)))
 
 (deftype native-window () '(unsigned 32))
