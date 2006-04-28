@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.6 2006-04-25 22:01:12 espen Exp $
+;; $Id: gerror.lisp,v 1.7 2006-04-28 08:27:22 espen Exp $
 
 
 (in-package "GLIB")
@@ -98,6 +98,9 @@
   ())
 
 (define-condition warning-log-level (log-level)
+  ())
+
+(define-condition message-log-level (log-level)
   ())
 
 (define-condition info-log-level (log-level)
