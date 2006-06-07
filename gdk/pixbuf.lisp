@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pixbuf.lisp,v 1.4 2006-04-25 22:27:13 espen Exp $
+;; $Id: pixbuf.lisp,v 1.5 2006-06-07 13:18:20 espen Exp $
 
 
 (in-package "GDK")
@@ -116,6 +116,29 @@
   (if (and (not x) (not y) (not width) (not height))
       (%pixbuf-copy pixbuf)
     (%pixbuf-new-subpixbuf pixbuf x y width height)))
+
+(defbinding %pixbuf-get-from-drawable () (referenced pixbuf)
+  (dest (or null pixbuf))
+  (drawable drawable)
+  (colormap (or null colormap))
+  (src-x int)
+  (src-y int)
+  (dest-x int)
+  (dest-y int)
+  (width int)
+  (height int))
+
+(defun pixbuf-get-from-drawable (drawable &key (src-x 0) (src-y 0) (dest-x 0) (dest-y 0) width height colormap dest)
+  (unless (or (and width height) (not (typep drawable 'window)))
+    (error "Width and height must be specified for windows"))
+  (or
+   (%pixbuf-get-from-drawable dest drawable
+    (cond
+     (colormap)
+     ((slot-boundp drawable 'colormap) nil)
+     ((colormap-get-system)))
+    src-x src-y dest-x dest-y (or width -1) (or height -1))
+   (error "Couldn't get pixbuf from drawable")))
 
 
 ;;; Utilities
