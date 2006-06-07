@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.29 2006-04-26 15:01:05 espen Exp $
+;; $Id: gdk.lisp,v 1.30 2006-06-07 13:17:24 espen Exp $
 
 
 (in-package "GDK")
@@ -463,12 +463,19 @@
 
 ;;; Pixmaps
 
-(defbinding pixmap-new (width height depth &key window) pixmap
+(defbinding %pixmap-new () pointer
+  (window (or null window))
   (width int)
   (height int)
-  (depth int)
-  (window (or null window)))
-					
+  (depth int))
+
+(defmethod allocate-foreign ((pximap pixmap) &key width height depth window)
+  (%pixmap-new window width height depth))
+
+(defun pixmap-new (width height depth &key window)
+  (warn "PIXMAP-NEW is deprecated, use (make-instance 'pixmap ...) instead")
+  (make-instance 'pixmap :width width :height height :depth depth :window window))
+
 (defbinding %pixmap-colormap-create-from-xpm () pixmap
   (window (or null window))
   (colormap (or null colormap))
@@ -483,6 +490,7 @@
   (color (or null color))
   (data (vector string)))
 
+;; Deprecated, use pixbufs instead
 (defun pixmap-create (source &key color window colormap)
   (let ((window
 	 (if (not (or window colormap))
@@ -497,8 +505,9 @@
       (values pixmap mask))))
 
 
-
 ;;; Color
+
+(defbinding colormap-get-system () colormap)
 
 (defbinding %color-copy () pointer
   (location pointer))
@@ -545,7 +554,7 @@
 
 
   
-;;; Drawable -- all the draw- functions are dprecated and will be
+;;; Drawable -- all the draw- functions are deprecated and will be
 ;;; removed, use cairo for drawing instead.
 
 (defbinding drawable-get-size () nil
