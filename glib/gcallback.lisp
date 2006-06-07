@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.34 2006-04-25 21:57:44 espen Exp $
+;; $Id: gcallback.lisp,v 1.35 2006-06-07 13:16:11 espen Exp $
 
 (in-package "GLIB")
 
@@ -261,8 +261,8 @@
 	    (let ((,default (list* ,object ,@vars ,rest)))
 	      (flet ((call-next-handler (&rest ,next)
 		       (%call-next-handler 
-			,n-params ',types (or ,next ,default) ',return-type))))
-	      ,@body)))
+			,n-params ',types (or ,next ,default) ',return-type)))
+	      ,@body))))
        ',name)))
 
 
