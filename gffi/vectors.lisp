@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.1 2006-04-25 20:40:57 espen Exp $
+;; $Id: vectors.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
 
 
 (in-package "GFFI")
@@ -109,6 +109,15 @@
 	    (error "Can't inline vector with variable size: ~A" type)
 	  (* (size-of element-type) length)))
     (size-of 'pointer)))
+
+(define-type-method type-alignment ((type vector) &key inlined)
+  (if inlined
+      (destructuring-bind (element-type &optional (length '*)) 
+	  (rest (type-expand-to 'vector type))
+	(if (eq length '*)
+	    (error "Can't inline vector with variable size: ~A" type)
+	  (* (type-alignment element-type) length)))
+    (type-alignment 'pointer)))
 
 (define-type-method alien-arg-wrapper ((type vector) var vector style form &optional copy-in-p)
   (destructuring-bind (element-type &optional (length '*)) 
@@ -308,6 +317,10 @@
   (assert-not-inlined type inlined)
   (size-of 'pointer))
 
+(define-type-method type-alignment ((type vector0) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'pointer))
+
 (define-type-method alien-arg-wrapper ((type vector0) var vector style form &optional copy-in-p)
   (destructuring-bind (element-type) (rest (type-expand-to 'vector0 type))
     (cond
@@ -452,6 +465,10 @@
 (define-type-method size-of ((type counted-vector) &key inlined)
   (assert-not-inlined type inlined)
   (size-of 'pointer))
+
+(define-type-method type-alignment ((type counted-vector) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'pointer))
 
 (define-type-method alien-arg-wrapper ((type counted-vector) var vector style form &optional copy-in-p)
   (destructuring-bind (element-type &optional (counter-type 'unsigned-int))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.1 2006-04-25 20:31:35 espen Exp $
+;; $Id: memory.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
 
 
 (in-package "GFFI")
@@ -141,4 +141,9 @@
      (sb-alien-internals:parse-alien-type type nil)))
 
   (defun sb-sizeof (type)
-    (/ (sb-sizeof-bits type) 8)))
+    (/ (sb-sizeof-bits type) 8))
+
+  (defun sb-alignment (type)
+    (/ (sb-alien-internals:alien-type-alignment
+	(sb-alien-internals:parse-alien-type type nil))
+       8)))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.1 2006-04-25 20:49:16 espen Exp $
+;; $Id: proxy.lisp,v 1.2 2006-06-08 13:25:09 espen Exp $
 
 (in-package "GFFI")
 
@@ -282,12 +282,11 @@
 	      (funcall writer (foreign-location object) value)))
       (call-next-method)))
   
-  (defconstant +struct-alignmen+ (size-of 'pointer))
-
-  (defun align-offset (size &optional packed-p)
-    (if (or packed-p (zerop (mod size +struct-alignmen+)))
-	size
-      (+ size (- +struct-alignmen+ (mod size +struct-alignmen+)))))
+  (defun adjust-offset (offset type &optional packed-p)
+    (let ((alignment (type-alignment type)))
+      (if (or packed-p (zerop (mod offset alignment)))
+	  offset
+	(+ offset (- alignment (mod offset alignment))))))
 
   (defmethod compute-slots ((class proxy-class))
     (let ((alien-slots (remove-if-not 
@@ -297,17 +296,16 @@
       (when alien-slots
 	(loop 
 	 with packed-p = (foreign-slots-packed-p class)
-	 as offset = (align-offset 
-		      (foreign-size (most-specific-proxy-superclass class))
-		      packed-p)
-	             then (align-offset 
-			   (+ 
-			    (slot-definition-offset slotd) 
-			    (size-of (slot-definition-type slotd)))
-			   packed-p)
          for slotd in alien-slots
-	 unless (slot-boundp slotd 'offset)
-	 do (setf (slot-value slotd 'offset) offset))))
+	 as offset = (adjust-offset 
+		      (foreign-size (most-specific-proxy-superclass class))
+		      (slot-definition-type slotd)
+		      packed-p)
+	             then (adjust-offset offset (slot-definition-type slotd) packed-p)
+	 do (if (slot-boundp slotd 'offset)
+		(setf offset (slot-value slotd 'offset))
+	      (setf (slot-value slotd 'offset) offset))
+	    (incf offset (size-of (slot-definition-type slotd))))))
     (call-next-method))
 
   (defmethod validate-superclass ((class proxy-class) (super standard-class))
@@ -326,6 +324,10 @@
 (define-type-method size-of ((type proxy) &key inlined)
   (assert-not-inlined type inlined)
   (size-of 'pointer))
+
+(define-type-method type-alignment ((type proxy) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'pointer))
 
 (define-type-method from-alien-form ((type proxy) form &key (ref :free))
   (let ((class (type-expand type)))
@@ -364,10 +366,6 @@
 	#'(lambda (instance)
 	    (funcall ref (foreign-location instance))))
     #'foreign-location))
-
-(define-type-method size-of ((type proxy) &key inlined)
-  (assert-not-inlined type inlined)
-  (size-of 'pointer))
 
 (define-type-method writer-function ((type proxy) &key temp inlined)
   (assert-not-inlined type inlined)
@@ -549,15 +547,15 @@ object at the give location."))
     (when (and
 	   #?-(or (sbcl>= 0 9 8) (featurep :clisp))(class-finalized-p class)
 	   (not (slot-boundp class 'size)))
-      (let ((size (or
-		   (loop
-		    for slotd in slots
-		    when (eq (slot-definition-allocation slotd) :alien)
-		    maximize (+ 
-			      (slot-definition-offset slotd)
-			      (size-of (slot-definition-type slotd))))
-		   0)))
-	(setf (slot-value class 'size) (+ size (mod size +struct-alignmen+)))))
+      (setf (slot-value class 'size)
+       (or
+	(loop
+	 for slotd in slots
+	 when (eq (slot-definition-allocation slotd) :alien)
+	 maximize (+ 
+		   (slot-definition-offset slotd)
+		   (size-of (slot-definition-type slotd))))
+	0)))
     slots))
 
 (define-type-method callback-wrapper ((type struct) var arg form)
@@ -571,6 +569,15 @@ object at the give location."))
   (if inlined
       (foreign-size type)
     (size-of 'pointer)))
+
+(define-type-method type-alignment ((type struct) &key inlined)
+  (if inlined
+      (let ((slot1 (find-if
+		    #'(lambda (slotd)
+			(eq (slot-definition-allocation slotd) :alien))
+		    (class-slots (find-class type)))))
+	(type-alignment (slot-definition-type slot1)))
+    (type-alignment 'pointer)))
 
 (define-type-method writer-function ((type struct) &key temp inlined)
   (if inlined

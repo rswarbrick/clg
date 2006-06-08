@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.37 2006-04-25 21:51:32 espen Exp $
+;; $Id: glib.lisp,v 1.38 2006-06-08 13:24:25 espen Exp $
 
 
 (in-package "GLIB")
@@ -167,6 +167,9 @@
   (assert-not-inlined type inlined)
   (size-of 'pointer))
 
+(define-type-method type-alignment ((type glist) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'pointer))
 
 (define-type-method alien-arg-wrapper ((type glist) var list style form &optional copy-in-p)
   (destructuring-bind (element-type) (rest (type-expand-to 'glist type))
@@ -316,6 +319,10 @@
 (define-type-method size-of ((type gslist) &key inlined)
   (assert-not-inlined type inlined)
   (size-of 'pointer))
+
+(define-type-method type-alignment ((type gslist) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'pointer))
 
 (define-type-method alien-arg-wrapper ((type gslist) var list style form &optional copy-in-p)
   (destructuring-bind (element-type) (rest (type-expand-to 'gslist type))

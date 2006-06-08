@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.1 2006-04-25 20:36:05 espen Exp $
+;; $Id: basic-types.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
 
 (in-package "GFFI")
 
@@ -66,6 +66,9 @@
   "Returns the foreign type corresponding to TYPE")
 (define-type-generic size-of (type &key inlined)
   "Returns the foreign size of TYPE. The default value of INLINED is
+T for basic C types and NIL for other types.")
+(define-type-generic type-alignment (type &key inlined)
+  "Returns the alignment of TYPE. The default value of INLINED is
 T for basic C types and NIL for other types.")
 (define-type-generic alien-arg-wrapper (type var arg style form &optional copy-p)
   "Creates a wrapper around FORM which binds the alien translation of
@@ -202,6 +205,10 @@ have been written as temporal.")
   (declare (ignore type))
   (size-of 'signed-byte :inlined inlined))
 
+(define-type-method type-alignment ((type integer) &key (inlined t))
+  (declare (ignore type))
+  (type-alignment 'signed-byte :inlined inlined))
+
 (define-type-method writer-function ((type integer) &key temp (inlined t))
   (declare (ignore temp))
   (assert-inlined type inlined)
@@ -252,6 +259,21 @@ have been written as temporal.")
 	(16 2)
 	(32 4)
 	(64 8)))))
+
+(define-type-method type-alignment ((type signed-byte) &key (inlined t))
+  (assert-inlined type inlined)
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'signed-byte type)))
+    (let ((size (if (eq size '*) 
+		    (second (type-expand-to 'signed-byte 'int))
+		  size)))
+      #+sbcl(sb-alignment `(sb-alien:signed ,size))
+      #+clisp(ecase size
+	       ( 8 (nth-value 1 (ffi:sizeof 'ffi:sint8)))
+	       (16 (nth-value 1 (ffi:sizeof 'ffi:sint16)))
+	       (32 (nth-value 1 (ffi:sizeof 'ffi:sint32)))
+	       (64 (nth-value 1 (ffi:sizeof 'ffi:sint64))))
+      #-(or sbcl clisp) 4)))
 
 (define-type-method writer-function ((type signed-byte) &key temp (inlined t))
   (declare (ignore temp))
@@ -340,6 +362,12 @@ have been written as temporal.")
       (rest (mklist (type-expand-to 'unsigned-byte type)))
     (size-of `(signed ,size))))
 
+(define-type-method type-alignment ((type unsigned-byte) &key (inlined t))
+  (assert-inlined type inlined)
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'unsigned-byte type)))
+    (type-alignment `(signed ,size))))
+
 (define-type-method writer-function ((type unsigned-byte) &key temp (inlined t))
   (declare (ignore temp))
   (assert-inlined type inlined)
@@ -408,6 +436,12 @@ have been written as temporal.")
   #+clisp (ffi:sizeof 'single-float)
   #-(or sbcl clisp) 4)
 
+(define-type-method type-alignment ((type single-float) &key (inlined t))
+  (assert-inlined type inlined)
+  #+sbcl (sb-alignment 'single-float)
+  #+clisp (nth-value 1 (ffi:sizeof 'single-float))
+  #-(or sbcl clisp) 4)
+
 (define-type-method to-alien-form ((type single-float) form &optional copy-p)
   (declare (ignore type copy-p))
   `(coerce ,form 'single-float))
@@ -449,6 +483,12 @@ have been written as temporal.")
   #+clisp (ffi:sizeof 'double-float)
   #-(or sbcl clisp) 8)
 
+(define-type-method type-alignment ((type double-float) &key (inlined t))
+  (assert-inlined type inlined)
+  #+sbcl (sb-alignment 'double-float)
+  #+clisp (nth-value 1 (ffi:sizeof 'double-float))
+  #-(or sbcl clisp) 4)
+
 (define-type-method to-alien-form ((type double-float) form &optional copy-p)
   (declare (ignore type copy-p))
   `(coerce ,form 'double-float))
@@ -487,6 +527,12 @@ have been written as temporal.")
 (define-type-method size-of ((type base-char) &key (inlined t))
   (assert-inlined type inlined)
   1)
+
+(define-type-method type-alignment ((type base-char) &key (inlined t))
+  (assert-inlined type inlined)
+  #+sbcl (sb-alignment 'sb-alien:char)
+  #+clisp (nth-value 1 (ffi:sizeof 'ffi:character))
+  #-(or sbcl clisp) 4)
   
 (define-type-method to-alien-form ((type base-char) form &optional copy-p)
   (declare (ignore type copy-p))
@@ -607,6 +653,10 @@ have been written as temporal.")
   (assert-not-inlined type inlined)
   (size-of 'pointer))
 
+(define-type-method type-alignment ((type string) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'pointer))
+
 (define-type-method to-alien-form ((type string) string &optional copy-p)
   (declare (ignore type copy-p))
   `(encode-utf8-string ,string))
@@ -697,6 +747,10 @@ have been written as temporal.")
   (assert-not-inlined type inlined)
   (size-of 'string))
 
+(define-type-method type-alignment ((type pathname) &key inlined)
+  (assert-not-inlined type inlined)
+  (type-alignment 'string))
+
 (define-type-method alien-arg-wrapper ((type pathname) var pathname style form &optional copy-in-p)
   (declare (ignore type))
   (alien-arg-wrapper 'string var `(namestring (translate-logical-pathname ,pathname)) style form copy-in-p))
@@ -765,6 +819,12 @@ have been written as temporal.")
       (rest (mklist (type-expand-to 'bool type)))
     (size-of `(signed-byte ,size))))
 
+(define-type-method type-alignment ((type bool) &key (inlined t))
+  (assert-inlined type inlined)
+  (destructuring-bind (&optional (size '*))
+      (rest (mklist (type-expand-to 'bool type)))
+    (type-alignment `(signed-byte ,size))))
+
 (define-type-method to-alien-form ((type bool) bool &optional copy-p)
   (declare (ignore type copy-p))
   `(if ,bool 1 0))
@@ -813,6 +873,10 @@ have been written as temporal.")
   (assert-inlined type inlined)
   (size-of 'bool))
 
+(define-type-method type-alignment ((type boolean) &key (inlined t))
+  (assert-inlined type inlined)
+  (type-alignment 'bool))
+
 (define-type-method to-alien-form ((type boolean) boolean &optional copy-p)
   (declare (ignore type copy-p))
   (to-alien-form 'bool boolean))
@@ -857,6 +921,13 @@ have been written as temporal.")
    maximize (if inlined-p
 		(size-of subtype inlined)
 	      (size-of subtype))))
+
+(define-type-method type-alignment ((type or) &key (inlined nil inlined-p))
+  (loop
+   for subtype in (type-expand-to 'or type)
+   maximize (if inlined-p
+		(type-alignment subtype inlined)
+	      (type-alignment subtype))))
 
 (define-type-method alien-arg-wrapper ((type or) var value style form &optional copy-in-p)
   (cond 
@@ -918,6 +989,12 @@ have been written as temporal.")
   #+sbcl (sb-sizeof 'sb-alien:system-area-pointer)
   #+clisp (ffi:sizeof 'ffi:c-pointer)
   #-(or sbcl clisp) 4)
+
+(define-type-method type-alignment ((type pointer) &key (inlined t))
+  (assert-inlined type inlined)
+  #+sbcl (sb-alignment 'system-area-pointer)
+  #+clisp (ffi:sizeof 'ffi:c-pointer)
+  #-(or sbcl clisp) (size-of 'pointer))
 
 (define-type-method to-alien-form ((type pointer) form &optional copy-p)
   (declare (ignore type copy-p))
@@ -1093,6 +1170,10 @@ have been written as temporal.")
 (define-type-method size-of ((type inlined) &key (inlined t))
   (assert-inlined type inlined)
   (size-of (second (type-expand-to 'inlined type)) :inlined t))
+
+(define-type-method type-alignment ((type inlined) &key (inlined t))
+  (assert-inlined type inlined)
+  (type-alignment (second (type-expand-to 'inlined type)) :inlined t))
 
 (define-type-method reader-function ((type inlined) &key (ref :read) (inlined t))
   (assert-inlined type inlined)
