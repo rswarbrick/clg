@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.47 2006-04-26 20:31:12 espen Exp $
+;; $Id: gtktypes.lisp,v 1.48 2006-06-23 12:25:38 espen Exp $
 
 (in-package "GTK")
 
@@ -114,17 +114,12 @@
   (:ref stock-item-copy)
   (:unref stock-item-free))
 
-;; We don't really need to access any slots in this class, so we just
-;; specify the total size
 (defclass tree-iter (boxed)  
-  (
-;;    (stamp :allocation :alien :type int)
-;;    (user-data :allocation :alien :type pointer)
-;;    (user-data2 :allocation :alien :type pointer)
-;;    (user-data3 :allocation :alien :type pointer)
-   )
-  (:metaclass boxed-class)
-  (:size #.(+ (size-of 'int) (* 3 (size-of 'pointer)))))
+  ((stamp :allocation :alien :type int)
+   (user-data :allocation :alien :type pointer)
+   (user-data2 :allocation :alien :type pointer)
+   (user-data3 :allocation :alien :type pointer))
+  (:metaclass boxed-class))
 
 
 ;; (defclass tree-path (boxed)

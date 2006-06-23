@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.20 2006-04-26 20:31:12 espen Exp $
+;; $Id: gtktree.lisp,v 1.21 2006-06-23 12:25:37 espen Exp $
 
 
 (in-package "GTK")
@@ -210,10 +210,11 @@
   (location pointer))
 
 (defun %make-tree-path (path)
-  (let ((c-vector (make-c-vector 'int (length path) :content path))
-	(location (allocate-memory (+ (size-of 'int) (size-of 'pointer)))))
+  (let* ((c-vector (make-c-vector 'int (length path) :content path))
+	 (pointer-offset (adjust-offset (size-of 'int) 'pointer))
+	 (location (allocate-memory (+ pointer-offset (size-of 'pointer)))))
     (funcall (writer-function 'int) (length path) location)
-    (funcall (writer-function 'pointer) c-vector location (size-of 'int))
+    (funcall (writer-function 'pointer) c-vector location pointer-offset)
     location))
 
 (defun %tree-path-to-vector (location)
@@ -224,10 +225,11 @@
       (map-c-vector 'vector #'identity indices 'int depth))))
 
 (defmacro %with-tree-path ((var path) &body body)
-  (let ((vector-offset (+ (size-of 'int) (size-of 'pointer))))
-    `(with-memory (,var (+ ,(size-of 'int) ,(size-of 'pointer) (* ,(size-of 'int) (length ,path))))
+  (let* ((pointer-offset (adjust-offset (size-of 'int) 'pointer))
+	 (vector-offset (adjust-offset (+ pointer-offset (size-of 'pointer)) 'int)))
+    `(with-memory (,var (+ ,vector-offset (* ,(size-of 'int) (length ,path))))
       (funcall (writer-function 'int) (length ,path) ,var)
-      (setf (ref-pointer ,var ,(size-of 'int)) (pointer+ ,var ,vector-offset))
+      (setf (ref-pointer ,var ,pointer-offset) (pointer+ ,var ,vector-offset))
       (make-c-vector 'int (length ,path) :content ,path :location (pointer+ ,var ,vector-offset))
       ,@body)))
 
