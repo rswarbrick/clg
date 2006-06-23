@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.21 2006-06-23 12:25:37 espen Exp $
+;; $Id: gtktree.lisp,v 1.22 2006-06-23 12:46:26 espen Exp $
 
 
 (in-package "GTK")
@@ -307,6 +307,11 @@
   (assert-not-inlined type inlined)
   #'(lambda (location &optional (offset 0))
       (%tree-path-free (ref-pointer location offset))))
+
+(defun ensure-tree-path (path)
+  (etypecase path
+    (string (coerce (clg-utils:split-string path :delimiter #\:) 'vector))
+    (vector path)))
 
 
 (defbinding %tree-row-reference-new () pointer
