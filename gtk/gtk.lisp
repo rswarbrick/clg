@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.63 2006-04-26 13:00:28 espen Exp $
+;; $Id: gtk.lisp,v 1.64 2006-06-30 10:57:21 espen Exp $
 
 
 (in-package "GTK")
@@ -45,7 +45,7 @@
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
 (defun clg-version ()
-  "clg 0.93pre")
+  "clg 0.93")
 
 
 ;;;; Initalization
