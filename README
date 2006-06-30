@@ -1,5 +1,5 @@
 This package contains Common Lisp bindings to GTK+ v2.x. It currently
-only works with CMUCL 19 and SBCL 0.9, but ports to other CL
+works with CMUCL 19, SBCL 0.9 and CLISP. Ports to other CL
 implementations may be added later.
 
 
@@ -16,7 +16,7 @@ Build instructions
 
 1. If you are using a version of SBCL without native callback support
    you need to upgrade or add third party callback code. The following 
-   instructions of how to add third party callback support, are borrowed 
+   instructions of how to add callback support, are borrowed
    from the Common Music installation guide:
 
    1. Download Thomas Burdick's Alien Function package¹ and restore it 
@@ -53,8 +53,9 @@ Build instructions
    - Make sure ASDF finds the system definition files:
        
        (push
-	(logical-pathname-translations "clg:systems;") 
-	asdf:*central-registry*)
+        (translate-logical-pathname "clg:systems;")
+         asdf:*central-registry*)
+
 
      When checking out of CVS also do the following:
      $ cd <clg toplevel>
@@ -81,6 +82,9 @@ Build instructions
    threads, since GTK+ is not really thread safe:
 
      #+sbcl(setq swank:*communication-style* :fd-handler)
+
+   CLISP needs to be started with the option '-ansi' for clg to
+   compile and load.
 
 
 4. If everything worked, try (load "hello-world") to see a small
