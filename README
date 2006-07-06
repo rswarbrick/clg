@@ -101,6 +101,11 @@ so it is also wise to check the source code.
 
 - library prefixes are stripped from all symbols
 
+- object properties should be available as virtual slots. A lot of 
+  "missing" properties are manually defined as slots. Slots may be read
+  only or write only, but there later type are generally only
+  defined automatically through introspection
+
 - the get/set part are removed from regular accessors, but retained
   in functions which set or retrieve multiple values
 
@@ -112,9 +117,6 @@ so it is also wise to check the source code.
   kind of valid argument types is provided
 
 - there are no gtk_*_new functions, use MAKE-INSTANCE to create widgets
-
-- all object properties are available as virtual slots. A lot of
-  "missing" properties are manually defined as slots
 
 - use CHILD-PROPERTY-VALUE or automatically defined accessors to
   access child properties
