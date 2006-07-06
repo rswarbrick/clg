@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.30 2006-06-07 13:17:24 espen Exp $
+;; $Id: gdk.lisp,v 1.31 2006-07-06 13:05:59 espen Exp $
 
 
 (in-package "GDK")
@@ -103,6 +103,121 @@
   ((display-manager) display-manager)
   (display display))
 
+
+;;; Primitive graphics structures (points, rectangles and regions)
+
+(defbinding %rectangle-intersect () boolean
+  (src1 rectangle)
+  (src2 rectangle)
+  (dest rectangle))
+
+(defun rectangle-intersect (src1 src2 &optional (dest (make-instance 'rectangle)))
+  "Calculates the intersection of two rectangles. It is allowed for DEST to be the same as either SRC1 or SRC2. DEST is returned if the to rectangles intersect, otherwise NIL" 
+  (when (%rectangle-intersect src1 src2 dest)
+    dest))
+
+(defbinding rectangle-union (src1 src2 &optional (dest (make-instance 'rectangle))) nil
+  "Calculates the union of two rectangles. The union of rectangles SRC1 and SRC2 is the smallest rectangle which includes both SRC1 and SRC2 within it. It is allowed for DEST to be the same as either SRC1 or SRC2." 
+  (src1 rectangle)
+  (src2 rectangle)
+  (dest rectangle :in/return))
+
+(defun ensure-rectangle (rectangle)
+  (etypecase rectangle 
+    (rectangle rectangle)
+    (vector (make-instance 'rectangle 
+	     :x (aref rectangle 0) :y (aref rectangle 1)
+	     :width (aref rectangle 2) :height (aref rectangle 3)))))
+
+
+(defbinding %region-new () pointer)
+
+(defbinding %region-polygon () pointer
+  (points (vector (inlined point)))
+  (n-points int)
+  (fill-rule fill-rule))
+
+(defbinding %region-rectangle () pointer
+  (rectangle rectangle))
+
+(defbinding %region-copy () pointer
+  (location pointer))
+
+(defbinding %region-destroy () nil
+  (location pointer))
+
+(defmethod allocate-foreign ((region region) &key rectangle polygon fill-rule)
+  (declare (ignore initargs))
+  (cond
+   ((and rectangle polygon) 
+    (error "Only one of the keyword arguments :RECTANGLE and :POLYGON can be specified"))
+   (rectangle (%region-rectangle (ensure-rectangle rectangle)))
+   (polygon (%region-polygon polygon (length polygon) fill-rule))
+   ((%region-new))))
+
+(defun ensure-region (region)
+  (etypecase region 
+    (region region)
+    ((or rectangle vector) 
+     (make-instance 'region :rectangle (ensure-rectangle region)))))
+
+(defbinding region-get-clipbox (region &optional (rectangle (make-instance 'rectangle))) nil
+  (region region)
+  (rectangle rectangle :in/return))
+
+(defbinding %region-get-rectangles () nil
+  (region region)
+  (rectangles pointer :out)
+  (n-rectangles int :out))
+
+(defun region-get-rectangles (region)
+  "Obtains the area covered by the region as a list of rectangles."
+  (multiple-value-bind (location length) (%region-get-rectangles region)
+    (prog1
+	(map-c-vector 'list #'identity location 'point length :get)
+      (deallocate-memory location))))
+
+(defbinding region-empty-p () boolean
+  (region region))
+
+(defbinding region-equal-p () boolean
+  (region1 region)
+  (region2 region))
+
+(defbinding region-point-in-p () boolean
+  (region region)
+  (x int)
+  (y int))
+
+(defbinding region-rect-in (region rectangle) overlap-type
+  (region region)
+  ((ensure-rectangle rectangle) rectangle))
+
+(defbinding region-offset () nil
+  (region region)
+  (dx int)
+  (dy int))
+
+(defbinding region-shrink () nil
+  (region region)
+  (dx int)
+  (dy int))
+
+(defbinding region-intersect (source1 source2) nil
+  (source1 region)
+  ((ensure-region source2) region))
+
+(defbinding region-union (source1 source2) nil
+  (source1 region)
+  ((ensure-region source2) region))
+
+(defbinding region-subtract (source1 source2) nil
+  (source1 region)
+  ((ensure-region source2) region))
+
+(defbinding region-xor (source1 source2) nil
+  (source1 region)
+  ((ensure-region source2) region))
 
 
 ;;; Events
@@ -213,7 +328,6 @@
 
 (defbinding window-destroy () nil
   (window window))
-
 
 (defbinding window-at-pointer () window
   (x int :out)
@@ -341,25 +455,93 @@
   (root-y int)
   (timestamp unsigned-int))
 
-;;
+;; Probably not needed
+;; (defbinding window-constrain-size () nil ..
 
+(defbinding window-begin-paint-region (window region) nil
+  (window window)
+  ((ensure-region region) region))
+
+(defbinding window-end-paint () nil
+  (window window))
+
+(defmacro with-window-paint ((window region) &body body)
+  `(progn
+     (window-begin-paint-region ,window ,region)
+     (unwind-protect 
+	 (progn ,@body)
+       (window-end-paint ,window))))
+
+;; TODO: create wrapper function and use gdk_window_invalidate_maybe_recurse 
+;; if last arg is a function
+(defbinding window-invalidate-region (window region invalidate-children-p) nil
+  (window window)
+  ((ensure-region region) region)
+  (invalidate-children-p boolean))
+
+(defbinding window-get-update-area () region
+  (window window))
+
+(defbinding window-freeze-updates () nil
+  (window window))
+
+(defbinding window-thaw-updates () nil
+  (window window))
+
+(defbinding window-process-all-updates () nil)
+
+(defbinding window-process-updates () nil
+  (window window)
+  (update-children-p boolean))
+
+(defbinding window-set-debug-updates () nil
+  (enable-p boolean))
+
+(defbinding window-enable-synchronized-configure () nil
+  (window window))
+  
+(defbinding window-configure-finished () nil
+  (window window))
+
+;; Deprecated, use gobject user data mechanism
 (defbinding window-set-user-data () nil
   (window window)
   (user-data pointer))
 
 (defbinding window-set-override-redirect () nil
   (window window)
-  (override-redirect boolean))
+  (override-redirect-p boolean))
 
+(defbinding window-set-accept-focus () nil
+  (window window)
+  (accept-focus-p boolean))
+
+(defbinding window-set-focus-on-map () nil
+  (window window)
+  (focus-on-map-p boolean))
+
+;; Added if needed
 ; (defbinding window-add-filter () nil
-
 ; (defbinding window-remove-filter () nil
 
+;; New code should use window-shape-combine
 (defbinding window-shape-combine-mask () nil
   (window window)
   (shape-mask bitmap)
   (offset-x int)
   (offset-y int))
+
+(defbinding %window-shape-combine-region () nil
+  (window window)
+  (region (or null region))
+  (offset-x int)
+  (offset-y int))
+
+(defun window-shape-combine (window shape offset-x offset-y)
+  (etypecase shape
+    (nil (%window-shape-combine-region window nil 0 0)
+    (region (%window-shape-combine-region window shape offset-x offset-y))
+    (bitmask (window-shape-combine-mask window shape offset-x offset-y)))))
 
 (defbinding window-set-child-shapes () nil
   (window window))
@@ -367,22 +549,128 @@
 (defbinding window-merge-child-shapes () nil
   (window window))
 
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+(progn
+  (defbinding %window-input-shape-combine-mask () nil
+    (window window)
+    (shape-mask bitmap)
+    (x int)
+    (y int))
+
+  (defbinding %window-input-shape-combine-region () nil
+    (window window)
+    (region (or null region))
+    (x int)
+    (y int))
+  
+  (defun window-input-shape-combine (window shape x y)
+    (etypecase shape
+      (nil (%window-input-shape-combine-region window nil 0 0)
+	   (region (%window-input-shape-combine-region window shape x y))
+	   (bitmask (%window-input-shape-combine-mask window shape x y)))))
+
+  (defbinding window-set-child-input-shapes () nil
+    (window window))
+  
+  (defbinding window-merge-child-input-shapes () nil
+    (window window)))
 
 (defbinding window-set-static-gravities () boolean
   (window window)
-  (use-static boolean))
+  (use-static-p boolean))
 
-; (defbinding add-client-message-filter ...
+(defbinding window-set-title () nil
+  (window window)
+  (title string))
+
+(defbinding window-set-background () nil
+  (window window)
+  (color color))
+
+(defbinding window-set-back-pixmap (window pixmap &optional parent-relative-p) nil
+  (window window)
+  (pixmap (or null pixmap))
+  (parent-relative-p boolean))
 
 (defbinding window-set-cursor () nil
   (window window)
   (cursor (or null cursor)))
+
+(defbinding window-get-geometry () nil
+  (window window)
+  (x int :out)
+  (y int :out)
+  (width int :out)
+  (height int :out)
+  (depth int :out))
+
+;(defbinding window-set-geometry-hints () nil
+
+(defbinding window-icon-list () nil
+  (window window)
+  (icons (glist pixbufs)))
+
+(defbinding window-set-skip-taskbar-hint () nil
+  (window window)
+  (skip-taskbar-p boolean))
+
+(defbinding window-set-skip-pager-hint () nil
+  (window window)
+  (skip-pager-p boolean))
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
+(defbinding window-set-urgency-hint () nil
+  (window window)
+  (urgent-p boolean))
+
+(defbinding window-get-position () nil
+  (window window)
+  (x int :out)
+  (y int :out))
+
+(defbinding window-get-root-origin () nil
+  (window window)
+  (x int :out)
+  (y int :out))
+
+(defbinding window-get-frame-extents (window &optional (extents (make-instance 'rect))) nil
+  (window window)
+  (extents rectangle :in/return))
+
+(defbinding window-get-origin () nil ; this may not work as
+  (window window)                    ; an int is actually returned
+  (x int :out)
+  (y int :out))
 
 (defbinding window-get-pointer () window
   (window window)
   (x int :out)
   (y int :out)
   (mask modifier-type :out))
+
+;(defbinding window-set-icon () nil
+
+(defbinding window-set-icon-name () nil
+  (window window)
+  (icon-name string))
+
+(defbinding window-set-transient-for () nil
+  (window window)
+  (parent window))
+
+(defbinding window-set-role () nil
+  (window window)
+  (role string))
+
+(defbinding %window-get-decorations () boolean
+  (window window)
+  (decorations wm-decoration :out))
+
+(defun %window-decorations-getter (window)
+  (nth-value 1 (%window-get-decorations window)))
+
+(defun %window-decorations-boundp (window)
+  (%window-get-decorations window))
 
 (defbinding %window-get-toplevels () (glist window))
 

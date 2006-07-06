@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.24 2006-04-26 09:21:39 espen Exp $
+;; $Id: gdktypes.lisp,v 1.25 2006-07-06 13:05:59 espen Exp $
 
 (in-package "GDK")
 
@@ -82,6 +82,13 @@
     :initarg :height
     :type int))
   (:metaclass boxed-class))
+
+(defclass region (struct)
+  ()
+  (:metaclass struct-class)
+  (:ref %region-copy)
+  (:unref %region-destroy))
+
 
 (register-type 'event-mask '|gdk_event_mask_get_type|)
 (define-flags-type event-mask
@@ -221,7 +228,27 @@
      :setter "gdk_window_set_group"
      :unbound nil
      :accessor window-group
-     :type window))))
+     :type window)
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+    (type-hint
+     :allocation :virtual
+     :getter "gdk_window_get_type_hint"
+     :setter "gdk_window_set_type_hint"
+     :accessor window-type-hint
+     :type window-type-hint)
+    #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+    (type-hint
+     :allocation :virtual
+     :getter "gdk_window_get_type_hint"
+     :accessor window-type-hint
+     :type window-type-hint)
+    (decorations
+     :allocation :virtual
+     :getter %window-decoration-getter
+     :setter "gdk_window_set_decoration"
+     :boundp %window-decoration-boundp
+     :accessor window-decorations
+     :type wm-decoration))))
 
 
 (deftype bitmap () 'pixmap)
