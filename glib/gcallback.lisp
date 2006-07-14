@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.35 2006-06-07 13:16:11 espen Exp $
+;; $Id: gcallback.lisp,v 1.36 2006-07-14 10:51:07 espen Exp $
 
 (in-package "GLIB")
 
@@ -36,23 +36,31 @@
   (check-type function (or null symbol function))
   (register-user-data function))
 
-;; Callback marshal for regular signal handlers
-(define-callback closure-marshal nil
+;; Callback marshaller for regular signal handlers
+(define-callback signal-handler-marshal nil
     ((gclosure gclosure) (return-value gvalue) (n-params unsigned-int) 
      (param-values pointer) (invocation-hint pointer) 
-     (callback-id unsigned-int))
+     (callback-id unsigned-long))
   (declare (ignore gclosure invocation-hint))
-  (callback-trampoline callback-id n-params param-values return-value))
+  (callback-trampoline #'invoke-signal-handler callback-id n-params param-values return-value))
 
-;; Callback function for emission hooks
-(define-callback signal-emission-hook nil
+;; Callback marshaller  for class handlers
+(define-callback class-handler-marshal nil
+    ((gclosure gclosure) (return-value gvalue) (n-params unsigned-int) 
+     (param-values pointer) (invocation-hint pointer) 
+     (callback-id unsigned-long))
+  (declare (ignore gclosure invocation-hint))
+  (callback-trampoline #'invoke-callback callback-id n-params param-values return-value))
+
+;; Callback marshaller for emission hooks
+(define-callback emission-hook-marshal nil
     ((invocation-hint pointer) (n-params unsigned-int) (param-values pointer)
-     (callback-id unsigned-int))
+     (callback-id unsigned-long))
   (declare (ignore invocation-hint))
-  (callback-trampoline callback-id n-params param-values))
+  (callback-trampoline #'invoke-callback callback-id n-params param-values))
 
-(defun callback-trampoline (callback-id n-params param-values &optional
-			    (return-value (make-pointer 0)))
+(defun callback-trampoline (restart-wrapper callback-id n-params param-values 
+			    &optional (return-value (make-pointer 0)))
   (let* ((return-type (unless (null-pointer-p return-value)
 			(gvalue-type return-value)))
 	 (args (loop
@@ -60,27 +68,43 @@
 		for offset from 0 by +gvalue-size+
 		collect (gvalue-peek (pointer+ param-values offset)))))
     (unwind-protect
-	(let ((result (apply #'invoke-callback callback-id return-type args)))
-	  (when return-type
+	(multiple-value-bind (result aborted-p)
+	    (apply restart-wrapper callback-id nil args)
+	  (when (and return-type (not aborted-p))
 	    (gvalue-set return-value result)))
       ;; TODO: this should be made more general, by adding a type
-      ;; method to return invalidate functions.
+      ;; method to return invalidating functions.
       (loop 
        for arg in args
        when (typep arg 'struct)
        do (invalidate-instance arg)))))
 
+(defun invoke-signal-handler (callback-id return-type &rest args)
+  (declare (ignore return-type))
+  (let* ((instance (first args))
+	 (handler-id (signal-handler-find instance '(:data) 
+		      0 0 nil nil callback-id)))
+    (signal-handler-block instance handler-id)
+    (unwind-protect
+	(restart-case (apply #'invoke-callback callback-id nil args)
+	  (abort () :report "Disconnect and exit signal handler"
+	    (when (signal-handler-is-connected-p instance handler-id)
+	      (signal-handler-disconnect instance handler-id))
+	    (values nil t))))
+      (when (signal-handler-is-connected-p instance handler-id)
+	(signal-handler-unblock instance handler-id))))
 
 (defun invoke-callback (callback-id return-type &rest args)
-  (restart-case
-      (apply (find-user-data callback-id) args)
+  (restart-case (apply (find-user-data callback-id) args)
     (continue nil :report "Return from callback function"
-	      (when return-type
-		(format *query-io* "Enter return value of type ~S: " return-type)
-		(force-output *query-io*)
-		(eval (read *query-io*))))
+      (cond
+       (return-type
+	(format *query-io* "Enter return value of type ~S: " return-type)
+	(force-output *query-io*)
+	(eval (read *query-io*)))
+       (t (values nil t))))
     (re-invoke nil :report "Re-invoke callback function"
-	       (apply #'invoke-callback callback-id return-type args))))
+      (apply #'invoke-callback callback-id return-type args))))
 
 
 ;;;; Timeouts and idle functions
@@ -154,6 +178,9 @@
     '(flags :run-first :run-last :run-cleanup :no-recurse 
 	    :detailed :action :no-hooks))
 
+  (define-flags-type signal-match-type
+    :id :detail :closure :func :data :unblocked)
+
   (defclass signal-query (struct)
     ((id :allocation :alien :type unsigned-int)
      (name :allocation :alien :type (copy-of string))
@@ -209,7 +236,7 @@
     (if callback-id
 	(update-user-data callback-id function)
       (multiple-value-bind (callback-closure callback-id)
-	  (make-callback-closure function)
+	  (make-callback-closure function class-handler-marshal)
 	(%signal-override-class-closure signal-id type-number callback-closure)
 	(setf 
 	 (gethash (cons type-number signal-id) *overridden-signals*)
@@ -281,16 +308,16 @@
 
 
 (defbinding signal-add-emission-hook (type signal function &key (detail 0))
-    unsigned-int
+    unsigned-long
   ((ensure-signal-id-from-type signal type) unsigned-int)
   (detail quark)
-  (signal-emission-hook callback)
+  (emission-hook-marshal callback)
   ((register-callback-function function) unsigned-int)
   (user-data-destroy-callback callback))
 
 (defbinding signal-remove-emission-hook (type signal hook-id) nil
   ((ensure-signal-id-from-type signal type) unsigned-int)
-  (hook-id unsigned-int))
+  (hook-id unsigned-long))
 
 
 (defbinding (signal-has-handler-pending-p "g_signal_has_handler_pending")
@@ -300,7 +327,7 @@
   ((or detail 0) quark)
   (blocked boolean))
     
-(defbinding %signal-connect-closure-by-id () unsigned-int
+(defbinding %signal-connect-closure-by-id () unsigned-long
   (instance ginstance)
   (signal-id unsigned-int)
   (detail quark)
@@ -309,29 +336,39 @@
 
 (defbinding signal-handler-block () nil
   (instance ginstance)
-  (handler-id unsigned-int))
+  (handler-id unsigned-long))
 
 (defbinding signal-handler-unblock () nil
   (instance ginstance)
-  (handler-id unsigned-int))
+  (handler-id unsigned-long))
+
+;; Internal
+(defbinding signal-handler-find () unsigned-long
+  (instance gobject)
+  (mask signal-match-type)
+  (signal-id unsigned-int)
+  (detail quark)
+  (closure (or null pointer))
+  (func (or null pointer))
+  (data unsigned-long))
 
 (defbinding signal-handler-disconnect () nil
   (instance ginstance)
-  (handler-id unsigned-int))
+  (handler-id unsigned-long))
 
 (defbinding signal-handler-is-connected-p () boolean
   (instance ginstance)
-  (handler-id unsigned-int))
+  (handler-id unsigned-long))
 
 (defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
   (callback-id unsigned-int) 
   (callback callback)
   (destroy-notify callback))
 
-(defun make-callback-closure (function)
+(defun make-callback-closure (function marshaller)
   (let ((callback-id (register-callback-function function)))
     (values
-     (callback-closure-new callback-id closure-marshal user-data-destroy-callback)
+     (callback-closure-new callback-id marshaller user-data-destroy-callback)
      callback-id)))
 
 (defgeneric compute-signal-function (gobject signal function object))
@@ -379,7 +416,7 @@ once."
 		    (let ((*signal-stop-emission* signal-stop-emission))
 		      (apply callback args)))))
       (multiple-value-bind (closure-id callback-id)
-	  (make-callback-closure wrapper)
+	  (make-callback-closure wrapper signal-handler-marshal)
 	(let ((handler-id (%signal-connect-closure-by-id 
 			   gobject signal-id detail-quark closure-id after)))
 	  (when remove
@@ -388,7 +425,8 @@ once."
 		 (unwind-protect
 		     (let ((*signal-stop-emission* signal-stop-emission))
 		       (apply callback args))
-		   (signal-handler-disconnect gobject handler-id)))))
+		   (when (signal-handler-is-connected-p gobject handler-id)
+		     (signal-handler-disconnect gobject handler-id))))))
 	  handler-id))))
 
 
