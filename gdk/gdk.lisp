@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.31 2006-07-06 13:05:59 espen Exp $
+;; $Id: gdk.lisp,v 1.32 2006-08-14 14:03:32 espen Exp $
 
 
 (in-package "GDK")
@@ -606,7 +606,7 @@
 
 ;(defbinding window-set-geometry-hints () nil
 
-(defbinding window-icon-list () nil
+(defbinding window-set-icon-list () nil
   (window window)
   (icons (glist pixbufs)))
 
