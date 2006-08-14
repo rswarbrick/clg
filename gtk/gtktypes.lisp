@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.48 2006-06-23 12:25:38 espen Exp $
+;; $Id: gtktypes.lisp,v 1.49 2006-08-14 13:57:37 espen Exp $
 
 (in-package "GTK")
 
@@ -998,7 +998,7 @@
      :allocation :virtual
      :getter "gtk_toggle_action_get_active"
      :setter "gtk_toggle_action_set_active"
-     :initarg :active
+;     :initarg :active
      :accessor toggle-action-active-p
      :type boolean)))
 

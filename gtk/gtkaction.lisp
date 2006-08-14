@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.9 2006-04-26 12:32:04 espen Exp $
+;; $Id: gtkaction.lisp,v 1.10 2006-08-14 13:57:37 espen Exp $
 
 
 (in-package "GTK")
@@ -118,7 +118,7 @@
 
 ;;; Toggle Action
 
-(defmethod initialize-instance ((action toggle-action) &rest initargs &key callback)
+(defmethod initialize-instance ((action toggle-action) &rest initargs &key callback active)
   (remf initargs :callback)
   (apply #'call-next-method action initargs)
   (when callback
@@ -130,7 +130,7 @@
 	 #'(lambda ()
 	     (funcall function (toggle-action-active-p action))))
        :object object :after after)))
-  (when (toggle-action-active-p action)
+  (when active
     (action-activate action)))
 
 (defbinding toggle-action-toggled () nil
