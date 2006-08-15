@@ -16,6 +16,8 @@
   (:export "EVENTS-PENDING-P" "GET-CURRENT-EVENT" "MAIN-DO-EVENT" "MAIN"
 	   "MAIN-LEVEL" "MAIN-QUIT" "MAIN-ITERATION-DO" "MAIN-ITERATE-ALL")
   (:export "CONTAINER-CHILD-CLASS" "CONTAINER-CHILD")
+  ;; Signal names that need to be explicit exported
+  (:export "TOGGLED")
   ;; Symbols re-exported from glib
   (:export "SIGNAL-EMIT-STOP" "SIGNAL-CONNECT" "SIGNAL-DISCONNECT"
 	   "SIGNAL-HANDLER-BLOCK" "SIGNAL-HANDLER-UNBLOCK"
