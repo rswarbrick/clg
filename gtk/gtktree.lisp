@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.22 2006-06-23 12:46:26 espen Exp $
+;; $Id: gtktree.lisp,v 1.23 2006-08-15 10:13:42 espen Exp $
 
 
 (in-package "GTK")
@@ -72,6 +72,14 @@
   (cell-layout cell-layout)
   (cell cell-renderer))
 
+
+;;;; Cell Renderer
+
+(defmethod compute-signal-function ((gobject cell-renderer-toggle) (signal (eql 'toggled)) function object)
+  (declare (ignore gobject signal function object))
+  (let ((function (call-next-method)))
+    #'(lambda (object path)
+	(funcall function object (ensure-tree-path path)))))
 
 
 ;;;; List Store
