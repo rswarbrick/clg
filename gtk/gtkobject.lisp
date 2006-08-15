@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.34 2006-04-26 10:30:02 espen Exp $
+;; $Id: gtkobject.lisp,v 1.35 2006-08-15 12:16:09 espen Exp $
 
 
 (in-package "GTK")
@@ -188,7 +188,7 @@
   t)
 
 
-(defclass container-child ()
+(defclass container-child (virtual-slots-object)
   ((parent :initarg :parent :type container)
    (child :initarg :child :type widget)))
 
