@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.35 2006-08-15 12:16:09 espen Exp $
+;; $Id: gtkobject.lisp,v 1.36 2006-08-16 11:02:46 espen Exp $
 
 
 (in-package "GTK")
@@ -135,7 +135,8 @@
        (call-next-method))
     (call-next-method)))
 
-(defmethod compute-slot-reader-function ((slotd effective-child-slot-definition))
+(defmethod compute-slot-reader-function ((slotd effective-child-slot-definition) &optional signal-unbound-p)
+  (declare (ignore signal-unbound-p))
   (let* ((type (slot-definition-type slotd))
 	 (pname (slot-definition-pname slotd))
 	 (reader (reader-function type :ref :get)))

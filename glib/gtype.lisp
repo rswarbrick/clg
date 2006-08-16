@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.53 2006-04-26 10:29:01 espen Exp $
+;; $Id: gtype.lisp,v 1.54 2006-08-16 11:02:46 espen Exp $
 
 (in-package "GLIB")
 
@@ -335,6 +335,7 @@
 		      (register-new-type class-name (class-name super) gtype))))
 	       (type-class-ref type-number)
 	       type-number))))
+      #+nil
       (when (and
 	     (supertype type-number) 
 	     (not (eq (class-name super) (supertype type-number))))
@@ -505,7 +506,8 @@
 
 
 ;; The argument is a list where each elements is on the form 
-;; (type . dependencies)
+;; (type . dependencies). This function will not handle indirect
+;; dependencies and types depending on them selve.
 (defun sort-types-topologicaly (unsorted)
   (flet ((depend-p (type1)
            (find-if #'(lambda (type2)

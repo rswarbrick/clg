@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.2 2006-06-08 13:25:09 espen Exp $
+;; $Id: proxy.lisp,v 1.3 2006-08-16 11:02:45 espen Exp $
 
 (in-package "GFFI")
 
@@ -162,7 +162,7 @@
       (funcall (instance-finalizer instance)))
     (slot-makunbound instance 'location)
     (cancel-finalization instance))
-  ;; We can't cached invalidated instances in CLISP beacuse it is
+  ;; We can't cache invalidated instances in CLISP beacuse it is
   ;; not possible to cancel finalization
   #-clisp(cache-invalidated-instance instance))
 
@@ -242,7 +242,8 @@
       (call-next-method)))
   
 
-  (defmethod compute-slot-reader-function ((slotd effective-alien-slot-definition))
+  (defmethod compute-slot-reader-function ((slotd effective-alien-slot-definition) &optional signal-unbound-p)
+    (declare (ignore signal-unbound-p))
     (let* ((type (slot-definition-type slotd))
 	   (offset (slot-definition-offset slotd))
 	   (reader (reader-function type)))
@@ -260,7 +261,8 @@
 	    (funcall writer value location offset))
 	  value)))
   
-  (defmethod compute-slot-reader-function ((slotd effective-virtual-alien-slot-definition))
+  (defmethod compute-slot-reader-function ((slotd effective-virtual-alien-slot-definition) &optional signal-unbound-p)
+    (declare (ignore signal-unbound-p))
     (if (and (slot-boundp slotd 'getter) (stringp (slot-definition-getter slotd)))
 	(let ((getter (slot-definition-getter slotd))
 	      (type (slot-definition-type slotd))

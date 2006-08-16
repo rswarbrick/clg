@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.2 2006-04-26 19:19:14 espen Exp $
+;; $Id: interface.lisp,v 1.3 2006-08-16 11:02:45 espen Exp $
 
 (in-package "GFFI")
 
@@ -423,7 +423,7 @@
 	     (lookup-method (type-spec)
 	       (if (and (symbolp type-spec) (find-class type-spec nil))
 		   (let ((class (find-class type-spec)))
-		     #+clisp
+		     #?(or (sbcl>= 0 9 15) (featurep :clisp))
 		     (unless (class-finalized-p class)
 		       (finalize-inheritance class))
 		     (search-method-in-cpl-order 

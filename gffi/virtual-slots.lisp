@@ -20,43 +20,46 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.1 2006-04-25 20:49:16 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.2 2006-08-16 11:02:45 espen Exp $
 
 (in-package "GFFI")
 
 ;;;; Superclass for all metaclasses implementing some sort of virtual slots
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass virtual-slots-class (standard-class) 
-    ())
+(defclass virtual-slots-class (standard-class) 
+  ())
 
-  (defclass direct-virtual-slot-definition (standard-direct-slot-definition)
-    ((setter :reader slot-definition-setter :initarg :setter)
-     (getter :reader slot-definition-getter :initarg :getter)
-     (unbound :reader slot-definition-unbound :initarg :unbound)
-     (boundp :reader slot-definition-boundp :initarg :boundp)
-     (makunbound :reader slot-definition-makunbound :initarg :makunbound)
-     #+clisp(type :initarg :type :reader slot-definition-type)))
+(defclass direct-virtual-slot-definition (standard-direct-slot-definition)
+  ((setter :reader slot-definition-setter :initarg :setter)
+   (getter :reader slot-definition-getter :initarg :getter)
+   (unbound :reader slot-definition-unbound :initarg :unbound)
+   (boundp :reader slot-definition-boundp :initarg :boundp)
+   (makunbound :reader slot-definition-makunbound :initarg :makunbound)
+   #+clisp(type :initarg :type :reader slot-definition-type)))
   
-  (defclass effective-virtual-slot-definition (standard-effective-slot-definition)
-    ((setter :reader slot-definition-setter :initarg :setter)
-     (getter :reader slot-definition-getter :initarg :getter)
-     (unbound :reader slot-definition-unbound :initarg :unbound)
-     (boundp :reader slot-definition-boundp :initarg :boundp)
-     (makunbound :reader slot-definition-makunbound :initarg :makunbound)
-     #+clisp(reader-function)
-     #+clisp(writer-function)
-     #+clisp(boundp-function)
-     makunbound-function
-     #+clisp(type :initarg :type :reader slot-definition-type)))
+(defclass effective-virtual-slot-definition (standard-effective-slot-definition)
+  ((setter :reader slot-definition-setter :initarg :setter)
+   (getter :reader slot-definition-getter :initarg :getter)
+   (unbound :reader slot-definition-unbound :initarg :unbound)
+   (boundp :reader slot-definition-boundp :initarg :boundp)
+   (makunbound :reader slot-definition-makunbound :initarg :makunbound)
+   #+clisp(reader-function)
+   #+clisp(writer-function)
+   #+clisp(boundp-function)
+   makunbound-function
+   #+clisp(type :initarg :type :reader slot-definition-type)))
 
-  (defclass direct-special-slot-definition (standard-direct-slot-definition)
-    ((special :initarg :special :accessor slot-definition-special)))
-  
-  (defclass effective-special-slot-definition (standard-effective-slot-definition)
-    ((special :initarg :special :accessor slot-definition-special))))
+(defclass direct-special-slot-definition (standard-direct-slot-definition)
+  ((special :initarg :special :accessor slot-definition-special)))
 
-(defgeneric compute-slot-reader-function (slotd))
+(defclass effective-special-slot-definition (standard-effective-slot-definition)
+  ((special :initarg :special :accessor slot-definition-special)))
+
+(defclass virtual-slots-object (standard-object)
+  ())
+
+
+(defgeneric compute-slot-reader-function (slotd &optional signal-unbound-p))
 (defgeneric compute-slot-boundp-function (slotd))
 (defgeneric compute-slot-writer-function (slotd))
 (defgeneric compute-slot-makunbound-function (slotd))
@@ -91,7 +94,39 @@
 	      (cell-error-name condition)
 	      (unreadable-slot-instance condition)))))
 
-(defmethod compute-slot-reader-function ((slotd effective-virtual-slot-definition))
+(defmethod compute-slot-reader-function :around ((slotd effective-virtual-slot-definition) &optional (signal-unbound-p t))
+  (let ((reader-function (call-next-method)))
+    (cond
+     ((not signal-unbound-p) reader-function)
+
+     ;; An explicit boundp function has been supplied
+     ((slot-boundp slotd 'boundp) 
+      (let ((unbound-value (slot-value slotd 'boundp)))
+	#'(lambda (object)
+	    (let ((value (funcall reader-function object)))
+	      (if (eq value unbound-value)
+		  (slot-unbound (class-of object) object (slot-definition-name slotd))
+		value)))))
+
+     ;; A type unbound value exists
+     ((let ((unbound-method (find-applicable-type-method 'unbound-value 
+			     (slot-definition-type slotd) nil)))
+	(when unbound-method
+	  (let ((unbound-value (funcall unbound-method (slot-definition-type slotd))))
+	    #'(lambda (object)
+		(let ((value (funcall reader-function object)))
+		  (if (eq value unbound-value)
+		      (slot-unbound (class-of object) object (slot-definition-name slotd))
+		    value)))))))
+
+     ((let ((boundp-function (compute-slot-boundp-function slotd)))
+	#'(lambda (object)
+	    (if (funcall boundp-function object)
+		(funcall reader-function object)
+	      (slot-unbound (class-of object) object (slot-definition-name slotd)))))))))
+
+(defmethod compute-slot-reader-function ((slotd effective-virtual-slot-definition) &optional signal-unbound-p)
+  (declare (ignore signal-unbound-p))
   (if (slot-boundp slotd 'getter)
       (slot-value slotd 'getter)
     #'(lambda (object)
@@ -104,7 +139,7 @@
    
    ;; An unbound value has been supplied
    ((slot-boundp slotd 'unbound)
-    (let ((reader-function (slot-value slotd 'reader-function))
+    (let ((reader-function (compute-slot-reader-function slotd nil))
 	  (unbound-value (slot-value slotd 'unbound)))
       #'(lambda (object)
 	  (not (eql (funcall reader-function object) unbound-value)))))
@@ -113,7 +148,7 @@
    ((let ((unbound-method (find-applicable-type-method 'unbound-value 
 			   (slot-definition-type slotd) nil)))
       (when unbound-method
-	(let ((reader-function (slot-value slotd 'reader-function))
+	(let ((reader-function (compute-slot-reader-function slotd nil))
 	      (unbound-value (funcall unbound-method (slot-definition-type slotd))))
 	  #'(lambda (object)
 	      (not (eql (funcall reader-function object) unbound-value)))))))
@@ -148,6 +183,7 @@
 
 #-clisp
 (defmethod initialize-internal-slot-functions ((slotd effective-virtual-slot-definition))
+  #?-(sbcl>= 0 9 15) ; Delayed to avoid recursive call of finalize-inheritanze
   (setf 
    (slot-value slotd 'reader-function) (compute-slot-reader-function slotd)
    (slot-value slotd 'boundp-function) (compute-slot-boundp-function slotd)
@@ -160,6 +196,7 @@
 #-clisp
 (defmethod compute-slot-accessor-info ((slotd effective-virtual-slot-definition) type gf)
   nil)
+
 
 (defun slot-bound-in-some-p (instances slot)
   (find-if
@@ -195,73 +232,51 @@
      (append '(:special t) (call-next-method)))
     (t (call-next-method))))
 
-
+#?(or (not (sbcl>= 0 9 14)) (featurep :clisp))
 (defmethod slot-value-using-class
-    ((class virtual-slots-class) (object standard-object)
+    ((class virtual-slots-class) (object virtual-slots-object)
      (slotd effective-virtual-slot-definition))
-  ;; This isn't optimal when we have an unbound value, as the reader
-  ;; function gets invoke twice
-  (if (funcall (slot-value slotd 'boundp-function) object)
-      (funcall (slot-value slotd 'reader-function) object)
-    (slot-unbound class object (slot-definition-name slotd))))
+    (funcall (slot-value slotd 'reader-function) object))
 
+#?(or (not (sbcl>= 0 9 14)) (featurep :clisp))
 (defmethod slot-boundp-using-class
-    ((class virtual-slots-class) (object standard-object)
+    ((class virtual-slots-class) (object virtual-slots-object)
      (slotd effective-virtual-slot-definition))
-  (handler-case
-      (funcall (slot-value slotd 'boundp-function) object)
-    (unreadable-slot (condition) 
-      (declare (ignore condition))
-      nil)))
+    (funcall (slot-value slotd 'boundp-function) object))
 
+#?(or (not (sbcl>= 0 9 14)) (featurep :clisp))
 (defmethod (setf slot-value-using-class) 
-    (value (class virtual-slots-class) (object standard-object)
+    (value (class virtual-slots-class) (object virtual-slots-object)
      (slotd effective-virtual-slot-definition))
   (funcall (slot-value slotd 'writer-function) value object))
 
 (defmethod slot-makunbound-using-class
-    ((class virtual-slots-class) (object standard-object)
+    ((class virtual-slots-class) (object virtual-slots-object)
      (slotd effective-virtual-slot-definition))
   (funcall (slot-value slotd 'makunbound-function) object))
 
 
-;; In CLISP a class may not have been finalized when update-slots are
-;; called. So to avoid the possibility of finalize-instance beeing
-;; called recursivly  we have to delay the initialization of slot
-;; functions until after an instance has been created. We therefor do
-;; it in around methods for the generic functions used to access
-;; slots.
-#+clisp
-(defmethod slot-value-using-class :around ((class virtual-slots-class) (object standard-object) (slotd effective-virtual-slot-definition))
-  (unless (slot-boundp slotd 'reader-function)
-    (setf 
-     (slot-value slotd 'reader-function) (compute-slot-reader-function slotd)
-     (slot-value slotd 'boundp-function) (compute-slot-boundp-function slotd)))
-  (call-next-method))
+;; In CLISP and SBCL (0.9.15 or newler) a class may not have been
+;; finalized when update-slots are called. So to avoid the possibility
+;; of finalize-instance beeing called recursivly we have to delay the
+;; initialization of slot functions until after an instance has been
+;; created.
+#?(or (sbcl>= 0 9 15) (featurep :clisp))
+(defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'reader-function)))
+  (setf (slot-value slotd name) (compute-slot-reader-function slotd)))
 
-#+clisp
-(defmethod slot-boundp-using-class :around ((class virtual-slots-class) (object standard-object) (slotd effective-virtual-slot-definition))
-  (unless (slot-boundp slotd 'boundp-function)
-    (setf 
-     (slot-value slotd 'reader-function) (compute-slot-reader-function slotd)
-     (slot-value slotd 'boundp-function) (compute-slot-boundp-function slotd)))
-  (call-next-method))
-  
-#+clisp
-(defmethod (setf slot-value-using-class) :around (value (class virtual-slots-class) (object standard-object) (slotd effective-virtual-slot-definition))
-  (declare (ignore value))
-  (unless (slot-boundp slotd 'writer-function)
-    (setf 
-     (slot-value slotd 'writer-function) (compute-slot-writer-function slotd)))
-  (call-next-method))
+#?(or (sbcl>= 0 9 15) (featurep :clisp))
+(defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'boundp-function)))
+  (setf (slot-value slotd name) (compute-slot-boundp-function slotd)))
 
-#+clisp
-(defmethod slot-makunbound-using-class :around ((class virtual-slots-class) (object standard-object) (slotd effective-virtual-slot-definition))
-  (unless (slot-boundp slotd 'makunbound-function)
-    (setf 
-     (slot-value slotd 'makunbound-function) 
-     (compute-slot-makunbound-function slotd)))
-  (call-next-method))
+#?(or (sbcl>= 0 9 15) (featurep :clisp))
+(defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'writer-function)))
+  (setf (slot-value slotd name) (compute-slot-writer-function slotd)))
+
+#?(or (sbcl>= 0 9 15) (featurep :clisp))
+(defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'makunbound-function)))
+  (setf (slot-value slotd name) (compute-slot-makunbound-function slotd)))
+
 
 (defmethod validate-superclass
     ((class virtual-slots-class) (super standard-class))
@@ -274,10 +289,6 @@
 (defmethod slot-definition-special ((slotd standard-effective-slot-definition))
   (declare (ignore slotd))
   nil)
-
-
-(defclass virtual-slots-object (standard-object)
-  ())
 
 
 ;;; To determine if a slot should be initialized with the initform,

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.52 2006-04-25 22:10:36 espen Exp $
+;; $Id: gobject.lisp,v 1.53 2006-08-16 11:02:46 espen Exp $
 
 (in-package "GLIB")
 
@@ -149,7 +149,8 @@
 (defvar *ignore-setting-construct-only-property* nil)
 (declaim (special *ignore-setting-construct-only-property*))
 
-(defmethod compute-slot-reader-function ((slotd effective-property-slot-definition))
+(defmethod compute-slot-reader-function ((slotd effective-property-slot-definition) &optional signal-unbound-p)
+  (declare (ignore signal-unbound-p))
   (if (slot-readable-p slotd)
       (let* ((type (slot-definition-type slotd))
 	     (pname (slot-definition-pname slotd))
@@ -183,7 +184,8 @@
 	  (error 'unwritable-slot :name (slot-definition-name slotd) :instance object))))
    ((call-next-method))))
 
-(defmethod compute-slot-reader-function ((slotd effective-user-data-slot-definition))
+(defmethod compute-slot-reader-function ((slotd effective-user-data-slot-definition) &optional signal-unbound-p)
+  (declare (ignore signal-unbound-p))
   (let ((slot-name (slot-definition-name slotd)))
     #'(lambda (object)
 	(user-data object slot-name))))
