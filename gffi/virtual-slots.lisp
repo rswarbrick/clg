@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.2 2006-08-16 11:02:45 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.3 2006-08-16 12:09:03 espen Exp $
 
 (in-package "GFFI")
 
@@ -58,11 +58,20 @@
 (defclass virtual-slots-object (standard-object)
   ())
 
-
+(defgeneric slot-readable-p (slotd))
+(defgeneric slot-writable-p (slotd))
 (defgeneric compute-slot-reader-function (slotd &optional signal-unbound-p))
 (defgeneric compute-slot-boundp-function (slotd))
 (defgeneric compute-slot-writer-function (slotd))
 (defgeneric compute-slot-makunbound-function (slotd))
+
+(defmethod slot-readable-p ((slotd standard-effective-slot-definition))
+  (declare (ignore slotd))
+  t)
+
+(defmethod slot-writable-p ((slotd standard-effective-slot-definition))
+  (declare (ignore slotd))
+  t)
 
 
 #+clisp
@@ -87,6 +96,9 @@
    (t (call-next-method))))
 
 
+(defmethod slot-readable-p ((slotd effective-virtual-slot-definition))
+  (slot-boundp slotd 'getter))
+
 (define-condition unreadable-slot (cell-error)
   ((instance :reader unreadable-slot-instance :initarg :instance))
   (:report (lambda (condition stream)
@@ -95,45 +107,50 @@
 	      (unreadable-slot-instance condition)))))
 
 (defmethod compute-slot-reader-function :around ((slotd effective-virtual-slot-definition) &optional (signal-unbound-p t))
-  (let ((reader-function (call-next-method)))
-    (cond
-     ((not signal-unbound-p) reader-function)
-
-     ;; An explicit boundp function has been supplied
-     ((slot-boundp slotd 'boundp) 
-      (let ((unbound-value (slot-value slotd 'boundp)))
-	#'(lambda (object)
-	    (let ((value (funcall reader-function object)))
-	      (if (eq value unbound-value)
-		  (slot-unbound (class-of object) object (slot-definition-name slotd))
-		value)))))
-
-     ;; A type unbound value exists
-     ((let ((unbound-method (find-applicable-type-method 'unbound-value 
-			     (slot-definition-type slotd) nil)))
-	(when unbound-method
-	  (let ((unbound-value (funcall unbound-method (slot-definition-type slotd))))
-	    #'(lambda (object)
-		(let ((value (funcall reader-function object)))
-		  (if (eq value unbound-value)
-		      (slot-unbound (class-of object) object (slot-definition-name slotd))
-		    value)))))))
-
-     ((let ((boundp-function (compute-slot-boundp-function slotd)))
-	#'(lambda (object)
-	    (if (funcall boundp-function object)
-		(funcall reader-function object)
-	      (slot-unbound (class-of object) object (slot-definition-name slotd)))))))))
+  (if (not (slot-readable-p slotd))
+      #'(lambda (object)
+	  (error 'unreadable-slot :name (slot-definition-name slotd) :instance object))
+    (let ((reader-function (call-next-method)))
+      (cond
+       ;; Don't create an wrapper to signal unbound value
+       ((not signal-unbound-p) reader-function)
+       
+       ;; An explicit boundp function has been supplied
+       ((slot-boundp slotd 'boundp) 
+	(let ((unbound-value (slot-value slotd 'boundp)))
+	  #'(lambda (object)
+	      (let ((value (funcall reader-function object)))
+		(if (eq value unbound-value)
+		    (slot-unbound (class-of object) object (slot-definition-name slotd))
+		  value)))))
+       
+       ;; A type unbound value exists
+       ((let ((unbound-method (find-applicable-type-method 'unbound-value 
+			       (slot-definition-type slotd) nil)))
+	  (when unbound-method
+	    (let ((unbound-value (funcall unbound-method (slot-definition-type slotd))))
+	      #'(lambda (object)
+		  (let ((value (funcall reader-function object)))
+		    (if (eq value unbound-value)
+			(slot-unbound (class-of object) object (slot-definition-name slotd))
+		      value)))))))
+       
+       ((let ((boundp-function (compute-slot-boundp-function slotd)))
+	  #'(lambda (object)
+	      (if (funcall boundp-function object)
+		  (funcall reader-function object)
+		(slot-unbound (class-of object) object (slot-definition-name slotd))))))))))
 
 (defmethod compute-slot-reader-function ((slotd effective-virtual-slot-definition) &optional signal-unbound-p)
   (declare (ignore signal-unbound-p))
-  (if (slot-boundp slotd 'getter)
-      (slot-value slotd 'getter)
-    #'(lambda (object)
-	(error 'unreadable-slot :name (slot-definition-name slotd) :instance object))))
+  (slot-value slotd 'getter))
 
 (defmethod compute-slot-boundp-function ((slotd effective-virtual-slot-definition))
   (cond
+   ;; Non readable slots are not bound per definition
+   ((not (slot-readable-p slotd))
+    #'(lambda (object) (declare (ignore object)) nil))
+
    ;; An explicit boundp function has been supplied
    ((slot-boundp slotd 'boundp) (slot-value slotd 'boundp))
    
@@ -156,6 +173,9 @@
    ;; Slot has no unbound state
    (#'(lambda (object) (declare (ignore object)) t))))
 
+(defmethod slot-writable-p ((slotd effective-virtual-slot-definition))
+  (slot-boundp slotd 'setter))
+
 (define-condition unwritable-slot (cell-error)
   ((instance :reader unwritable-slot-instance :initarg :instance))
   (:report (lambda (condition stream)
@@ -163,22 +183,35 @@
 	      (cell-error-name condition)
 	      (unwritable-slot-instance condition)))))
 
+(defmethod compute-slot-writer-function :around ((slotd effective-virtual-slot-definition))
+  (if (not (slot-writable-p slotd))
+      #'(lambda (value object)
+	  (declare (ignore value))
+	  (error 'unwritable-slot :name (slot-definition-name slotd) :instance object))
+    (call-next-method)))
+
 (defmethod compute-slot-writer-function ((slotd effective-virtual-slot-definition))
-  (if (slot-boundp slotd 'setter)
-      (slot-value slotd 'setter)
-    #'(lambda (value object)
-	(declare (ignore value))
-	(error 'unwritable-slot :name (slot-definition-name slotd) :instance object))))
+  (slot-value slotd 'setter))
+
+(define-condition slot-can-not-be-unbound (cell-error)
+  ((instance :reader slot-can-not-be-unbound-instance :initarg :instance))
+  (:report (lambda (condition stream)
+	     (format stream "~@<The slot ~S in the object ~S can not be made unbound.~@:>"
+	      (cell-error-name condition)
+	      (slot-can-not-be-unbound-instance condition)))))
 
 (defmethod compute-slot-makunbound-function ((slotd effective-virtual-slot-definition))
   (cond
+   ((not (slot-writable-p slotd))
+    #'(lambda (object)
+	(error 'unwritable-slot :name (slot-definition-name slotd) :instance object)))
    ((slot-boundp slotd 'makunbound) (slot-value slotd 'makunbound))
    ((slot-boundp slotd 'unbound)
     #'(lambda (object)
 	(funcall (slot-value slotd 'writer-function) (slot-value slotd 'unbound) object)))
    (t
     #'(lambda (object)
-	(error 'unwritable-slot :name (slot-definition-name slotd) :instance object)))))
+	(error 'slot-can-not-be-unbound :name (slot-definition-name slotd) :instance object)))))
 
 
 #-clisp

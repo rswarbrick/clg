@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.53 2006-08-16 11:02:46 espen Exp $
+;; $Id: gobject.lisp,v 1.54 2006-08-16 12:09:03 espen Exp $
 
 (in-package "GLIB")
 
@@ -61,15 +61,6 @@
 
 (defclass effective-user-data-slot-definition (effective-virtual-slot-definition)
   ())
-
-
-(defmethod slot-readable-p ((slotd standard-effective-slot-definition))
-  (declare (ignore slotd))
-  t)
-
-(defmethod slot-writable-p ((slotd standard-effective-slot-definition))
-  (declare (ignore slotd))
-  t)
 
 
 (defbinding %object-ref () pointer
@@ -151,38 +142,39 @@
 
 (defmethod compute-slot-reader-function ((slotd effective-property-slot-definition) &optional signal-unbound-p)
   (declare (ignore signal-unbound-p))
-  (if (slot-readable-p slotd)
-      (let* ((type (slot-definition-type slotd))
-	     (pname (slot-definition-pname slotd))
-	     (reader (reader-function type :ref :get)))
-	#'(lambda (object)
-	    (with-memory (gvalue +gvalue-size+)
-	      (%gvalue-init gvalue (find-type-number type))
-	      (%object-get-property object pname gvalue)
-	      (funcall reader gvalue +gvalue-value-offset+))))
+  (let* ((type (slot-definition-type slotd))
+	 (pname (slot-definition-pname slotd))
+	 (reader (reader-function type :ref :get)))
+    #'(lambda (object)
+	(with-memory (gvalue +gvalue-size+)
+	  (%gvalue-init gvalue (find-type-number type))
+	  (%object-get-property object pname gvalue)
+	  (funcall reader gvalue +gvalue-value-offset+)))))
+
+(defmethod compute-slot-writer-function :around ((slotd effective-property-slot-definition))
+  (if (construct-only-property-p slotd)
+      #'(lambda (value object)
+	  (declare (ignore value object))
+	  (unless *ignore-setting-construct-only-property*
+	    (error 'unwritable-slot :name (slot-definition-name slotd) :instance object)))
     (call-next-method)))
 
 (defmethod compute-slot-writer-function ((slotd effective-property-slot-definition))
-  (cond
-   ((slot-writable-p slotd)
-    (let* ((type (slot-definition-type slotd))
-	   (pname (slot-definition-pname slotd))
-	   (writer (writer-function type :temp t))
-	   (destroy (destroy-function type :temp t)))
-      #'(lambda (value object)
-	  (with-memory (gvalue +gvalue-size+)
-	    (%gvalue-init gvalue (find-type-number type))
-	    (funcall writer value gvalue +gvalue-value-offset+)
-	    (%object-set-property object pname gvalue)
-	    (funcall destroy gvalue +gvalue-value-offset+))
-	  value)))
-
-   ((construct-only-property-p slotd)
+  (let* ((type (slot-definition-type slotd))
+	 (pname (slot-definition-pname slotd))
+	 (writer (writer-function type :temp t))
+	 (destroy (destroy-function type :temp t)))
     #'(lambda (value object)
-	(declare (ignore value object))
-	(unless *ignore-setting-construct-only-property*
-	  (error 'unwritable-slot :name (slot-definition-name slotd) :instance object))))
-   ((call-next-method))))
+	(with-memory (gvalue +gvalue-size+)
+	  (%gvalue-init gvalue (find-type-number type))
+	  (funcall writer value gvalue +gvalue-value-offset+)
+	  (%object-set-property object pname gvalue)
+	  (funcall destroy gvalue +gvalue-value-offset+))
+	value)))
+
+(defmethod slot-readable-p ((slotd effective-user-data-slot-definition))
+  (declare (ignore slotd))
+  t)
 
 (defmethod compute-slot-reader-function ((slotd effective-user-data-slot-definition) &optional signal-unbound-p)
   (declare (ignore signal-unbound-p))
@@ -194,6 +186,10 @@
   (let ((slot-name (slot-definition-name slotd)))
     #'(lambda (object)
 	(user-data-p object slot-name))))
+
+(defmethod slot-writable-p ((slotd effective-user-data-slot-definition))
+  (declare (ignore slotd))
+  t)
 
 (defmethod compute-slot-writer-function ((slotd effective-user-data-slot-definition))
   (let ((slot-name (slot-definition-name slotd)))

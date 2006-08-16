@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.36 2006-08-16 11:02:46 espen Exp $
+;; $Id: gtkobject.lisp,v 1.37 2006-08-16 12:09:03 espen Exp $
 
 
 (in-package "GTK")
@@ -135,6 +135,10 @@
        (call-next-method))
     (call-next-method)))
 
+(defmethod slot-readable-p ((slotd effective-child-slot-definition))
+  (declare (ignore slotd))
+  t)
+
 (defmethod compute-slot-reader-function ((slotd effective-child-slot-definition) &optional signal-unbound-p)
   (declare (ignore signal-unbound-p))
   (let* ((type (slot-definition-type slotd))
@@ -146,6 +150,10 @@
 	    (glib::%gvalue-init gvalue (find-type-number type))
 	    (%container-child-get-property parent child pname gvalue)
 	    (funcall reader gvalue +gvalue-value-offset+))))))
+
+(defmethod slot-writable-p ((slotd effective-child-slot-definition))
+  (declare (ignore slotd))
+  t)
 
 (defmethod compute-slot-writer-function ((slotd effective-child-slot-definition))
   (let* ((type (slot-definition-type slotd))
