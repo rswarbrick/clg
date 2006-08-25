@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.54 2006-08-16 11:02:46 espen Exp $
+;; $Id: gtype.lisp,v 1.55 2006-08-25 10:37:33 espen Exp $
 
 (in-package "GLIB")
 
@@ -122,6 +122,9 @@
      ((not (zerop type-number)) type-number)
      (error-p (error "Invalid gtype name: ~A" name)))))
 
+(defun type-from-glib-name (name)
+  (type-from-number (type-number-from-glib-name name) t))
+
 (defun register-type (type id)
   (cond
    ((find-type-number type))
@@ -151,7 +154,7 @@
 	*registered-types*)
   (mapc #'(lambda (type) 
 	    (apply #'register-new-type type))
-	*registered-static-types*)
+	(reverse *registered-static-types*))
   (mapc #'(lambda (type) 
 	    (register-type-alias (car type) (cdr type)))
 	*registered-type-aliases*))
