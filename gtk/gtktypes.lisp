@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.49 2006-08-14 13:57:37 espen Exp $
+;; $Id: gtktypes.lisp,v 1.50 2006-08-25 12:34:49 espen Exp $
 
 (in-package "GTK")
 
@@ -951,7 +951,7 @@
      :allocation :virtual
      :getter "gtk_text_mark_get_name"
      :reader text-mark-name
-     :type string)
+     :type (copy-of string))
     (visible
      :allocation :virtual
      :getter "gtk_text_mark_get_visible"
