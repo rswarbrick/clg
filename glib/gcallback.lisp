@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.36 2006-07-14 10:51:07 espen Exp $
+;; $Id: gcallback.lisp,v 1.37 2006-08-30 09:52:10 espen Exp $
 
 (in-package "GLIB")
 
@@ -360,10 +360,20 @@
   (instance ginstance)
   (handler-id unsigned-long))
 
-(defbinding (callback-closure-new "clg_callback_closure_new") () gclosure
+(defbinding (closure-new "g_cclosure_new") () gclosure
+  ((make-pointer #xFFFFFFFF) pointer)
   (callback-id unsigned-int) 
-  (callback callback)
   (destroy-notify callback))
+
+(defbinding closure-set-meta-marshal () nil
+  (gclosure gclosure)
+  (callback-id unsigned-int)
+  (callback callback))
+
+(defun callback-closure-new (callback-id callback destroy-notify)
+  (let ((gclosure (closure-new callback-id destroy-notify)))
+    (closure-set-meta-marshal gclosure callback-id callback)
+    gclosure))
 
 (defun make-callback-closure (function marshaller)
   (let ((callback-id (register-callback-function function)))
