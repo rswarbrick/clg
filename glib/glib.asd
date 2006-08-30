@@ -30,9 +30,7 @@
 			    :libdir #.(pkg-variable "glib-2.0" "libdir")
 			    :depends-on ("libglib-2.0"))
 		 (:unix-dso "alien"
-		  :components ((:c-source-file "callback"
-				:cflags #.(pkg-cflags "glib-2.0"))
-			       (:c-source-file "gobject" 
+		  :components ((:c-source-file "gobject" 
 				:cflags #.(pkg-cflags "glib-2.0")))
 		  :depends-on ("libgobject-2.0"))
 		 (:file "glib" :depends-on ("libglib-2.0" "defpackage"))
@@ -42,5 +40,5 @@
 		 (:file "gparam" :depends-on ("genums"))
 		 (:file "gobject" :depends-on ("gparam"))
 		 (:file "ginterface" :depends-on ("gobject"))
-		 (:file "gcallback" :depends-on ("gtype" "gparam" "gobject" "alien"))
+		 (:file "gcallback" :depends-on ("gtype" "gparam" "gobject"))
 		 (:file "gerror" :depends-on ("gcallback"))))
