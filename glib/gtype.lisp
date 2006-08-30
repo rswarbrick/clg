@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.55 2006-08-25 10:37:33 espen Exp $
+;; $Id: gtype.lisp,v 1.56 2006-08-30 11:11:03 espen Exp $
 
 (in-package "GLIB")
 
@@ -208,17 +208,18 @@
 	   (run-program
 	    "/usr/bin/nm" 
 	    #+clisp :arguments
-	    (list "--defined-only" "-D" (namestring (truename pathname)))
+	    (list #-darwin"--defined-only" #-darwin"-D" "-g" #+darwin"-f" (namestring (truename pathname)))
 	    :output :stream :wait nil)))
       (unwind-protect
 	  (loop 
-	   as symbol = (let ((line (read-line 
-				    #+(or cmu sbcl)
-				    (process-output process)
-				    #+clisp process
-				    nil)))
-			 (when line 
-			   (subseq line (1+ (position #\Space line :from-end t)))))
+	   as symbol = (let* ((line (read-line 
+				     #+(or cmu sbcl)
+				     (process-output process)
+				     #+clisp process
+				     nil))
+			      (pos (position #\Space line :from-end t)))
+			 (when (and line #+darwin(char= (char line (1- pos)) #\T))
+			   (subseq line (1+ pos))))
 	   while symbol
 	   when (and
 		 (> (length symbol) 9)
@@ -624,4 +625,4 @@
 
 ;;;; Initialize all non static types in GObject
 
-(init-types-in-library #.(concatenate 'string (pkg-config:pkg-variable "glib-2.0" "libdir") "/libgobject-2.0.so"))
+(init-types-in-library #.(concatenate 'string (pkg-config:pkg-variable "glib-2.0" "libdir") "/libgobject-2.0." asdf:*dso-extension*))
