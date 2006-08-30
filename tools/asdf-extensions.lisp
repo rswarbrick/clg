@@ -1,6 +1,9 @@
 (in-package :asdf)
 
-(export 'load-dso)
+(export '*dso-extension*)
+
+(defvar *dso-extension* #-darwin"so" #+darwin"dylib")
+
 
 (defun concatenate-strings (strings &optional delimiter)
   (if (not (rest strings))
@@ -27,7 +30,7 @@
 (defmethod output-files ((operation compile-op) (dso unix-dso))
   (let ((dir (component-pathname dso)))
     (list
-     (make-pathname :type "so"
+     (make-pathname :type *dso-extension*
 		    :name (car (last (pathname-directory dir)))
 		    :directory (butlast (pathname-directory dir))
 		    :defaults dir))))
@@ -125,7 +128,7 @@
 
 
 (defmethod component-pathname ((lib library))
-  (make-pathname :type "so"
+  (make-pathname :type *dso-extension*
 		 :name (component-name lib)
 		 :directory (split-path (slot-value lib 'libdir))))
 

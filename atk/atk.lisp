@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: atk.lisp,v 1.5 2005-04-23 16:48:49 espen Exp $
+;; $Id: atk.lisp,v 1.6 2006-08-30 11:08:12 espen Exp $
 
 (in-package "ATK")
 
@@ -28,6 +28,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library 
    #.(concatenate 'string (pkg-config:pkg-variable "atk" "libdir") 
-		          "/libatk-1.0.so") :prefix "atk_"))
+		          "/libatk-1.0." asdf:*dso-extension*) :prefix "atk_"))
 
 (define-types-by-introspection "Atk")

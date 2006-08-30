@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.4 2006-02-13 20:10:48 espen Exp $
+;; $Id: rsvg.lisp,v 1.5 2006-08-30 11:08:13 espen Exp $
 
 (in-package "RSVG")
 
@@ -28,7 +28,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library 
    #.(concatenate 'string (pkg-config:pkg-variable "librsvg-2.0" "libdir") 
-		          "/librsvg-2.so") :prefix "rsvg_")
+		          "/librsvg-2." asdf:*dso-extension*) :prefix "rsvg_")
 
 (define-types-by-introspection "Rsvg"
   ("RsvgError" :ignore t)))

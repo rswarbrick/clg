@@ -20,20 +20,23 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pango.lisp,v 1.11 2006-04-26 12:40:39 espen Exp $
+;; $Id: pango.lisp,v 1.12 2006-08-30 11:08:13 espen Exp $
 
 (in-package "PANGO")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library #.(concatenate 'string 
 			    (pkg-variable "pango" "libdir")
-		            "/libpango-1.0.so") :prefix "pango_")
+		            "/libpango-1.0." asdf:*dso-extension*) 
+			 :prefix "pango_")
   (init-types-in-library #.(concatenate 'string 
 			    (pkg-variable "pango" "libdir")
-		            "/libpangoxft-1.0.so") :prefix "pango_xft")
+		            "/libpangoxft-1.0." asdf:*dso-extension*) 
+			 :prefix "pango_xft")
   (init-types-in-library #.(concatenate 'string 
 			    (pkg-variable "pango" "libdir")
-			    "/libpangoft2-1.0.so") :prefix "pango_fc"))
+			    "/libpangoft2-1.0." asdf:*dso-extension*) 
+			 :prefix "pango_fc"))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)

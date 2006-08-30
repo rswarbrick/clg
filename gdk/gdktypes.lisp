@@ -20,17 +20,17 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.25 2006-07-06 13:05:59 espen Exp $
+;; $Id: gdktypes.lisp,v 1.26 2006-08-30 11:08:12 espen Exp $
 
 (in-package "GDK")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library #.(concatenate 'string
 			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk-x11-2.0.so") :prefix ("gdk_" "_gdk_"))
+			    "/libgdk-x11-2.0." asdf:*dso-extension*) :prefix ("gdk_" "_gdk_"))
   (init-types-in-library #.(concatenate 'string
 			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk_pixbuf-2.0.so") :prefix "gdk_"))
+			    "/libgdk_pixbuf-2.0." asdf:*dso-extension*) :prefix "gdk_"))
 
 
 (defclass color (boxed)
