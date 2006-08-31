@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.37 2006-08-16 12:09:03 espen Exp $
+;; $Id: gtkobject.lisp,v 1.38 2006-08-31 09:08:23 espen Exp $
 
 
 (in-package "GTK")
@@ -31,7 +31,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library 
    #.(concatenate 'string (pkg-config:pkg-variable "gtk+-2.0" "libdir") 
-		          "/libgtk-x11-2.0.so"))
+		          "/libgtk-x11-2.0." asdf:*dso-extension*))
 
   (defclass %object (gobject)
     ()
@@ -233,5 +233,7 @@
 	   (:metaclass container-child-class)
 	   (:container ,class))))))
 
+(defun container-class-child-class (container-class)
+  (gethash container-class *container-to-child-class-mappings*))
 
 (register-derivable-type 'container "GtkContainer" 'expand-container-type 'gobject-dependencies)
