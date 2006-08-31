@@ -5,19 +5,12 @@
 (defvar *dso-extension* #-darwin"so" #+darwin"dylib")
 
 
-(defun concatenate-strings (strings &optional delimiter)
-  (if (not (rest strings))
-      (first strings)
-    (concatenate
-     'string
-     (first strings)
-     (if delimiter (string delimiter) "")
-     (concatenate-strings (rest strings) delimiter))))
-
 ;;; The following code is more or less copied frm sb-bsd-sockets.asd,
 ;;; but extended to allow flags to be set in a general way
 
-(defclass unix-dso (module) ())
+(defclass unix-dso (module)
+  ((ldflags :initform nil :initarg :ldflags)))
+
 (defun unix-name (pathname)
   (namestring 
    (typecase pathname
@@ -41,12 +34,13 @@
     (unless (zerop
 	     (run-shell-command
 	      "gcc ~A -o ~S ~{~S ~}"
-	      (concatenate 'string
-;; 			   (sb-ext:posix-getenv "EXTRA_LDFLAGS")
-;; 			   " "
-			   #+sunos "-shared -lresolv -lsocket -lnsl"
-			   #+darwin "-bundle"
-			   #-(or darwin sunos) "-shared")
+	      (clg-utils:concatenate-strings
+	       (cons
+		#+sunos "-shared -lresolv -lsocket -lnsl"
+		#+darwin "-bundle"
+		#-(or darwin sunos) "-shared"
+		(slot-value dso 'ldflags))
+	       #\sp)
 	      dso-name
 	      (mapcar #'unix-name
 		      (mapcan (lambda (c)
@@ -87,7 +81,7 @@
 (defmethod perform ((op compile-op) (c c-source-file))
   (unless
       (= 0 (run-shell-command "gcc ~A -o ~S -c ~S"
-	    (concatenate-strings
+	    (clg-utils:concatenate-strings
 	     (append
 	      (list "-fPIC")
 	      (when (slot-value c 'optimization)
