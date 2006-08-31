@@ -15,6 +15,7 @@
 		 (:library "libgtk-x11-2.0" 
 			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
 		 (:unix-dso "alien"
+			    :ldflags #.(pkg-libs "gtk+-2.0")
 			    :components ((:c-source-file "glue"
 					  :cflags #.(pkg-cflags "gtk+-2.0")))
 			    :depends-on ("libgtk-x11-2.0"))
