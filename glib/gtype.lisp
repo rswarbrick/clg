@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.56 2006-08-30 11:11:03 espen Exp $
+;; $Id: gtype.lisp,v 1.57 2006-08-31 09:51:08 espen Exp $
 
 (in-package "GLIB")
 
@@ -208,21 +208,25 @@
 	   (run-program
 	    "/usr/bin/nm" 
 	    #+clisp :arguments
-	    (list #-darwin"--defined-only" #-darwin"-D" "-g" #+darwin"-f" (namestring (truename pathname)))
+	    (list #-darwin"--defined-only" #-darwin"-D" "-g" #+darwin"-f" 
+		  #+darwin"-s" #+darwin"__TEXT" #+darwin"__text" 
+		  (namestring (truename pathname)))
 	    :output :stream :wait nil)))
       (unwind-protect
 	  (loop 
-	   as symbol = (let* ((line (read-line 
-				     #+(or cmu sbcl)
-				     (process-output process)
-				     #+clisp process
-				     nil))
-			      (pos (position #\Space line :from-end t)))
-			 (when (and line #+darwin(char= (char line (1- pos)) #\T))
-			   (subseq line (1+ pos))))
-	   while symbol
+	   as line = (read-line
+		      #+(or cmu sbcl) (process-output process)
+		      #+clisp process
+		      nil)
+	   as symbol = (when line
+			 (let ((pos (position #\Space line :from-end t)))
+			   #-darwin(subseq line (1+ pos))
+			   #+darwinf
+			   (when (char= (char line (1- pos)) #\T)
+			     (subseq line (+ pos 2)))))
+	   while line
 	   when (and
-		 (> (length symbol) 9)
+		 symbol (> (length symbol) 9)
 		 (or 
 		  (not prefixes)
 		  (some #'(lambda (prefix)
