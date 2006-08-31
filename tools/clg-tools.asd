@@ -11,5 +11,5 @@
     :components ((:file "autoexport")
 		 (:file "utils")
 		 (:file "config" :depends-on ("utils"))
-		 (:file "asdf-extensions")))
+		 (:file "asdf-extensions" :depends-on ("utils"))))
 
