@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.57 2006-08-31 09:51:08 espen Exp $
+;; $Id: gtype.lisp,v 1.58 2006-08-31 20:40:56 espen Exp $
 
 (in-package "GLIB")
 
@@ -221,7 +221,7 @@
 	   as symbol = (when line
 			 (let ((pos (position #\Space line :from-end t)))
 			   #-darwin(subseq line (1+ pos))
-			   #+darwinf
+			   #+darwin
 			   (when (char= (char line (1- pos)) #\T)
 			     (subseq line (+ pos 2)))))
 	   while line
