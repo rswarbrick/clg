@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.26 2006-08-30 11:08:12 espen Exp $
+;; $Id: gdktypes.lisp,v 1.27 2006-09-05 13:14:10 espen Exp $
 
 (in-package "GDK")
 
@@ -115,7 +115,7 @@
   :scroll
   (:all-events #x3FFFFE))
 
-(register-type 'event-mask '|gdk_modifier_type_get_type|)
+(register-type 'modifier-type '|gdk_modifier_type_get_type|)
 (define-flags-type modifier-type
   :shift :lock :control :mod1 :mod2 :mod3 :mod4 :mod5 
   :button1 :button2 :button3 :button4 :button5
