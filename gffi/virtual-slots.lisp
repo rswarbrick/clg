@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.3 2006-08-16 12:09:03 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.4 2006-09-05 13:16:18 espen Exp $
 
 (in-package "GFFI")
 
@@ -112,7 +112,7 @@
 	  (error 'unreadable-slot :name (slot-definition-name slotd) :instance object))
     (let ((reader-function (call-next-method)))
       (cond
-       ;; Don't create an wrapper to signal unbound value
+       ;; Don't create wrapper to signal unbound value
        ((not signal-unbound-p) reader-function)
        
        ;; An explicit boundp function has been supplied
@@ -291,7 +291,7 @@
 
 ;; In CLISP and SBCL (0.9.15 or newler) a class may not have been
 ;; finalized when update-slots are called. So to avoid the possibility
-;; of finalize-instance beeing called recursivly we have to delay the
+;; of finalize-instance being called recursivly we have to delay the
 ;; initialization of slot functions until after an instance has been
 ;; created.
 #?(or (sbcl>= 0 9 15) (featurep :clisp))
@@ -326,7 +326,7 @@
 
 ;;; To determine if a slot should be initialized with the initform,
 ;;; CLISP checks whether it is unbound or not. This doesn't work with
-;;; virtual slots which does not have an unbound state, so we have to
+;;; virtual slots that does not have an unbound state, so we have to
 ;;; implement initform initialization in a way similar to how it is
 ;;; done in PCL.
 #+clisp
