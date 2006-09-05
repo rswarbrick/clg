@@ -20,13 +20,13 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.10 2006-04-26 14:56:59 espen Exp $
+;; $Id: ginspect.lisp,v 1.11 2006-09-05 13:12:50 espen Exp $
 
 #+sbcl(require :gtk)
 #+cmu(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "GINSPECT"
-  (:use "COMMON-LISP" "GLIB" "GTK" #+cmu"PCL" #+sbcl"SB-PCL")
+  (:use "COMMON-LISP" "GFFI" "GLIB" "GTK" #+cmu"PCL" #+sbcl"SB-PCL")
   (:export "GINSPECT" "GINSPECT-TOPLEVELS"))
 
 (in-package "GINSPECT")
