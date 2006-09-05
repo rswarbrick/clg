@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: enums.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
+;; $Id: enums.lisp,v 1.3 2006-09-05 13:15:46 espen Exp $
 
 (in-package "GFFI")
   
@@ -167,8 +167,7 @@
 		(:int-symbol `(,value ,symbol)))))
    :key #'first :from-end t))
 
-(deftype flags (&rest args)
-  `(or (member ,@(%map-symbols args)) list))
+(deftype flags (&rest args) (declare (ignore args)) t)
 
 (define-type-method alien-type ((type flags))
   (declare (ignore type))
@@ -240,7 +239,8 @@
 	(int-flags (intern (format nil "INT-TO-~A" name)))
 	(satisfies  (intern (format nil "~A-P" name))))
     `(eval-when (:compile-toplevel :load-toplevel :execute)
-       (deftype ,name () '(satisfies ,satisfies))
+;;        (deftype ,name () '(satisfies ,satisfies))
+       (deftype ,name () '(flags ,@args))
        (defun ,satisfies (object)
 	 (flet ((valid-p (ob)
 		  (find ob ',(%map-symbols args))))
