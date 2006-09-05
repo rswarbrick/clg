@@ -15,7 +15,7 @@
 	   "*MAX-EVENT-TO-USEC*")		
   (:export "EVENTS-PENDING-P" "GET-CURRENT-EVENT" "MAIN-DO-EVENT" "MAIN"
 	   "MAIN-LEVEL" "MAIN-QUIT" "MAIN-ITERATION-DO" "MAIN-ITERATE-ALL")
-  (:export "CONTAINER-CHILD-CLASS" "CONTAINER-CHILD")
+  (:export "CONTAINER-CHILD-CLASS" "CONTAINER-CHILD" "CONTAINER-CHILD-CLASS")
   ;; Signal names that need to be explicit exported
   (:export "TOGGLED")
   ;; Symbols re-exported from glib
