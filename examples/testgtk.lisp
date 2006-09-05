@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.35 2006-04-26 14:59:50 espen Exp $
+;; $Id: testgtk.lisp,v 1.36 2006-09-05 13:49:26 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -1617,7 +1617,34 @@ This one is underlined in quite a funky fashion"
 	 :after t)
 	
 	(container-add dialog (ui-manager-get-widget ui "/ToolBar") :expand nil)
-	(container-add dialog text-view)))))
+	(container-add dialog text-view) 
+
+	(let ((position (make-instance 'label :visible t)))
+	  (flet ((update-position (line column)
+		   (setf 
+		    (label-label position)
+		    (format nil "Cursor Position: ~d,~d" (1+ line) column))))
+	    (update-position 0 0)
+
+	    ;; Callback to display current position when cursor is moved
+	    (signal-connect buffer 'mark-set
+	     #'(lambda (iter mark)
+		 (when (and 
+			(slot-boundp mark 'name) 
+			(string= (text-mark-name mark) "insert"))
+		   (update-position 
+		    (text-iter-line iter) (text-iter-line-offset iter)))))
+
+ 	    ;; Callback to display current position after the
+ 	    ;; buffer has been modified
+	    (signal-connect buffer 'changed
+	     #'(lambda ()
+		 (let ((iter (text-buffer-get-iter-at-insert buffer)))
+		   (update-position 
+		    (text-iter-line iter) (text-iter-line-offset iter))))
+	     :after t))
+
+	  (container-add dialog position :expand nil))))))
 
 
 ;;; Toggle buttons
