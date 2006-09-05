@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: genums.lisp,v 1.20 2006-04-25 21:59:37 espen Exp $
+;; $Id: genums.lisp,v 1.21 2006-09-05 13:20:08 espen Exp $
 
 (in-package "GLIB")
   
@@ -33,12 +33,14 @@
      (nickname :allocation :alien :type string))
     (:metaclass struct-class)))
 
-(defun map-enum-values (values)
+(defun map-enum-values (values symbolic-p)
   (map 'list 
    #'(lambda (enum-value)
-       (with-slots (nickname value) enum-value
+       (with-slots (nickname name value) enum-value
          (list
-	  (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD")
+	  (if symbolic-p	      
+	      (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD")
+	    name)
 	  value)))
    values))
 
@@ -50,11 +52,12 @@
   (class pointer)
   (n-values unsigned-int :out))
 
-(defun query-enum-values (type)
+(defun query-enum-values (type &optional (symbolic-p t))
   (let ((class (type-class-ref type)))
     (map-enum-values (if (eq (supertype type) 'enum)
 			 (enum-class-values class)
-		       (flags-class-values class)))))
+		       (flags-class-values class))
+		     symbolic-p)))
 
 (defun expand-enum-type (type-number forward-p options)
   (declare (ignore forward-p))
