@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.23 2006-04-26 12:11:21 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.24 2006-09-05 13:37:07 espen Exp $
 
 (in-package "GTK")
 
@@ -296,17 +296,58 @@ received."
   (x-offset int)
   (y-offset int))
 
-(defbinding widget-path () nil
-  (widget widget)
-  (path-length int :out)
-  (path string :out)
-  (reverse-path string :out))
+(defun widget-path (widget)
+  (let ((subpath (list (if (and 
+			    (slot-boundp widget 'name) 
+			    (not (zerop (length (widget-name widget)))))
+			   (widget-name widget)
+			 (type-of widget)))))
+    (if (slot-boundp widget 'parent)
+	(nconc (widget-path (widget-parent widget)) subpath)
+      subpath)))
 
-(defbinding widget-class-path () nil
-  (widget widget)
-  (path-length int :out)
-  (path string :out)
-  (reverse-path string :out))
+(defun widget-class-path (widget)
+    (let ((subpath (list (type-of widget))))
+  (if (slot-boundp widget 'parent)
+      (nconc (widget-class-path (widget-parent widget)) subpath)
+    subpath)))
+
+
+(defun widget-path-lookup (path &optional (root (nreverse (window-list-toplevels))) (error-p t))
+  (let ((component (first path)))
+    (loop
+     for widget in (mklist root)
+     do (when (or
+	       (and 
+		(stringp component) (slot-boundp widget 'name) 
+		(string= component (widget-name widget)))
+	       (and
+		(symbolp component) (typep widget component)))
+	  (cond
+	   ((endp (rest path)) (return widget))
+	   ((typep widget 'container)
+	    (let ((descendant (widget-path-lookup (rest path) (container-children widget) nil)))
+	      (when descendant
+		(return descendant))))))))
+  (when error-p
+    (error "Widget not found: ~A" path)))
+
+
+(defun widget-find (name &optional (root (nreverse (window-list-toplevels))) (error-p t))
+  "Search for a widget with the given name. ROOT should be a container
+widget or a list of containers."
+  (loop
+   for widget in (mklist root)
+   do (cond
+       ((and (slot-boundp widget 'name) (string= name (widget-name widget)))
+	(return widget))
+       ((typep widget 'container)
+	(let ((descendant (widget-find name (container-children widget) nil)))
+	  (when descendant
+	    (return descendant))))))
+  (when error-p
+    (error "Widget not found: ~A" name)))
+
 
 (defbinding widget-modify-style () nil
   (widget widget)
