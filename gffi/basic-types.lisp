@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
+;; $Id: basic-types.lisp,v 1.3 2006-09-06 09:45:26 espen Exp $
 
 (in-package "GFFI")
 
@@ -580,7 +580,8 @@ have been written as temporal.")
 	    ((< char-code #x1FFFFF) 4)))))
 
 (defun encode-utf8-string (string &optional location)
-  (let ((location (or location (allocate-memory (utf8-length string)))))
+  (let* ((len (utf8-length string))
+	 (location (or location (allocate-memory len))))
     (loop
      for char across string
      for i from 0
@@ -599,8 +600,8 @@ have been written as temporal.")
 	   ((< char-code #x80) (setf (ref-byte location i) char-code))
 	   ((< char-code #x800) (encode 11))
 	   ((< char-code #x10000) (encode 16))
-	   ((< char-code #x200000) (encode 21))))
-     finally (setf (ref-byte location (1+ i)) 0))
+	   ((< char-code #x200000) (encode 21)))))
+    (setf (ref-byte location len) 0)
     location))
 
 (defun decode-utf8-string (c-string)
