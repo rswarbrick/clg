@@ -20,19 +20,20 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.11 2006-09-05 13:12:50 espen Exp $
+;; $Id: ginspect.lisp,v 1.12 2006-09-06 11:07:36 espen Exp $
 
 #+sbcl(require :gtk)
 #+cmu(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "GINSPECT"
-  (:use "COMMON-LISP" "GFFI" "GLIB" "GTK" #+cmu"PCL" #+sbcl"SB-PCL")
+  (:use "COMMON-LISP" "GFFI" "GLIB" "GTK" #+cmu"PCL" #+sbcl"SB-PCL" #+clisp"MOP")
+  #+clisp(:shadowing-import-from "MOP" "SLOT-DEFINITION-TYPE")
   (:export "GINSPECT" "GINSPECT-TOPLEVELS"))
 
 (in-package "GINSPECT")
 
 (defvar *ginspect-unbound-object-marker* 
-  #+cmu (gensym "UNBOUND-OBJECT-")
+  #+(or cmu clisp)(gensym "UNBOUND-OBJECT-")
   #+sbcl sb-impl::*inspect-unbound-object-marker*)
 
 
@@ -94,7 +95,8 @@
     (if (equal parts (list object))
 	(values description nil nil)
       (values description named-p parts)))
-  #+sbcl(sb-impl::inspected-parts object))
+  #+sbcl(sb-impl::inspected-parts object)
+  #+clisp(values (format nil "The object is an ATOM of type ~A" (type-of object) nil nil)))
 
 (defmethod decompose-describe-object ((object (eql t)))
   (values (call-next-method) nil nil))
@@ -110,6 +112,7 @@
       (values (call-next-method) nil object)
     (values "The object is a CONS." nil (list (car object) (cdr object)))))
 
+#+(or cmu sbcl)
 (defmethod decompose-describe-object ((object #+cmu alien:system-area-pointer
 					      #+sbcl sb-alien:system-area-pointer))
   (values "The object is a SYSTEM-AREA-POINTER" nil nil))
@@ -117,7 +120,7 @@
 (defmethod decompose-describe-object ((object (eql *ginspect-unbound-object-marker*)))
   (values "The slot is unbound" nil nil))
 
-#+cmu
+#+(or cmu clisp)
 (defmethod decompose-describe-object ((object symbol))
   (values 
    (call-next-method) t
@@ -134,7 +137,7 @@
 
 (defmethod decompose-describe-object ((object standard-object))
   (values 
-   (format nil "The instance is an object of type ~A." 
+   (format nil "The instance is an object of type ~A" 
     (class-name (class-of object)))
    t
    (loop
@@ -145,6 +148,13 @@
 				   (slot-value object slot-name)
 				 *ginspect-unbound-object-marker*)))
 	      (cons (string slot-name) slot-value)))))
+
+#+clisp
+(defmethod decompose-describe-object ((object vector))
+  (values   
+   (format nil "The object is a ~A of length ~A" (type-of object) (length object))
+   nil
+   (coerce object 'list)))
 
 
 (defmethod object-has-parts-p ((object t))
