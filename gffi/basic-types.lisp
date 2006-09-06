@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.3 2006-09-06 09:45:26 espen Exp $
+;; $Id: basic-types.lisp,v 1.4 2006-09-06 10:15:34 espen Exp $
 
 (in-package "GFFI")
 
@@ -570,6 +570,7 @@ have been written as temporal.")
 ;;; String
 
 (defun utf8-length (string)
+  "Returns the length including the trailing zero, of STRING encoded as UTF8"
   (1+ (loop
        for char across string
        as char-code = (char-code char)
@@ -601,7 +602,7 @@ have been written as temporal.")
 	   ((< char-code #x800) (encode 11))
 	   ((< char-code #x10000) (encode 16))
 	   ((< char-code #x200000) (encode 21)))))
-    (setf (ref-byte location len) 0)
+    (setf (ref-byte location (1- len)) 0)
     location))
 
 (defun decode-utf8-string (c-string)
