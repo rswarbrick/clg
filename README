@@ -125,6 +125,35 @@ so it is also wise to check the source code.
 
 - the only function used to connect signals is SIGNAL-CONNECT
 
+- some additional initargs to make-instance:
+
+  - gtk:container
+
+    child -- adds a child to a container widget. This argument could
+    be a widget or a list who's first element is a widget and the rest
+    child properties. Multiple :child initargs may be specified
+
+    children -- list of children to be added
+
+    child-args -- default child properties used when adding children (during
+    construction only)
+
+    show-children -- automatically make children (and grandchildren)
+    visible. May be overridden in a child by explicit specifying :visible or
+    another :show-children
+
+
+  - gtk:button
+
+    stock -- equivalent to ":label stock :use-stock t :use-underline t"
+
+
+  - gtk:dialog
+
+    button -- button specification applied to dialog-add-button. Multiple
+    :button initargs may be specified
+
+    buttons -- list of button specifications
 
 
 
