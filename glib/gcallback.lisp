@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.37 2006-08-30 09:52:10 espen Exp $
+;; $Id: gcallback.lisp,v 1.38 2006-09-12 14:00:59 espen Exp $
 
 (in-package "GLIB")
 
@@ -119,7 +119,7 @@
   (tag unsigned-int))
 
 (define-callback source-callback-marshal nil ((callback-id unsigned-int))
-  (callback-trampoline callback-id 0 nil))
+  (callback-trampoline #'invoke-callback callback-id 0 nil))
 
 (defbinding (timeout-add "g_timeout_add_full")
     (interval function &optional (priority +priority-default+)) unsigned-int 
