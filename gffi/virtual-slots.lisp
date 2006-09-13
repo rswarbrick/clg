@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.4 2006-09-05 13:16:18 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.5 2006-09-13 10:52:16 espen Exp $
 
 (in-package "GFFI")
 
@@ -143,7 +143,12 @@
 
 (defmethod compute-slot-reader-function ((slotd effective-virtual-slot-definition) &optional signal-unbound-p)
   (declare (ignore signal-unbound-p))
-  (slot-value slotd 'getter))
+  (let ((getter (slot-value slotd 'getter)))
+    #-sbcl getter
+    #+sbcl
+    (etypecase getter
+      (symbol #'(lambda (object) (funcall getter object)))
+      (function getter))))
 
 (defmethod compute-slot-boundp-function ((slotd effective-virtual-slot-definition))
   (cond
@@ -152,8 +157,14 @@
     #'(lambda (object) (declare (ignore object)) nil))
 
    ;; An explicit boundp function has been supplied
-   ((slot-boundp slotd 'boundp) (slot-value slotd 'boundp))
-   
+   ((slot-boundp slotd 'boundp)
+    (let ((boundp (slot-value slotd 'boundp)))
+      #-sbcl boundp
+      #+sbcl
+      (etypecase boundp
+	(symbol #'(lambda (object) (funcall boundp object)))
+	(function boundp))))
+
    ;; An unbound value has been supplied
    ((slot-boundp slotd 'unbound)
     (let ((reader-function (compute-slot-reader-function slotd nil))
@@ -191,7 +202,12 @@
     (call-next-method)))
 
 (defmethod compute-slot-writer-function ((slotd effective-virtual-slot-definition))
-  (slot-value slotd 'setter))
+  (let ((setter (slot-value slotd 'setter)))
+    #-sbcl setter
+    #+sbcl
+    (etypecase setter
+      (symbol #'(lambda (object value) (funcall setter object value)))
+      (function setter))))
 
 (define-condition slot-can-not-be-unbound (cell-error)
   ((instance :reader slot-can-not-be-unbound-instance :initarg :instance))
@@ -205,7 +221,13 @@
    ((not (slot-writable-p slotd))
     #'(lambda (object)
 	(error 'unwritable-slot :name (slot-definition-name slotd) :instance object)))
-   ((slot-boundp slotd 'makunbound) (slot-value slotd 'makunbound))
+   ((slot-boundp slotd 'makunbound)
+    (let ((makunbound (slot-value slotd 'makunbound)))
+      #-sbcl makunbound
+      #+sbcl
+      (etypecase makunbound
+	(symbol #'(lambda (object) (funcall makunbound object)))
+	(function makunbound))))
    ((slot-boundp slotd 'unbound)
     #'(lambda (object)
 	(funcall (slot-value slotd 'writer-function) (slot-value slotd 'unbound) object)))
