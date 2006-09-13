@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.64 2006-06-30 10:57:21 espen Exp $
+;; $Id: gtk.lisp,v 1.65 2006-09-13 10:54:49 espen Exp $
 
 
 (in-package "GTK")
@@ -65,6 +65,11 @@
 	  (error "When running clg in Slime the communication style :spawn can not be used. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information."))
 
   (unless (gdk:display-get-default)
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
+    (progn
+      #+sbcl(sb-int:set-floating-point-modes :traps nil) 
+      #+cmu(ext:set-floating-point-modes :traps nil))
+
     (gdk:gdk-init)
     (unless (gtk-init)
       (error "Initialization of GTK+ failed."))
@@ -82,20 +87,27 @@
       #+clisp      
       ;; When running in Slime we need to hook into the Swank server
       ;; to handle events asynchronously
-      (if (find-symbol "WAIT-UNTIL-READABLE" "SWANK")
-	  (setf (symbol-function 'swank::wait-until-readable)
-	   #'(lambda (stream)
-	       (loop
-		(case (socket:socket-status (cons stream :input) 0 *event-poll-interval*)
-		  (:input (return t))
-		  (:eof (read-char stream))
-		  (otherwise (main-iterate-all))))))
+      (if (find-package "SWANK")
+	  (let ((read-from-emacs (find-symbol "READ-FROM-EMACS" "SWANK"))
+		(stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
+	    (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
+	     #'(lambda ()
+		 (loop
+		  (case (socket:socket-status (cons stream :input) 0 *event-poll-interval*)
+		    (:input (return (funcall read-from-emacs)))
+		    (:eof (read-char stream))
+		    (otherwise (main-iterate-all)))))))
 	#-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit.")))))
 
 #+sbcl	  
 (defun clg-init-with-threading (&optional display)
   "Initializes the system and starts the event handling"
   (unless (gdk:display-get-default)
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
+    (progn
+      #+sbcl(sb-int:set-floating-point-modes :traps nil) 
+      #+cmu(ext:set-floating-point-modes :traps nil))
+
     (gdk:gdk-init)
     (gdk:threads-set-lock-functions)
     (unless (gtk-init)
