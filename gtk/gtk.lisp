@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.65 2006-09-13 10:54:49 espen Exp $
+;; $Id: gtk.lisp,v 1.66 2006-09-14 11:52:40 espen Exp $
 
 
 (in-package "GTK")
@@ -88,7 +88,7 @@
       ;; When running in Slime we need to hook into the Swank server
       ;; to handle events asynchronously
       (if (find-package "SWANK")
-	  (let ((read-from-emacs (find-symbol "READ-FROM-EMACS" "SWANK"))
+	  (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
 		(stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
 	    (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
 	     #'(lambda ()
