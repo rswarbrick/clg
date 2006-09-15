@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginspect.lisp,v 1.13 2006-09-06 11:43:41 espen Exp $
+;; $Id: ginspect.lisp,v 1.14 2006-09-15 12:46:30 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -60,9 +60,9 @@
  	  (object (make-instance 'cell-renderer-text)))	  
       (tree-view-append-column view column)
       (cell-layout-pack column name :expand nil)
-      (cell-layout-add-attribute column name 'text (column-index store 'name))
+      (cell-layout-add-attribute column name :text (tree-model-column-index store 'name))
       (cell-layout-pack column object :expand t)
-      (cell-layout-add-attribute column object 'text (column-index store 'pprinted)))
+      (cell-layout-add-attribute column object :text (tree-model-column-index store 'pprinted)))
 
     (insert-object object store nil)
 
