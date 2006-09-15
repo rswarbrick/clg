@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.23 2006-08-15 10:13:42 espen Exp $
+;; $Id: gtktree.lisp,v 1.24 2006-09-15 07:43:00 espen Exp $
 
 
 (in-package "GTK")
@@ -98,46 +98,76 @@
      for row in initial-content
      do (list-store-append list-store row iter))))
 
-(defgeneric column-setter-name (store))
-
-(defmethod column-setter-name ((list-store list-store))
-  (declare (ignore list-store))
-  "gtk_list_store_set")
 
 (defbinding %list-store-set-column-types () nil
   (list-store list-store)
   ((length columns) unsigned-int)
   (columns (vector gtype)))
 
-(defbinding %list-store-remove () boolean
+(defbinding list-store-remove (store row) boolean
+  (store list-store)
+  ((ensure-tree-iter store row) tree-iter))
+
+(defbinding %list-store-set-value () nil
   (list-store list-store)
-  (tree-iter tree-iter))
+  (tree-iter tree-iter)
+  (column int)
+  (gvalue gvalue))
 
-(defun list-store-remove (store row)
-  (etypecase row
-    (tree-iter 
-     (%list-store-remove store row))
-    (tree-path 
-     (multiple-value-bind (valid iter) (tree-model-get-iter store row)
-       (if valid
-	   (%list-store-remove store iter)
-	   (error "~A not poiniting to a valid iterator in ~A" row store))))
-    (tree-row-reference 
-     (let ((path (tree-row-reference-get-path row)))
-       (if path
-	   (list-store-remove store path)
-	 (error "~A not valid" row))))))
+(defmethod (setf tree-model-value) (value (store list-store) row column)
+  (let* ((index (tree-model-column-index store column))
+	 (type (tree-model-get-column-type store index)))
+    (with-gvalue (gvalue type value)
+      (%list-store-set-value store (ensure-tree-iter store row) index gvalue)))
+  value)
 
+(defbinding %list-store-insert-with-valuesv () nil
+  (list-store list-store)
+  (tree-iter tree-iter)
+  (position int)
+  (columns (vector int))
+  (gvalues pointer)
+  ((length columns) int))
 
 (defbinding %list-store-insert () nil
   (list-store list-store)
   (tree-iter tree-iter)
   (position int))
 
-(defun list-store-insert
-    (store position &optional data (iter (make-instance 'tree-iter)))
-  (%list-store-insert store iter position)
-  (when data (%tree-model-set store iter data))
+(defun list-store-insert (store position &optional data (iter (make-instance 'tree-iter)))
+  (etypecase data
+    (null (%list-store-insert store iter position))
+
+    (list (with-memory (gvalues (* (/ (length data) 2) +gvalue-size+))
+	    (let ((columns
+		   (loop
+		    for (column value) on data by #'cddr
+		    as index = (tree-model-column-index store column)
+		    as type = (tree-model-get-column-type store index)
+		    as gvalue = gvalues then (pointer+ gvalue  +gvalue-size+)
+		    do (gvalue-init gvalue type value)
+		    collect index)))
+		(unwind-protect
+		    (%list-store-insert-with-valuesv store iter position columns gvalues)
+		  (loop
+		   repeat (length columns)
+		   as gvalue = gvalues then (pointer+ gvalue  +gvalue-size+)
+		   do (gvalue-unset gvalue))))))
+
+    (vector (with-memory (gvalues (* (length data) +gvalue-size+))
+	      (let ((columns
+		     (loop
+		      for index below (length data)
+		      as type = (tree-model-get-column-type store index)
+		      as gvalue = gvalues then (pointer+ gvalue  +gvalue-size+)
+		      do (gvalue-init gvalue type (aref data index))
+		      collect index)))
+		(unwind-protect
+		    (%list-store-insert-with-valuesv store iter position columns gvalues))
+		(loop
+		 repeat (length data)
+		 as gvalue = gvalues then (pointer+ gvalue  +gvalue-size+)
+		 do (gvalue-unset gvalue))))))
   iter)
 
 (defbinding %list-store-insert-before () nil
@@ -148,7 +178,7 @@
 (defun list-store-insert-before
     (store sibling &optional data (iter (make-instance 'tree-iter)))
   (%list-store-insert-before store iter sibling)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %list-store-insert-after 
@@ -160,7 +190,7 @@
 (defun list-store-insert-after
     (store sibling &optional data (iter (make-instance 'tree-iter)))
   (%list-store-insert-after store iter sibling)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %list-store-prepend () nil
@@ -170,7 +200,7 @@
 (defun list-store-prepend 
     (store &optional data (iter (make-instance 'tree-iter)))
   (%list-store-prepend store iter)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %list-store-append () nil
@@ -180,7 +210,7 @@
 (defun list-store-append 
     (store &optional data (iter (make-instance 'tree-iter)))
   (%list-store-append store iter)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding list-store-clear () nil
@@ -206,7 +236,7 @@
   (psoition tree-iter))
 
 
-;;; Tree Model
+;;; Tree Path
 
 (defbinding %tree-path-free () nil
   (location pointer))
@@ -322,6 +352,8 @@
     (vector path)))
 
 
+;;; Tree Model
+
 (defbinding %tree-row-reference-new () pointer
   (model tree-model)
   (path tree-path))
@@ -336,16 +368,29 @@
   (reference tree-row-reference))
 
 
-(defbinding tree-model-get-column-type () gtype ;type-number
+(defbinding tree-model-get-column-type () gtype
   (tree-model tree-model)
   (index int))
 
-(defbinding tree-model-get-iter 
-    (model path &optional (iter (make-instance 'tree-iter))) boolean
+(defbinding tree-model-get-iter (model path &optional (iter (make-instance 'tree-iter))) boolean
   (model tree-model)
   (iter tree-iter :in/return)
   (path tree-path))
  
+(defun ensure-tree-iter (model row)
+  (etypecase row
+    (tree-iter row)
+    (tree-path 
+     (multiple-value-bind (valid-p iter) (tree-model-get-iter model row)
+       (if valid-p
+	   iter
+	 (error "Invalid tree path for ~A: ~A" model row))))
+    (tree-row-reference 
+     (let ((path (tree-row-reference-get-path row)))
+       (if path
+	   (ensure-tree-iter model path)
+	 (error "~A not valid" row))))))
+
 (defbinding tree-model-get-path () tree-path
   (tree-model tree-model)
   (iter tree-iter))
@@ -359,16 +404,20 @@
 (defgeneric tree-model-value (model row column))
 
 (defmethod tree-model-value ((model tree-model) row column)
-  (let ((index (column-index model column))
-	(iter (etypecase row
-		(tree-iter row)
-		(tree-path (multiple-value-bind (valid iter)
-			       (tree-model-get-iter model row)
-			     (if valid
-				 iter
-			       (error "Invalid tree path: ~A" row)))))))
+  (let ((index (tree-model-column-index model column)))
     (with-gvalue (gvalue)
-      (%tree-model-get-value model iter index gvalue))))
+      (%tree-model-get-value model (ensure-tree-iter model row) index gvalue))))
+
+(defgeneric tree-model-row-data (model row))
+
+(defmethod tree-model-row-data ((model tree-model) row)
+  (coerce
+   (loop
+    with iter = (ensure-tree-iter model row)
+    for index from 0 to (tree-model-n-columns model)
+    collect (tree-model-value model iter index))
+   'vector))
+
 
 (defbinding tree-model-iter-next () boolean
   (tree-model tree-model)
@@ -440,87 +489,36 @@
   (iter tree-iter)
   (new-order int))
 
-
-(defun column-types (model columns)
-  (declare (ignore model))
-  (map 'vector 
-       #'(lambda (column)
-	   (find-type-number (first (mklist column))))
-       columns))
 	       
-(defun column-index (model column)
+(defmethod tree-model-column-index ((model tree-model) column)
   (or
    (etypecase column
      (number column)
-     (symbol (position column (user-data model 'column-names)))
-     (string (position column (user-data model 'column-names)
-		   :test #'string=)))
+     (string (position column (user-data model 'column-names) :test #'string=))
+     (symbol (position column (user-data model 'column-names))))
    (error "~A has no column ~S" model column)))
 
-(defun column-name (model index)
+(defmethod tree-model-column-name ((model tree-model) index)
   (svref (user-data model 'column-names) index))
 
-(defun tree-model-column-value-setter (model column)
-  (let ((setters (or
-		  (user-data model 'column-setters)
-		  (setf 
-		   (user-data model 'column-setters)
-		   (make-array (tree-model-n-columns model) 
-		    :initial-element nil)))))
-    (let ((index (column-index model column)))
-    (or
-     (svref setters index)
-     (setf 
-      (svref setters index)
-      (let ((setter 
-	     (mkbinding (column-setter-name model)
-	      nil (type-of model) 'tree-iter 'int
-	      (tree-model-get-column-type model index)
-	      'int)))
-	#'(lambda (value iter)
-	    (funcall setter model iter index value -1))))))))
-
-(defun tree-model-row-setter (model)
-  (or 
-   (user-data model 'row-setter)
-   (progn
-     ;; This will create any missing column setter
-     (loop 
-      for i from 0 below (tree-model-n-columns model)
-      do (tree-model-column-value-setter model i))
-     (let ((setters (user-data model 'column-setters)))
-       (setf    
-	(user-data model 'row-setter)
-	#'(lambda (row iter)
-	    (map nil #'(lambda (value setter)
-			 (funcall setter value iter))
-		 row setters)))))))
 
 (defgeneric (setf tree-model-value) (value model row column))
 
-(defmethod (setf tree-model-value) (value (model tree-model) row column)
-  (let ((iter (etypecase row
-		(tree-iter row)
-		(tree-path (multiple-value-bind (valid iter)
-			       (tree-model-get-iter model row)
-			     (if valid
-				 iter
-			       (error "Invalid tree path: ~A" row)))))))
-    (funcall (tree-model-column-value-setter model column) value iter)
-    value))
+(defgeneric (setf tree-model-row-data) (data model row))
 
-(defun (setf tree-model-row-data) (data model iter)
-  (funcall (tree-model-row-setter model) data iter)
+(defmethod (setf tree-model-row-data) ((data list) (model tree-model) (iter tree-iter))
+  (loop
+   for (column value) on data by #'cddr
+   do (setf (tree-model-value model iter column) value))
   data)
 
-(defun %tree-model-set (model iter data)
-  (etypecase data
-    (vector (setf (tree-model-row-data model iter) data))
-    (cons 
-     (loop
-      as (column value . rest) = data then rest
-      do (setf (tree-model-value model iter column) value)
-      while rest))))
+(defmethod (setf tree-model-row-data) ((data vector) (model tree-model) row)
+  (loop
+   with iter = (ensure-tree-iter model row)
+   for index from 0
+   for value across data
+   do (setf (tree-model-value model iter index) value))
+  data)
 
 
 ;;; Tree Selection
@@ -647,13 +645,13 @@
   (sortable tree-sortable)
   ((etypecase column
      ((or integer sort-column) column)
-     (symbol (column-index sortable column))) 
+     (symbol (tree-model-column-index sortable column))) 
    (or sort-column int))
   (order sort-type))
 
 (defbinding %tree-sortable-set-sort-func (sortable column function) nil
   (sortable tree-sortable)
-  ((column-index sortable column) int)
+  ((tree-model-column-index sortable column) int)
   (%tree-iter-compare-callback callback)
   ((register-callback-function function) unsigned-int)
   (user-data-destroy-callback callback))
@@ -696,9 +694,20 @@ then the model will sort using this function."
   (when column-names
     (setf (user-data tree-store 'column-names) column-names)))
 
-(defmethod column-setter-name ((tree-store tree-store))
-  (declare (ignore tree-store))
-  "gtk_tree_store_set")
+
+(defbinding %tree-store-set-value () nil
+  (tree-store tree-store)
+  (tree-iter tree-iter)
+  (column int)
+  (gvalue gvalue))
+
+(defmethod (setf tree-model-value) (value (store tree-store) row column)
+  (let* ((index (tree-model-column-index store column))
+	 (type (tree-model-get-column-type store index)))
+    (with-gvalue (gvalue type value)
+      (%tree-store-set-value store (ensure-tree-iter store row) index gvalue)))
+  value)
+
 
 (defbinding tree-store-remove () boolean
   (tree-store tree-store)
@@ -713,7 +722,7 @@ then the model will sort using this function."
 (defun tree-store-insert 
     (store parent position &optional data (iter (make-instance 'tree-iter)))
   (%tree-store-insert store iter parent position)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %tree-store-insert-before () nil
@@ -725,7 +734,7 @@ then the model will sort using this function."
 (defun tree-store-insert-before 
     (store parent sibling &optional data (iter (make-instance 'tree-iter)))
   (%tree-store-insert-before store iter parent sibling)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %tree-store-insert-after () nil
@@ -737,7 +746,7 @@ then the model will sort using this function."
 (defun tree-store-insert-after 
     (store parent sibling &optional data (iter (make-instance 'tree-iter)))
   (%tree-store-insert-after store iter parent sibling)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %tree-store-prepend () nil
@@ -748,7 +757,7 @@ then the model will sort using this function."
 (defun tree-store-prepend 
     (store parent &optional data (iter (make-instance 'tree-iter)))
   (%tree-store-prepend store iter parent)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding %tree-store-append () nil
@@ -759,7 +768,7 @@ then the model will sort using this function."
 (defun tree-store-append 
     (store parent &optional data (iter (make-instance 'tree-iter)))
   (%tree-store-append store iter parent)
-  (when data (%tree-model-set store iter data))
+  (when data (setf (tree-model-row-data store iter) data))
   iter)
 
 (defbinding (tree-store-is-ancestor-p "gtk_tree_store_is_ancestor") () boolean
@@ -982,13 +991,13 @@ then the model will sort using this function."
     (icon-view icon-view)
     ((if (integerp column) 
 	 column 
-       (column-index (icon-view-model icon-view) column)) int))
+       (tree-model-column-index (icon-view-model icon-view) column)) int))
 
   (defbinding %%icon-view-get-text-column () int
     (icon-view icon-view))
 
   (defun %icon-view-get-text-column (icon-view)
-    (column-index 
+    (tree-model-column-index 
      (icon-view-model icon-view) 
      (%%icon-view-get-text-column icon-view)))
 
@@ -1000,13 +1009,13 @@ then the model will sort using this function."
     (icon-view icon-view)
     ((if (integerp column) 
 	 column 
-       (column-index (icon-view-model icon-view) column)) int))
+       (tree-model-column-index (icon-view-model icon-view) column)) int))
 
   (defbinding %%icon-view-get-markup-column () int
     (icon-view icon-view))
 
   (defun %icon-view-get-markup-column (icon-view)
-    (column-index 
+    (tree-model-column-index 
      (icon-view-model icon-view) 
      (%%icon-view-get-markup-column icon-view)))
 
@@ -1018,13 +1027,13 @@ then the model will sort using this function."
     (icon-view icon-view)
     ((if (integerp column) 
 	 column 
-       (column-index (icon-view-model icon-view) column)) int)))
+       (tree-model-column-index (icon-view-model icon-view) column)) int)))
 
   (defbinding %%icon-view-get-pixbuf-column () int
     (icon-view icon-view))
 
   (defun %icon-view-get-pixbuf-column (icon-view)
-    (column-index 
+    (tree-model-column-index 
      (icon-view-model icon-view) 
      (%%icon-view-get-pixbuf-column icon-view)))
 
