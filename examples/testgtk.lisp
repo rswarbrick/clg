@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.36 2006-09-05 13:49:26 espen Exp $
+;; $Id: testgtk.lisp,v 1.37 2006-09-15 07:44:00 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -497,6 +497,39 @@
 
 ;;; Icon View
 
+#+(or cmu sbcl)
+(defun get-directory-listing (directory)
+  (let ((dir #+cmu(unix:open-dir directory)
+	     #+sbcl(sb-posix:opendir directory)))
+    (unwind-protect
+	(loop
+	 as filename = #+cmu(unix:read-dir dir)
+	               #+sbcl(let ((dirent (sb-posix:readdir dir)))
+			       (unless (sb-grovel::foreign-nullp dirent)
+				 (sb-posix:dirent-name dirent)))
+	 while filename
+	 collect (let* ((pathname (format nil "~A~A" directory filename))
+			(directory-p
+			 #+cmu(eq (unix:unix-file-kind pathname) :directory)
+			 #+sbcl(sb-posix:s-isdir (sb-posix:stat-mode (sb-posix:stat pathname)))))
+		   (list filename directory-p)))
+      #+cmu(unix:close-dir dir)
+      #+sbcl(sb-posix:closedir dir))))
+
+#+clisp
+(defun get-directory-listing (directory)
+  (nconc
+   (mapcar #'(lambda (entry)
+	       (let ((pathname (namestring (first entry))))
+		 (list (subseq pathname (1+ (position #\/ pathname :from-end t))) nil)))
+    (directory (format nil "~A*" directory) :full t))
+   (mapcar #'(lambda (entry)
+	       (let ((pathname (namestring entry)))
+		 (list (subseq pathname (1+ (position #\/ pathname :from-end t :end (1- (length pathname)))) (1- (length pathname))) nil)))
+
+    (directory (format nil "~A*/" directory)))))
+
+
 #?(pkg-config:pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0" :error nil)
 (let ((file-pixbuf nil)
       (folder-pixbuf nil))
@@ -516,27 +549,15 @@
     t)
 
   (defun fill-store (store directory)
-    (list-store-clear store)
-    (let ((dir-listing 
-	   (mapcar #'namestring
-	    (nconc
-	     (directory (format nil "~A*" directory))
-	     #+clisp(directory (format nil "~A*/" directory))))))
-      (loop
-       for pathname in dir-listing
-       do (let* ((directory-p 
-		  (char= #\/ (char pathname (1- (length pathname)))))
-		 (filename
-		  (subseq pathname 
-		   (length directory) 
-		   (if directory-p
-		       (1- (length pathname))
-		     (length pathname)))))
-	    (list-store-append store 
-	     (vector
-	      filename 
-	      (if directory-p folder-pixbuf file-pixbuf)
-	      directory-p))))))
+    (list-store-clear store)    
+    (loop
+     for (filename directory-p) in (get-directory-listing directory)
+     unless (or (string= filename ".") (string= filename ".."))
+     do (list-store-insert store 0
+	 (vector
+	  filename 
+	  (if directory-p folder-pixbuf file-pixbuf)
+	  directory-p))))
 
   (defun sort-func (store a b)
     (let ((a-dir-p (tree-model-value store a 'directory-p))
@@ -566,8 +587,8 @@
 		     :column-names '(filename pixbuf directory-p)))
 	     (icon-view (make-instance 'icon-view
 			 :model store :selection-mode :multiple
-			 :text-column 0 ;'filename
-			 :pixbuf-column 1)) ;'pixbuf))
+			 :text-column 'filename
+			 :pixbuf-column 'pixbuf))
 	     (up (make-instance 'tool-button 
 		  :stock "gtk-go-up" :is-important t :sensitive nil))
 	     (home (make-instance 'tool-button 
@@ -739,19 +760,19 @@ This one is underlined in quite a funky fashion"
     (let ((column (make-instance 'tree-view-column :title "Column 1"))
 	  (cell (make-instance 'cell-renderer-text)))
       (cell-layout-pack column cell :expand t)
-      (cell-layout-add-attribute column cell 'text (column-index store :foo))
+      (cell-layout-add-attribute column cell 'text (tree-model-column-index store :foo))
       (tree-view-append-column tree column))
     
     (let ((column (make-instance 'tree-view-column :title "Column 2"))
 	  (cell (make-instance 'cell-renderer-text :background "orange")))
       (cell-layout-pack column cell :expand t)
-      (cell-layout-add-attribute column cell 'text (column-index store :bar))
+      (cell-layout-add-attribute column cell 'text (tree-model-column-index store :bar))
       (tree-view-append-column tree column))      
     
     (let ((column (make-instance 'tree-view-column :title "Column 3"))
 	  (cell (make-instance 'cell-renderer-text)))
       (cell-layout-pack column cell :expand t)
-      (cell-layout-add-attribute column cell 'text (column-index store :baz))
+      (cell-layout-add-attribute column cell 'text (tree-model-column-index store :baz))
       (tree-view-append-column tree column))      
 
     (make-instance 'v-box
