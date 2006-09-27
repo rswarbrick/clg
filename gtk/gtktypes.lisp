@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.50 2006-08-25 12:34:49 espen Exp $
+;; $Id: gtktypes.lisp,v 1.51 2006-09-27 08:45:29 espen Exp $
 
 (in-package "GTK")
 
@@ -627,20 +627,20 @@
    ; deprecated property
    ((shadow :ignore t)))
 
-  ("GtkTable"
-   :slots
-   ((column-spacing
-     :allocation :virtual
-     :getter "gtk_table_get_default_col_spacing"
-     :setter "gtk_table_set_col_spacings"
-     :initarg :column-spacing
-     :type unsigned-int)
-    (row-spacing
-     :allocation :virtual
-     :getter "gtk_table_get_default_row_spacing"
-     :setter "gtk_table_set_row_spacings"
-     :initarg :row-spacing
-     :type unsigned-int)))
+;;   ("GtkTable"
+;;    :slots
+;;    ((column-spacing
+;;      :allocation :virtual
+;;      :getter "gtk_table_get_default_col_spacing"
+;;      :setter "gtk_table_set_col_spacings"
+;;      :initarg :column-spacing
+;;      :type unsigned-int)
+;;     (row-spacing
+;;      :allocation :virtual
+;;      :getter "gtk_table_get_default_row_spacing"
+;;      :setter "gtk_table_set_row_spacings"
+;;      :initarg :row-spacing
+;;      :type unsigned-int)))
 
   ("GtkDialog"
    :slots
