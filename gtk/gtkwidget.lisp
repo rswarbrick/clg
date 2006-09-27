@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.24 2006-09-05 13:37:07 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.25 2006-09-27 08:44:44 espen Exp $
 
 (in-package "GTK")
 
@@ -340,11 +340,11 @@ widget or a list of containers."
    for widget in (mklist root)
    do (cond
        ((and (slot-boundp widget 'name) (string= name (widget-name widget)))
-	(return widget))
+	(return-from widget-find widget))
        ((typep widget 'container)
 	(let ((descendant (widget-find name (container-children widget) nil)))
 	  (when descendant
-	    (return descendant))))))
+	    (return-from widget-find descendant))))))
   (when error-p
     (error "Widget not found: ~A" name)))
 

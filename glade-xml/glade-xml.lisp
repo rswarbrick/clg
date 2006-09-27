@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glade-xml.lisp,v 1.1 2006-09-05 13:55:01 espen Exp $
+;; $Id: glade-xml.lisp,v 1.2 2006-09-27 08:44:44 espen Exp $
 
 
 (in-package "GLADE-XML")
@@ -201,7 +201,7 @@
    do
    (loop
     for signal in (user-data widget 'signals)
-    do (destructuring-bind (handler-id name callback &key after object) signal
+    do (destructuring-bind (name callback &key after object) signal
 	 (signal-connect widget name callback :after after :object (widget-find object toplevels))))
     (unset-user-data widget 'signals)
    (when (typep widget 'container)
