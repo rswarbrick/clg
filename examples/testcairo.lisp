@@ -7,10 +7,10 @@
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :cairo)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (unless (pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
+  (unless (pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.14.0")
     (warn "SVG tests disabled as the required version of librsvg is not available.")))
 
-#?(pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
+#?(pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.14.0")
 #+sbcl(require :rsvg)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :rsvg)
 

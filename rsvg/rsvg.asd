@@ -6,7 +6,7 @@
 
 (in-package "RSVG-SYSTEM")
 
-(pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93" :error t)
+(pkg-exists-p "librsvg-2.0" :atleast-version "2.14.0" :error t)
 
 
 (defsystem rsvg
