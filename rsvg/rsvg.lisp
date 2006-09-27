@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.5 2006-08-30 11:08:13 espen Exp $
+;; $Id: rsvg.lisp,v 1.6 2006-09-27 08:46:51 espen Exp $
 
 (in-package "RSVG")
 
@@ -44,8 +44,8 @@
 
 (defbinding handle-write () boolean
   (handle handle)
-  (data string)
-  ((length data) int) ; TODO: compute propper length of utf8 string
+  (data (vector int8))
+  ((length data) int)
   (nil gerror-signal :out))
 
 (defbinding handle-close () boolean
@@ -59,7 +59,7 @@
 
 (defbinding %handle-new-from-data () pointer
   (data string)
-  ((length data) int) ; TODO: compute propper length of utf8 string
+  ((1- (utf8-length data)) int)
   (nil gerror-signal :out))
 
 (defbinding %handle-new-from-file () pointer
