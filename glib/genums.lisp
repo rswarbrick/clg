@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: genums.lisp,v 1.21 2006-09-05 13:20:08 espen Exp $
+;; $Id: genums.lisp,v 1.22 2006-09-28 10:20:12 espen Exp $
 
 (in-package "GLIB")
   
@@ -38,9 +38,11 @@
    #'(lambda (enum-value)
        (with-slots (nickname name value) enum-value
          (list
-	  (if symbolic-p	      
-	      (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD")
-	    name)
+	  (cond
+	   ((eq symbolic-p :nickname) nickname)
+	   (symbolic-p	      
+	    (intern (substitute #\- #\_ (string-upcase nickname)) "KEYWORD"))
+	   (t name))
 	  value)))
    values))
 
