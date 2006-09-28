@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glade-xml.lisp,v 1.2 2006-09-27 08:44:44 espen Exp $
+;; $Id: glade-xml.lisp,v 1.3 2006-09-28 10:21:29 espen Exp $
 
 
 (in-package "GLADE-XML")
@@ -67,7 +67,10 @@
 
 
 (defun find-enum-value (value type)
-  (second (assoc value (query-enum-values type nil) :test #'string=)))
+  (second
+   (or
+    (assoc value (query-enum-values type nil) :test #'string=)
+    (assoc value (query-enum-values type :nickname) :test #'string=))))
 
 (define-type-method parse-value ((type enum) value)
   (int-enum (find-enum-value value type) type))
@@ -129,7 +132,7 @@
 	(let ((parsed-value (handler-case (parse-value type (first body))
 			      (serious-condition (condition)
 			        (declare (ignore condition))
-				(warn "Ignoring property with unhandled type or invalid value: ~A" pname)
+				(warn "Ignoring property for ~A with unhandled type or invalid value: ~A" (class-name class)  pname)
 				(return-from parse-property)))))
 	  (list initarg parsed-value))))))
 
@@ -202,7 +205,10 @@
    (loop
     for signal in (user-data widget 'signals)
     do (destructuring-bind (name callback &key after object) signal
-	 (signal-connect widget name callback :after after :object (widget-find object toplevels))))
+	 (signal-connect widget name callback :after after 
+	  :object (if (eq object t)
+		      widget
+		    (widget-find object toplevels)))))
     (unset-user-data widget 'signals)
    (when (typep widget 'container)
      (connect-signals (container-children widget) toplevels))))
