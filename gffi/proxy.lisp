@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.4 2006-08-16 12:09:03 espen Exp $
+;; $Id: proxy.lisp,v 1.5 2006-09-29 13:14:19 espen Exp $
 
 (in-package "GFFI")
 
@@ -83,13 +83,14 @@
 
 ;;;; Proxy for alien instances
 
-#+clisp
-(defvar *foreign-instance-locations* (make-hash-table :weak :key))
+#?(or (sbcl>= 0 9 17) (featurep :clisp))
+(defvar *foreign-instance-locations* 
+  (make-hash-table #+clisp :weak #+sbcl :weakness :key))
 
 ;; TODO: add a ref-counted-proxy subclass
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass proxy (virtual-slots-object)
-    (#-clisp(location :special t :type pointer))
+    (#?-(or (sbcl>= 0 9 17) (featurep :clisp))(%location :special t :type pointer))
     (:metaclass virtual-slots-class)))
 
 (defgeneric instance-finalizer (instance))
@@ -98,17 +99,28 @@
 (defgeneric invalidate-instance (instance &optional finalize-p))
 (defgeneric allocate-foreign (object &key &allow-other-keys))
 
-(defun foreign-location (instance)
-  #-clisp(slot-value instance 'location)
-  #+clisp(gethash instance *foreign-instance-locations*))
+#?-(or (sbcl>= 0 9 17) (featurep :clisp))
+(progn
+  (defun foreign-location (instance)
+    (slot-value instance '%location))
 
-(defun (setf foreign-location) (location instance)
-  #-clisp(setf (slot-value instance 'location) location)
-  #+clisp(setf (gethash instance *foreign-instance-locations*) location))
+  (defun (setf foreign-location) (location instance)
+    (setf (slot-value instance '%location) location))
+  
+  (defun proxy-valid-p (instance)
+    (slot-boundp instance '%location)))
+  
+#?(or (sbcl>= 0 9 17) (featurep :clisp))
+(progn
+  (defun foreign-location (instance)
+    (gethash instance *foreign-instance-locations*))
 
-(defun proxy-valid-p (instance)
-  #-clisp(slot-boundp instance 'location)
-  #+clisp(and (gethash instance *foreign-instance-locations*) t))
+  (defun (setf foreign-location) (location instance)
+    (setf (gethash instance *foreign-instance-locations*) location))
+
+  (defun proxy-valid-p (instance)
+    (and (gethash instance *foreign-instance-locations*) t)))
+
 
 (defmethod reference-function ((name symbol))
   (reference-function (find-class name)))
@@ -151,16 +163,17 @@
     #'(lambda ()
 	(funcall unref location))))
 
-;; FINALIZE-P should always be given the same value as the keyword
-;; argument :FINALZIE given to MAKE-PROXY-INSTANCE or non NIL if the
-;; proxy was created with MAKE-INSTANCE
+;; FINALIZE-P should always be the same as the keyword argument
+;; :FINALZIE given to MAKE-PROXY-INSTANCE or non NIL if the proxy was
+;; created with MAKE-INSTANCE
 (defmethod invalidate-instance ((instance proxy) &optional finalize-p)
   (remove-cached-instance (foreign-location instance))
   #+(or sbcl cmu)
   (progn
     (when finalize-p
       (funcall (instance-finalizer instance)))
-    (slot-makunbound instance 'location)
+    #?-(sbcl>= 0 9 17)(slot-makunbound instance '%location)
+    #?(sbcl>= 0 9 17)(remhash instance *foreign-instance-locations*)
     (cancel-finalization instance))
   ;; We can't cache invalidated instances in CLISP beacuse it is
   ;; not possible to cancel finalization
