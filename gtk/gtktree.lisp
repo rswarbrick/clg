@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.24 2006-09-15 07:43:00 espen Exp $
+;; $Id: gtktree.lisp,v 1.25 2006-10-17 15:27:52 espen Exp $
 
 
 (in-package "GTK")
@@ -434,9 +434,9 @@
   (tree-model tree-model)
   (iter tree-iter))
 
-(defbinding tree-model-iter-n-children () int
+(defbinding tree-model-iter-n-children (tree-model &optional iter) int
   (tree-model tree-model)
-  (iter tree-iter))
+  (iter (or null tree-iter)))
 
 (defbinding tree-model-iter-nth-child
     (tree-model parent n &optional (iter (make-instance 'tree-iter))) boolean
