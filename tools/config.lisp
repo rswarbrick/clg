@@ -122,7 +122,9 @@
       (values 
        (parse-integer (lisp-implementation-version) :end dot1)
        (parse-integer (lisp-implementation-version) :start (1+ dot1) :end dot2)
-       (parse-integer (lisp-implementation-version) :start (1+ dot2) :junk-allowed t))))
+       (if dot2
+	   (parse-integer (lisp-implementation-version) :start (1+ dot2) :junk-allowed t)
+	 0))))
   (defun sbcl>= (req-major req-minor req-micro)
     (multiple-value-bind (major minor micro) (sbcl-version)      
       (or 
