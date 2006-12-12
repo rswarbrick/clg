@@ -3,7 +3,7 @@
   #+sbcl
   (:import-from #:sb-int #:featurep)
   (:export #:pkg-cflags #:pkg-libs #:pkg-exists-p #:pkg-version #:pkg-variable)
-  (:export #:featurep #:sbcl>=))
+  (:export #:featurep #:sbcl>= #:clisp>=))
 
 (in-package #:pkg-config)
 
@@ -135,4 +135,22 @@
 #-sbcl
 (defun sbcl>= (req-major req-minor req-micro)
   (declare (ignore req-major req-minor req-micro))
+  nil)
+
+#+clisp
+(progn
+  (defun clisp-version ()
+    (let* ((dot (position #\. (lisp-implementation-version))))
+      (values 
+       (parse-integer (lisp-implementation-version) :end dot)
+       (parse-integer (lisp-implementation-version) :start (1+ dot) :junk-allowed t))))
+  (defun clisp>= (req-major req-minor)
+    (multiple-value-bind (major minor) (clisp-version)      
+      (or 
+       (> major req-major)
+       (and (= major req-major) (> minor req-minor))))))
+
+#-clisp
+(defun clisp>= (req-major req-minor)
+  (declare (ignore req-major req-minor))
   nil)
