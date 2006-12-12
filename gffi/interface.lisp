@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.3 2006-08-16 11:02:45 espen Exp $
+;; $Id: interface.lisp,v 1.4 2006-12-12 14:32:06 espen Exp $
 
 (in-package "GFFI")
 
@@ -166,7 +166,8 @@
 		       (:language :stdc))))
     `(funcall
       (load-time-value
-       (ffi::foreign-library-function ,cname (ffi::foreign-library :default)
+       (ffi::foreign-library-function 
+	,cname (ffi::foreign-library :default) #?(clisp>= 2 40)nil
 	nil (ffi:parse-c-type ',c-function)))
       ,@fparams)))
 
@@ -227,7 +228,7 @@
 			    (system-area-pointer address))))))
 	  #+clisp
 	  (ffi::foreign-library-function name 
-	   (ffi::foreign-library :default)
+	   (ffi::foreign-library :default) #?(clisp>= 2 40)nil
 	   nil (ffi:parse-c-type c-function)))
 	 (return-value-translator (from-alien-function return-type)))
     (multiple-value-bind (arg-translators cleanup-funcs)
