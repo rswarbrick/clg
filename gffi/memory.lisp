@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
+;; $Id: memory.lisp,v 1.3 2006-12-21 16:38:19 espen Exp $
 
 
 (in-package "GFFI")
@@ -71,14 +71,19 @@
    #+clisp(ffi:memory-as location 'ffi:uchar offset)
    byte))
 
+(defparameter *memory-allocator* nil)
+(defparameter *memory-deallocator* nil)
+
 (defun allocate-memory (size)
-  (declare (ignore size))
-  (error "Memory allocator not set"))
+  (if *memory-allocator*
+      (funcall *memory-allocator* size)
+    (error "Memory allocator not set")))
 (declaim (ftype (function (integer) system-area-pointer) allocate-memory))
 
 (defun deallocate-memory (location)
-  (declare (ignore location))
-  (warn "Memory deallocator not set"))
+  (if *memory-deallocator*
+      (funcall *memory-deallocator* location)
+    (warn "Memory deallocator not set")))
 
 (defun copy-memory (from length &optional (to (allocate-memory length)))
   #+cmu(system-area-copy from 0 to 0 (* 8 length))

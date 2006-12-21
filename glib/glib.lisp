@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.38 2006-06-08 13:24:25 espen Exp $
+;; $Id: glib.lisp,v 1.39 2006-12-21 16:38:19 espen Exp $
 
 
 (in-package "GLIB")
@@ -36,10 +36,12 @@
 (defbinding (%deallocate-memory "g_free") () nil
   (address pointer))
 
-(setf
- (symbol-function 'allocate-memory) #'%allocate-memory
- (symbol-function 'deallocate-memory) #'%deallocate-memory)
+;; (setf
+;;  (symbol-function 'allocate-memory) #'%allocate-memory
+;;  (symbol-function 'deallocate-memory) #'%deallocate-memory)
 
+(setf *memory-allocator* #'%allocate-memory)
+(setf *memory-deallocator* #'%deallocate-memory)
 
 ;;;; User data mechanism
 
