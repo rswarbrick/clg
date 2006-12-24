@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.6 2006-09-27 08:46:51 espen Exp $
+;; $Id: rsvg.lisp,v 1.7 2006-12-24 14:32:35 espen Exp $
 
 (in-package "RSVG")
 
@@ -44,7 +44,7 @@
 
 (defbinding handle-write () boolean
   (handle handle)
-  (data (vector int8))
+  (data (vector (integer 8)))
   ((length data) int)
   (nil gerror-signal :out))
 
