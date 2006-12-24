@@ -1,5 +1,7 @@
 ;;; -*- Mode: lisp -*-
 
+(asdf:oos 'asdf:load-op :clg-tools)
+
 (defpackage "CAIRO-SYSTEM"
   (:use "COMMON-LISP" "ASDF" "PKG-CONFIG"))
 
