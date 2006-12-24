@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.6 2006-04-26 12:37:48 espen Exp $
+;; $Id: cairo.lisp,v 1.7 2006-12-24 14:28:20 espen Exp $
 
 (in-package "CAIRO")
 
@@ -303,12 +303,17 @@
 (defbinding status () status
   (cr context))
 
+(defun ensure-color-component (component)
+  (etypecase component
+    (float component)
+    (integer (/ component 256.0))))
+
 (defbinding (set-source-color "cairo_set_source_rgba") (cr red green blue &optional (alpha 1.0)) nil
   (cr context)
-  (red double-float)
-  (green double-float)
-  (blue double-float)
-  (alpha double-float))
+  ((ensure-color-component red) double-float)
+  ((ensure-color-component green) double-float)
+  ((ensure-color-component blue) double-float)
+  ((ensure-color-component alpha) double-float))
 
 (defbinding set-source-surface () nil
   (cr context)
@@ -385,6 +390,10 @@
   (y double-float :out))
 
 (defbinding new-path () nil
+  (cr context))
+
+#?(pkg-exists-p "cairo" :atleast-version "1.2")
+(defbinding new-sub-path () nil
   (cr context))
 
 (defbinding close-path () nil
@@ -531,7 +540,7 @@
   (x double-float :in/out)
   (y double-float :in/out))
 
-(defbinding user-to-device-distance () nil
+(defbinding user-to-device-distance (cr dx &optional (dy 0.0)) nil
   (cr context)
   (dx double-float :in/out)
   (dy double-float :in/out))
@@ -541,7 +550,7 @@
   (x double-float :in/out)
   (y double-float :in/out))
 
-(defbinding device-to-user-distance () nil
+(defbinding device-to-user-distance (cr dx &optional (dy 0.0)) nil
   (cr context)
   (dx double-float :in/out)
   (dy double-float :in/out))
