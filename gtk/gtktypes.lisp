@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.51 2006-09-27 08:45:29 espen Exp $
+;; $Id: gtktypes.lisp,v 1.52 2007-01-02 15:15:25 espen Exp $
 
 (in-package "GTK")
 
@@ -1264,8 +1264,14 @@
   (:metaclass boxed-class))
 
 
+#?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
 (defclass target-list (proxy)
   ()
   (:metaclass proxy-class)
   (:ref target-list-ref)
   (:unref target-list-unref))
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+(defclass target-list (boxed)
+  ()
+  (:metaclass boxed-class))
