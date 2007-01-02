@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: ginterface.lisp,v 1.18 2006-04-26 21:00:22 espen Exp $
+;; $Id: ginterface.lisp,v 1.19 2007-01-02 16:06:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -41,11 +41,13 @@
 (defmethod direct-slot-definition-class ((class interface-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'direct-property-slot-definition))
+    (:virtual (find-class 'direct-virtual-alien-slot-definition))
     (t (call-next-method))))
 
 (defmethod effective-slot-definition-class ((class interface-class) &rest initargs)
   (case (getf initargs :allocation)
     (:property (find-class 'effective-property-slot-definition))
+    (:virtual (find-class 'effective-virtual-alien-slot-definition))
     (t (call-next-method))))
 
 (defmethod compute-effective-slot-definition-initargs ((class interface-class) direct-slotds)
