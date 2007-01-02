@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.58 2006-08-31 20:40:56 espen Exp $
+;; $Id: gtype.lisp,v 1.59 2007-01-02 18:39:42 espen Exp $
 
 (in-package "GLIB")
 
@@ -227,6 +227,7 @@
 	   while line
 	   when (and
 		 symbol (> (length symbol) 9)
+		 (not (char= (char symbol 0) #\_))
 		 (or 
 		  (not prefixes)
 		  (some #'(lambda (prefix)
