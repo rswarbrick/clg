@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.4 2006-09-06 10:15:34 espen Exp $
+;; $Id: basic-types.lisp,v 1.5 2007-01-02 15:20:32 espen Exp $
 
 (in-package "GFFI")
 
@@ -513,6 +513,12 @@ have been written as temporal.")
   #'(lambda (location &optional (offset 0))
       #+(or cmu sbcl)(sap-ref-double location offset)
       #+clisp(ffi:memory-as location 'double-float offset)))
+
+(deftype optimized-double-float () 'double-float)
+
+(define-type-method to-alien-form ((type optimized-double-float) form &optional copy-p)
+  (declare (ignore type copy-p))
+  form)
 
 
 
