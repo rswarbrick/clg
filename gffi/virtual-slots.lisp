@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.5 2006-09-13 10:52:16 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.6 2007-01-02 16:04:57 espen Exp $
 
 (in-package "GFFI")
 
@@ -207,6 +207,8 @@
     #+sbcl
     (etypecase setter
       (symbol #'(lambda (object value) (funcall setter object value)))
+      (list #'(lambda (object value)
+		(funcall setter value object)))
       (function setter))))
 
 (define-condition slot-can-not-be-unbound (cell-error)
