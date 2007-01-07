@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.25 2006-10-17 15:27:52 espen Exp $
+;; $Id: gtktree.lisp,v 1.26 2007-01-07 19:56:05 espen Exp $
 
 
 (in-package "GTK")
@@ -75,8 +75,8 @@
 
 ;;;; Cell Renderer
 
-(defmethod compute-signal-function ((gobject cell-renderer-toggle) (signal (eql 'toggled)) function object)
-  (declare (ignore gobject signal function object))
+(defmethod compute-signal-function ((gobject cell-renderer-toggle) (signal (eql 'toggled)) function object args)
+  (declare (ignore gobject signal function object args))
   (let ((function (call-next-method)))
     #'(lambda (object path)
 	(funcall function object (ensure-tree-path path)))))
@@ -354,6 +354,14 @@
 
 ;;; Tree Model
 
+(defgeneric tree-model-value (model row column))
+(defgeneric (setf tree-model-value) (value model row column))
+(defgeneric tree-model-row-data (model row))
+(defgeneric (setf tree-model-row-data) (data model row))
+(defgeneric tree-model-column-index (model column))
+(defgeneric tree-model-column-name (model index))
+
+
 (defbinding %tree-row-reference-new () pointer
   (model tree-model)
   (path tree-path))
@@ -401,14 +409,10 @@
   (column int)
   (gvalue gvalue))
 
-(defgeneric tree-model-value (model row column))
-
 (defmethod tree-model-value ((model tree-model) row column)
   (let ((index (tree-model-column-index model column)))
     (with-gvalue (gvalue)
       (%tree-model-get-value model (ensure-tree-iter model row) index gvalue))))
-
-(defgeneric tree-model-row-data (model row))
 
 (defmethod tree-model-row-data ((model tree-model) row)
   (coerce
@@ -489,7 +493,6 @@
   (iter tree-iter)
   (new-order int))
 
-	       
 (defmethod tree-model-column-index ((model tree-model) column)
   (or
    (etypecase column
@@ -501,10 +504,6 @@
 (defmethod tree-model-column-name ((model tree-model) index)
   (svref (user-data model 'column-names) index))
 
-
-(defgeneric (setf tree-model-value) (value model row column))
-
-(defgeneric (setf tree-model-row-data) (data model row))
 
 (defmethod (setf tree-model-row-data) ((data list) (model tree-model) (iter tree-iter))
   (loop
