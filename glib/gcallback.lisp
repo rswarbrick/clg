@@ -20,14 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.38 2006-09-12 14:00:59 espen Exp $
+;; $Id: gcallback.lisp,v 1.39 2007-01-07 20:03:51 espen Exp $
 
 (in-package "GLIB")
 
 (use-prefix "g")
 
 
-;;;; Callback invokation
+;;;; Callback invocation
 
 (deftype gclosure () 'pointer)
 (register-type 'gclosure '|g_closure_get_type|)
@@ -207,16 +207,18 @@
 (defun describe-signal (signal-id &optional type)
   (let ((info (signal-query (ensure-signal-id-from-type signal-id type))))
     (with-slots (id name type flags return-type n-params) info
-      (format t "The signal with id ~D is named '~A' and may be emitted on instances of type ~S~%~%" id name (type-from-number type t))
-      (format t "Signal handlers should return ~A and take ~A~%"
-       (cond
-	((= return-type (find-type-number "void")) "no values")
-	((not (type-from-number return-type)) "values of unknown type")
-	((format nil "values of type ~S" (type-from-number return-type))))
+      (format t "The signal with id ~D is named '~A' and may be emitted on instances of type ~S." id name (type-from-number type t))
+      (when flags
+	(format t " It has the followin invocation flags: ~{~S ~}" flags))
+      (format t "~%~%Signal handlers should take ~A and return ~A~%"
        (if (zerop n-params)
 	   "no arguments"
 	 (format nil "arguments with the following types: ~A"
-	  (signal-param-types info)))))))
+	  (signal-param-types info)))
+       (cond
+	((= return-type (find-type-number "void")) "no values")
+	((not (type-from-number return-type)) "values of unknown type")
+	((format nil "values of type ~S" (type-from-number return-type))))))))
 
 
 ;;;; Signal connecting and controlling
@@ -381,17 +383,28 @@
      (callback-closure-new callback-id marshaller user-data-destroy-callback)
      callback-id)))
 
-(defgeneric compute-signal-function (gobject signal function object))
+(defgeneric compute-signal-function (gobject signal function object args))
 
-(defmethod compute-signal-function ((gobject gobject) signal function object)
+(defmethod compute-signal-function ((gobject gobject) signal function object args)
   (declare (ignore signal))
   (cond
-   ((or (eq object t) (eq object gobject)) function)
-   ((not object)
-    #'(lambda (&rest args) (apply function (rest args))))
+   ((or (eq object t) (eq object gobject))
+    (if args 
+	#'(lambda (&rest emission-args) 
+	    (apply function (nconc emission-args args)))
+      function))
+   (object
+    (if args 
+	#'(lambda (&rest emission-args) 
+	    (apply function object (nconc (rest emission-args) args)))
+      #'(lambda (&rest emission-args) 
+	  (apply function object (rest emission-args)))))
+   (args 
+    #'(lambda (&rest emission-args) 
+	(apply function (nconc (rest emission-args) args))))
    (t
-    #'(lambda (&rest args) (apply function object (rest args))))))
-
+    #'(lambda (&rest emission-args) 
+	(apply function (rest emission-args))))))
 
 (defgeneric compute-signal-id (gobject signal))
 
@@ -399,7 +412,7 @@
   (ensure-signal-id signal gobject))
 
 
-(defgeneric signal-connect (gobject signal function &key detail after object remove))
+(defgeneric signal-connect (gobject signal function &key detail after object remove args))
 
 (defmethod signal-connect :around ((gobject gobject) signal function &rest args)
   (declare (ignore gobject signal args))
@@ -408,20 +421,21 @@
 
 
 (defmethod signal-connect ((gobject gobject) signal function
-			   &key detail after object remove)
+			   &key detail after object remove args)
 "Connects a callback function to a signal for a particular object. If
 :OBJECT is T, the object connected to is passed as the first argument
 to the callback function, or if :OBJECT is any other non NIL value, it
 is passed as the first argument instead. If :AFTER is non NIL, the
 handler will be called after the default handler for the signal. If
 :REMOVE is non NIL, the handler will be removed after beeing invoked
-once."
+once. ARGS is a list of additional arguments passed to the callback
+function."
 (let* ((signal-id (compute-signal-id gobject signal))
        (detail-quark (if detail (quark-intern detail) 0))
        (signal-stop-emission
 	#'(lambda ()
 	    (%signal-stop-emission gobject signal-id detail-quark)))
-       (callback (compute-signal-function gobject signal function object))
+       (callback (compute-signal-function gobject signal function object args))
        (wrapper #'(lambda (&rest args)
 		    (let ((*signal-stop-emission* signal-stop-emission))
 		      (apply callback args)))))
@@ -490,6 +504,25 @@ once."
 (defun signal-emit (object signal &rest args)
   (apply #'signal-emit-with-detail object signal 0 args))
 
+
+;;;; Signal registration
+
+(defbinding %signal-newv (name itype flags return-type param-types) 
+    unsigned-int
+  ((signal-name-to-string name) string)
+  (itype gtype)
+  (flags signal-flags)
+  (nil null) ; class closure
+  (nil null) ; accumulator
+  (nil null) ; accumulator data
+  (nil null) ; c marshaller
+  (return-type gtype)
+  ((length param-types) unsigned-int)
+  (param-types (vector gtype)))
+
+(defun signal-new (name itype flags return-type param-types)
+  (when (zerop (signal-lookup name itype))
+    (%signal-newv name itype flags return-type param-types)))
 
 ;;;; Convenient macros
 
