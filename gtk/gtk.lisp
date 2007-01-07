@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.66 2006-09-14 11:52:40 espen Exp $
+;; $Id: gtk.lisp,v 1.67 2007-01-07 20:23:22 espen Exp $
 
 
 (in-package "GTK")
@@ -436,11 +436,11 @@
   (container-add bin child)
   child)
 
-(defmethod compute-signal-function ((bin bin) signal function object)
+(defmethod compute-signal-function ((bin bin) signal function object args)
   (declare (ignore signal))
   (if (eq object :child)
-      #'(lambda (&rest args) 
-	  (apply function (bin-child bin) (rest args)))
+      #'(lambda (&rest emission-args) 
+	  (apply function (bin-child bin) (nconc (rest emission-args) args)))
     (call-next-method)))
 
 
@@ -670,8 +670,8 @@
       (ensure-signal-id 'response dialog)
     (call-next-method)))
 
-(defmethod compute-signal-function ((dialog dialog) signal function object)
-  (declare (ignore function object))
+(defmethod compute-signal-function ((dialog dialog) signal function object args)
+  (declare (ignore function object args))
   (let ((callback (call-next-method))
 	(id (dialog-response-id dialog signal)))
     (if id

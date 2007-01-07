@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.21 2006-04-26 12:31:34 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.22 2007-01-07 20:23:22 espen Exp $
 
 (in-package "GTK")
 
@@ -63,13 +63,14 @@
    initargs :child :children))
 
 
-(defmethod compute-signal-function ((container container) signal function object)
+(defmethod compute-signal-function ((container container) signal function object args)
   (declare (ignore signal))
   (if (eq object :children)
-      #'(lambda (&rest args)
-	  (container-foreach container
-	   #'(lambda (child)
-	       (apply function child (rest args)))))
+      #'(lambda (&rest emission-args)
+	  (let ((all-args (nconc (rest emission-args) args)))
+	    (container-foreach container
+	     #'(lambda (child)
+		 (apply function child all-args)))))
     (call-next-method)))
 
 
@@ -86,6 +87,10 @@
       #'make-instance
       (gethash (class-of container) *container-to-child-class-mappings*)
       :parent container :child widget args))))
+
+(defmethod container-add ((container container) (widgets list) &rest args)
+  (dolist (widget widgets)
+    (apply #'container-add container widget args)))
 
 (defbinding %container-remove () nil
   (container container)

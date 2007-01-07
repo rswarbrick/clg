@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.25 2006-09-27 08:44:44 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.26 2007-01-07 20:23:22 espen Exp $
 
 (in-package "GTK")
 
@@ -67,12 +67,13 @@
    ((call-next-method))))
 
 
-(defmethod compute-signal-function ((widget widget) signal function object)
+(defmethod compute-signal-function ((widget widget) signal function object args)
   (declare (ignore signal))
   (if (eq object :parent)
-      #'(lambda (&rest args)
-	  (if (slot-boundp widget 'parent)
-	      (apply function (widget-parent widget) (rest args))
+      #'(lambda (&rest emission-args)
+	  (let ((all-args (nconc (rest emission-args) args)))
+	    (if (slot-boundp widget 'parent)
+		(apply function (widget-parent widget) all-args)
 	    ;; Delay until parent is set
 	    (signal-connect widget 'parent-set
 	     #'(lambda (old-parent)
@@ -80,10 +81,10 @@
 		 (let ((*signal-stop-emission* 
 			#'(lambda ()
 			    (warn "Ignoring emission stop in delayed signal handler"))))
-		   (apply function (widget-parent widget) (rest args))))
+		   (apply function (widget-parent widget) all-args)))
 	     :remove t)
 ;	    (warn "Widget has no parent -- ignoring signal")
-	    ))
+	    )))
     (call-next-method)))
       
 (defun child-property-value (widget slot)
