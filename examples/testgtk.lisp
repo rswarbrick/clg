@@ -26,13 +26,13 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.37 2006-09-15 07:44:00 espen Exp $
+;; $Id: testgtk.lisp,v 1.38 2007-01-11 10:05:59 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
 
 (defpackage "TESTGTK"
-  (:use "COMMON-LISP" "GTK"))
+  (:use "COMMON-LISP" "CLG"))
 
 (in-package "TESTGTK")
 
