@@ -20,12 +20,19 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.7 2006-12-24 14:28:20 espen Exp $
+;; $Id: cairo.lisp,v 1.8 2007-01-11 10:20:22 espen Exp $
 
 (in-package "CAIRO")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-enum-type surface-format :argb32 :rgb24 :a8 :a1)
+  #?(pkg-exists-p "cairo" :atleast-version "1.2")
+  (define-enum-type content :color :alpha :color-alpha)
+  #?(pkg-exists-p "cairo" :atleast-version "1.2")
+  (define-enum-type surface-type 
+    :image :pdf :ps :xlib :xcb :glitz :quartz :win32 :beos :directfb 
+    :svg :nquartz :os2)
+  
 
   (define-enum-type status
     :success :no-memory :invalid-restore :invalid-pop-group
@@ -161,7 +168,18 @@
 
 
   (defclass surface (proxy)
-    ()
+    (#?(pkg-exists-p "cairo" :atleast-version "1.2")
+     (type
+      :allocation :virtual 
+      :getter "cairo_surface_get_tyoe"
+      :reader surface-type
+      :type surface-type)
+     #?(pkg-exists-p "cairo" :atleast-version "1.2")
+     (content 
+      :allocation :virtual 
+      :getter "cairo_surface_get_content"
+      :reader surface-content
+      :type content))
     (:metaclass proxy-class)
     (:ref %surface-reference)
     (:unref %surface-destroy))
@@ -315,11 +333,19 @@
   ((ensure-color-component blue) double-float)
   ((ensure-color-component alpha) double-float))
 
-(defbinding set-source-surface () nil
+(defbinding set-source-surface (cr surface &optional (x 0.0) (y 0.0)) nil
   (cr context)
   (surface surface)
   (x double-float)
   (y double-float))
+
+(defun set-source (cr source)
+  (etypecase source
+    (pattern (setf (source cr) source))
+    (surface (set-source-surface cr source))
+    (list (apply #'set-source-color cr source))
+    (vector (apply #'set-source-color cr (coerce source 'list)))
+    (null (set-source-color cr 0.0 0.0 0.0))))
 
 (defbinding set-dash (cr dashes &optional (offset 0.0)) nil
   (cr context)
@@ -399,57 +425,38 @@
 (defbinding close-path () nil
   (cr context))
 
-(defbinding arc () nil
-  (cr context)
-  (xc double-float)
-  (yc double-float)
-  (radius double-float)
-  (angle1 double-float)
-  (angle2 double-float))
+(defmacro defpath (name args &optional relative-p)
+  (flet ((def (name type)
+	   `(progn
+	      ,(when (eq type 'optimized-double-float)
+		 `(declaim (ftype (function (context ,@(loop repeat (length args) collect 'double-float))) ,(first name))))
+	      (defbinding ,name () nil
+		(cr context)
+		,@(mapcar #'(lambda (arg) (list arg type)) args)))))
 
-(defbinding arc-negative () nil
-  (cr context)
-  (xc double-float)
-  (yc double-float)
-  (radius double-float)
-  (angle1 double-float)
-  (angle2 double-float))
+  `(progn
+     ,(def name 'double-float)
+     ,(let ((name (intern (format nil "FAST-~A" name)))
+	    (cname (gffi::default-alien-fname name)))
+	(def (list name cname) 'optimized-double-float))
+     ,@(when relative-p
+	 (let* ((rel-name (intern (format nil "REL-~A" name)))
+		(fast-rel-name (intern (format nil "FAST-REL-~A" name)))
+		(cname (gffi::default-alien-fname rel-name)))
+	   (list
+	    (def rel-name 'double-float)
+	    (def (list fast-rel-name cname) 'optimized-double-float)))))))
+
+
+(defpath arc (xc yc radius angle1 angle2))
+(defpath arc-negative (xc yc radius angle1 angle2))
+(defpath curve-to (x1 y1 x2 y2 x3 y3) t)
+(defpath line-to (x y) t)
+(defpath move-to (x y) t)
+(defpath rectangle (x y width height))
 
 (defun circle (cr x y radius)
   (arc cr x y radius 0.0 (* pi 2)))
-
-(defmacro defpath (name &rest args)
-  (let ((relname (intern (format nil "REL-~A" name))))
-    `(progn
-       (defbinding ,name () nil
-	 (cr context)
-	 ,@args)
-       (defbinding ,relname () nil
-	 (cr context)
-	 ,@args))))
-
-(defpath curve-to
-  (x1 double-float)
-  (y1 double-float)
-  (x2 double-float)
-  (y2 double-float)
-  (x3 double-float)
-  (y3 double-float))
-
-(defpath line-to
-  (x double-float)
-  (y double-float))
-
-(defpath move-to
-  (x double-float)
-  (y double-float))
-
-(defbinding rectangle () nil
-  (cr context)
-  (x double-float)
-  (y double-float)
-  (width double-float)
-  (height double-float))
 
 (defbinding glyph-path (cr glyphs) nil
   (cr context)
@@ -468,17 +475,17 @@
     (pattern offset red green blue &optional (alpha 1.0)) nil
   (pattern pattern)
   (offset double-float)
-  (red double-float)
-  (green double-float)
-  (blue double-float)
-  (alpha double-float))
+  ((ensure-color-component red) double-float)
+  ((ensure-color-component green) double-float)
+  ((ensure-color-component blue) double-float)
+  ((ensure-color-component alpha) double-float))
 
 (defbinding (pattern-create "cairo_pattern_create_rgba")
     (red green blue &optional (alpha 1.0)) pattern   
-  (red double-float)
-  (green double-float)
-  (blue double-float)
-  (alpha double-float))
+  ((ensure-color-component red) double-float)
+  ((ensure-color-component green) double-float)
+  ((ensure-color-component blue) double-float)
+  ((ensure-color-component alpha) double-float))
 
 (defbinding pattern-create-for-surface () pattern
   (surface surface))
@@ -515,10 +522,18 @@
   (tx double-float)
   (ty double-float))
 
-(defbinding scale () nil
+(defbinding scale (cr sx &optional (sy sx)) nil
   (cr context)
   (sx double-float)
   (sy double-float))
+
+(defun scale-to-device (cr &optional keep-rotation-p)
+  (if keep-rotation-p
+      (multiple-value-call #'scale cr (device-to-user-distance cr 1.0))
+    (multiple-value-bind (x y) 
+	(multiple-value-call #'user-to-device cr (get-current-point cr))
+      (identity-matrix cr)
+      (translate cr x y))))
 
 (defbinding rotate () nil
   (cr context)
@@ -540,7 +555,7 @@
   (x double-float :in/out)
   (y double-float :in/out))
 
-(defbinding user-to-device-distance (cr dx &optional (dy 0.0)) nil
+(defbinding user-to-device-distance (cr dx &optional (dy dx)) nil
   (cr context)
   (dx double-float :in/out)
   (dy double-float :in/out))
@@ -550,7 +565,7 @@
   (x double-float :in/out)
   (y double-float :in/out))
 
-(defbinding device-to-user-distance (cr dx &optional (dy 0.0)) nil
+(defbinding device-to-user-distance (cr dx &optional (dy dx)) nil
   (cr context)
   (dx double-float :in/out)
   (dy double-float :in/out))
@@ -715,6 +730,11 @@
       (%surface-mark-dirty-rectangle surface x y width height)
     (%surface-mark-dirty surface)))
 
+#?(pkg-exists-p "cairo" :atleast-version "1.2")
+(defbinding surface-set-fallback-resolution () nil
+  (surface surface)
+  (x-pixels-per-inch double-float)
+  (y-pixels-per-inch double-float))
 
 
 ;; Image Surface

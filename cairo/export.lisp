@@ -8,9 +8,15 @@
 	    (ename (intern (format nil "~A-EXTENTS" name))))
 	(list name tname ename))))
 
-  (defexport defpath (name &rest args)
+  (defexport defpath (name args &optional relative-p)
     (declare (ignore args))
-    (list name (intern (format nil "REL-~A" name)))))
+    (if (not relative-p)
+	(list name (intern (format nil "FAST-~A" name)))
+      (list 
+       name 
+       (intern (format nil "FAST-~A" name))
+       (intern (format nil "REL-~A" name)) 
+       (intern (format nil "FAST-REL-~A" name))))))
 
 
 ;;; Autogenerating exported symbols
