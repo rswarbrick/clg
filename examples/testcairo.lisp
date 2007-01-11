@@ -22,11 +22,11 @@
 
 (declaim (inline deg-to-rad))
 (defun deg-to-rad (deg)
-  (* deg (/ pi 180)))
+  (* deg (/ pi 180.0)))
 
 (declaim (inline rad-to-deg))
 (defun rad-to-deg (rad)
-  (/ (* rad 180) pi))
+  (/ (* rad 180.0) pi))
 
 
 (defvar *snippets* ())
@@ -64,8 +64,8 @@
      
 
 (defun arc-helper-lines (cr xc yc radius angle1 angle2)
-  (cairo:set-source-color cr 1 0.2 0.2 0.6)
-  (cairo:arc cr xc yc 0.05 0 (deg-to-rad 360))
+  (cairo:set-source-color cr 1.0 0.2 0.2 0.6)
+  (cairo:arc cr xc yc 0.05 0 (deg-to-rad 360.0))
   (cairo:fill cr)
   (setf (cairo:line-width cr) 0.03)
   (cairo:move-to cr xc yc)
@@ -111,11 +111,11 @@
   (cairo:new-path cr) ; current path is not consumed by cairo:clip
   (cairo:rectangle cr 0 0 1 1)
   (cairo:fill cr)
-  (cairo:set-source-color cr 0 1 0)
-  (cairo:move-to cr 0 0)
-  (cairo:line-to cr 1 1)
-  (cairo:move-to cr 1 0)
-  (cairo:line-to cr 0 1)
+  (cairo:set-source-color cr 0.0 1.0 0.0)
+  (cairo:move-to cr 0.0 0.0)
+  (cairo:line-to cr 1.0 1.0)
+  (cairo:move-to cr 1.0 0.0)
+  (cairo:line-to cr 0.0 1.0)
   (cairo:stroke cr))
 
 
@@ -145,8 +145,8 @@
 
   (cairo:clip cr)
 
-  (cairo:move-to cr 0 0)
-  (cairo:line-to cr 1 1)
+  (cairo:move-to cr 0.0 0.0)
+  (cairo:line-to cr 1.0 1.0)
   (cairo:stroke cr))
 
 
@@ -211,7 +211,7 @@
 
     (cairo:stroke cr)
 
-    (cairo:set-source-color cr 1 0.2 0.2 0.6)
+    (cairo:set-source-color cr 1.0 0.2 0.2 0.6)
     (setf (cairo:line-width cr) 0.03)
     (cairo:move-to cr x y)
     (cairo:line-to cr x1 y1)
@@ -247,31 +247,31 @@
   (cairo:rel-line-to cr -0.2 -0.2)
   (cairo:close-path cr)
 
-  (cairo:set-source-color cr 0 0 1)
+  (cairo:set-source-color cr 0.0 0.0 1.0)
   (cairo:fill cr t)
-  (cairo:set-source-color cr 0 0 0)
+  (cairo:set-source-color cr 0.0 0.0 0.0)
   (cairo:stroke cr))
 
 
 (define-snippet fill-and-stroke (cr)
   (fill-and-stroke-common cr)
 
-  (cairo:set-source-color cr 0 0 1)
+  (cairo:set-source-color cr 0.0 0.0 1.0)
   (cairo:fill cr t)
-  (cairo:set-source-color cr 0 0 0)
+  (cairo:set-source-color cr 0.0 0.0 0.0)
   (cairo:stroke cr))
 
 
 (define-snippet gradient (cr)
   (let ((pattern (cairo:pattern-create-linear 0.0 0.0 0.0 1.0)))
-    (cairo:pattern-add-color-stop pattern 1 0 0 0 1)
-    (cairo:pattern-add-color-stop pattern 0 1 1 1 1)
-    (cairo:rectangle cr 0 0 1 1)
+    (cairo:pattern-add-color-stop pattern 1.0 0.0 0.0 0.0 1.0)
+    (cairo:pattern-add-color-stop pattern 0.0 1.0 1.0 1.0 1.0)
+    (cairo:rectangle cr 0.0 0.0 1.0 1.0)
     (setf (cairo:source cr) pattern)
     (cairo:fill cr))
   (let ((pattern (cairo:pattern-create-radial 0.45 0.4 0.1 0.4 0.4 0.5)))
-    (cairo:pattern-add-color-stop pattern 0 1 1 1 1)
-    (cairo:pattern-add-color-stop pattern 1 0 0 0 1)
+    (cairo:pattern-add-color-stop pattern 0.0 1.0 1.0 1.0 1.0)
+    (cairo:pattern-add-color-stop pattern 1.0 0.0 0.0 0.0 1.0)
     (setf (cairo:source cr) pattern)
     (cairo:circle cr 0.5 0.5 0.3)
     (cairo:fill cr)))
@@ -281,7 +281,7 @@
   (let ((image (cairo:image-surface-create-from-png 
 		#p"clg:examples;romedalen.png")))
     (cairo:translate cr 0.5 0.5)
-    (cairo:rotate cr (deg-to-rad 45))
+    (cairo:rotate cr (deg-to-rad 45.0))
     (let ((width (cairo:surface-width image))
 	  (height (cairo:surface-height image)))
       (cairo:scale cr (/ 1.0 width) (/ 1.0 height))  
@@ -296,8 +296,8 @@
 	 (pattern (cairo:pattern-create-for-surface image)))
     (setf (cairo:pattern-extend pattern) :repeat)    
     (cairo:translate cr 0.5 0.5)
-    (cairo:rotate cr (deg-to-rad 45))
-    (cairo:scale cr (/ 1.0 (sqrt 2)) (/ 1.0 (sqrt 2)))  
+    (cairo:rotate cr (deg-to-rad 45.0))
+    (cairo:scale cr (/ 1.0 (sqrt 2.0)) (/ 1.0 (sqrt 2.0)))  
     (cairo:translate cr -0.5 -0.5)
     (let ((width (cairo:surface-width image))
 	  (height (cairo:surface-height image))
@@ -378,7 +378,7 @@
   (cairo:stroke cr)
 
   ;; draw helping lines
-  (cairo:set-source-color cr 1 0.2 0.2)
+  (cairo:set-source-color cr 1.0 0.2 0.2)
   (setf (cairo:line-width cr) 0.01)
   (cairo:move-to cr 0.25 0.2)
   (cairo:line-to cr 0.25 0.8)
@@ -421,17 +421,17 @@
 
   (cairo:move-to cr 0.27 0.65)
   (cairo:text-path cr "void")
-  (cairo:set-source-color cr 0.5 0.5 1)
+  (cairo:set-source-color cr 0.5 0.5 1.0)
   (cairo:fill cr t)
 
-  (cairo:set-source-color cr 0 0 0)
+  (cairo:set-source-color cr 0.0 0.0 0.0)
   (setf (cairo:line-width cr) 0.01)
   (cairo:stroke cr)
 
   ;; draw helping lines
-  (cairo:set-source-color cr 1 0.2 0.2  0.6)
-  (cairo:arc cr 0.04 0.53 0.02 0 (deg-to-rad 360))
-  (cairo:arc cr 0.27 0.65 0.02 0 (deg-to-rad 360))
+  (cairo:set-source-color cr 1.0 0.2 0.2  0.6)
+  (cairo:arc cr 0.04 0.53 0.02 0 (deg-to-rad 360.0))
+  (cairo:arc cr 0.27 0.65 0.02 0 (deg-to-rad 360.0))
   (cairo:fill cr))
 
 
