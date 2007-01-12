@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.5 2006-09-29 13:14:19 espen Exp $
+;; $Id: proxy.lisp,v 1.6 2007-01-12 10:26:44 espen Exp $
 
 (in-package "GFFI")
 
@@ -498,6 +498,20 @@ object at the give location."))
 	     (remove-cached-instance location)))))
     (cache-instance instance)
     instance))
+
+;;;; Superclass for ref-counted objects
+
+(defclass ref-counted-object (proxy)
+  ()
+  (:metaclass proxy-class))
+
+(define-type-method from-alien-form ((type ref-counted-object) form 
+				     &key (ref :copy))
+  (call-next-method type form :ref ref))
+
+(define-type-method from-alien-function ((type ref-counted-object) 
+					 &key (ref :copy))
+  (call-next-method type :ref ref))
 
 
 ;;;; Superclasses for wrapping of C structures
