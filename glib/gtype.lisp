@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.59 2007-01-02 18:39:42 espen Exp $
+;; $Id: gtype.lisp,v 1.60 2007-01-12 10:32:43 espen Exp $
 
 (in-package "GLIB")
 
@@ -368,7 +368,7 @@
 ;;;; Superclass for wrapping types in the glib type system
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defclass ginstance (proxy)
+  (defclass ginstance (ref-counted-object)
     (;(class :allocation :alien :type pointer :offset 0)
      )
     (:metaclass proxy-class)
@@ -399,12 +399,6 @@
 	(apply #'call-next-method class location initargs)
       (error "Object at ~A has an unkown type number: ~A"
        location (%type-number-of-ginstance location)))))
-
-(define-type-method from-alien-form ((type ginstance) form &key (ref :copy))
-  (call-next-method type form :ref ref))
-
-(define-type-method from-alien-function ((type ginstance) &key (ref :copy))
-  (call-next-method type :ref ref))
 
 
 ;;;; Registering fundamental types

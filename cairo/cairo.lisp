@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.8 2007-01-11 10:20:22 espen Exp $
+;; $Id: cairo.lisp,v 1.9 2007-01-12 10:32:43 espen Exp $
 
 (in-package "CAIRO")
 
@@ -77,13 +77,13 @@
       :type double-float))
     (:metaclass struct-class))
 
-  (defclass font-face (proxy)
+  (defclass font-face (ref-counted-object)
     ()
     (:metaclass proxy-class)
     (:ref %font-face-reference)
     (:unref %font-face-destroy))
 
-  (defclass font-options (proxy)
+  (defclass font-options (ref-counted-object)
     ((antialias
       :allocation :virtual 
       :getter "font_options_get_antialias"
@@ -112,7 +112,7 @@
     (:ref %font-options-reference)
     (:unref %font-options-destroy))
 
-  (defclass scaled-font (proxy)
+  (defclass scaled-font (ref-counted-object)
     ()
     (:metaclass proxy-class)
     (:ref %scaled-font-reference)
@@ -143,7 +143,7 @@
      (y-advance :allocation :alien :reader text-extents-y-advance :type double-float))
     (:metaclass struct-class))
 
-  (defclass pattern (proxy)
+  (defclass pattern (ref-counted-object)
     ((extend
       :allocation :virtual 
       :getter "cairo_pattern_get_extend"
@@ -167,7 +167,7 @@
     (:unref %pattern-destroy))
 
 
-  (defclass surface (proxy)
+  (defclass surface (ref-counted-object)
     (#?(pkg-exists-p "cairo" :atleast-version "1.2")
      (type
       :allocation :virtual 
@@ -184,7 +184,7 @@
     (:ref %surface-reference)
     (:unref %surface-destroy))
 
-  (defclass context (proxy)
+  (defclass context (ref-counted-object)
     ((target
       :allocation :virtual 
       :getter "cairo_get_target"
@@ -284,9 +284,7 @@
       :getter "cairo_image_surface_get_height"
       :reader surface-height
       :type int))
-    (:metaclass proxy-class)
-    (:ref %surface-reference)
-    (:unref %surface-destroy))
+    (:metaclass proxy-class))
 
 
 ;;   (defclass path (proxy)
