@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.9 2007-01-12 10:32:43 espen Exp $
+;; $Id: cairo.lisp,v 1.10 2007-01-13 00:15:36 espen Exp $
 
 (in-package "CAIRO")
 
@@ -171,7 +171,7 @@
     (#?(pkg-exists-p "cairo" :atleast-version "1.2")
      (type
       :allocation :virtual 
-      :getter "cairo_surface_get_tyoe"
+      :getter "cairo_surface_get_type"
       :reader surface-type
       :type surface-type)
      #?(pkg-exists-p "cairo" :atleast-version "1.2")
@@ -274,7 +274,19 @@
     (:unref %destroy))
 
   (defclass image-surface (surface)
-    ((width
+    (#?(pkg-exists-p "cairo" :atleast-version "1.2")
+     (data
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_data"
+      :reader surface-data
+      :type pointer)
+     #?(pkg-exists-p "cairo" :atleast-version "1.2")
+     (format
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_format"
+      :reader surface-format
+      :type surface-format)
+     (width
       :allocation :virtual 
       :getter "cairo_image_surface_get_width"
       :reader surface-width
@@ -283,8 +295,42 @@
       :allocation :virtual 
       :getter "cairo_image_surface_get_height"
       :reader surface-height
+      :type int)
+     #?(pkg-exists-p "cairo" :atleast-version "1.2")
+     (stride
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_stride"
+      :reader surface-height
       :type int))
     (:metaclass proxy-class))
+
+  #?(pkg-exists-p "cairo" :atleast-version "1.2")
+  (progn
+    (defclass xlib-surface (surface)
+      ((width
+	:allocation :virtual 
+	:getter "cairo_xlib_surface_get_width"
+	:reader surface-width
+	:type int)
+       (height
+	:allocation :virtual 
+	:getter "cairo_xlib_surface_get_height"
+	:reader surface-height
+	:type int))
+      (:metaclass proxy-class))
+
+    (defclass pdf-surface (surface)
+      ()
+      (:metaclass proxy-class))
+
+    (defclass ps-surface (surface)
+      ()
+      (:metaclass proxy-class))
+    
+    (defclass svg-surface (surface)
+      ()
+      (:metaclass proxy-class)))
+
 
 
 ;;   (defclass path (proxy)
@@ -296,7 +342,7 @@
 
 ;;; Cairo context
 
-(defbinding %reference () nil
+(defbinding %reference () pointer
   (location pointer))
 
 (defbinding %destroy () nil
@@ -385,7 +431,7 @@
 		 (cr context)
 		 (x double-float)
 		 (y double-float))
-	       (defbinding ,ename () boolean
+	       (defbinding ,ename () nil
 		 (cr context)
 		 (x1 double-float :out)
 		 (y1 double-float :out)
@@ -502,7 +548,7 @@
   (cy1 double-float)
   (radius1 double-float))
 
-(defbinding %pattern-reference () nil
+(defbinding %pattern-reference () pointer
   (location pointer))
 
 (defbinding %pattern-destroy () nil
@@ -607,7 +653,7 @@
 
 ;;; Fonts
 
-(defbinding %font-face-reference () nil
+(defbinding %font-face-reference () pointer
   (location pointer))
 
 (defbinding %font-face-destroy () nil
@@ -620,7 +666,7 @@
 
 ;;; Scaled Fonts
 
-(defbinding %scaled-font-reference () nil
+(defbinding %scaled-font-reference () pointer
   (location pointer))
 
 (defbinding %scaled-font-destroy () nil
@@ -683,7 +729,7 @@
 
 ;;; Surfaces
 
-(defbinding %surface-reference () nil
+(defbinding %surface-reference () pointer
   (location pointer))
 
 (defbinding %surface-destroy () nil
