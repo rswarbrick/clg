@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.10 2006-08-14 13:57:37 espen Exp $
+;; $Id: gtkaction.lisp,v 1.11 2007-01-14 23:22:19 espen Exp $
 
 
 (in-package "GTK")
@@ -31,9 +31,6 @@
   (call-next-method)
   (when callback
     (apply #'signal-connect action 'activate (mklist callback))))
-
-(defmethod action-accelerator ((action action))
-  (user-data action 'accelerator))
 
 (defbinding (action-is-sensitive-p "gtk_action_is_sensitive") () boolean
   (action action))
@@ -118,7 +115,7 @@
 
 ;;; Toggle Action
 
-(defmethod initialize-instance ((action toggle-action) &rest initargs &key callback active)
+(defmethod initialize-instance ((action toggle-action) &rest initargs &key callback #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")active)
   (remf initargs :callback)
   (apply #'call-next-method action initargs)
   (when callback
@@ -130,6 +127,7 @@
 	 #'(lambda ()
 	     (funcall function (toggle-action-active-p action))))
        :object object :after after)))
+  #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
   (when active
     (action-activate action)))
 

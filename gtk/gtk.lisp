@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.68 2007-01-14 23:18:17 espen Exp $
+;; $Id: gtk.lisp,v 1.69 2007-01-14 23:22:16 espen Exp $
 
 
 (in-package "GTK")
@@ -2412,3 +2412,17 @@
 
 (defmethod allocate-foreign ((plug plug) &key id)
   (%plug-new (or id 0)))
+
+
+;;;; New stuff in Gtk+ 2.10
+
+;;; Link button
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+(progn
+  (define-callback-marshal %link-button-uri-callback nil (link-button (link string)))
+
+  (defbinding link-button-set-uri-hook (function) pointer
+    (%link-button-uri-callback callback)
+    ((register-callback-function function) unsigned-int)
+    (user-data-destroy-callback callback)))

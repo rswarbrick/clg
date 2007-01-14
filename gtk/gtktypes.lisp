@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.52 2007-01-02 15:15:25 espen Exp $
+;; $Id: gtktypes.lisp,v 1.53 2007-01-14 23:22:19 espen Exp $
 
 (in-package "GTK")
 
@@ -321,6 +321,7 @@
      :accessor window-mnemonic-modifier
      :initarg :mnemonic-modifier
      :type gdk:modifier-type)
+    #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
     (transient-for
      :allocation :virtual
      :getter "gtk_window_get_transient_for"
@@ -508,8 +509,8 @@
 
   ("GtkToolbar"
    :slots
-   ((show-tooltips
-     :allocation :virtual
+   ((show-tooltips         ;; this slot is equivalent to the property
+     :allocation :virtual  ;; "tooltips" in Gtk+ 2.8
      :getter "gtk_toolbar_get_tooltips"
      :setter "gtk_toolbar_set_tooltips"
      :accessor toolbar-show-tooltips-p
@@ -520,7 +521,7 @@
      :getter "gtk_toolbar_get_tooltips_object"
      :reader toolbar-tooltips
      :type tooltips)
-    (toolbar-style
+    (toolbar-style ; defined manually to get the accesssor name correct
      :allocation :property
      :pname "toolbar-style"
      :initarg :toolbar-style
@@ -992,13 +993,14 @@
      :allocation :user-data :initarg :accelerator 
      :reader action-accelerator)))
 
+  #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
   ("GtkToggleAction"
    :slots
    ((active
      :allocation :virtual
      :getter "gtk_toggle_action_get_active"
      :setter "gtk_toggle_action_set_active"
-;     :initarg :active
+;     :initarg :active ;; Handled by initialize-instance
      :accessor toggle-action-active-p
      :type boolean)))
 
@@ -1013,7 +1015,11 @@
      :allocation :property :pname "value" :type int
      :documentation "A hack so we can use the alien function gtk_radio_action_get_current_value to retrieve the active radio action in a group.")
     (value 
-     :allocation :user-data :initarg :value :accessor radio-action-value)))
+     :allocation :user-data :initarg :value :accessor radio-action-value)
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+    ;; Use radio-action-get-current-value to get the current value of
+    ;; a radio action group
+    (current-value :ignore t)))
 
   ("GtkColorSelection"
    :slots
