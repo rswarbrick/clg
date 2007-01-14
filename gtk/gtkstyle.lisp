@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkstyle.lisp,v 1.3 2005-04-23 16:48:52 espen Exp $
+;; $Id: gtkstyle.lisp,v 1.4 2007-01-14 23:19:14 espen Exp $
 
 (in-package "GTK")
 
@@ -229,8 +229,3 @@
 
 (defun style-white-gc (style)
   (%style-get-gc style :white :normal))
-
-(export 
- '(style-fg style-bg style-light style-dark style-mid style-text style-base 
-   style-text-aa style-fg-gc style-bg-gc style-light-gc style-dark-gc 
-   style-mid-gc style-text-gc style-base-gc style-text-aa-gc))
