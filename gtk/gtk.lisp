@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.67 2007-01-07 20:23:22 espen Exp $
+;; $Id: gtk.lisp,v 1.68 2007-01-14 23:18:17 espen Exp $
 
 
 (in-package "GTK")
@@ -1068,6 +1068,8 @@
 (defmethod activate-radio-widget ((button radio-button))
   (signal-emit button 'clicked))
 
+(defgeneric add-activate-callback (action function &key object after))
+
 (defmethod add-activate-callback ((button radio-button) function &key object after)
   (%add-activate-callback button 'clicked function object after))
 
@@ -1482,9 +1484,13 @@
 (defbinding %window-set-default-icon () nil
   (icons (glist gdk:pixbuf)))
 
+(defgeneric (setf window-default-icon) (icon))
+
 (defmethod (setf window-default-icon) ((icon gdk:pixbuf))
   (%window-set-default-icon icon)
   icon)
+
+(defgeneric (setf window-group) (group window))
 
 (defmethod (setf window-group) ((group window-group) (window window))
   (window-group-add-window group window)

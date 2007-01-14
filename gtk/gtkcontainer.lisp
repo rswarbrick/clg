@@ -20,13 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.22 2007-01-07 20:23:22 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.23 2007-01-14 23:18:17 espen Exp $
 
 (in-package "GTK")
 
 (defgeneric container-add (container widget &rest args))
 (defgeneric container-remove (container widget))
-(defgeneric container-children (container))
+(defgeneric container-all-children (container))
+(defgeneric container-internal-children (container))
 (defgeneric (setf container-children) (children container))
 
 
@@ -165,11 +166,11 @@
     (nreverse internal)))
 
 (defmethod container-internal-children ((container container))
-  (let ((public-children (container-children container))
+  (let ((external-children (container-children container))
 	(all-children (container-all-children container)))
     (loop
      for child in all-children
-     unless (find child public-children)
+     unless (find child external-children)
      collect child)))
 
 (defmethod (setf container-children) (children (container container))
