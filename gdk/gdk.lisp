@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.32 2006-08-14 14:03:32 espen Exp $
+;; $Id: gdk.lisp,v 1.33 2007-01-14 23:24:11 espen Exp $
 
 
 (in-package "GDK")
@@ -244,11 +244,18 @@
 
 ;;; Miscellaneous functions
 
-(defbinding screen-width () int)
-(defbinding screen-height () int)
+(defbinding screen-width () int
+  (screen screen))
 
-(defbinding screen-width-mm () int)
-(defbinding screen-height-mm () int)
+(defbinding screen-height () int
+  (screen screen))
+
+(defbinding screen-width-mm () int
+  (screen screen))
+
+(defbinding screen-height-mm () int
+  (screen screen))
+
 
 (defbinding pointer-grab 
     (window &key owner-events events confine-to cursor time) grab-status
