@@ -1,7 +1,9 @@
 (defpackage "AUTOEXPORT"
   (:use "COMMON-LISP")
   (:export "LIST-AUTOEXPORTED-SYMBOLS" "LIST-AUTOEXPORTED-SYMBOLS-IN-FILE"
-	   "DEFEXPORT" "EXPORT-FROM-FILE" "INTERNAL"))
+	   "DEFEXPORT" "EXPORT-FROM-FILE" "EXPORT-FROM-FILES" "INTERNAL"
+	   "WITH-EXPORT-HANDLERS" "EXPORT-HANDLER-MAKUNBOUND"
+	   "EXPORT-DEFCLASS-FORM"))
 
 (in-package "AUTOEXPORT")
 
@@ -19,6 +21,9 @@
 (defmacro internal (&rest symbols)
   (declare (ignore symbols))
   nil)
+
+(defun export-handler-makunbound (handler)
+  (remhash handler *export-handlers*))
 
 (defun list-autoexported-symbols (form)
   (let ((handler (gethash (first form) *export-handlers*)))
@@ -52,9 +57,29 @@
 			(read-file in))))))))
 	(read-file in)))))
   
-(defmacro export-from-file (file)
-  `(export ',(list-autoexported-symbols-in-file file)))
+(defmacro export-from-file (file &optional package)
+  (if package
+      `(export ',(list-autoexported-symbols-in-file file) ,package)
+    `(export ',(list-autoexported-symbols-in-file file))))
 
+(defmacro export-from-files (files &optional package)
+  `(progn 
+     ,@(loop for file in files collect `(export-from-file ,file ,package))))
+
+(defun copy-hash-table (hash-table)
+  (let ((new-hash-table (make-hash-table 
+			 :test (hash-table-test hash-table)
+			 :size (hash-table-size hash-table))))
+    (maphash 
+     #'(lambda (key value)
+	 (setf (gethash key new-hash-table) value))
+     hash-table)
+    new-hash-table))
+
+(defmacro with-export-handlers (&body body)
+  `(let ((*export-handlers* (copy-hash-table *export-handlers*)))
+     ,@body))
+		
 
 ;;;; Exporting standard forms
 
@@ -82,7 +107,7 @@
   (declare (ignore rest))
   name)
 
-(defun export-defclass-form (class slotdefs)
+(defun export-defclass-form (class slotdefs &optional (export-slots-p t))
   (cons
    class
    (apply #'nconc
@@ -92,7 +117,7 @@
 	     (list slotdef)
 	   (destructuring-bind
 	       (name &key reader writer accessor &allow-other-keys) slotdef
-	     (delete nil (list name reader (export-fname writer) accessor)))))
+	     (delete nil (list (when export-slots-p name) reader (export-fname writer) accessor)))))
      slotdefs))))
 
 (defexport defclass (class superclasses &optional slotdefs &rest options)
@@ -107,9 +132,9 @@
   (declare (ignore args))
   (export-fname fname))
   
-(defexport defmethod (name &rest rest)
-  (declare (ignore rest))
-  name)
+;; (defexport defmethod (name &rest rest)
+;;   (declare (ignore rest))
+;;   name)
 
 (defexport progn (&rest body)
   (apply #'nconc (map 'list #'list-autoexported-symbols body)))
