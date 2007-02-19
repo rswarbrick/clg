@@ -124,9 +124,9 @@
   (cairo:clip cr)
   (cairo:new-path cr)
 
-  (let ((image (cairo:image-surface-create-from-png 
-		#p"clg:examples;romedalen.png")))
-
+  (let ((image (make-instance 'cairo:image-surface 
+		:filename #p"clg:examples;romedalen.png")))
+	       
     (let ((width (cairo:surface-width image))
 	  (height (cairo:surface-height image)))
       (cairo:scale cr (/ 1.0 width) (/ 1.0 height)))
@@ -278,8 +278,8 @@
 
 
 (define-snippet image (cr)
-  (let ((image (cairo:image-surface-create-from-png 
-		#p"clg:examples;romedalen.png")))
+  (let ((image (make-instance 'cairo:image-surface 
+		:filename #p"clg:examples;romedalen.png")))
     (cairo:translate cr 0.5 0.5)
     (cairo:rotate cr (deg-to-rad 45.0))
     (let ((width (cairo:surface-width image))
@@ -291,8 +291,8 @@
 
     
 (define-snippet image-pattern (cr)
-  (let* ((image (cairo:image-surface-create-from-png 
-		 #p"clg:examples;romedalen.png"))
+  (let* ((image (make-instance 'cairo:image-surface
+		 :filename #p"clg:examples;romedalen.png"))
 	 (pattern (cairo:pattern-create-for-surface image)))
     (setf (cairo:pattern-extend pattern) :repeat)    
     (cairo:translate cr 0.5 0.5)
