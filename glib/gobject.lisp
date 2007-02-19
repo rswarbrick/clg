@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.54 2006-08-16 12:09:03 espen Exp $
+;; $Id: gobject.lisp,v 1.55 2007-02-19 13:49:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -391,35 +391,40 @@
 
 ;;;; User data
 
+(defgeneric (setf user-data) (data object key))
+(defgeneric user-data (object key))
+(defgeneric user-data-p (object key))
+(defgeneric unset-user-data (object key))
+
 (defbinding %object-set-qdata-full () nil
   (object gobject)
   (id quark)
-  (data unsigned-long)
+  (data pointer-data)
   (destroy-marshal callback))
 
-(define-callback user-data-destroy-callback nil ((id unsigned-int))
+(define-callback user-data-destroy-callback nil ((id pointer-data))
   (destroy-user-data id))
 
-(defun (setf user-data) (data object key)
+(defmethod (setf user-data) (data (object gobject) key)
   (%object-set-qdata-full object (quark-intern key)
    (register-user-data data) user-data-destroy-callback)
   data)
 
-(defbinding %object-get-qdata () unsigned-long
+(defbinding %object-get-qdata () pointer-data
   (object gobject)		 
   (id quark))
 
-(defun user-data (object key)
+(defmethod user-data ((object gobject) key)
   (find-user-data (%object-get-qdata object (quark-intern key))))
 
-(defun user-data-p (object key)
+(defmethod user-data-p ((object gobject) key)
   (user-data-exists-p (%object-get-qdata object (quark-intern key))))
 
-(defbinding %object-steal-qdata () unsigned-long
+(defbinding %object-steal-qdata () pointer-data
   (object gobject)		 
   (id quark))
 
-(defun unset-user-data (object key)
+(defmethod unset-user-data ((object gobject) key)
   (destroy-user-data (%object-steal-qdata object (quark-intern key))))
 
 
