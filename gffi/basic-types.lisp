@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.5 2007-01-02 15:20:32 espen Exp $
+;; $Id: basic-types.lisp,v 1.6 2007-02-19 14:42:24 espen Exp $
 
 (in-package "GFFI")
 
@@ -55,6 +55,11 @@
 (deftype pointer () 
   #+(or cmu sbcl) 'system-area-pointer
   #+clisp 'ffi:foreign-address)
+(deftype pointer-data () 
+  '(unsigned-byte #+sbcl #.(sb-sizeof-bits 'sb-alien:system-area-pointer)
+		  #+clisp #.(ffi:bitsizeof 'ffi:c-pointer)
+		  #-(or sbcl clisp) 32))
+  
 (deftype bool (&optional (size '*)) (declare (ignore size)) 'boolean)
 (deftype copy-of (type) type)
 (deftype static (type) type)
