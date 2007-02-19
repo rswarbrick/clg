@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.26 2007-01-07 20:23:22 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.27 2007-02-19 14:29:33 espen Exp $
 
 (in-package "GTK")
 
@@ -412,9 +412,9 @@ widget or a list of containers."
 (defbinding widget-reset-shapes () nil
   (widget widget))
 
-;; (defbinding widget-set-double-buffered () nil
-;;   (widget widget)
-;;   (double-buffered boolean))
+(defbinding widget-set-double-buffered () nil
+  (widget widget)
+  (double-buffered boolean))
 
 ;; (defbinding widget-set-redraw-on-allocate () nil
 ;;   (widget widget)
