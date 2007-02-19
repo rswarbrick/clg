@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.39 2007-01-07 20:03:51 espen Exp $
+;; $Id: gcallback.lisp,v 1.40 2007-02-19 13:46:44 espen Exp $
 
 (in-package "GLIB")
 
@@ -550,8 +550,8 @@ function."
 			  (t (second arg))))))
     `(define-callback ,name ,return-type 
        ,(ecase callback-id
-	  (:first `((callback-id unsigned-int) ,@(mapcar #'list names types)))
-	  (:last `(,@(mapcar #'list names types) (callback-id unsigned-int))))
+	  (:first `((callback-id pointer-data) ,@(mapcar #'list names types)))
+	  (:last `(,@(mapcar #'list names types) (callback-id pointer-data))))
        (declare (ignore ,@ignore))
        (invoke-callback callback-id ',return-type ,@(nreverse params)))))
 
