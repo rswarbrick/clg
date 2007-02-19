@@ -16,7 +16,8 @@
 			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
 		 (:unix-dso "alien"
 			    :components ((:c-source-file "glue"
-					  :cflags #.(pkg-cflags "gtk+-2.0"))))
+					  :cflags #.(pkg-cflags "gtk+-2.0")))
+			    :depends-on ("libgdk-x11-2.0"))
 		 (:file "gdktypes" :depends-on ("defpackage" "alien" 
 						"libgdk_pixbuf-2.0" 
 						"libgdk-x11-2.0"))
