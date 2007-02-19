@@ -20,19 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.10 2007-01-13 00:15:36 espen Exp $
+;; $Id: cairo.lisp,v 1.11 2007-02-19 14:37:52 espen Exp $
 
 (in-package "CAIRO")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-enum-type surface-format :argb32 :rgb24 :a8 :a1)
-  #?(pkg-exists-p "cairo" :atleast-version "1.2")
   (define-enum-type content :color :alpha :color-alpha)
-  #?(pkg-exists-p "cairo" :atleast-version "1.2")
-  (define-enum-type surface-type 
-    :image :pdf :ps :xlib :xcb :glitz :quartz :win32 :beos :directfb 
-    :svg :nquartz :os2)
-  
+  (define-enum-type svg-version :svg-1.1 :svg-1.2)
 
   (define-enum-type status
     :success :no-memory :invalid-restore :invalid-pop-group
@@ -58,6 +53,18 @@
   (define-enum-type subpixel-order :default :rgb :bgr :vrgb :vbgr)
   (define-enum-type hint-style :default :none :slight :medium :full)
   (define-enum-type hint-metrics :default :off :on)
+
+
+  (define-enum-type surface-type 
+    image-surface pdf-surface ps-surface xlib-surface xcb-surface 
+    glitz-surface quartz-surface win32-surface beos-surface 
+    directfb-surface)
+
+  (defclass surface-class (proxy-class)
+    ())
+
+  (defmethod validate-superclass ((class surface-class) (super standard-class))
+    (subtypep (class-name super) 'surface))
 
   (defclass glyph (struct)
     ((index 
@@ -168,21 +175,66 @@
 
 
   (defclass surface (ref-counted-object)
-    (#?(pkg-exists-p "cairo" :atleast-version "1.2")
-     (type
-      :allocation :virtual 
-      :getter "cairo_surface_get_type"
-      :reader surface-type
-      :type surface-type)
-     #?(pkg-exists-p "cairo" :atleast-version "1.2")
-     (content 
+    ((content 
       :allocation :virtual 
       :getter "cairo_surface_get_content"
       :reader surface-content
       :type content))
-    (:metaclass proxy-class)
-    (:ref %surface-reference)
-    (:unref %surface-destroy))
+    (:metaclass surface-class))
+
+  (defclass image-surface (surface)
+    ((data
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_data"
+      :reader surface-data
+      :type pointer)
+     (format
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_format"
+      :reader surface-format
+      :type surface-format)
+     (width
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_width"
+      :reader surface-width
+      :type int)
+     (height
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_height"
+      :reader surface-height
+      :type int)
+     (stride
+      :allocation :virtual 
+      :getter "cairo_image_surface_get_stride"
+      :reader surface-height
+      :type int))
+    (:metaclass surface-class))
+
+  (defclass xlib-surface (surface)
+    ((width
+      :allocation :virtual 
+      :getter "cairo_xlib_surface_get_width"
+      :reader surface-width
+      :type int)
+     (height
+      :allocation :virtual 
+      :getter "cairo_xlib_surface_get_height"
+      :reader surface-height
+      :type int))
+    (:metaclass surface-class))
+
+  (defclass pdf-surface (surface)
+    ()
+    (:metaclass surface-class))
+  
+  (defclass ps-surface (surface)
+    ()
+    (:metaclass surface-class))
+    
+  (defclass svg-surface (surface)
+    ()
+    (:metaclass surface-class))
+
 
   (defclass context (ref-counted-object)
     ((target
@@ -273,74 +325,21 @@
     (:ref %reference)
     (:unref %destroy))
 
-  (defclass image-surface (surface)
-    (#?(pkg-exists-p "cairo" :atleast-version "1.2")
-     (data
-      :allocation :virtual 
-      :getter "cairo_image_surface_get_data"
-      :reader surface-data
-      :type pointer)
-     #?(pkg-exists-p "cairo" :atleast-version "1.2")
-     (format
-      :allocation :virtual 
-      :getter "cairo_image_surface_get_format"
-      :reader surface-format
-      :type surface-format)
-     (width
-      :allocation :virtual 
-      :getter "cairo_image_surface_get_width"
-      :reader surface-width
-      :type int)
-     (height
-      :allocation :virtual 
-      :getter "cairo_image_surface_get_height"
-      :reader surface-height
-      :type int)
-     #?(pkg-exists-p "cairo" :atleast-version "1.2")
-     (stride
-      :allocation :virtual 
-      :getter "cairo_image_surface_get_stride"
-      :reader surface-height
-      :type int))
-    (:metaclass proxy-class))
-
-  #?(pkg-exists-p "cairo" :atleast-version "1.2")
-  (progn
-    (defclass xlib-surface (surface)
-      ((width
-	:allocation :virtual 
-	:getter "cairo_xlib_surface_get_width"
-	:reader surface-width
-	:type int)
-       (height
-	:allocation :virtual 
-	:getter "cairo_xlib_surface_get_height"
-	:reader surface-height
-	:type int))
-      (:metaclass proxy-class))
-
-    (defclass pdf-surface (surface)
-      ()
-      (:metaclass proxy-class))
-
-    (defclass ps-surface (surface)
-      ()
-      (:metaclass proxy-class))
-    
-    (defclass svg-surface (surface)
-      ()
-      (:metaclass proxy-class)))
-
-
 
 ;;   (defclass path (proxy)
 ;;     ()
 ;;     (:metaclass proxy-class))
 
-)
+  )
 
 
 ;;; Cairo context
+
+(defmethod allocate-foreign ((context context) &key target)
+  (%create-context target))
+
+(defbinding (%create-context "cairo_create") () pointer
+  (target surface))
 
 (defbinding %reference () pointer
   (location pointer))
@@ -354,8 +353,8 @@
 (defbinding (restore-context "cairo_restore") () nil
   (cr context))
 
-(defmacro with-context ((cr) &body body)
-  (let ((context (make-symbol "CONTEXT")))
+(defmacro with-context ((cr &optional var) &body body)
+  (let ((context (or var (make-symbol "CONTEXT"))))
     `(let ((,context ,cr))
        (save-context ,context)
        (unwind-protect
@@ -387,9 +386,9 @@
   (etypecase source
     (pattern (setf (source cr) source))
     (surface (set-source-surface cr source))
+    (null (set-source-color cr 0.0 0.0 0.0))
     (list (apply #'set-source-color cr source))
-    (vector (apply #'set-source-color cr (coerce source 'list)))
-    (null (set-source-color cr 0.0 0.0 0.0))))
+    (vector (apply #'set-source-color cr (coerce source 'list)))))
 
 (defbinding set-dash (cr dashes &optional (offset 0.0)) nil
   (cr context)
@@ -576,7 +575,8 @@
       (multiple-value-call #'scale cr (device-to-user-distance cr 1.0))
     (multiple-value-bind (x y) 
 	(multiple-value-call #'user-to-device cr (get-current-point cr))
-      (identity-matrix cr)
+;      (identity-matrix cr)
+      (setf (matrix cr) (matrix-init-identity))
       (translate cr x y))))
 
 (defbinding rotate () nil
@@ -729,11 +729,44 @@
 
 ;;; Surfaces
 
+(defmethod make-proxy-instance :around ((class surface-class) location 
+					&rest initargs)
+  (let ((class (find-class (%surface-get-type location))))
+    (apply #'call-next-method class location initargs)))
+
+(defbinding %surface-get-type () surface-type
+  (location pointer))
+
 (defbinding %surface-reference () pointer
   (location pointer))
 
 (defbinding %surface-destroy () nil
   (location pointer))
+
+(defmethod reference-function ((class surface-class))
+  (declare (ignore class))
+  #'%surface-reference)
+
+(defmethod unreference-function ((class surface-class))
+  (declare (ignore class))
+  #'%surface-destroy)
+
+(defbinding %surface-set-user-data (surface key data-id) status
+  (surface pointer)
+  ((quark-intern key) pointer-data)
+  (data-id pointer-data)
+  (user-data-destroy-callback callback))
+
+(defmethod (setf user-data) (data (surface surface) key)
+  (%surface-set-user-data (foreign-location surface) key (register-user-data data))
+  data)
+
+(defbinding %surface-get-user-data () pointer-data
+  (surface surface)
+  (key pointer-data))
+
+(defmethod user-data ((surface surface) key)
+  (find-user-data (%surface-get-user-data surface (quark-intern key))))
 
 (defbinding surface-create-similar () surface
   (other surface)
@@ -774,46 +807,161 @@
       (%surface-mark-dirty-rectangle surface x y width height)
     (%surface-mark-dirty surface)))
 
-#?(pkg-exists-p "cairo" :atleast-version "1.2")
 (defbinding surface-set-fallback-resolution () nil
   (surface surface)
   (x-pixels-per-inch double-float)
   (y-pixels-per-inch double-float))
+
+(define-callback stream-write-func status 
+    ((stream-id pointer-data) (data pointer) (length unsigned-int))
+  (let ((stream (find-user-data stream-id)))
+    (typecase stream
+      (stream
+       (map-c-vector 'nil #'(lambda (octet) (write-byte octet stream))
+	data '(unsigned-byte 8) length))
+      ((or symbol function)
+       (funcall stream 
+	(map-c-vector 'vector #'identity data '(unsigned-byte 8) length)))))
+  :success)
 
 
 ;; Image Surface
 
 ;; Should data be automatically freed when the surface is GCed?
 (defmethod allocate-foreign ((surface image-surface) 
-			     &key width height stride format data)
-  (if (not data)
-      (%image-surface-create format width height)
+			     &key filename width height stride format data)
+  (cond
+   (filename (%image-surface-create-from-png filename))
+   ((not data) (%image-surface-create format width height))
+   (t
     (%image-surface-create-for-data data format width height 
      (or 
       stride
       (let ((element-size (cdr (assoc format '((:argb32 . 4) (:rgb24 . 4) (:a8 . 1) (:a1 1/8))))))
-	(ceiling (* width element-size)))))))
+	(ceiling (* width element-size))))))))
 
 
-(defbinding %image-surface-create () image-surface
+(defbinding %image-surface-create () pointer
   (format surface-format)
   (width int)
   (hegit int))
 
-(defbinding %image-surface-create-for-data () image-surface
+(defbinding %image-surface-create-for-data () pointer
   (data pointer)
   (format surface-format)
   (width int)
   (hegit int)
   (stride int))
 
+(defbinding %image-surface-create-from-png () pointer
+  (filename pathname))
+
+(defbinding surface-write-to-png () status
+  (surface surface)
+  (filename pathname))
 
 
-;;; PNG Surface
+;;; PDF Surface
 
-(defbinding image-surface-create-from-png (filename) image-surface
-  ((truename filename) pathname))
+(defmethod allocate-foreign ((surface pdf-surface)
+			     &key filename stream width height)
+  (cond
+   ((and filename stream)
+    (error "Only one of the arguments :filename and :stream may be specified"))
+   (filename (%pdf-surface-create filename width height))
+   (stream 
+    (let* ((stream-id (register-user-data stream))
+	   (location (%pdf-surface-create-for-stream stream-id width height)))
+      (%surface-set-user-data location 'stream stream-id)
+      location))))
 
+
+(defbinding %pdf-surface-create () pointer
+  (filename pathname)
+  (width double-float)
+  (height double-float))
+
+(defbinding %pdf-surface-create-for-stream (stream width height) pointer
+  (stream-write-func callback)
+  (stream pointer-data)
+  (width double-float)
+  (height double-float))
+
+(defbinding pdf-surface-set-size () nil
+  (surface pdf-surface)
+  (width double-float)
+  (height double-float))
+
+
+;;; PS Surface
+
+(defmethod allocate-foreign ((surface ps-surface) 
+			     &key filename stream width height)
+  (cond
+   ((and filename stream)
+    (error "Only one of the arguments :filename and :stream may be specified"))
+   (filename (%ps-surface-create filename width height))
+   (stream 
+    (let* ((stream-id (register-user-data stream))
+	   (location (%ps-surface-create-for-stream stream-id width height)))
+      (%surface-set-user-data location 'stream stream-id)
+      location))))
+
+(defbinding %ps-surface-create () pointer
+  (filename pathname)
+  (width double-float)
+  (height double-float))
+
+(defbinding %ps-surface-create-for-stream (stream width height) pointer
+  (stream-write-func callback)
+  (stream pointer-data)
+  (width double-float)
+  (height double-float))
+
+(defbinding ps-surface-set-size () nil
+  (surface ps-surface)
+  (width double-float)
+  (height double-float))
+
+(defbinding ps-surface-dsc-begin-setup () nil
+  (surface ps-surface))
+
+(defbinding ps-surface-dsc-begin-page-setup () nil
+  (surface ps-surface))
+
+(defbinding ps-surface-dsc-comment () nil
+  (surface ps-surface)
+  (comment string))
+
+
+;;; SVG Surface
+
+(defmethod allocate-foreign ((surface svg-surface) 
+			     &key filename stream width height)
+  (cond
+   ((and filename stream)
+    (error "Only one of the arguments :filename and :stream may be specified"))
+   (filename (%svg-surface-create filename width height))
+   (stream 
+    (let* ((stream-id (register-user-data stream))
+	   (location (%svg-surface-create-for-stream stream-id width height)))
+      (%surface-set-user-data location 'stream stream-id)
+      location))))
+
+(defbinding %svg-surface-create () pointer
+  (filename pathname)
+  (width double-float)
+  (height double-float))
+
+(defbinding %svg-surface-create-for-stream (stream width height) pointer
+  (stream-write-func callback)
+  (stream pointer-data)
+  (width double-float)
+  (height double-float))
+
+(defbinding svg-surface-restrict-to-version () nil
+  (surface svg-surface)
+  (version svg-version))
 
 
 
@@ -825,7 +973,7 @@
   (xy double-float) (yy double-float) 
   (x0 double-float) (y0 double-float))
 
-(defbinding matrix-init-identity () nil
+(defbinding matrix-init-identity (&optional (matrix (make-instance 'matrix))) nil
   (matrix matrix :in/return))
 
 (defbinding matrix-init-translate () nil
