@@ -8,7 +8,7 @@
 
 (in-package "CAIRO-SYSTEM")
 
-(pkg-exists-p "cairo" :atleast-version "1.0.2" :error t)
+(pkg-exists-p "cairo" :atleast-version "1.2.0" :error t)
 
 
 (defsystem cairo
