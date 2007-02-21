@@ -7,8 +7,8 @@
 (in-package #:clg-tools)
 
 #+clisp
-(unless custom:*ansi*
-  (error "CLISP must be started with the -ansi option"))
+(unless custom:*parse-namestring-ansi*
+  (error "Standard behaviour of PARSE-NAMESTRING must be enabled by setting CUSTOM:*PARSE-NAMESTRING-ANSI* to non-NIL or running clisp with the -ansi option"))
 
 (defsystem clg-tools
     :components ((:file "autoexport")
