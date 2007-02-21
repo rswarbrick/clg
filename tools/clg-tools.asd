@@ -6,6 +6,9 @@
 
 (in-package #:clg-tools)
 
+#+clisp
+(unless custom:*ansi*
+  (error "CLISP must be started with the -ansi option"))
 
 (defsystem clg-tools
     :components ((:file "autoexport")
