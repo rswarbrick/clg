@@ -21,13 +21,18 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: gobject.c,v 1.4 2006-02-19 19:07:49 espen Exp $ */
+/* $Id: gobject.c,v 1.5 2007-02-23 12:48:46 espen Exp $ */
 
 #include <glib-object.h>
 
 guint size_of_gvalue ()
 {
   return sizeof (GValue);
+}
+
+guint bitsize_of_gtype ()
+{
+  return sizeof (GType) * 8;
 }
 
 
