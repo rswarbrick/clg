@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.21 2006-04-25 22:12:48 espen Exp $
+;; $Id: gparam.lisp,v 1.22 2007-02-23 12:50:54 espen Exp $
 
 (in-package "GLIB")
 
@@ -32,7 +32,8 @@
   (defbinding (size-of-gvalue "size_of_gvalue") () unsigned-int))
 
 (defconstant +gvalue-size+ (size-of-gvalue))
-(defconstant +gvalue-value-offset+ (size-of 'type-number))
+(defconstant +gvalue-value-offset+ 
+  (max (size-of 'type-number) (type-alignment 'type-number)))
 
 (defbinding (%gvalue-init "g_value_init") () nil
   (value gvalue)
