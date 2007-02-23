@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.60 2007-01-12 10:32:43 espen Exp $
+;; $Id: gtype.lisp,v 1.61 2007-02-23 12:53:08 espen Exp $
 
 (in-package "GLIB")
 
@@ -30,7 +30,10 @@
 (defbinding type-init () nil)
 (type-init)
 
-(deftype type-number () 'unsigned-long)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defbinding (bitsize-of-gtype "bitsize_of_gtype") () unsigned-int))
+
+(deftype type-number () `(unsigned-byte ,(bitsize-of-gtype)))
 
 (deftype gtype () 'symbol)
 
