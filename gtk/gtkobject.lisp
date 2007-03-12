@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.39 2006-09-05 13:23:40 espen Exp $
+;; $Id: gtkobject.lisp,v 1.40 2007-03-12 12:59:22 espen Exp $
 
 
 (in-package "GTK")
@@ -170,22 +170,24 @@
 	  value))))
 
 
-(defmethod add-reader-method ((class container-child-class) generic-function slot-name)
+(defmethod add-reader-method ((class container-child-class) generic-function slot-name #?(sbcl>= 1 0 2)slot-documentation)
   (add-method
    generic-function
    (make-instance 'standard-method
     :specializers (list (find-class 'widget))
     :lambda-list '(widget)
+    :documentation (or #?(sbcl>= 1 0 2)slot-documentation "automatically generated reader method")
     :function #'(lambda (args next-methods)
 		  (declare (ignore next-methods))
 		  (child-property-value (first args) slot-name)))))
 
-(defmethod add-writer-method ((class container-child-class) generic-function slot-name)
+(defmethod add-writer-method ((class container-child-class) generic-function slot-name #?(sbcl>= 1 0 2)slot-documentation)
   (add-method
    generic-function
    (make-instance 'standard-method
     :specializers (list (find-class t) (find-class 'widget))
     :lambda-list '(value widget)
+    :documentation (or #?(sbcl>= 1 0 2)slot-documentation "automatically generated reader method")
     :function #'(lambda (args next-methods)
 		  (declare (ignore next-methods))
 		  (destructuring-bind (value widget) args
