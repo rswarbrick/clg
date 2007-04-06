@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.4 2006-12-12 14:32:06 espen Exp $
+;; $Id: interface.lisp,v 1.5 2007-04-06 16:06:24 espen Exp $
 
 (in-package "GFFI")
 
@@ -454,7 +454,9 @@
        ;; This is to handle unexpandable types whichs doesn't name a
        ;; class.  It may cause infinite loops with illegal
        ;; call-next-method calls
-       (unless (and (symbolp type-spec) (find-class type-spec nil))
+       (unless (or 
+		(null type-spec)
+		(and (symbolp type-spec) (find-class type-spec nil)))
 	 (search-nodes (get name 'built-in-type-hierarchy)))
        (when error-p
 	 (error "No next type method ~A for type specifier ~A"
