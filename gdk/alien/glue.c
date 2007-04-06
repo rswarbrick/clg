@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.3 2005-04-23 16:48:50 espen Exp $ */
+/* $Id: glue.c,v 1.4 2007-04-06 14:25:20 espen Exp $ */
 
 
 #include <gdk/gdk.h>
@@ -36,4 +36,10 @@ struct _GdkDisplayX11
 gint clg_gdk_connection_number (GdkDisplay *display)
 {
   return ConnectionNumber (((struct _GdkDisplayX11 *)display)->xdisplay);
+}
+
+
+GdkWindow *clg_gdk_cairo_xlib_surface_get_window (cairo_surface_t *surface)
+{
+  return gdk_window_lookup (cairo_xlib_surface_get_drawable (surface));
 }

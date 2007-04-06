@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.34 2007-04-06 14:19:08 espen Exp $
+;; $Id: gdk.lisp,v 1.35 2007-04-06 14:25:20 espen Exp $
 
 
 (in-package "GDK")
@@ -1048,6 +1048,10 @@
 ;;   (defbinding cairo-region () nil
 ;;     (cr cairo:context)
 ;;     (region region))
+
+  (defbinding (cairo-xlib-surface-get-window 
+	       "clg_gdk_cairo_xlib_surface_get_window") () window
+  (surface cairo:xlib-surface))
 )
 
 
