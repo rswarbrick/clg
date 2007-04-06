@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.6 2007-01-12 10:26:44 espen Exp $
+;; $Id: proxy.lisp,v 1.7 2007-04-06 14:29:42 espen Exp $
 
 (in-package "GFFI")
 
@@ -87,7 +87,7 @@
 (defvar *foreign-instance-locations* 
   (make-hash-table #+clisp :weak #+sbcl :weakness :key))
 
-;; TODO: add a ref-counted-proxy subclass
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass proxy (virtual-slots-object)
     (#?-(or (sbcl>= 0 9 17) (featurep :clisp))(%location :special t :type pointer))
