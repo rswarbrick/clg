@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.40 2007-02-19 13:46:44 espen Exp $
+;; $Id: gcallback.lisp,v 1.41 2007-04-06 14:31:43 espen Exp $
 
 (in-package "GLIB")
 
@@ -40,22 +40,22 @@
 (define-callback signal-handler-marshal nil
     ((gclosure gclosure) (return-value gvalue) (n-params unsigned-int) 
      (param-values pointer) (invocation-hint pointer) 
-     (callback-id unsigned-long))
+     (callback-id pointer-data))
   (declare (ignore gclosure invocation-hint))
   (callback-trampoline #'invoke-signal-handler callback-id n-params param-values return-value))
 
-;; Callback marshaller  for class handlers
+;; Callback marshaller for class handlers
 (define-callback class-handler-marshal nil
     ((gclosure gclosure) (return-value gvalue) (n-params unsigned-int) 
      (param-values pointer) (invocation-hint pointer) 
-     (callback-id unsigned-long))
+     (callback-id pointer-data))
   (declare (ignore gclosure invocation-hint))
   (callback-trampoline #'invoke-callback callback-id n-params param-values return-value))
 
 ;; Callback marshaller for emission hooks
 (define-callback emission-hook-marshal nil
     ((invocation-hint pointer) (n-params unsigned-int) (param-values pointer)
-     (callback-id unsigned-long))
+     (callback-id pointer-data))
   (declare (ignore invocation-hint))
   (callback-trampoline #'invoke-callback callback-id n-params param-values))
 
