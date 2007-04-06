@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.11 2007-02-19 14:37:52 espen Exp $
+;; $Id: cairo.lisp,v 1.12 2007-04-06 14:12:09 espen Exp $
 
 (in-package "CAIRO")
 
@@ -498,8 +498,13 @@
 (defpath move-to (x y) t)
 (defpath rectangle (x y width height))
 
-(defun circle (cr x y radius)
-  (arc cr x y radius 0.0 (* pi 2)))
+(defun circle (cr x y radius &optional negative-p)
+  (move-to cr radius 0.0d0)
+  (if negative-p
+      (arc-negative cr x y radius (* pi 2) 0.0d0)
+    (arc cr x y radius 0.0d0 (* pi 2)))
+  (close-path cr))
+
 
 (defbinding glyph-path (cr glyphs) nil
   (cr context)
