@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.33 2007-01-14 23:24:11 espen Exp $
+;; $Id: gdk.lisp,v 1.34 2007-04-06 14:19:08 espen Exp $
 
 
 (in-package "GDK")
@@ -36,11 +36,21 @@
 
 ;;; Display
 
+#-debug-ref-counting
+(defmethod print-object ((display display) stream)
+  (if (and (proxy-valid-p display) (slot-boundp display 'name))
+      (print-unreadable-object (display stream :type t :identity nil)
+        (format stream "~S at 0x~X" 
+	 (display-name display) (pointer-address (foreign-location display))))
+    (call-next-method)))
+
 (defbinding %display-open () display
   (display-name (or null string)))
 
 (defun display-open (&optional display-name)
-  (let ((display (%display-open display-name)))
+  (let ((display (or
+		  (%display-open display-name)
+		  (error "Opening display failed: ~A" display-name))))
     (unless (display-get-default)
       (display-set-default display))
     display))
@@ -90,17 +100,38 @@
     (&optional (display (display-get-default))) int
   (display display))
 
+(defun find-display (name)
+  (find name (list-displays) :key #'display-name :test #'string=))
+
+(defun ensure-display (display)
+  (etypecase display
+    (null (display-get-default))
+    (display display)
+    (string 
+     (or
+      (find display (list-displays) :key #'display-name :test #'string=)
+      (display-open display)))))
 
 
 ;;; Display manager
 
 (defbinding display-get-default () display)
 
-(defbinding (display-manager "gdk_display_manager_get") () display-manager)
-
 (defbinding (display-set-default "gdk_display_manager_set_default_display")
     (display) nil
   ((display-manager) display-manager)
+  (display display))
+
+(defbinding (list-displays "gdk_display_manager_list_displays") ()
+    (gslist (static display))
+  ((display-manager) display-manager))
+
+;; The only purpose of exporting this is to make it possible for
+;; applications to connect to the display-opened signal
+(defbinding (display-manager "gdk_display_manager_get") () display-manager)
+
+(defbinding display-get-core-pointer 
+    (&optional (display (display-get-default))) device
   (display display))
 
 
