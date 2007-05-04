@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.35 2007-04-06 14:25:20 espen Exp $
+;; $Id: gdk.lisp,v 1.36 2007-05-04 07:28:25 espen Exp $
 
 
 (in-package "GDK")
@@ -178,7 +178,6 @@
   (location pointer))
 
 (defmethod allocate-foreign ((region region) &key rectangle polygon fill-rule)
-  (declare (ignore initargs))
   (cond
    ((and rectangle polygon) 
     (error "Only one of the keyword arguments :RECTANGLE and :POLYGON can be specified"))
@@ -190,7 +189,9 @@
   (etypecase region 
     (region region)
     ((or rectangle vector) 
-     (make-instance 'region :rectangle (ensure-rectangle region)))))
+     (make-instance 'region :rectangle (ensure-rectangle region)))
+    (list
+     (make-instance 'region :polygon region))))
 
 (defbinding region-get-clipbox (region &optional (rectangle (make-instance 'rectangle))) nil
   (region region)
@@ -205,7 +206,7 @@
   "Obtains the area covered by the region as a list of rectangles."
   (multiple-value-bind (location length) (%region-get-rectangles region)
     (prog1
-	(map-c-vector 'list #'identity location 'point length :get)
+	(map-c-vector 'list #'identity location '(inlined rectangle) length :get)
       (deallocate-memory location))))
 
 (defbinding region-empty-p () boolean
@@ -235,19 +236,19 @@
   (dy int))
 
 (defbinding region-intersect (source1 source2) nil
-  (source1 region)
+  ((ensure-region source1) region :return)
   ((ensure-region source2) region))
 
 (defbinding region-union (source1 source2) nil
-  (source1 region)
+  ((ensure-region source1) region :return)
   ((ensure-region source2) region))
 
 (defbinding region-subtract (source1 source2) nil
-  (source1 region)
+  ((ensure-region source1) region :return)
   ((ensure-region source2) region))
 
 (defbinding region-xor (source1 source2) nil
-  (source1 region)
+  ((ensure-region source1) region :return)
   ((ensure-region source2) region))
 
 
@@ -443,6 +444,13 @@
   (dx int)
   (dy int))
 
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
+(defbinding window-move-region (window region dx dy) nil
+  (window window)
+  ((ensure-region region) region)
+  (dx int)
+  (dy int))
+
 (defbinding window-reparent () nil
   (window window)
   (new-parent window)
@@ -577,9 +585,9 @@
 
 (defun window-shape-combine (window shape offset-x offset-y)
   (etypecase shape
-    (nil (%window-shape-combine-region window nil 0 0)
+    (null (%window-shape-combine-region window nil 0 0))
     (region (%window-shape-combine-region window shape offset-x offset-y))
-    (bitmask (window-shape-combine-mask window shape offset-x offset-y)))))
+    (bitmap (window-shape-combine-mask window shape offset-x offset-y))))
 
 (defbinding window-set-child-shapes () nil
   (window window))
@@ -603,9 +611,9 @@
   
   (defun window-input-shape-combine (window shape x y)
     (etypecase shape
-      (nil (%window-input-shape-combine-region window nil 0 0)
-	   (region (%window-input-shape-combine-region window shape x y))
-	   (bitmask (%window-input-shape-combine-mask window shape x y)))))
+      (null (%window-input-shape-combine-region window nil 0 0))
+      (region (%window-input-shape-combine-region window shape x y))
+      (bitmap (%window-input-shape-combine-mask window shape x y))))
 
   (defbinding window-set-child-input-shapes () nil
     (window window))
