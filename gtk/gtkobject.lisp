@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.40 2007-03-12 12:59:22 espen Exp $
+;; $Id: gtkobject.lisp,v 1.41 2007-05-10 20:13:42 espen Exp $
 
 
 (in-package "GTK")
@@ -238,4 +238,10 @@
 (defun container-child-class (container-class)
   (gethash container-class *container-to-child-class-mappings*))
 
-(register-derivable-type 'container "GtkContainer" 'expand-container-type 'gobject-dependencies)
+(defun container-dependencies (type options)
+  (delete-duplicates 
+   (append
+    (gobject-dependencies type options)
+    (mapcar #'param-value-type (query-container-class-child-properties type)))))
+
+(register-derivable-type 'container "GtkContainer" 'expand-container-type 'container-dependencies)
