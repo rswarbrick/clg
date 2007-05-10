@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.7 2007-04-06 14:29:42 espen Exp $
+;; $Id: proxy.lisp,v 1.8 2007-05-10 20:23:28 espen Exp $
 
 (in-package "GFFI")
 
@@ -167,6 +167,7 @@
 ;; :FINALZIE given to MAKE-PROXY-INSTANCE or non NIL if the proxy was
 ;; created with MAKE-INSTANCE
 (defmethod invalidate-instance ((instance proxy) &optional finalize-p)
+  #+clisp(declare (ignore finalize-p))
   (remove-cached-instance (foreign-location instance))
   #+(or sbcl cmu)
   (progn
