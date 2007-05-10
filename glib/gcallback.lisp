@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.41 2007-04-06 14:31:43 espen Exp $
+;; $Id: gcallback.lisp,v 1.42 2007-05-10 20:25:09 espen Exp $
 
 (in-package "GLIB")
 
@@ -352,7 +352,7 @@
   (detail quark)
   (closure (or null pointer))
   (func (or null pointer))
-  (data unsigned-long))
+  (data pointer-data))
 
 (defbinding signal-handler-disconnect () nil
   (instance ginstance)
@@ -377,7 +377,7 @@
     (closure-set-meta-marshal gclosure callback-id callback)
     gclosure))
 
-(defun make-callback-closure (function marshaller)
+(defun make-callback-closure (function &optional (marshaller signal-handler-marshal))
   (let ((callback-id (register-callback-function function)))
     (values
      (callback-closure-new callback-id marshaller user-data-destroy-callback)
