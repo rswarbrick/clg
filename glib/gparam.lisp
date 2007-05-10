@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.22 2007-02-23 12:50:54 espen Exp $
+;; $Id: gparam.lisp,v 1.23 2007-05-10 20:26:33 espen Exp $
 
 (in-package "GLIB")
 
@@ -61,7 +61,18 @@
     (deallocate-memory gvalue)))
 
 (defun gvalue-type (gvalue)
-  (type-from-number (ref-type-number gvalue)))
+  ;; We need to search for the for the most specific known type
+  ;; because internal types, unknown to Lisp, may be passed in GValues
+  (labels ((find-most-specific-known-type (type)
+	     (or 
+	      (type-from-number type)
+	      (let ((parent (type-parent type)))
+		(unless (zerop parent)
+		  (find-most-specific-known-type parent))))))
+    (or
+     (find-most-specific-known-type (ref-type-number gvalue))
+     ;; This will signal an error if the type hierarchy is unknown
+     (type-from-number (ref-type-number gvalue) t))))
 
 (defun gvalue-get (gvalue)
   (funcall (reader-function (gvalue-type gvalue))
