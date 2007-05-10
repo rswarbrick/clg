@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.26 2007-01-07 19:56:05 espen Exp $
+;; $Id: gtktree.lisp,v 1.27 2007-05-10 20:20:05 espen Exp $
 
 
 (in-package "GTK")
@@ -635,7 +635,7 @@
     (values
      (if special-p
 	 (int-to-sort-order column)
-       (column-name sortable column))
+       (tree-model-column-name sortable column))
      order)))
 
 (defbinding (tree-sortable-set-sort-column 
