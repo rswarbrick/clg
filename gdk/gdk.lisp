@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.36 2007-05-04 07:28:25 espen Exp $
+;; $Id: gdk.lisp,v 1.37 2007-05-10 16:58:45 espen Exp $
 
 
 (in-package "GDK")
@@ -236,19 +236,19 @@
   (dy int))
 
 (defbinding region-intersect (source1 source2) nil
-  ((ensure-region source1) region :return)
+  ((ensure-region source1) region :in/return)
   ((ensure-region source2) region))
 
 (defbinding region-union (source1 source2) nil
-  ((ensure-region source1) region :return)
+  ((ensure-region source1) region :in/return)
   ((ensure-region source2) region))
 
 (defbinding region-subtract (source1 source2) nil
-  ((ensure-region source1) region :return)
+  ((ensure-region source1) region :in/return)
   ((ensure-region source2) region))
 
 (defbinding region-xor (source1 source2) nil
-  ((ensure-region source1) region :return)
+  ((ensure-region source1) region :in/return)
   ((ensure-region source2) region))
 
 
