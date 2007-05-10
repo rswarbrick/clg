@@ -8,7 +8,7 @@
   (:import-from #+cmu"PCL" #+sbcl"SB-PCL"
 	   "ADD-READER-METHOD" "ADD-WRITER-METHOD")
   #+(or cmu sbcl)
-  (:import-from #+cmu"SYSTEM" #+sbcl"SB-SYS" "SAP-INT" "ADD-FD-HANDLER")
+  (:import-from #+cmu"SYSTEM" #+sbcl"SB-SYS" "SAP-INT" "ADD-FD-HANDLER" "REMOVE-FD-HANDLER")
   #+(or cmu sbcl)
   (:import-from #+cmu"LISP" #+sbcl"SB-IMPL"
 	   "*PERIODIC-POLLING-FUNCTION*" "*MAX-EVENT-TO-SEC*" 
