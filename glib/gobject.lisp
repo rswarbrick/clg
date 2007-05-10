@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.55 2007-02-19 13:49:15 espen Exp $
+;; $Id: gobject.lisp,v 1.56 2007-05-10 20:25:30 espen Exp $
 
 (in-package "GLIB")
 
@@ -154,7 +154,7 @@
 (defmethod compute-slot-writer-function :around ((slotd effective-property-slot-definition))
   (if (construct-only-property-p slotd)
       #'(lambda (value object)
-	  (declare (ignore value object))
+	  (declare (ignore value))
 	  (unless *ignore-setting-construct-only-property*
 	    (error 'unwritable-slot :name (slot-definition-name slotd) :instance object)))
     (call-next-method)))
