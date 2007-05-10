@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.6 2007-01-02 16:04:57 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.7 2007-05-10 20:23:56 espen Exp $
 
 (in-package "GFFI")
 
@@ -320,18 +320,22 @@
 ;; created.
 #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'reader-function)))
+  (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-reader-function slotd)))
 
 #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'boundp-function)))
+  (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-boundp-function slotd)))
 
 #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'writer-function)))
+  (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-writer-function slotd)))
 
 #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'makunbound-function)))
+  (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-makunbound-function slotd)))
 
 
