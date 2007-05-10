@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.69 2007-01-14 23:22:16 espen Exp $
+;; $Id: gtk.lisp,v 1.70 2007-05-10 20:17:17 espen Exp $
 
 
 (in-package "GTK")
@@ -48,7 +48,7 @@
   "clg 0.93")
 
 
-;;;; Initalization
+;;;; Initalization and display handling
 
 (defbinding (gtk-init "gtk_parse_args") () boolean
   "Initializes the library without opening the display."
@@ -58,7 +58,7 @@
 (defparameter *event-poll-interval* 10000)
 
 (defun clg-init (&optional display)
-  "Initializes the system and starts the event handling"
+  "Initializes the system and starts event handling"
   #+sbcl(when (and 
 	       (find-package "SWANK")
 	       (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) :spawn))
@@ -73,35 +73,45 @@
     (gdk:gdk-init)
     (unless (gtk-init)
       (error "Initialization of GTK+ failed."))
-    (prog1
-	(gdk:display-open display)
-      #+(or cmu sbcl)
-      (progn
-	(add-fd-handler (gdk:display-connection-number) :input #'main-iterate-all)
-	(setq *periodic-polling-function* #'main-iterate-all)
-	(setq *max-event-to-sec* 0)
-	(setq *max-event-to-usec* *event-poll-interval*))
-      #+(and clisp readline)
-      ;; Readline will call the event hook at most ten times per second
-      (setf readline:event-hook #'main-iterate-all)
-      #+clisp      
-      ;; When running in Slime we need to hook into the Swank server
-      ;; to handle events asynchronously
-      (if (find-package "SWANK")
-	  (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
-		(stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
-	    (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
-	     #'(lambda ()
-		 (loop
-		  (case (socket:socket-status (cons stream :input) 0 *event-poll-interval*)
-		    (:input (return (funcall read-from-emacs)))
-		    (:eof (read-char stream))
-		    (otherwise (main-iterate-all)))))))
-	#-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit.")))))
+    #+(or cmu sbcl)
+    (progn
+      (signal-connect (gdk:display-manager) 'display-opened
+       #'(lambda (display)
+	   (let ((handler (add-fd-handler 
+			   (gdk:display-connection-number display) 
+			   :input #'main-iterate-all)))
+	     (signal-connect display 'closed
+	      #'(lambda (is-error-p)
+		  (declare (ignore is-error-p))
+		  (remove-fd-handler handler))))))
+      (setq *periodic-polling-function* #'main-iterate-all)
+      (setq *max-event-to-sec* 0)
+      (setq *max-event-to-usec* *event-poll-interval*))
+    #+(and clisp readline)
+    ;; Readline will call the event hook at most ten times per second
+    (setf readline:event-hook #'main-iterate-all)
+    #+clisp      
+    ;; When running in Slime we need to hook into the Swank server
+    ;; to handle events asynchronously
+    (if (find-package "SWANK")
+	(let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
+	      (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
+	  (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
+	   #'(lambda ()
+	       (loop
+		(case (socket:socket-status (cons stream :input) 0 *event-poll-interval*)
+		  (:input (return (funcall read-from-emacs)))
+		  (:eof (read-char stream))
+		  (otherwise (main-iterate-all)))))))
+      #-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit."))
+
+    (gdk:display-open display)))
+
+
 
 #+sbcl	  
 (defun clg-init-with-threading (&optional display)
-  "Initializes the system and starts the event handling"
+  "Initializes the system and starts event handling"
   (unless (gdk:display-get-default)
     #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
     (progn
@@ -779,6 +789,12 @@
 
 (defmethod (setf container-children) (children (dialog dialog))
   (setf (container-children (dialog-vbox dialog)) children))
+
+
+;;; Drawing Area
+
+(defun drawing-area-scroll (drawing-area dx dy)
+  (gdk:window-scroll (widget-window drawing-area) dx dy))
 
 
 ;;; Entry
@@ -1977,11 +1993,15 @@
   (table table)
   (spacing unsigned-int))
 
-(defun (setf table-col-spacing) (spacing table &optional col)
-  (if col
-      (%table-set-col-spacing table col spacing)
+(defun (setf table-column-spacing) (spacing table &optional column)
+  (if column
+      (%table-set-col-spacing table column spacing)
     (%table-set-col-spacings table spacing))
   spacing)
+
+(defun (setf table-col-spacing) (spacing table &optional col)
+  (warn "TABLE-COL-SPACING is deprecatet, use TABLE-COLUMN-SPACING instead")
+  (setf (table-column-spacing table col) spacing))
 
 (defbinding %table-get-col-spacing () unsigned-int
   (table table)
@@ -1990,11 +2010,15 @@
 (defbinding %table-get-default-col-spacing () unsigned-int
   (table table))
 
-(defun table-col-spacing (table &optional col)
-  (if col
-      (%table-get-col-spacing table col)
+(defun table-column-spacing (table &optional column)
+  (if column
+      (%table-get-col-spacing table column)
     (%table-get-default-col-spacing table)))
   
+(defun table-col-spacing (table &optional col)
+  (warn "TABLE-COL-SPACING is deprecatet, use TABLE-COLUMN-SPACING instead")
+  (table-column-spacing table col))
+
 
 
 ;;; Toolbar
