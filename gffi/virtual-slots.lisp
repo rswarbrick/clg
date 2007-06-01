@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.7 2007-05-10 20:23:56 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.8 2007-06-01 06:46:06 espen Exp $
 
 (in-package "GFFI")
 
@@ -117,12 +117,11 @@
        
        ;; An explicit boundp function has been supplied
        ((slot-boundp slotd 'boundp) 
-	(let ((unbound-value (slot-value slotd 'boundp)))
+	(let ((boundp (slot-value slotd 'boundp)))
 	  #'(lambda (object)
-	      (let ((value (funcall reader-function object)))
-		(if (eq value unbound-value)
-		    (slot-unbound (class-of object) object (slot-definition-name slotd))
-		  value)))))
+	      (if (not (funcall boundp object))
+		  (slot-unbound (class-of object) object (slot-definition-name slotd))
+		(funcall reader-function object)))))
        
        ;; A type unbound value exists
        ((let ((unbound-method (find-applicable-type-method 'unbound-value 
