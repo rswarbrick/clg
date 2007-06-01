@@ -21,24 +21,23 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.5 2007-06-01 09:17:17 espen Exp $ */
+/* $Id: glue.c,v 1.6 2007-06-01 09:23:41 espen Exp $ */
 
 
 #include <gdk/gdk.h>
 
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
+#endif
 
 gint clg_gdk_connection_number (GdkDisplay *display)
 {
+#ifdef GDK_WINDOWING_X11
   return ConnectionNumber (GDK_DISPLAY_XDISPLAY (display));
-}
 #else
-gint clg_gdk_connection_number (void *display)
-{
   return -1;
-}
 #endif
+}
 
 
 GdkWindow *clg_gdk_cairo_surface_get_window (cairo_surface_t *surface)
