@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.2 2006-06-08 13:24:25 espen Exp $
+;; $Id: vectors.lisp,v 1.3 2007-06-01 06:15:37 espen Exp $
 
 
 (in-package "GFFI")
@@ -411,9 +411,9 @@
 		     for element by element-size
 		     until (memory-clear-p from-vector element-size element)
 		     finally (return length)))
-		   (to-vector (setf 
-			       (ref-pointer to offset)		  
-			       (allocate-memory (* length element-size)))))
+		   (to-vector 
+		    (setf (ref-pointer to offset)		  
+		     (allocate-memory (* (1+ length) element-size)))))
 	      (loop
 	       repeat length
 	       for element by element-size
