@@ -1,5 +1,5 @@
 /* Common Lisp bindings for GTK+ v2.x
- * Copyright 1999-2005 Espen S. Johnsen <espen@users.sf.net>
+ * Copyright 1999-2007 Espen S. Johnsen <espen@users.sf.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -21,25 +21,45 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.4 2007-04-06 14:25:20 espen Exp $ */
+/* $Id: glue.c,v 1.5 2007-06-01 09:17:17 espen Exp $ */
 
 
 #include <gdk/gdk.h>
-#include <gdk/gdkx.h>
 
-struct _GdkDisplayX11
-{
-  GdkDisplay parent_instance;
-  Display *xdisplay;
-};
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
 
 gint clg_gdk_connection_number (GdkDisplay *display)
 {
-  return ConnectionNumber (((struct _GdkDisplayX11 *)display)->xdisplay);
+  return ConnectionNumber (GDK_DISPLAY_XDISPLAY (display));
 }
-
-
-GdkWindow *clg_gdk_cairo_xlib_surface_get_window (cairo_surface_t *surface)
+#else
+gint clg_gdk_connection_number (void *display)
 {
-  return gdk_window_lookup (cairo_xlib_surface_get_drawable (surface));
+  return -1;
+}
+#endif
+
+
+GdkWindow *clg_gdk_cairo_surface_get_window (cairo_surface_t *surface)
+{
+  /* If 'surface_info_key' had been public we would have had a
+     portable way to find the GdkWindow of a Cairo surface. */
+  
+#ifdef GDK_WINDOWING_X11
+  Display* display = cairo_xlib_surface_get_display (surface);
+  Drawable window = cairo_xlib_surface_get_drawable (surface);
+  if (display && window)
+    return gdk_window_lookup_for_display (window, display);
+  else
+    return NULL;
+#elif defined (G_OS_WIN32)
+  HDC hdc = cairo_win32_surface_get_dc (surface);
+  if (hdc)
+    return gdk_window_lookup (hdc);
+  else
+    return NULL;
+#else
+  return NULL;
+#endif
 }

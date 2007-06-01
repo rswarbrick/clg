@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.70 2007-05-10 20:17:17 espen Exp $
+;; $Id: gtk.lisp,v 1.71 2007-06-01 09:17:17 espen Exp $
 
 
 (in-package "GTK")
@@ -77,13 +77,15 @@
     (progn
       (signal-connect (gdk:display-manager) 'display-opened
        #'(lambda (display)
-	   (let ((handler (add-fd-handler 
-			   (gdk:display-connection-number display) 
-			   :input #'main-iterate-all)))
-	     (signal-connect display 'closed
-	      #'(lambda (is-error-p)
-		  (declare (ignore is-error-p))
-		  (remove-fd-handler handler))))))
+	   (let ((fd (gdk:display-connection-number display)))
+	     (unless (< fd 0)
+	       (let ((handler (add-fd-handler 
+			       (gdk:display-connection-number display) 
+			       :input #'main-iterate-all)))
+		 (signal-connect display 'closed
+		  #'(lambda (is-error-p)
+		      (declare (ignore is-error-p))
+		      (remove-fd-handler handler))))))))
       (setq *periodic-polling-function* #'main-iterate-all)
       (setq *max-event-to-sec* 0)
       (setq *max-event-to-usec* *event-poll-interval*))
@@ -106,7 +108,6 @@
       #-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit."))
 
     (gdk:display-open display)))
-
 
 
 #+sbcl	  
