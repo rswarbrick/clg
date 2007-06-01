@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.6 2007-02-19 14:42:24 espen Exp $
+;; $Id: basic-types.lisp,v 1.7 2007-06-01 06:22:05 espen Exp $
 
 (in-package "GFFI")
 
@@ -459,18 +459,12 @@ have been written as temporal.")
 (define-type-method writer-function ((type single-float) &key temp (inlined t))
   (declare (ignore temp))
   (assert-inlined type inlined)
-  #'(lambda (value location &optional (offset 0))
-      (setf 
-       #+(or cmu sbcl)(sap-ref-single location offset)
-       #+clisp(ffi:memory-as location 'single-float offset)
-       (coerce value 'single-float))))
+  #'(setf ref-single-float))
 
 (define-type-method reader-function ((type single-float) &key ref (inlined t))
   (declare (ignore ref))
   (assert-inlined type inlined)
-  #'(lambda (location &optional (offset 0))
-      #+(or cmu sbcl)(sap-ref-single location offset)
-      #+clisp(ffi:memory-as location 'single-float offset)))
+  #'ref-single-float)
 
 
 
@@ -507,17 +501,12 @@ have been written as temporal.")
   (declare (ignore temp))
   (assert-inlined type inlined)
   #'(lambda (value location &optional (offset 0))
-      (setf 
-       #+(or cmu sbcl)(sap-ref-double location offset)
-       #+clisp(ffi:memory-as location 'double-float offset)
-       (coerce value 'double-float))))
+      (setf (ref-double-float location offset) (coerce value 'double-float))))
 
 (define-type-method reader-function ((type double-float) &key ref (inlined t))
   (declare (ignore ref))
   (assert-inlined type inlined)
-  #'(lambda (location &optional (offset 0))
-      #+(or cmu sbcl)(sap-ref-double location offset)
-      #+clisp(ffi:memory-as location 'double-float offset)))
+  #'ref-double-float)
 
 (deftype optimized-double-float () 'double-float)
 
@@ -1098,7 +1087,7 @@ have been written as temporal.")
 (define-type-method from-alien-function ((type copy-of) &key (ref :copy))
   (if (eq ref :copy)
       (from-alien-function (second (type-expand-to 'copy-of type)) :ref ref)
-    (error "Keyword arg :REF to FROM-ALIEN-FORM should be :COPY for type ~A. It was give ~A" type ref)))
+    (error "Keyword arg :REF to FROM-ALIEN-FUNCTION should be :COPY for type ~A. It was give ~A" type ref)))
 
 (define-type-method to-alien-form ((type copy-of) form &optional (copy-p t))
   (if copy-p
@@ -1141,7 +1130,7 @@ have been written as temporal.")
 (define-type-method from-alien-function ((type static) &key (ref :static))
   (if (eq ref :static)
       (from-alien-function (second (type-expand-to 'static type)) :ref ref)
-    (error "Keyword arg :REF to FROM-ALIEN-FORM should be :STATIC for type ~A. It was give ~A" type ref)))
+    (error "Keyword arg :REF to FROM-ALIEN-FUNCTION should be :STATIC for type ~A. It was give ~A" type ref)))
 
 (define-type-method to-alien-function ((type static) &optional copy-p)
   (if (not copy-p)
@@ -1151,7 +1140,7 @@ have been written as temporal.")
 (define-type-method to-alien-form ((type static) &optional copy-p)
   (if (not copy-p)
       (to-alien-function (second (type-expand-to 'static type)) t)
-  (error "COPY-P argument to TO-ALIEN-FUNCTION should always be NIL for type ~A" type)))
+  (error "COPY-P argument to TO-ALIEN-FORM should always be NIL for type ~A" type)))
 
 (define-type-method reader-function ((type static) &key (ref :read) (inlined nil inlined-p))
   (if inlined-p
