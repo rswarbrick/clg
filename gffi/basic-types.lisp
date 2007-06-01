@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.7 2007-06-01 06:22:05 espen Exp $
+;; $Id: basic-types.lisp,v 1.8 2007-06-01 06:24:43 espen Exp $
 
 (in-package "GFFI")
 
@@ -1135,12 +1135,12 @@ have been written as temporal.")
 (define-type-method to-alien-function ((type static) &optional copy-p)
   (if (not copy-p)
       (to-alien-function (second (type-expand-to 'static type)) t)
-  (error "COPY-P argument to TO-ALIEN-FUNCTION should always be NIL for type ~A" type)))
+    (error "COPY-P argument to TO-ALIEN-FUNCTION should always be NIL for type ~A" type)))
 
 (define-type-method to-alien-form ((type static) &optional copy-p)
   (if (not copy-p)
-      (to-alien-function (second (type-expand-to 'static type)) t)
-  (error "COPY-P argument to TO-ALIEN-FORM should always be NIL for type ~A" type)))
+      (to-alien-form (second (type-expand-to 'static type)) t)
+    (error "COPY-P argument to TO-ALIEN-FORM should always be NIL for type ~A" type)))
 
 (define-type-method reader-function ((type static) &key (ref :read) (inlined nil inlined-p))
   (if inlined-p
