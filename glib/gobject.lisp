@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.56 2007-05-10 20:25:30 espen Exp $
+;; $Id: gobject.lisp,v 1.57 2007-06-01 10:46:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -271,6 +271,10 @@
       (error "Objects of class ~A has instance slots and should only be created with MAKE-INSTANCE" class)
     (call-next-method)))
 
+(defparameter +gparameter-gvalue-offset+
+  (max (size-of 'pointer) (type-alignment '(unsigned-byte 64))))
+(defparameter +gparameter-size+
+  (+ +gparameter-gvalue-offset+ +gvalue-size+))
 
 (defmethod allocate-foreign ((object gobject) &rest initargs)
   (let ((init-slots ())) 
@@ -296,18 +300,17 @@
 
     (cond
      (init-slots
-      (let* ((pointer-size (size-of 'pointer))
-	     (element-size (+ +gvalue-size+ pointer-size))
-	     (num-slots (length init-slots)))
-	(with-memory (params (* num-slots element-size))
+      (let* ((num-slots (length init-slots)))
+	(with-memory (params (* num-slots +gparameter-size+))
           (loop
 	   with string-writer = (writer-function 'string)
 	   for (slotd . value) in init-slots
-	   as param = params then (pointer+ param element-size)
+	   as param = params then (pointer+ param +gparameter-size+)
 	   as type = (slot-definition-type slotd)
 	   as pname = (slot-definition-pname slotd)
 	   do (funcall string-writer pname param)
-              (gvalue-init (pointer+ param pointer-size) type value))
+	      (gvalue-init 
+	       (pointer+ param +gparameter-gvalue-offset+) type value))
 
 	  (unwind-protect
 	      (%gobject-newv (type-number-of object) num-slots params)
@@ -315,10 +318,10 @@
 	    (loop
 	     with string-destroy = (destroy-function 'string)
 	     repeat num-slots
-	     as param = params then (pointer+ param element-size)
+	     as param = params then (pointer+ param +gparameter-size+)
 	     do (funcall string-destroy param)
-	        (gvalue-unset (pointer+ param pointer-size)))))))
-
+	        (gvalue-unset (pointer+ param +gparameter-gvalue-offset+)))))))
+     
      (t (%gobject-new (type-number-of object))))))
 
 
