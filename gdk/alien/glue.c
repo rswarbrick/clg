@@ -21,13 +21,15 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.6 2007-06-01 09:23:41 espen Exp $ */
+/* $Id: glue.c,v 1.7 2007-06-02 19:17:47 espen Exp $ */
 
 
 #include <gdk/gdk.h>
 
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
+#elif defined (G_OS_WIN32)
+#include <gdk/gdkwin32.h>
 #endif
 
 gint clg_gdk_connection_number (GdkDisplay *display)
@@ -53,9 +55,9 @@ GdkWindow *clg_gdk_cairo_surface_get_window (cairo_surface_t *surface)
   else
     return NULL;
 #elif defined (G_OS_WIN32)
-  HDC hdc = cairo_win32_surface_get_dc (surface);
+  HDC hdc = (HDC)cairo_win32_surface_get_dc (surface);
   if (hdc)
-    return gdk_window_lookup (hdc);
+    return gdk_window_lookup ((GdkNativeWindow)hdc);
   else
     return NULL;
 #else
