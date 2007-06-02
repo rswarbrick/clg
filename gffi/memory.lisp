@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.3 2006-12-21 16:38:19 espen Exp $
+;; $Id: memory.lisp,v 1.4 2007-06-02 07:26:23 espen Exp $
 
 
 (in-package "GFFI")
@@ -70,6 +70,48 @@
    #+(or cmu sbcl)(sap-ref-8 location offset)
    #+clisp(ffi:memory-as location 'ffi:uchar offset)
    byte))
+
+(defun ref-int-32 (location &optional (offset 0))
+  #+(or cmu sbcl)(signed-sap-ref-32 location offset)
+  #+clisp(ffi:memory-as location 'ffi:sint32 offset))
+
+(defun (setf ref-int-32) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(signed-sap-ref-32 location offset)
+   #+clisp(ffi:memory-as location 'ffi:sint32 offset)
+   value))
+
+(defun ref-uint-32 (location &optional (offset 0))
+  #+(or cmu sbcl)(sap-ref-32 location offset)
+  #+clisp(ffi:memory-as location 'ffi:uint32 offset))
+
+(defun (setf ref-uint-32) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(sap-ref-32 location offset)
+   #+clisp(ffi:memory-as location 'ffi:uint32 offset)
+   value))
+
+(defun ref-single-float (location &optional (offset 0))
+  #+(or cmu sbcl)(sap-ref-single location offset)
+  #+clisp(ffi:memory-as location 'single-float offset))
+
+(defun (setf ref-single-float) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(sap-ref-single location offset)
+   #+clisp(ffi:memory-as location 'single-float offset)
+   value))
+
+(defun ref-double-float (location &optional (offset 0))
+  #+(or cmu sbcl)(sap-ref-double location offset)
+  #+clisp(ffi:memory-as location 'double-float offset))
+
+(defun (setf ref-double-float) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(sap-ref-double location offset)
+   #+clisp(ffi:memory-as location 'double-float offset)
+   value))
+
+
 
 (defparameter *memory-allocator* nil)
 (defparameter *memory-deallocator* nil)
