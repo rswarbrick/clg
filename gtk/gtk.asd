@@ -18,7 +18,8 @@
 			    :ldflags #.(pkg-libs "gtk+-2.0")
 			    :components ((:c-source-file "glue"
 					  :cflags #.(pkg-cflags "gtk+-2.0")))
-			    :depends-on ("libgtk-x11-2.0"))
+;			    :depends-on ("libgtk-x11-2.0")
+			    )
 		 (:file "gtkobject" 
 			:depends-on ("defpackage" "alien"))
  		 (:file "gtktypes" :depends-on ("gtkobject"))
