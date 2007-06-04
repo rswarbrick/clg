@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.12 2007-04-06 14:12:09 espen Exp $
+;; $Id: cairo.lisp,v 1.13 2007-06-04 10:42:53 espen Exp $
 
 (in-package "CAIRO")
 
@@ -58,7 +58,7 @@
   (define-enum-type surface-type 
     image-surface pdf-surface ps-surface xlib-surface xcb-surface 
     glitz-surface quartz-surface win32-surface beos-surface 
-    directfb-surface)
+    directfb-surface svg-surface os2-surface)
 
   (defclass surface-class (proxy-class)
     ())
