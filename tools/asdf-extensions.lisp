@@ -2,7 +2,7 @@
 
 (export '*dso-extension*)
 
-(defvar *dso-extension* #-darwin"so" #+darwin"dylib")
+(defparameter *dso-extension* #-darwin"so" #+darwin"dylib")
 
 
 ;;; The following code is more or less copied frm sb-bsd-sockets.asd,
@@ -106,7 +106,8 @@
 ;;; Shared libraries
 
 (defclass library (component) 
-  ((libdir :initarg :libdir)))
+  ((libdir :initarg :libdir)
+   (libname :initarg :libname :initform nil)))
 
 
 (defun split-path (path)
@@ -123,7 +124,7 @@
 
 (defmethod component-pathname ((lib library))
   (make-pathname :type *dso-extension*
-		 :name (component-name lib)
+		 :name (or (slot-value lib 'libname) (component-name lib))
 		 :directory (split-path (slot-value lib 'libdir))))
 
 (defmethod perform ((o load-op) (c library))
