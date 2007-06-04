@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.71 2007-06-01 09:17:17 espen Exp $
+;; $Id: gtk.lisp,v 1.72 2007-06-04 19:03:12 espen Exp $
 
 
 (in-package "GTK")
@@ -73,7 +73,7 @@
     (gdk:gdk-init)
     (unless (gtk-init)
       (error "Initialization of GTK+ failed."))
-    #+(or cmu sbcl)
+    #?(or (pkg-config:featurep :cmu) (and (pkg-config:featurep :sbcl) (not (pkg-config:sbcl>= 1 0 6))))
     (progn
       (signal-connect (gdk:display-manager) 'display-opened
        #'(lambda (display)
@@ -89,6 +89,8 @@
       (setq *periodic-polling-function* #'main-iterate-all)
       (setq *max-event-to-sec* 0)
       (setq *max-event-to-usec* *event-poll-interval*))
+    #?(pkg-config:sbcl>= 1 0 6)
+    (warn "Periodic polling functionality has been removed from SERVE-EVENT in SBCL 1.0.6. An explicit gtk main loop has to be invoked.")
     #+(and clisp readline)
     ;; Readline will call the event hook at most ten times per second
     (setf readline:event-hook #'main-iterate-all)

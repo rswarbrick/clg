@@ -9,10 +9,10 @@
 	   "ADD-READER-METHOD" "ADD-WRITER-METHOD")
   #+(or cmu sbcl)
   (:import-from #+cmu"SYSTEM" #+sbcl"SB-SYS" "SAP-INT" "ADD-FD-HANDLER" "REMOVE-FD-HANDLER")
-  #+(or cmu sbcl)
+  #?(or (pkg-config:featurep :cmu) (and (pkg-config:featurep :sbcl) (not (pkg-config:sbcl>= 1 0 6))))
   (:import-from #+cmu"LISP" #+sbcl"SB-IMPL"
 	   "*PERIODIC-POLLING-FUNCTION*" "*MAX-EVENT-TO-SEC*" 
-	   "*MAX-EVENT-TO-USEC*")		
+ 	   "*MAX-EVENT-TO-USEC*")		
   (:export "EVENTS-PENDING-P" "GET-CURRENT-EVENT" "MAIN-DO-EVENT" "MAIN"
 	   "MAIN-LEVEL" "MAIN-QUIT" "MAIN-ITERATION-DO" "MAIN-ITERATE-ALL")
   (:export "CONTAINER-CHILD-CLASS" "CONTAINER-CHILD" "CONTAINER-CHILD-CLASS")
