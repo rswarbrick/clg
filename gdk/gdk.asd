@@ -5,22 +5,25 @@
 
 (in-package "GDK-SYSTEM")
 
-(pkg-exists-p "gtk+-2.0" :atleast-version "2.4.0" :error t)
+(pkg-exists-p "gdk-2.0" :atleast-version "2.4.0" :error t)
 
 (defsystem gdk
-    :depends-on (gffi glib pango #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0") cairo)
+    :depends-on (gffi glib pango #?(pkg-exists-p "gdk-2.0" :atleast-version "2.8.0") cairo)
     :components ((:file "defpackage")
 		 (:library "libgdk_pixbuf-2.0" 
-			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
-		 (:library "libgdk-x11-2.0" 
-			   :libdir #.(pkg-variable "gtk+-2.0" "libdir"))
+			   :libdir #.(pkg-variable "gdk-2.0" "libdir"))
+		 (:library "libgdk-2.0" 
+			   :libdir #.(pkg-variable "gdk-2.0" "libdir")
+			   :libname #-win32 "libgdk-x11-2.0"
+			            #+win32 "libgdk-win32-2.0-0")
 		 (:unix-dso "alien"
-			    :ldflags #.(pkg-libs "gtk+-2.0")
+			    :ldflags #.(pkg-libs "gdk-2.0")
 			    :components ((:c-source-file "glue"
-					  :cflags #.(pkg-cflags "gtk+-2.0"))))
+					  :cflags #.(pkg-cflags "gdk-2.0")))
+			    :depends-on (#+cmu "libgdk-2.0"))
 		 (:file "gdktypes" :depends-on ("defpackage" "alien" 
 						"libgdk_pixbuf-2.0" 
-						"libgdk-x11-2.0"))
+						"libgdk-2.0"))
 		 (:file "gdkevents" :depends-on ("gdktypes"))
 		 (:file "pixbuf" :depends-on ("gdktypes"))
 		 (:file "gdk" :depends-on ("gdkevents"))
