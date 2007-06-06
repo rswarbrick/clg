@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.41 2007-05-10 20:13:42 espen Exp $
+;; $Id: gtkobject.lisp,v 1.42 2007-06-06 10:43:54 espen Exp $
 
 
 (in-package "GTK")
@@ -29,9 +29,7 @@
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library 
-   #.(concatenate 'string (pkg-config:pkg-variable "gtk+-2.0" "libdir") 
-		          "/libgtk-x11-2.0." asdf:*dso-extension*))
+  (init-types-in-library gtk "libgtk-2.0")
 
   (defclass %object (gobject)
     ()

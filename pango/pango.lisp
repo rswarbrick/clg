@@ -20,27 +20,15 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pango.lisp,v 1.13 2007-04-06 14:51:26 espen Exp $
+;; $Id: pango.lisp,v 1.14 2007-06-06 10:43:54 espen Exp $
 
 (in-package "PANGO")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library #.(concatenate 'string 
-			    (pkg-variable "pango" "libdir")
-		            "/libpango-1.0." asdf:*dso-extension*) 
-			 :prefix "pango_")
-  (init-types-in-library #.(concatenate 'string 
-			    (pkg-variable "pango" "libdir")
-		            "/libpangoxft-1.0." asdf:*dso-extension*) 
-			 :prefix "pango_xft")
-  (init-types-in-library #.(concatenate 'string 
-			    (pkg-variable "pango" "libdir")
-			    "/libpangoft2-1.0." asdf:*dso-extension*) 
-			 :prefix "pango_fc")
-  (init-types-in-library #.(concatenate 'string 
-			    (pkg-variable "pango" "libdir")
-			    "/libpangocairo-1.0." asdf:*dso-extension*) 
-			 :prefix "pango_cairo"))
+  (init-types-in-library pango "libpango-1.0" :prefix "pango_")
+  (init-types-in-library pango "libpangoxft-1.0" :prefix "pango_xft")
+  (init-types-in-library pango "libpangoft2-1.0" :prefix "pango_fc")
+  (init-types-in-library pango "libpangocairo-1.0" :prefix "pango_cairo"))
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)

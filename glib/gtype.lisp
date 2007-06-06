@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.61 2007-02-23 12:53:08 espen Exp $
+;; $Id: gtype.lisp,v 1.62 2007-06-06 10:43:54 espen Exp $
 
 (in-package "GLIB")
 
@@ -246,8 +246,9 @@
 	 process)))))
 
 
-(defmacro init-types-in-library (filename &key prefix ignore)
-  (let ((names (%find-types-in-library filename prefix ignore)))
+(defmacro init-types-in-library (system library &key prefix ignore)
+  (let* ((filename (asdf:component-pathname (asdf:find-component (asdf:find-system system) library)))
+	 (names (%find-types-in-library filename prefix ignore)))
     `(progn
        ,@(mapcar #'(lambda (name)
 		     `(progn
@@ -513,7 +514,7 @@
 
 ;; The argument is a list where each elements is on the form 
 ;; (type . dependencies). This function will not handle indirect
-;; dependencies and types depending on them selve.
+;; dependencies and types depending on them selves.
 (defun sort-types-topologicaly (unsorted)
   (flet ((depend-p (type1)
            (find-if #'(lambda (type2)
@@ -627,4 +628,4 @@
 
 ;;;; Initialize all non static types in GObject
 
-(init-types-in-library #.(concatenate 'string (pkg-config:pkg-variable "glib-2.0" "libdir") "/libgobject-2.0." asdf:*dso-extension*))
+(init-types-in-library glib "libgobject-2.0")

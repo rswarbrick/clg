@@ -20,17 +20,13 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.27 2006-09-05 13:14:10 espen Exp $
+;; $Id: gdktypes.lisp,v 1.28 2007-06-06 10:43:54 espen Exp $
 
 (in-package "GDK")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library #.(concatenate 'string
-			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk-x11-2.0." asdf:*dso-extension*) :prefix ("gdk_" "_gdk_"))
-  (init-types-in-library #.(concatenate 'string
-			    (pkg-config:pkg-variable "gtk+-2.0" "libdir")
-			    "/libgdk_pixbuf-2.0." asdf:*dso-extension*) :prefix "gdk_"))
+  (init-types-in-library gdk "libgdk-2.0" :prefix ("gdk_" "_gdk_"))
+  (init-types-in-library gdk "libgdk_pixbuf-2.0" :prefix "gdk_"))
 
 
 (defclass color (boxed)
@@ -157,6 +153,7 @@
      :reader display-devices
      :type (copy-of (glist device)))))
 
+  ;; TODO: add unbound options
   ("GdkDrawable"
    :slots
    ((display
