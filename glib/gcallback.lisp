@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.42 2007-05-10 20:25:09 espen Exp $
+;; $Id: gcallback.lisp,v 1.43 2007-06-15 12:03:26 espen Exp $
 
 (in-package "GLIB")
 
@@ -87,7 +87,7 @@
     (signal-handler-block instance handler-id)
     (unwind-protect
 	(restart-case (apply #'invoke-callback callback-id nil args)
-	  (abort () :report "Disconnect and exit signal handler"
+	  (disconnect () :report "Disconnect and exit signal handler"
 	    (when (signal-handler-is-connected-p instance handler-id)
 	      (signal-handler-disconnect instance handler-id))
 	    (values nil t))))
@@ -118,8 +118,18 @@
 (defbinding source-remove () boolean
   (tag unsigned-int))
 
-(define-callback source-callback-marshal nil ((callback-id unsigned-int))
-  (callback-trampoline #'invoke-callback callback-id 0 nil))
+(define-callback source-callback-marshal boolean ((callback-id unsigned-int))
+  (invoke-source-callback callback-id))
+
+(defun invoke-source-callback (callback-id)
+  (restart-case (funcall (find-user-data callback-id))
+    (remove () :report "Exit and remove source callback"
+      nil)
+    (continue () :report "Return from source callback"
+      t)
+    (re-invoke nil :report "Re-invoke source callback"
+      (invoke-source-callback callback-id))))
+
 
 (defbinding (timeout-add "g_timeout_add_full")
     (interval function &optional (priority +priority-default+)) unsigned-int 
