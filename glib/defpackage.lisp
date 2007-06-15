@@ -20,13 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: defpackage.lisp,v 1.20 2007-02-19 13:07:46 espen Exp $
+;; $Id: defpackage.lisp,v 1.21 2007-06-15 12:05:17 espen Exp $
 
 
 (defpackage "GLIB"
   (:use "COMMON-LISP" "GFFI" "AUTOEXPORT" "PKG-CONFIG" "CLG-UTILS")
   #+cmu(:use "PCL" "EXT")
   #+sbcl(:use "SB-MOP" "SB-EXT")
+  #+sb-thread(:use "SB-THREAD")
   #+clisp(:use "CLOS")
   #+clisp(:import-from "EXT" "RUN-PROGRAM")
   #+clisp(:shadowing-import-from "GFFI" "SLOT-DEFINITION-TYPE")
@@ -64,6 +65,7 @@
   ;; Symbols from gcallback.lisp  
   (:export "GCLOSURE" "REGISTER-CALLBACK-FUNCTION" "INVOKE-CALLBACK" 
 	   "TIMEOUT-ADD" "TIMEOUT-REMOVE" "IDLE-ADD" "IDLE-REMOVE"
+	   "+PRIORITY-DEFAULT-IDLE+" "+PRIORITY-DEFAULT+"
 	   "ENSURE-SIGNAL-ID" "SIGNAL-LIST-NAMES" "SIGNAL-LOOKUP" 
 	   "SIGNAL-LIST-IDS" "DESCRIBE-SIGNAL" "DEFINE-SIGNAL-HANDLER"
 	   "CALL-NEXT-HANDLER" "MAKE-CALLBACK-CLOSURE"
