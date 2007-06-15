@@ -20,12 +20,21 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.39 2006-12-21 16:38:19 espen Exp $
+;; $Id: glib.lisp,v 1.40 2007-06-15 12:25:16 espen Exp $
 
 
 (in-package "GLIB")
 
 (use-prefix "g")
+
+#-sb-thread
+(progn
+  (defun make-mutex ()
+    nil)
+  
+  (defmacro with-mutex ((mutex) &body body)
+    (declare (ignore mutex))
+    `(progn ,@body)))
 
 
 ;;;; Memory management
@@ -45,41 +54,46 @@
 
 ;;;; User data mechanism
 
+(defvar *user-data-lock* (make-mutex))
 (defvar *user-data* (make-hash-table))
 (defvar *user-data-count* 0)
 
 (defun register-user-data (object &optional destroy-function)
   (check-type destroy-function (or null symbol function))
-  (incf *user-data-count*)
-  (setf
-   (gethash *user-data-count* *user-data*)
-   (cons object destroy-function))
-  *user-data-count*)
+  (with-mutex (*user-data-lock*)
+    (incf *user-data-count*)
+    (setf
+     (gethash *user-data-count* *user-data*)
+     (cons object destroy-function))
+    *user-data-count*))
 
 (defun find-user-data (id)
   (check-type id fixnum)
-  (multiple-value-bind (user-data p) (gethash id *user-data*)
-    (values (car user-data) p)))
+  (with-mutex (*user-data-lock*)
+    (multiple-value-bind (user-data p) (gethash id *user-data*)
+      (values (car user-data) p))))
 
 (defun user-data-exists-p (id)
   (nth-value 1 (find-user-data id)))
 
 (defun update-user-data (id object)
   (check-type id fixnum)
-  (multiple-value-bind (user-data exists-p) (gethash id *user-data*)
-    (cond
-     ((not exists-p) (error "User data id ~A does not exist" id))
-     (t 
-      (when (cdr user-data)
-	(funcall (cdr user-data) (car user-data)))
-      (setf (car user-data) object)))))
+  (with-mutex (*user-data-lock*)
+    (multiple-value-bind (user-data exists-p) (gethash id *user-data*)
+      (cond
+       ((not exists-p) (error "User data id ~A does not exist" id))
+       (t 
+	(when (cdr user-data)
+	  (funcall (cdr user-data) (car user-data)))
+	(setf (car user-data) object))))))
 
 (defun destroy-user-data (id)
   (check-type id fixnum)
-  (let ((user-data (gethash id *user-data*)))
-    (when (cdr user-data)
-      (funcall (cdr user-data) (car user-data))))
-  (remhash id *user-data*))
+  (with-mutex (*user-data-lock*)
+    (let ((user-data (gethash id *user-data*)))
+      (when (cdr user-data)
+	(funcall (cdr user-data) (car user-data))))
+    (remhash id *user-data*)))
 
 
 ;;;; Quarks
