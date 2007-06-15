@@ -2,7 +2,8 @@
 
 (export '*dso-extension*)
 
-(defparameter *dso-extension* #-darwin"so" #+darwin"dylib")
+(defparameter *dso-extension* 
+ #-(and darwin win32)"so" #+darwin"dylib" #+win32"dll")
 
 
 ;;; The following code is more or less copied frm sb-bsd-sockets.asd,
@@ -28,24 +29,26 @@
 		    :directory (butlast (pathname-directory dir))
 		    :defaults dir))))
 
-
 (defmethod perform :after ((operation compile-op) (dso unix-dso))
-  (let ((dso-name (unix-name (car (output-files operation dso)))))
+  (let ((output (first (output-files operation dso)))
+	(inputs (mapcar #'unix-name
+		 (mapcan #'(lambda (c)
+			     (output-files operation c))
+		  (module-components dso)))))
     (unless (zerop
-	     (run-shell-command
-	      "gcc ~A -o ~S ~{~S ~}"
-	      (clg-utils:concatenate-strings
-	       (cons
-		#+sunos "-shared -lresolv -lsocket -lnsl"
-		#+darwin "-bundle"
-		#-(or darwin sunos) "-shared"
-		(slot-value dso 'ldflags))
-	       #\sp)
-	      dso-name
-	      (mapcar #'unix-name
-		      (mapcan (lambda (c)
-				(output-files operation c))
-			      (module-components dso)))))
+	     (run-shell-command "gcc ~A~{ ~A~} -o ~S~{ ~S~}"
+	      #-(and darwin win32)"-shared"
+	      #+darwin "-bundle"
+	      #+win32
+	      (format nil "-shared -Wl,--out-implib,~S"
+	       (unix-name
+		(make-pathname 
+		 :type "a" 
+		 :name (format nil "lib~Adll" (pathname-name output))
+		 :defaults output)))
+	      (slot-value dso 'ldflags)
+	      (unix-name output)
+	      inputs))
       (error 'operation-error :operation operation :component dso))))
 
 #+clisp
@@ -80,21 +83,20 @@
 
 (defmethod perform ((op compile-op) (c c-source-file))
   (unless
-      (= 0 (run-shell-command "gcc ~A -o ~S -c ~S"
-	    (clg-utils:concatenate-strings
-	     (append
-	      (list "-fPIC")
-	      (when (slot-value c 'optimization)
-		(list (format nil "-O~A" (slot-value c 'optimization))))
-	      (loop 
-	       for symbol in (slot-value c 'definitions)
-	       collect (format nil "-D~A" symbol))
-	      (loop 
-	       for path in (slot-value c 'include-paths)
-	       collect (format nil "-I~A" path))
-	      (slot-value c 'cflags))
-	     #\sp)
-	    (unix-name (car (output-files op c)))
+      (= 0 (run-shell-command "gcc ~A~{ ~A~} -o ~S -c ~S"
+	    #-win32 "-fPIC"
+	    #+win32 "-DBUILD_DLL"
+	    (nconc
+	     (when (slot-value c 'optimization)
+	       (list (format nil "-O~A" (slot-value c 'optimization))))
+	     (loop 
+	      for symbol in (slot-value c 'definitions)
+	      collect (format nil "-D~A" symbol))
+	     (loop 
+	      for path in (slot-value c 'include-paths)
+	      collect (format nil "-I~A" path))
+	     (slot-value c 'cflags))
+	    (unix-name (first (output-files op c)))
 	    (unix-name (component-pathname c))))
     (error 'operation-error :operation op :component c)))
 
@@ -127,8 +129,14 @@
 		 :name (or (slot-value lib 'libname) (component-name lib))
 		 :directory (split-path (slot-value lib 'libdir))))
 
+;; --fix: is UNIX-NAME really necessary for win32?  i know it will bomb
+;;        without using it while doing (ASDF:OOS 'ASDF:LOAD-OP :GLIB) but
+;;        loading the complete pathname for libglib-2.0-0.dll with
+;;        SB-ALIEN:LOAD-SHARED-OBJECT by hand won't explode.  weird.
+;;         - cph 18-May-2007
 (defmethod perform ((o load-op) (c library))
-  (load-dso (component-pathname c)))
+  (load-dso #-win32 (component-pathname c)
+	    #+win32 (unix-name (component-pathname c))))
 
 (defmethod perform ((operation operation) (c library))
   nil)

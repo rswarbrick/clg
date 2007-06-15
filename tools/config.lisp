@@ -2,50 +2,35 @@
   (:use #:common-lisp #:clg-utils #+(or cmu clisp) #:ext #+sbcl #:sb-ext)
   #+sbcl
   (:import-from #:sb-int #:featurep)
-  (:export #:pkg-cflags #:pkg-libs #:pkg-exists-p #:pkg-version #:pkg-variable)
-  (:export #:featurep #:sbcl>= #:clisp>=))
+  (:export #:pkg-cflags #:pkg-libs #:pkg-exists-p #:pkg-version
+           #:pkg-variable #:pkg-libdir #:tmpname)
+  (:export #:featurep #:sbcl>= #:sbcl< #:clisp>=))
 
 (in-package #:pkg-config)
 
-(defparameter *pkg-config* "/usr/bin/pkg-config")
+(defparameter *pkg-config* "pkg-config")
 
 
-#+(or sbcl cmu)
+(defun tmpname (suffix)
+  (format nil "~Aclg-~A-~A"
+   #-win32 "/tmp/" #+win32 "c:/temp/" 
+   #+sbcl(sb-posix:getpid)
+   #+cmu(unix:unix-getpid)
+   #+clisp(os:process-id)   
+   suffix))
+
 (defun run-pkg-config (package error-p &rest options)
-  (let ((process
-	 (run-program
-	  *pkg-config* (cons package options) :wait t :output :stream)))
-    (unless process
-      (error "Unable to run ~A" *pkg-config*))
-    (let ((exit-code (process-exit-code process)))
-      (unless (or (not error-p) (zerop exit-code))
-	(error
-	 (or
-	  (format nil "~A: ~{~A~%~}" *pkg-config* (read-lines (process-error process)))
-	  (format nil "~A terminated with exit code ~A"
-		  *pkg-config* exit-code))))
-      (let ((output (read-lines (process-output process))))	  
-	(process-close process)
-	(values output exit-code)))))
-
-#+clisp
-(defun run-pkg-config (package error-p &rest options)
-  (let ((outfile (format nil "/tmp/clg-pkg-config-~A-output" (os:process-id)))
-	(errfile (format nil "/tmp/clg-pkg-config-~A-error" (os:process-id))))
+  (let ((outname (tmpname "pkg-config")))
     (unwind-protect
-	(let ((exit-code 
-	       (run-shell-command 
-		(format nil "~A ~A ~{~A ~}2>~A" 
-		 *pkg-config* package 
-		 (mapcar #'(lambda (option) 
-			     (format nil "'~A'" option))
-			 options)
-		 errfile)
-		:output outfile :if-output-exists :overwrite)))
+	(let* ((asdf::*verbose-out* nil)
+	       (exit-code 
+		(asdf:run-shell-command 
+		 "~A ~A ~:[~;--print-errors ~]~{~A ~} &>~A"
+		 *pkg-config* package error-p options outname)))
 	  (cond
 	   ((= exit-code 127) (error "Unable to run ~A" *pkg-config*))
 	   ((and error-p (not (zerop exit-code)))
-	    (with-open-file (output errfile)
+	    (with-open-file (output outname)
 	      (let ((errmsg (read-lines output)))
 		(error
 		 (if (not errmsg)
@@ -53,12 +38,10 @@
 		   (format nil "~A: ~{~A~%~}" *pkg-config* errmsg))))))
 	   (t
 	    (values 
-	     (with-open-file (output outfile)
+	     (with-open-file (output outname)
 	       (read-lines output))
 	     exit-code))))
-      (progn
-	(delete-file outfile)
-	(delete-file errfile)))))
+      (delete-file outname))))
 
 
 (defun pkg-cflags (package)
@@ -68,30 +51,74 @@
   (split-string (first (run-pkg-config package t "--libs"))))
 
 
+;; With
+;;   (let ((version-check
+;; 	 (cond
+;; 	  (version (format nil "= ~A" version))
+;; 	  (atleast-version (format nil ">= ~A" atleast-version))
+;; 	  (max-version (format nil "<= ~A" max-version))
+;; 	  (t ""))))
+;;     ...)
+;; when running
+;;   (PKG-EXISTS-P "glib-2.0" :ATLEAST-VERSION "2.4.0" :ERROR T)
+;; the EXIT-CODE in RUN-PKG-CONFIG will be 1 on ms windows and 0 on linux
+
+;; Both on ms windows and linux
+;;   "pkg-config glib-2.0 --print-errors -exists >=2.4.0" is O.K. but
+;;   "pkg-config glib-2.0 --print-errors -exists >= 2.4.0" prints out
+;;     an error message.
+;; However,
+;;   "pkg-config glib-2.0 --print-errors -exists =2.12.11" prints out
+;;     an error message but
+;;   "pkg-config glib-2.0 --print-errors -exists = 2.12.11" is O.K.
+;; We can get around this problem by using
+;;   (let ((version-check
+;; 	 (cond
+;; 	  (version (format nil "--exact-version=~A" version))
+;; 	  (atleast-version (format nil "--atleast-version=~A" atleast-version))
+;; 	  (max-version (format nil "--max-version=~A" max-version))
+;; 	  (t ""))))
+;;     ...)
+;;  - cph 17-May-2007
+
+;; Could the problem with --exists on win32 be caused by improper quoting?
+;; Since --exact-version, --atleast-version and --max-version doesn't print
+;; any error message, we stick to --exists on non Win32 platforms.
+;;  - esj 2007-06-14
+
+
+;; --fix: in win32 sbcl
+;;        (pkg-exists-p "glib-2.0" :version "3.12.11" :error t)
+;;        will hang indefinitely.   - cph 17-May-2007
+
 (defun pkg-exists-p (package &key version atleast-version max-version error)
   (let ((version-check
 	 (cond
-	  (version (format nil "= ~A" version))
-	  (atleast-version (format nil ">= ~A" atleast-version))
-	  (max-version (format nil "<= ~A" max-version))
+	  (version 
+	   #-win32(format nil "--exists \"= ~A\"" version)
+	   #+win32(format nil "--exact-version=~A" version))
+	  (atleast-version 
+	   #-win32(format nil "--exists \">= ~A\"" atleast-version)
+	   #+win32(format nil "--atleast-version=~A" atleast-version))
+	  (max-version 
+	   #-win32(format nil "--exists \"<= ~A\"" max-version)
+	   #+win32(format nil "--max-version=~A" max-version))
 	  (t ""))))
-    (if error
-	(progn
-	  (run-pkg-config package t "--print-errors" "--exists" version-check)
-	  t)
-      (multiple-value-bind (output exit-code)
-	  (run-pkg-config package nil "--exists" version-check)
-	(declare (ignore output))
-	(zerop exit-code)))))
-
+    (zerop (nth-value 1 (run-pkg-config package error version-check)))))
 
 (defun pkg-version (package)
   (first (run-pkg-config package t "--modversion")))
 
-
 (defun pkg-variable (package variable)
   (first (run-pkg-config package t "--variable" variable)))
 
+(defun pkg-libdir (package)
+  #-win32
+  (pkg-variable package "libdir")
+  #+win32
+  (let ((ldir (pkg-variable package "libdir")))
+    (format nil "~Abin" (subseq ldir 0 (search "lib" ldir :from-end t)))))
+  
 
 (defun |#?-reader| (stream subchar arg)
   (declare (ignore subchar arg))
@@ -130,12 +157,18 @@
       (or 
        (> major req-major)
        (and (= major req-major) (> minor req-minor))
-       (and (= major req-major) (= minor req-minor) (>= micro req-micro))))))
+       (and (= major req-major) (= minor req-minor) (>= micro req-micro)))))
+  (defun sbcl< (req-major req-minor req-micro)
+    (not (sbcl>= req-major req-minor req-micro))))
 
 #-sbcl
-(defun sbcl>= (req-major req-minor req-micro)
-  (declare (ignore req-major req-minor req-micro))
-  nil)
+(progn
+  (defun sbcl>= (req-major req-minor req-micro)
+    (declare (ignore req-major req-minor req-micro))
+    nil)
+  (defun sbcl< (req-major req-minor req-micro)
+    (declare (ignore req-major req-minor req-micro))
+    nil))
 
 #+clisp
 (progn
