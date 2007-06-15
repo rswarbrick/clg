@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.8 2007-06-01 06:46:06 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.9 2007-06-15 12:23:39 espen Exp $
 
 (in-package "GFFI")
 
@@ -207,6 +207,8 @@
     (etypecase setter
       (symbol #'(lambda (object value) (funcall setter object value)))
       (list #'(lambda (object value)
+		;; Setter is a (setf ...) form and thus takes the
+		;; value as the first argument
 		(funcall setter value object)))
       (function setter))))
 
