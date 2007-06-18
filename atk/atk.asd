@@ -12,7 +12,9 @@
 (defsystem atk
     :depends-on (gffi glib gdk)
     :components ((:library "libatk-1.0"
-			   :libdir #.(pkg-variable "atk" "libdir"))
+			   :libname #-win32 "libatk-1.0"
+			            #+win32 "libatk-1.0-0"
+			   :libdir #.(pkg-libdir "atk"))
 		 (:file "defpackage")
 		 (:file "atk" :depends-on ("defpackage" "libatk-1.0"))
 		 (:file "export" :depends-on ("atk"))))
