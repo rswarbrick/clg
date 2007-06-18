@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pixbuf.lisp,v 1.5 2006-06-07 13:18:20 espen Exp $
+;; $Id: pixbuf.lisp,v 1.6 2007-06-18 10:14:39 espen Exp $
 
 
 (in-package "GDK")
@@ -82,7 +82,7 @@
   (filename pathname)
   (type string)
   (keys strings)
-  (values string)
+  (values strings)
   (nil gerror :out))
 
 (defun pixbuf-save (pixbuf filename type &rest options)
@@ -90,6 +90,7 @@
 	(values (make-array 0 :adjustable t :fill-pointer t)))
     (loop 
      as (key value . rest) = options then rest
+     while key
      do (vector-push-extend (string-downcase key) keys)
         (vector-push-extend 
 	 (etypecase value 
@@ -98,7 +99,7 @@
 	   (number (format nil "~A" value)))
 	 values))
     (multiple-value-bind (ok-p gerror)
-	(%pixbuf-savev pixbuf filename type keys values)
+	(%pixbuf-savev pixbuf filename (string-downcase type) keys values)
       (unless ok-p
 	(signal-gerror gerror)))))
 
