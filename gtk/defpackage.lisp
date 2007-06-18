@@ -9,7 +9,7 @@
 	   "ADD-READER-METHOD" "ADD-WRITER-METHOD")
   #+(or cmu sbcl)
   (:import-from #+cmu"SYSTEM" #+sbcl"SB-SYS" "SAP-INT" "ADD-FD-HANDLER" "REMOVE-FD-HANDLER")
-  #?(or (pkg-config:featurep :cmu) (and (pkg-config:featurep :sbcl) (not (pkg-config:sbcl>= 1 0 6))))
+  #?(or (pkg-config:featurep :cmu) (pkg-config:sbcl< 1 0 6))
   (:import-from #+cmu"LISP" #+sbcl"SB-IMPL"
 	   "*PERIODIC-POLLING-FUNCTION*" "*MAX-EVENT-TO-SEC*" 
  	   "*MAX-EVENT-TO-USEC*")		
@@ -27,9 +27,13 @@
 
 (defpackage "CLG"
   (:use "GLIB" "GTK")
-  ;; Symbols re-exported from the GTK package
-  (:export "TOGGLE" "CONTAINRE-CHILD")
-  ;; Symbols re-exported from GLIB package
+  ;; Symbols re-exported from the GLIB package
   (:export "SIGNAL-EMIT-STOP" "SIGNAL-CONNECT" "SIGNAL-DISCONNECT"
 	   "SIGNAL-HANDLER-BLOCK" "SIGNAL-HANDLER-UNBLOCK"
-	   "TIMEOUT-ADD" "TIMEOUT-REMOVE" "IDLE-ADD" "IDLE-REMOVE"))
+	   "TIMEOUT-ADD" "TIMEOUT-REMOVE" "IDLE-ADD" "IDLE-REMOVE")
+  ;; Symbols re-exported from the GDK package 
+  (:import-from "GDK" "TIMEOUT-ADD-WITH-LOCK" "IDLE-ADD-WITH-LOCK")
+  (:export "TIMEOUT-ADD-WITH-LOCK" "IDLE-ADD-WITH-LOCK")
+  ;; Symbols not automatically re-exported from the GTK package
+  (:export "TOGGLE" "CONTAINER-CHILD"))
+
