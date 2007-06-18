@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.40 2007-06-18 13:41:18 espen Exp $
+;; $Id: gdk.lisp,v 1.41 2007-06-18 14:27:02 espen Exp $
 
 
 (in-package "GDK")
@@ -1068,24 +1068,26 @@
 
 #+sb-thread
 (progn
-  (defvar *global-lock* (sb-thread:make-mutex :name "global GDK lock"))
+  (defvar *global-lock* nil)
 
   (defun %global-lock-p ()
     (eq (car (sb-thread:mutex-value *global-lock*)) sb-thread:*current-thread*))
 
   (defun threads-enter ()
-    (if (%global-lock-p)
-	(incf (cdr (sb-thread:mutex-value *global-lock*)))
-      (sb-thread:get-mutex *global-lock* (cons sb-thread:*current-thread* 0))))
+    (when *global-lock*
+      (if (%global-lock-p)
+	  (incf (cdr (sb-thread:mutex-value *global-lock*)))
+	(sb-thread:get-mutex *global-lock* (cons sb-thread:*current-thread* 0)))))
     
   (defun threads-leave (&optional flush-p)
-    (assert (%global-lock-p))
-    (cond
-     ((zerop (cdr (sb-thread:mutex-value *global-lock*)))
-      (when flush-p
-	(flush))
-      (sb-thread:release-mutex *global-lock*))
-     (t (decf (cdr (sb-thread:mutex-value *global-lock*))))))
+    (when *global-lock*
+      (assert (%global-lock-p))
+      (cond
+       ((zerop (cdr (sb-thread:mutex-value *global-lock*)))
+	(when flush-p
+	  (flush))
+	(sb-thread:release-mutex *global-lock*))
+       (t (decf (cdr (sb-thread:mutex-value *global-lock*)))))))
 
   (define-callback %enter-fn nil ()
     (threads-enter))
@@ -1093,9 +1095,13 @@
   (define-callback %leave-fn nil ()
     (threads-leave))
   
-  (defbinding threads-set-lock-functions (&optional) nil
+  (defbinding %threads-set-lock-functions (&optional) nil
     (%enter-fn callback)
     (%leave-fn callback))
+
+  (defun threads-init ()
+    (%threads-set-lock-functions)
+    (setq *global-lock* (sb-thread:make-mutex :name "global GDK lock")))
 
   (defmacro with-global-lock (&body body)
     `(progn
