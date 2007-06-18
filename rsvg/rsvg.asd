@@ -12,7 +12,7 @@
 (defsystem rsvg
     :depends-on (gffi glib gdk cairo)
     :components ((:library "librsvg-2" 
-		  :libdir #.(pkg-variable "librsvg-2.0" "libdir"))
+		  :libdir #.(pkg-libdir "librsvg-2.0"))
 		 (:file "defpackage")
 		 (:file "rsvg" :depends-on ("defpackage" "librsvg-2"))
 		 (:file "export" :depends-on ("rsvg"))))

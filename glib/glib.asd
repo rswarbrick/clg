@@ -23,12 +23,16 @@
   		 (:unix-dso "preload"
   		  :components ((:c-source-file "logging"
   				:cflags #.(pkg-cflags "glib-2.0"))))
-		 (:library "libglib-2.0" 
-			    :libdir #.(pkg-variable "glib-2.0" "libdir")
- 			    :depends-on ("preload"))
-		 (:library "libgobject-2.0" 
-			    :libdir #.(pkg-variable "glib-2.0" "libdir")
-			    :depends-on ("libglib-2.0"))
+		 (:library "libglib-2.0"
+			   :libdir #.(pkg-libdir "glib-2.0")
+			   :libname #-win32 "libglib-2.0"
+			            #+win32 "libglib-2.0-0"
+			   :depends-on ("preload"))
+		 (:library "libgobject-2.0"
+			   :libdir #.(pkg-libdir "glib-2.0")
+			   :libname #-win32 "libgobject-2.0"
+			            #+win32 "libgobject-2.0-0"
+			   :depends-on ("libglib-2.0"))
 		 (:unix-dso "alien"
 		  :components ((:c-source-file "gobject" 
 				:cflags #.(pkg-cflags "glib-2.0")))

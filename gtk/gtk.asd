@@ -13,7 +13,7 @@
     :depends-on (gffi glib gdk pango atk)
     :components ((:file "defpackage")
 		 (:library "libgtk-2.0" 
-			   :libdir #.(pkg-variable "gtk+-2.0" "libdir")
+			   :libdir #.(pkg-libdir "gtk+-2.0")
 			   :libname #-win32 "libgtk-x11-2.0"
 			            #+win32 "libgtk-win32-2.0-0")
 		 (:unix-dso "alien"

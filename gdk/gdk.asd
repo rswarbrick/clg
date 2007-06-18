@@ -11,9 +11,11 @@
     :depends-on (gffi glib pango #?(pkg-exists-p "gdk-2.0" :atleast-version "2.8.0") cairo)
     :components ((:file "defpackage")
 		 (:library "libgdk_pixbuf-2.0" 
-			   :libdir #.(pkg-variable "gdk-2.0" "libdir"))
+			   :libdir #.(pkg-libdir "gdk-2.0")
+			   :libname #-win32 "libgdk_pixbuf-2.0" 
+			            #+win32 "libgdk_pixbuf-2.0-0")
 		 (:library "libgdk-2.0" 
-			   :libdir #.(pkg-variable "gdk-2.0" "libdir")
+			   :libdir #.(pkg-libdir "gdk-2.0")
 			   :libname #-win32 "libgdk-x11-2.0"
 			            #+win32 "libgdk-win32-2.0-0")
 		 (:unix-dso "alien"

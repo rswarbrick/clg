@@ -14,7 +14,9 @@
 (defsystem cairo
     :depends-on (gffi glib)
     :components ((:library "libcairo" 
-		  :libdir #.(pkg-variable "cairo" "libdir"))
+		            :libname #-win32 "libcairo" 
+			             #+win32 "libcairo-2" 
+			    :libdir #.(pkg-variable "cairo" "libdir"))
 		 (:file "defpackage")
 		 (:file "cairo" :depends-on ("defpackage" "libcairo"))
 		 (:file "export" :depends-on ("cairo"))))
