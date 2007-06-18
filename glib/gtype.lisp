@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.62 2007-06-06 10:43:54 espen Exp $
+;; $Id: gtype.lisp,v 1.63 2007-06-18 13:01:06 espen Exp $
 
 (in-package "GLIB")
 
@@ -204,46 +204,62 @@
 (defun type-number-of (object)
   (find-type-number (type-of object) t))
 
+;; For #+(SBCL WIN32):
+;;   The first 2 lines of the output from "pexports" are:
+;;   LIBRARY XXX.dll
+;;   EXPORTS
+;;   We don't do anything to skip these 2 lines because they won't pass the
+;;   WHEN (AND ...) in the LOOP
+;;   - cph 19-May-2007
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *type-initializers* ())
   (defun %find-types-in-library (pathname prefixes ignore)
-    (let ((process 
-	   (run-program
-	    "/usr/bin/nm" 
-	    #+clisp :arguments
-	    (list #-darwin"--defined-only" #-darwin"-D" "-g" #+darwin"-f" 
-		  #+darwin"-s" #+darwin"__TEXT" #+darwin"__text" 
-		  (namestring (truename pathname)))
-	    :output :stream :wait nil)))
+    (let ((outname (tmpname "types")))
       (unwind-protect
-	  (loop 
-	   as line = (read-line
-		      #+(or cmu sbcl) (process-output process)
-		      #+clisp process
-		      nil)
-	   as symbol = (when line
-			 (let ((pos (position #\Space line :from-end t)))
-			   #-darwin(subseq line (1+ pos))
-			   #+darwin
-			   (when (char= (char line (1- pos)) #\T)
-			     (subseq line (+ pos 2)))))
-	   while line
-	   when (and
-		 symbol (> (length symbol) 9)
-		 (not (char= (char symbol 0) #\_))
-		 (or 
-		  (not prefixes)
-		  (some #'(lambda (prefix)
-			    (and
-			     (> (length symbol) (length prefix))
-			     (string= prefix symbol :end2 (length prefix))))
-			(mklist prefixes)))
-		 (string= "_get_type" symbol :start2 (- (length symbol) 9))
-		 (not (member symbol ignore :test #'string=)))
-	   collect symbol)
-	(#+(or cmu sbcl)process-close 
-	 #+clisp close
-	 process)))))
+	  (let ((asdf::*verbose-out* nil))
+	    (asdf:run-shell-command "nm ~A ~A > ~A"
+	     #-darwin "--defined-only --dynamic --extern-only"
+	     #+darwin "-f -s __TEXT __text"
+	     (namestring (truename pathname)) outname)
+	    ;; Note about win32 port:
+	    ;;   1. (TRUENAME PATHNAME) will bomb.
+	    ;;   2. either
+	    ;;        pexports "d:\\whatever\\bin\\zlib1.dll"
+	    ;;      or
+	    ;;        pexports d:/whatever/bin/zlib1.dll
+	    ;;      anything else will bomb.  this is why ~S is used below.
+	    #+win32
+	    (asdf:run-shell-command "pexports ~S > ~A" 
+	     (namestring pathname) outname)
+
+	    (with-open-file (output outname)
+	      (loop 
+	       as line = (read-line output nil)
+	       as symbol = (when line
+			     #-win32
+			     (let ((pos (position #\space line :from-end t)))
+			       #-darwin(subseq line (1+ pos))
+			       #+darwin
+			       (when (char= (char line (1- pos)) #\T)
+				 (subseq line (+ pos 2))))
+			     #+win32
+			     (subseq line 0 (1- (length line))))
+	       while line
+	       when (and
+		     symbol (> (length symbol) 9)
+		     (not (char= (char symbol 0) #\_))
+		     (or 
+		      (not prefixes)
+		      (some #'(lambda (prefix)
+				(and
+				 (> (length symbol) (length prefix))
+				 (string= prefix symbol :end2 (length prefix))))
+		       (mklist prefixes)))
+		     (string= "_get_type" symbol :start2 (- (length symbol) 9))
+		     (not (member symbol ignore :test #'string=)))
+	       collect symbol)))
+	(delete-file outname)))))
 
 
 (defmacro init-types-in-library (system library &key prefix ignore)
