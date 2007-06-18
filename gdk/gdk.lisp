@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.39 2007-06-18 12:23:05 espen Exp $
+;; $Id: gdk.lisp,v 1.40 2007-06-18 13:41:18 espen Exp $
 
 
 (in-package "GDK")
@@ -1110,7 +1110,7 @@
 	 (with-global-lock (funcall function)))
      priority))
 
-  (defun idle-add-with-lock (funcation &optional (priority +priority-default-idle+))
+  (defun idle-add-with-lock (function &optional (priority +priority-default-idle+))
     (idle-add 
      #'(lambda () 
 	 (with-global-lock (funcall function)))
