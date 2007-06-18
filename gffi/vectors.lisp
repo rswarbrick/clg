@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.3 2007-06-01 06:15:37 espen Exp $
+;; $Id: vectors.lisp,v 1.4 2007-06-18 10:13:07 espen Exp $
 
 
 (in-package "GFFI")
@@ -295,7 +295,7 @@
 
 (defun unset-0-vector (location element-type &optional temp-p)
   (loop
-   with destroy = (destroy-function element-type temp-p)
+   with destroy = (destroy-function element-type :temp temp-p)
    with element-size = (size-of element-type)
    for offset by element-size
    until (memory-clear-p (pointer+ location offset) element-size)
