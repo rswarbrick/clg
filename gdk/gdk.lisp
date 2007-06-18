@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.38 2007-06-01 09:17:17 espen Exp $
+;; $Id: gdk.lisp,v 1.39 2007-06-18 12:23:05 espen Exp $
 
 
 (in-package "GDK")
@@ -83,6 +83,8 @@
 (defbinding display-close (&optional (display (display-get-default))) nil
   (display display))
 
+(defbinding flush () nil)
+
 (defbinding display-get-event
     (&optional (display (display-get-default))) event
   (display display))
@@ -101,16 +103,15 @@
   (display display))
 
 (defun find-display (name)
-  (find name (list-displays) :key #'display-name :test #'string=))
+  (if (not name)
+      (display-get-default)
+    (find name (list-displays) :key #'display-name :test #'string=)))
 
 (defun ensure-display (display)
   (etypecase display
     (null (display-get-default))
     (display display)
-    (string 
-     (or
-      (find display (list-displays) :key #'display-name :test #'string=)
-      (display-open display)))))
+    (string (or (find-display display) (display-open display)))))
 
 
 ;;; Display manager
@@ -1065,22 +1066,26 @@
 
 ;;; Multi-threading support
 
-#+sbcl
+#+sb-thread
 (progn
   (defvar *global-lock* (sb-thread:make-mutex :name "global GDK lock"))
-  (let ((recursive-level 0))
-    (defun threads-enter ()
-      (if (eq (sb-thread:mutex-value *global-lock*) sb-thread:*current-thread*)
-	  (incf recursive-level)
- 	(sb-thread:get-mutex *global-lock*)))
 
-    (defun threads-leave (&optional flush-p)
-      (cond
-       ((zerop recursive-level)	  
-	(when flush-p
-	  (display-flush))
-	(sb-thread:release-mutex *global-lock*))
-       (t (decf recursive-level)))))
+  (defun %global-lock-p ()
+    (eq (car (sb-thread:mutex-value *global-lock*)) sb-thread:*current-thread*))
+
+  (defun threads-enter ()
+    (if (%global-lock-p)
+	(incf (cdr (sb-thread:mutex-value *global-lock*)))
+      (sb-thread:get-mutex *global-lock* (cons sb-thread:*current-thread* 0))))
+    
+  (defun threads-leave (&optional flush-p)
+    (assert (%global-lock-p))
+    (cond
+     ((zerop (cdr (sb-thread:mutex-value *global-lock*)))
+      (when flush-p
+	(flush))
+      (sb-thread:release-mutex *global-lock*))
+     (t (decf (cdr (sb-thread:mutex-value *global-lock*))))))
 
   (define-callback %enter-fn nil ()
     (threads-enter))
@@ -1096,5 +1101,31 @@
     `(progn
        (threads-enter)
        (unwind-protect
-	   ,@body
-	 (threads-leave t)))))
+	   (progn ,@body)
+	 (threads-leave t))))
+
+  (defun timeout-add-with-lock (interval function &optional (priority +priority-default+))
+    (timeout-add interval
+     #'(lambda () 
+	 (with-global-lock (funcall function)))
+     priority))
+
+  (defun idle-add-with-lock (funcation &optional (priority +priority-default-idle+))
+    (idle-add 
+     #'(lambda () 
+	 (with-global-lock (funcall function)))
+     priority)))
+
+
+#-sb-thread
+(progn
+  (defmacro with-global-lock (&body body)
+    `(progn ,@body))
+
+  (defun timeout-add-with-lock (interval function &optional (priority +priority-default+))
+    (timeout-add interval function priority))
+
+  (defun idle-add-with-lock (funcation &optional (priority +priority-default-idle+))
+    (idle-add function priority)))
+
+
