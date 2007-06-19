@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.38 2007-01-11 10:05:59 espen Exp $
+;; $Id: testgtk.lisp,v 1.39 2007-06-19 12:49:18 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -537,8 +537,8 @@
     (unless file-pixbuf
       (handler-case 
           (setf
-	   file-pixbuf (gdk:pixbuf-load #p"/usr/share/icons/gnome/48x48/filesystems/gnome-fs-regular.png")
-	   folder-pixbuf (gdk:pixbuf-load #p"/usr/share/icons/gnome/48x48/filesystems/gnome-fs-directory.png"))
+	   file-pixbuf (gdk:pixbuf-load #p"clg:examples;gnome-fs-regular.png")
+	   folder-pixbuf (gdk:pixbuf-load #p"clg:examples;gnome-fs-directory.png"))
 	(glib:glib-error (condition)
 	  (make-instance 'message-dialog 
 	   :message-type :error :visible t
@@ -2007,5 +2007,4 @@ This one is underlined in quite a funky fashion"
     main-window))
  
 (clg-init)
-(create-main-window)
-
+(within-main-loop (create-main-window))
