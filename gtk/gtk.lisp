@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.72 2007-06-04 19:03:12 espen Exp $
+;; $Id: gtk.lisp,v 1.73 2007-06-19 11:32:25 espen Exp $
 
 
 (in-package "GTK")
@@ -50,86 +50,167 @@
 
 ;;;; Initalization and display handling
 
+(defparameter *event-poll-interval* 10000) ; in microseconds
+
+
 (defbinding (gtk-init "gtk_parse_args") () boolean
   "Initializes the library without opening the display."
   (nil null)
   (nil null))
 
-(defparameter *event-poll-interval* 10000)
-
-(defun clg-init (&optional display)
-  "Initializes the system and starts event handling"
-  #+sbcl(when (and 
-	       (find-package "SWANK")
-	       (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) :spawn))
-	  (error "When running clg in Slime the communication style :spawn can not be used. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information."))
-
+(defun clg-init (&optional display multi-threading-p)
+  "Initializes the system and starts event handling."
   (unless (gdk:display-get-default)
     #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
     (progn
       #+sbcl(sb-int:set-floating-point-modes :traps nil) 
       #+cmu(ext:set-floating-point-modes :traps nil))
 
-    (gdk:gdk-init)
-    (unless (gtk-init)
-      (error "Initialization of GTK+ failed."))
-    #?(or (pkg-config:featurep :cmu) (and (pkg-config:featurep :sbcl) (not (pkg-config:sbcl>= 1 0 6))))
-    (progn
-      (signal-connect (gdk:display-manager) 'display-opened
-       #'(lambda (display)
-	   (let ((fd (gdk:display-connection-number display)))
-	     (unless (< fd 0)
-	       (let ((handler (add-fd-handler 
-			       (gdk:display-connection-number display) 
-			       :input #'main-iterate-all)))
-		 (signal-connect display 'closed
-		  #'(lambda (is-error-p)
-		      (declare (ignore is-error-p))
-		      (remove-fd-handler handler))))))))
-      (setq *periodic-polling-function* #'main-iterate-all)
-      (setq *max-event-to-sec* 0)
-      (setq *max-event-to-usec* *event-poll-interval*))
-    #?(pkg-config:sbcl>= 1 0 6)
-    (warn "Periodic polling functionality has been removed from SERVE-EVENT in SBCL 1.0.6. An explicit gtk main loop has to be invoked.")
-    #+(and clisp readline)
-    ;; Readline will call the event hook at most ten times per second
-    (setf readline:event-hook #'main-iterate-all)
-    #+clisp      
-    ;; When running in Slime we need to hook into the Swank server
-    ;; to handle events asynchronously
-    (if (find-package "SWANK")
-	(let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
-	      (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
-	  (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
-	   #'(lambda ()
-	       (loop
-		(case (socket:socket-status (cons stream :input) 0 *event-poll-interval*)
-		  (:input (return (funcall read-from-emacs)))
-		  (:eof (read-char stream))
-		  (otherwise (main-iterate-all)))))))
-      #-readline(warn "Not running in Slime and Readline support is missing, so the Gtk main loop has to be invoked explicit."))
+     (gdk:gdk-init)
+     (unless (gtk-init)
+       (error "Initialization of GTK+ failed."))
 
-    (gdk:display-open display)))
+    (if (not multi-threading-p) 
+	(%init-async-event-handling display)
+      #+sb-thread(%init-multi-threaded-event-handling display)
+      #-sb-thread(error "Multi threading not supported on this platform")))
+  (gdk:find-display display))
 
-
-#+sbcl	  
 (defun clg-init-with-threading (&optional display)
-  "Initializes the system and starts event handling"
-  (unless (gdk:display-get-default)
-    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
-    (progn
-      #+sbcl(sb-int:set-floating-point-modes :traps nil) 
-      #+cmu(ext:set-floating-point-modes :traps nil))
+  (clg-init display t))
 
-    (gdk:gdk-init)
-    (gdk:threads-set-lock-functions)
-    (unless (gtk-init)
-      (error "Initialization of GTK+ failed."))
-    (sb-thread:make-thread 
-     #'(lambda () 
-	 (gdk:display-open display)
-	 (gdk:with-global-lock (main)))
-     :name "gtk event loop")))
+
+#?(sbcl>= 1 0 6)
+;; A very minimal implementation of CLISP's socket-status
+(defun socket-status (socket seconds microseconds)
+  (sb-alien:with-alien ((read-fds (sb-alien:struct sb-unix:fd-set)))
+    (let ((fd (sb-sys:fd-stream-fd (car socket))))
+      (sb-unix:fd-zero read-fds)
+      (sb-unix:fd-set fd read-fds)
+
+      (unless (zerop (sb-unix:unix-fast-select 
+		      (1+ fd) (sb-alien:addr read-fds) nil nil 
+		      seconds microseconds))
+	(if (peek-char nil (car socket) nil)
+	    :input
+	  :eof)))))
+
+(defun %init-async-event-handling (display)
+  (let ((style #?(or (featurep :cmu) (sbcl< 1 0 6)) :fd-handler
+	       #?-(or (featurep :cmu) (sbcl< 1 0 6)) nil))
+    (when (and 
+	   (find-package "SWANK")
+	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) style)))
+      (error "When running clg in Slime, the communication style ~A must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information." style)))
+
+  #?(or (featurep :cmu) (sbcl< 1 0 6))
+  (progn
+    (signal-connect (gdk:display-manager) 'display-opened
+     #'(lambda (display)
+	 (let ((fd (gdk:display-connection-number display)))
+	   (unless (< fd 0)
+	     (let ((handler (add-fd-handler 
+			     (gdk:display-connection-number display) 
+			     :input #'main-iterate-all)))
+	       (signal-connect display 'closed
+		#'(lambda (is-error-p)
+		    (declare (ignore is-error-p))
+		    (remove-fd-handler handler))))))))
+    (setq *periodic-polling-function* #'main-iterate-all)
+    (setq *max-event-to-sec* 0)
+    (setq *max-event-to-usec* *event-poll-interval*))
+  
+  #+(and clisp readline)
+  ;; Readline will call the event hook at most ten times per second
+  (setf readline:event-hook #'main-iterate-all)
+  
+  #?-(or (featurep :cmu) (sbcl< 1 0 6))
+  ;; When running in Slime we need to hook into the Swank server
+  ;; to handle events asynchronously.
+  (if (find-package "SWANK")
+      (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
+	    (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
+	(setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
+	 #'(lambda ()
+	     (loop
+	      (case (socket-status (cons stream :input) 0 *event-poll-interval*)
+		((:input :eof) (return (funcall read-from-emacs)))
+		(otherwise (main-iterate-all)))))))
+    #-(and clisp readline)
+    (warn "Asynchronous event handling not supported on this platform. An explicit main loop has to be started."))
+
+  (gdk:display-open display))
+
+#+sb-thread
+(progn
+  (defvar *main-thread* nil)
+
+  ;; Hopefully, when threading support is added to the Win32 port of
+  ;; SBCL in the future, this will work just out of the box.
+  #+win32
+  (let ((done (sb-thread:make-waitqueue))
+	(functions ())
+	(results ()))
+
+    ;; In Win32 all GDK calls have to be made from the main loop
+    ;; thread, so we add a timeout function which will poll for code and
+    ;; execute it.
+
+    (defun funcall-in-main (function)
+      (if (or 
+	   (not *main-thread*)
+	   (eq sb-thread:*current-thread* *main-thread*))
+	  (funcall function)
+	(gdk:with-global-lock
+	  (push function functions)
+ 	  (sb-thread:condition-wait done gdk:*global-lock*)
+ 	  (pop results))))
+
+    ;; Will lock REPL on error, need to be fixed!
+    (defun %funcall-in-main-poll ()
+      (when functions
+	(loop
+	 for n from 0
+	 while functions 
+	 do (push (funcall (pop functions)) results)
+	 finally (sb-thread:condition-notify done n)))
+      t))
+
+  (defmacro within-main-loop (&body body)
+    #-win32 `(gdk:with-global-lock ,@body)
+    #+win32 `(funcall-in-main #'(lambda () ,@body)))
+  
+  (defun %init-multi-threaded-event-handling (display)
+    (when (and 
+	   (find-package "SWANK")
+	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) :spawn)))
+      (error "When running clg in Slime, the communication style :spawn must be used in combination with multi threaded event handling. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information."))
+    (let ((main-running (sb-thread:make-waitqueue)))
+      (gdk:with-global-lock
+       (setf *main-thread*
+        (sb-thread:make-thread 
+	 #'(lambda () 
+	     (gdk:threads-init)	 
+	     (gdk:with-global-lock 
+	       (gdk:display-open display)
+	       #+win32(gdk:timeout-add-with-lock (/ *event-poll-interval* 1000)
+		       #'%funcall-in-main-poll)
+	       (sb-thread:condition-notify main-running)
+	       (main)))
+	 :name "gtk event loop"))
+	(sb-thread:condition-wait main-running gdk:*global-lock*)))
+  
+    ;; We need to hook into the Swank server to protect calls to GDK properly.
+    ;; This will *only* protect code entered directly in the REPL.
+    (when (find-package "SWANK")
+      (push #'(lambda (form) 
+		(within-main-loop (eval form)))
+       swank::*slime-repl-eval-hooks*))))
+
+#-sb-thread
+(defmacro within-main-loop (&body body)
+  `(progn ,@body))
+
 
 
 ;;; Generic functions 
@@ -1272,10 +1353,13 @@
 ;;; Window
 
 (defmethod initialize-instance ((window window) &rest initargs 
-				&key accel-group accel-groups)
+				&key display accel-group accel-groups)
   (declare (ignore accel-group accel-groups))
   (prog1
-      (call-next-method)
+      (if display
+	  (apply #'call-next-method
+	   window :screen (gdk:display-get-default-screen display) initargs)
+	(call-next-method))
     (initial-add window #'window-add-accel-group 
      initargs :accel-group :accel-groups)))
 
