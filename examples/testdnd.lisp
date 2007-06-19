@@ -144,4 +144,4 @@
    :child (create-layout 600 600)))
 
 (clg-init)
-(create-test)
+(within-main-loop (create-test))

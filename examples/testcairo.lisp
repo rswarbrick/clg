@@ -540,7 +540,6 @@
 
 
 (clg-init)
-#?(pkg-config:pkg-exists-p "librsvg-2.0" :atleast-version "2.13.93")
 (rsvg:init)
 
 ;; We need to turn off floating point exceptions, because Cairo is
@@ -549,4 +548,4 @@
 #+sbcl(sb-int:set-floating-point-modes :traps nil) 
 #+cmu(ext:set-floating-point-modes :traps nil)
 
-(create-tests)
+(within-main-loop (create-tests))
