@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.9 2007-06-15 12:23:39 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.10 2007-06-20 13:34:53 espen Exp $
 
 (in-package "GFFI")
 
@@ -205,10 +205,8 @@
     #-sbcl setter
     #+sbcl
     (etypecase setter
-      (symbol #'(lambda (object value) (funcall setter object value)))
-      (list #'(lambda (object value)
-		;; Setter is a (setf ...) form and thus takes the
-		;; value as the first argument
+      (symbol #'(lambda (value object) (funcall setter value object)))
+      (list #'(lambda (value object)
 		(funcall setter value object)))
       (function setter))))
 
