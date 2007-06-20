@@ -16,7 +16,7 @@
     :components ((:library "libcairo" 
 		            :libname #-win32 "libcairo" 
 			             #+win32 "libcairo-2" 
-			    :libdir #.(pkg-variable "cairo" "libdir"))
+			    :libdir #.(pkg-libdir "cairo"))
 		 (:file "defpackage")
 		 (:file "cairo" :depends-on ("defpackage" "libcairo"))
 		 (:file "export" :depends-on ("cairo"))))
