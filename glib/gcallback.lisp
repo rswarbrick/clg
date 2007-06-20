@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.43 2007-06-15 12:03:26 espen Exp $
+;; $Id: gcallback.lisp,v 1.44 2007-06-20 10:21:54 espen Exp $
 
 (in-package "GLIB")
 
@@ -483,7 +483,7 @@ function."
 	   (params (allocate-memory (* n-params +gvalue-size+))))
       #'(lambda (detail object &rest args)
  	  (unless (= (length args) (1- n-params))
- 	    (error "Invalid number of arguments: ~A" (+ 2 (length args))))
+ 	    (error "Invalid number of arguments in emmision of signal ~A: ~A" signal-id (length args)))
 	  (unwind-protect
 	      (loop
 	       for arg in (cons object args)
