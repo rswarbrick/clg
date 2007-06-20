@@ -20,10 +20,9 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.27 2007-02-19 14:29:33 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.28 2007-06-20 10:20:47 espen Exp $
 
 (in-package "GTK")
-
 
 #-debug-ref-counting
 (defmethod print-object ((widget widget) stream)
@@ -67,25 +66,31 @@
    ((call-next-method))))
 
 
+(defparameter *widget-display-as-default-in-signal-handler-p* t)
+
 (defmethod compute-signal-function ((widget widget) signal function object args)
-  (declare (ignore signal))
-  (if (eq object :parent)
-      #'(lambda (&rest emission-args)
-	  (let ((all-args (nconc (rest emission-args) args)))
-	    (if (slot-boundp widget 'parent)
-		(apply function (widget-parent widget) all-args)
-	    ;; Delay until parent is set
-	    (signal-connect widget 'parent-set
-	     #'(lambda (old-parent)
-		 (declare (ignore old-parent))
-		 (let ((*signal-stop-emission* 
-			#'(lambda ()
-			    (warn "Ignoring emission stop in delayed signal handler"))))
-		   (apply function (widget-parent widget) all-args)))
-	     :remove t)
-;	    (warn "Widget has no parent -- ignoring signal")
-	    )))
-    (call-next-method)))
+  (let ((wrapper
+	 (if (eq object :parent)
+	     #'(lambda (&rest emission-args)
+		 (let ((all-args (nconc (rest emission-args) args)))
+		   (if (slot-boundp widget 'parent)
+		       (apply function (widget-parent widget) all-args)
+		     ;; Delay until parent is set
+		     (signal-connect widget 'parent-set
+		      #'(lambda (old-parent)
+			  (declare (ignore old-parent))
+			  (apply #'signal-emit widget signal (rest emission-args)))
+		      :remove t))))
+	   (call-next-method))))
+    (if *widget-display-as-default-in-signal-handler-p*
+	#'(lambda (&rest args)
+	    (let ((display (when (slot-boundp widget 'window)
+			     (gdk:drawable-display (widget-window widget)))))
+	      (gdk:with-default-display (display)
+	        (apply wrapper args))))
+      wrapper)))
+
+
       
 (defun child-property-value (widget slot)
   (slot-value (widget-child-properties widget) slot))

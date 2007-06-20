@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.41 2007-06-18 14:27:02 espen Exp $
+;; $Id: gdk.lisp,v 1.42 2007-06-20 10:16:19 espen Exp $
 
 
 (in-package "GDK")
@@ -47,12 +47,28 @@
 (defbinding %display-open () display
   (display-name (or null string)))
 
-(defun display-open (&optional display-name)
+(defvar *display-aliases* ())
+
+(defun display-add-alias (display alias)
+  (unless (rassoc display *display-aliases*)
+    (signal-connect display 'closed
+     #'(lambda (is-error-p)
+	 (declare (ignore is-error-p))
+	 (setq *display-aliases* 
+	  (delete-if #'(lambda (mapping)
+			 (eq (cdr mapping) display))
+	   *display-aliases*))))
+    (push (cons alias display) *display-aliases*)))
+
+
+(defun display-open (&optional name)
   (let ((display (or
-		  (%display-open display-name)
-		  (error "Opening display failed: ~A" display-name))))
+		  (%display-open name)
+		  (error "Opening display failed: ~A" name))))
     (unless (display-get-default)
       (display-set-default display))
+    (when (and (stringp name) (not (string= name (display-name display))))
+      (display-add-alias display name))
     display))
 
 (defbinding %display-get-n-screens () int
@@ -81,7 +97,7 @@
   (display display))
 
 (defbinding display-close (&optional (display (display-get-default))) nil
-  (display display))
+  ((ensure-display display t) display))
 
 (defbinding flush () nil)
 
@@ -102,16 +118,33 @@
     (&optional (display (display-get-default))) int
   (display display))
 
-(defun find-display (name)
-  (if (not name)
-      (display-get-default)
-    (find name (list-displays) :key #'display-name :test #'string=)))
+(defun find-display (name &optional (error-p t))
+  (or
+   (find name (list-displays) :key #'display-name :test #'string=)
+   (cdr (assoc name *display-aliases* :test #'string=))
+   (when error-p
+     (error "No such display: ~A" name))))
 
-(defun ensure-display (display)
+;; This will not detect connections to the same server that use
+;; different hostnames
+(defun %find-similar-display (display)
+   (find (display-name display) (delete display (list-displays))
+    :key #'display-name :test #'string=))
+
+(defun ensure-display (display &optional existing-only-p)
   (etypecase display
     (null (display-get-default))
     (display display)
-    (string (or (find-display display) (display-open display)))))
+    (string (or 
+	     (find-display display existing-only-p)
+	     (let* ((new (display-open display))
+		    (existing (%find-similar-display new)))
+	       (if existing
+		   (progn
+		     (display-add-alias existing display)
+		     (display-close new)
+		     existing)
+		 new))))))
 
 
 ;;; Display manager
@@ -134,6 +167,19 @@
 (defbinding display-get-core-pointer 
     (&optional (display (display-get-default))) device
   (display display))
+
+(defmacro with-default-display ((display) &body body)
+  (let ((saved-display (make-symbol "SAVED-DISPLAY"))
+	(current-display (make-symbol "CURRENT-DISPLAY")))
+    `(let* ((,current-display ,display)
+	    (,saved-display (when ,current-display
+			      (prog1
+				  (display-get-default)
+				(display-set-default (ensure-display ,current-display))))))
+       (unwind-protect 
+	   (progn ,@body)
+	 (when ,saved-display
+	   (display-set-default ,saved-display))))))
 
 
 ;;; Primitive graphics structures (points, rectangles and regions)

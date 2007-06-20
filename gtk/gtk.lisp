@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.73 2007-06-19 11:32:25 espen Exp $
+;; $Id: gtk.lisp,v 1.74 2007-06-20 10:19:47 espen Exp $
 
 
 (in-package "GTK")
@@ -74,7 +74,7 @@
 	(%init-async-event-handling display)
       #+sb-thread(%init-multi-threaded-event-handling display)
       #-sb-thread(error "Multi threading not supported on this platform")))
-  (gdk:find-display display))
+  (gdk:ensure-display display t))
 
 (defun clg-init-with-threading (&optional display)
   (clg-init display t))
@@ -1358,7 +1358,7 @@
   (prog1
       (if display
 	  (apply #'call-next-method
-	   window :screen (gdk:display-get-default-screen display) initargs)
+	   window :screen (gdk:display-get-default-screen (gdk:ensure-display display)) initargs)
 	(call-next-method))
     (initial-add window #'window-add-accel-group 
      initargs :accel-group :accel-groups)))

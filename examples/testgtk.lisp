@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.39 2007-06-19 12:49:18 espen Exp $
+;; $Id: testgtk.lisp,v 1.40 2007-06-20 10:20:47 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -1909,7 +1909,7 @@ This one is underlined in quite a funky fashion"
 
 ;;; Main window
       
-(defun create-main-window ()
+(defun create-main-window (&optional display)
   (let* ((button-specs
 	  '(("button box" create-button-box)
  	    ("buttons" create-buttons)
@@ -1954,6 +1954,7 @@ This one is underlined in quite a funky fashion"
 	    ("UI manager" create-ui-manager)))
 
 	 (main-window (make-instance 'window
+		       :display display
 		       :title "testgtk.lisp" :name "main_window"
 		       :default-width 200 :default-height 400
 		       :allow-grow t :allow-shrink nil))
@@ -1963,7 +1964,7 @@ This one is underlined in quite a funky fashion"
 			   :border-width 10))
 	 (close-button (make-instance 'button 
 		        :stock "gtk-close" :can-default t
-		        :signal (list 'clicked #'widget-destroy :object main-window)))) 
+		        :signal (list 'clicked #'widget-destroy :object main-window))))
 
     (let ((icon (gdk:pixbuf-load #p"clg:examples;gtk.png")))
       (setf 
