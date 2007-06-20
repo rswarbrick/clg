@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.8 2007-06-01 06:24:43 espen Exp $
+;; $Id: basic-types.lisp,v 1.9 2007-06-20 09:49:06 espen Exp $
 
 (in-package "GFFI")
 
@@ -459,7 +459,8 @@ have been written as temporal.")
 (define-type-method writer-function ((type single-float) &key temp (inlined t))
   (declare (ignore temp))
   (assert-inlined type inlined)
-  #'(setf ref-single-float))
+  #'(lambda (number location &optional (offset 0))
+      (setf (ref-single-float location offset) (coerce number 'single-float))))
 
 (define-type-method reader-function ((type single-float) &key ref (inlined t))
   (declare (ignore ref))
