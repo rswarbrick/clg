@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.8 2007-05-10 20:23:28 espen Exp $
+;; $Id: proxy.lisp,v 1.9 2007-06-20 11:13:45 espen Exp $
 
 (in-package "GFFI")
 
@@ -302,6 +302,8 @@
 	  #'(lambda (value object)
  	      (unless writer
  		(setq writer (mkbinding setter nil 'pointer type)))
+	      ;; First argument in foreign setters is the object and second
+	      ;; is value
 	      (funcall writer (foreign-location object) value)))
       (call-next-method)))
   
