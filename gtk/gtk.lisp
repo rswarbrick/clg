@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.74 2007-06-20 10:19:47 espen Exp $
+;; $Id: gtk.lisp,v 1.75 2007-06-20 14:28:48 espen Exp $
 
 
 (in-package "GTK")
@@ -88,12 +88,14 @@
       (sb-unix:fd-zero read-fds)
       (sb-unix:fd-set fd read-fds)
 
-      (unless (zerop (sb-unix:unix-fast-select 
-		      (1+ fd) (sb-alien:addr read-fds) nil nil 
-		      seconds microseconds))
-	(if (peek-char nil (car socket) nil)
-	    :input
-	  :eof)))))
+      (let ((num-fds-changed
+	     (sb-unix:unix-fast-select
+	      (1+ fd) (sb-alien:addr read-fds) nil nil 
+	      seconds microseconds)))
+	(unless (or (not num-fds-changed) (zerop num-fds-changed))
+	  (if (peek-char nil (car socket) nil)
+	      :input
+	    :eof))))))
 
 (defun %init-async-event-handling (display)
   (let ((style #?(or (featurep :cmu) (sbcl< 1 0 6)) :fd-handler
