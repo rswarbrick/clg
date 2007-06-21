@@ -3,7 +3,7 @@
 (export '*dso-extension*)
 
 (defparameter *dso-extension* 
- #-(and darwin win32)"so" #+darwin"dylib" #+win32"dll")
+ #-(or darwin win32)"so" #+darwin"dylib" #+win32"dll")
 
 
 ;;; The following code is more or less copied frm sb-bsd-sockets.asd,
@@ -36,8 +36,8 @@
 			     (output-files operation c))
 		  (module-components dso)))))
     (unless (zerop
-	     (run-shell-command "gcc ~A~{ ~A~} -o ~S~{ ~S~}"
-	      #-(and darwin win32)"-shared"
+	     (run-shell-command "gcc ~A -o ~S ~{~S~^ ~} ~{~A~^ ~}"
+	      #-(or darwin win32)"-shared"
 	      #+darwin "-bundle"
 	      #+win32
 	      (format nil "-shared -Wl,--out-implib,~S"
@@ -46,9 +46,9 @@
 		 :type "a" 
 		 :name (format nil "lib~Adll" (pathname-name output))
 		 :defaults output)))
-	      (slot-value dso 'ldflags)
 	      (unix-name output)
-	      inputs))
+	      inputs
+	      (slot-value dso 'ldflags)))
       (error 'operation-error :operation operation :component dso))))
 
 #+clisp
