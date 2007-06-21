@@ -9,7 +9,9 @@
 	   "ADD-READER-METHOD" "ADD-WRITER-METHOD")
   #+(or cmu sbcl)
   (:import-from #+cmu"SYSTEM" #+sbcl"SB-SYS" "SAP-INT" "ADD-FD-HANDLER" "REMOVE-FD-HANDLER")
-  #?(or (pkg-config:featurep :cmu) (pkg-config:sbcl< 1 0 6))
+  #?(or 
+     (pkg-config:featurep :cmu) 
+     (and (pkg-config:sbcl< 1 0 6) (not (featurep :win32))))
   (:import-from #+cmu"LISP" #+sbcl"SB-IMPL"
 	   "*PERIODIC-POLLING-FUNCTION*" "*MAX-EVENT-TO-SEC*" 
  	   "*MAX-EVENT-TO-USEC*")		
