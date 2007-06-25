@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.42 2007-06-20 10:16:19 espen Exp $
+;; $Id: gdk.lisp,v 1.43 2007-06-25 21:28:54 espen Exp $
 
 
 (in-package "GDK")
@@ -1177,7 +1177,7 @@
   (defun timeout-add-with-lock (interval function &optional (priority +priority-default+))
     (timeout-add interval function priority))
 
-  (defun idle-add-with-lock (funcation &optional (priority +priority-default-idle+))
+  (defun idle-add-with-lock (function &optional (priority +priority-default-idle+))
     (idle-add function priority)))
 
 
