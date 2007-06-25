@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.63 2007-06-18 13:01:06 espen Exp $
+;; $Id: gtype.lisp,v 1.64 2007-06-25 21:31:09 espen Exp $
 
 (in-package "GLIB")
 
@@ -218,6 +218,7 @@
     (let ((outname (tmpname "types")))
       (unwind-protect
 	  (let ((asdf::*verbose-out* nil))
+	    #-win32
 	    (asdf:run-shell-command "nm ~A ~A > ~A"
 	     #-darwin "--defined-only --dynamic --extern-only"
 	     #+darwin "-f -s __TEXT __text"
