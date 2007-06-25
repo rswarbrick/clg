@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.75 2007-06-20 14:28:48 espen Exp $
+;; $Id: gtk.lisp,v 1.76 2007-06-25 10:36:43 espen Exp $
 
 
 (in-package "GTK")
@@ -1402,13 +1402,14 @@
 
 (defbinding %window-set-geometry-hints () nil
   (window window)
+  (widget (or widget null))
   (geometry gdk:geometry)
   (geometry-mask gdk:window-hints))
 
-(defun window-set-geometry-hints (window &key min-width min-height
+(defun window-set-geometry-hints (window &key widget min-width min-height
                                   max-width max-height base-width base-height
-				  width-inc height-inc min-aspect max-aspect
-				  (gravity nil gravity-p) min-size max-size)
+				  width-inc height-inc gravity
+				  aspect (min-aspect aspect) (max-aspect aspect))
   (let ((geometry (make-instance 'gdk:geometry 
 		   :min-width (or min-width -1)
 		   :min-height (or min-height -1)
@@ -1419,12 +1420,11 @@
 		   :width-inc (or width-inc 0)
 		   :height-inc (or height-inc 0)
 		   :min-aspect (or min-aspect 0)
-		   :max-aspect (or max-aspect 0)
-		   :gravity gravity))
+		   :max-aspect (or max-aspect 0)))
 	(mask ()))
-    (when (or min-size min-width min-height)
+    (when (or min-width min-height)
       (push :min-size mask))
-    (when (or max-size max-width max-height)
+    (when (or max-width max-height)
       (push :max-size mask))
     (when (or base-width base-height)
       (push :base-size mask))
@@ -1432,9 +1432,10 @@
       (push :resize-inc mask))
     (when (or min-aspect max-aspect)
       (push :aspect mask))
-    (when gravity-p
-      (push :win-gravity mask))
-    (%window-set-geometry-hints window geometry mask)))
+    (when gravity
+      (push :win-gravity mask)
+      (setf (gdk:geometry-gravity geometry) gravity))
+    (%window-set-geometry-hints window widget geometry mask)))
 
 (defbinding window-list-toplevels () (glist (copy-of window))
   "Returns a list of all existing toplevel windows.")
