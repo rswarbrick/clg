@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.42 2007-06-06 10:43:54 espen Exp $
+;; $Id: gtkobject.lisp,v 1.43 2007-06-25 13:56:56 espen Exp $
 
 
 (in-package "GTK")
@@ -78,6 +78,19 @@
    while (events-pending-p)
    do (main-iteration-do nil))
   #+clisp 0)
+
+
+(define-callback fd-source-callback-marshal nil 
+    ((callback-id unsigned-int) (fd unsigned-int))
+  (glib::invoke-source-callback callback-id fd))
+
+(defbinding (input-add "gtk_input_add_full") (fd condition function) unsigned-int
+  (fd unsigned-int)
+  (condition gdk:input-condition)
+  (fd-source-callback-marshal callback)
+  (nil null)
+  ((register-callback-function function) unsigned-long)
+  (user-data-destroy-callback callback))
 
 
 ;;;; Metaclass for child classes
