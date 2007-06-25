@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.44 2007-06-20 10:21:54 espen Exp $
+;; $Id: gcallback.lisp,v 1.45 2007-06-25 13:49:05 espen Exp $
 
 (in-package "GLIB")
 
@@ -121,14 +121,14 @@
 (define-callback source-callback-marshal boolean ((callback-id unsigned-int))
   (invoke-source-callback callback-id))
 
-(defun invoke-source-callback (callback-id)
-  (restart-case (funcall (find-user-data callback-id))
+(defun invoke-source-callback (callback-id &rest args)
+  (restart-case (apply (find-user-data callback-id) args)
     (remove () :report "Exit and remove source callback"
       nil)
     (continue () :report "Return from source callback"
       t)
     (re-invoke nil :report "Re-invoke source callback"
-      (invoke-source-callback callback-id))))
+      (apply #'invoke-source-callback callback-id args))))
 
 
 (defbinding (timeout-add "g_timeout_add_full")
