@@ -25,7 +25,7 @@
 	(let* ((asdf::*verbose-out* nil)
 	       (exit-code 
 		(asdf:run-shell-command 
-		 "~A ~A ~:[~;--print-errors ~]~{~A ~} &>~A"
+		 "~A ~A ~:[~;--print-errors ~]~{~A ~} >~A 2>&1"
 		 *pkg-config* package error-p options outname)))
 	  (cond
 	   ((= exit-code 127) (error "Unable to run ~A" *pkg-config*))
