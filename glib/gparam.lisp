@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.24 2007-06-01 06:18:59 espen Exp $
+;; $Id: gparam.lisp,v 1.25 2007-07-03 08:43:21 espen Exp $
 
 (in-package "GLIB")
 
@@ -69,10 +69,12 @@
 	      (let ((parent (type-parent type)))
 		(unless (zerop parent)
 		  (find-most-specific-known-type parent))))))
-    (or
-     (find-most-specific-known-type (ref-type-number gvalue))
-     ;; This will signal an error if the type hierarchy is unknown
-     (type-from-number (ref-type-number gvalue) t))))
+    (let ((type-number (ref-type-number gvalue)))
+      (unless (zerop type-number)
+	(or     
+	 (find-most-specific-known-type type-number)
+	 ;; This will signal an error if the type hierarchy is unknown
+	 (type-from-number type-number t))))))
 
 (defun gvalue-get (gvalue)
   (funcall (reader-function (gvalue-type gvalue))
