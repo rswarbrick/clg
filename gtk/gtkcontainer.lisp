@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.23 2007-01-14 23:18:17 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.24 2007-07-04 14:24:54 espen Exp $
 
 (in-package "GTK")
 
@@ -79,15 +79,19 @@
   (container container)
   (widget widget))
 
-(defmethod container-add ((container container) (widget widget) &rest args)
-  (%container-add container widget)
+(defun init-child-slots (container child args)
   (when args
     (setf
-     (slot-value widget 'child-properties)
+     (slot-value child 'child-properties)
      (apply
       #'make-instance
       (gethash (class-of container) *container-to-child-class-mappings*)
-      :parent container :child widget args))))
+      :parent container :child child args))))
+
+(defmethod container-add ((container container) (widget widget) &rest args)
+  (%container-add container widget)
+  (init-child-slots container widget args)
+  widget)
 
 (defmethod container-add ((container container) (widgets list) &rest args)
   (dolist (widget widgets)
