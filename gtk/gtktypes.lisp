@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.54 2007-05-10 20:21:25 espen Exp $
+;; $Id: gtktypes.lisp,v 1.55 2007-07-05 11:34:27 espen Exp $
 
 (in-package "GTK")
 
@@ -1071,6 +1071,22 @@
      :boundp %icon-view-pixbuf-column-boundp
      :initarg :pixbuf-column
      :accessor icon-view-pixbuf-column)))
+
+  #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+  ("GtkAssistant"
+   :slots
+   ((current-page 
+     :allocation :virtual
+     :getter "gtk_assistant_get_current_page"
+     :setter "gtk_assistant_set_current_page"
+     :accessor assistant-current-page
+     :type int)
+    (num-pages
+     :allocation :virtual
+     :getter "gtk_assistant_get_n_page"
+     :reader assistant-current-page
+     :type int)))
+
 
   ;; Not needed
   ("GtkFundamentalType" :ignore t)

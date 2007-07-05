@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.76 2007-06-25 10:36:43 espen Exp $
+;; $Id: gtk.lisp,v 1.77 2007-07-05 11:34:27 espen Exp $
 
 
 (in-package "GTK")
@@ -519,6 +519,56 @@
   (bottom unsigned-int)
   (left unsigned-int)
   (right unsigned-int))
+
+
+;;; Assistant
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+(progn
+  (defbinding assistant-get-nth-page () widget
+    (assistant assistant)
+    (page-num int))
+  
+  (defbinding %assistant-insert-page () int
+    (assistant assistant)
+    (page widget)
+    (pos int))
+
+  (defun assistant-insert-page (assistant page position &rest child-args)    
+    (let ((pos (case position
+		 (:first 0)
+		 (:last -1)
+		 (t position))))
+      (prog1
+	  (%assistant-insert-page assistant page pos)
+	(init-child-slots assistant page child-args))))
+  
+  (defun assistant-append-page (assistant page &rest child-args)
+    (apply #'assistant-insert-page assistant page :last child-args))
+  
+  (defun assistant-prepend-page (assistant page &rest child-args)
+    (apply #'assistant-insert-page assistant page :first child-args))
+
+  (define-callback-marshal %assistant-page-func-callback int
+    ((current-page int)))
+
+  (defbinding assistant-set-forward-func (assistant function) nil
+    (assistant assistant)
+    (%assistant-page-func-callback callback)
+    ((register-callback-function function) pointer-data)
+    (user-data-destroy-callback callback))
+
+  (defbinding assistant-add-action-widget () nil
+    (assistant assistant)
+    (child widget))
+
+  (defbinding assistant-remove-action-widget () nil
+    (assistant assistant)
+    (child widget))
+
+  (defbinding assistant-update-buttons-state () nil
+    (assistant assistant)))
+
 
 
 ;;; Aspect frame
