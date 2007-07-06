@@ -11,8 +11,8 @@
   (error "Standard behaviour of PARSE-NAMESTRING must be enabled by setting CUSTOM:*PARSE-NAMESTRING-ANSI* to non-NIL or running clisp with the -ansi option"))
 
 (defsystem clg-tools
-    :components ((:file "autoexport")
-		 (:file "utils")
-		 (:file "config" :depends-on ("utils"))
-		 (:file "asdf-extensions" :depends-on ("utils"))))
-
+  :depends-on (#+sbcl sb-posix)
+  :components ((:file "autoexport")
+	       (:file "utils")
+	       (:file "config" :depends-on ("utils"))
+	       (:file "asdf-extensions" :depends-on ("utils"))))
