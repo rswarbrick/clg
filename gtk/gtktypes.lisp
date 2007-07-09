@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.55 2007-07-05 11:34:27 espen Exp $
+;; $Id: gtktypes.lisp,v 1.56 2007-07-09 12:50:21 espen Exp $
 
 (in-package "GTK")
 
@@ -878,8 +878,8 @@
      :type selection-mode)
     (tree-view
      :allocation :virtual
-     :getter "gtk_tree_selection_get_mode"
-     :reader tree-selection-mode
+     :getter "gtk_tree_selection_get_tree_view"
+     :reader tree-selection-tree-view
      :type tree-view)))
 
   ("GtkComboBox"
