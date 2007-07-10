@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.77 2007-07-05 11:34:27 espen Exp $
+;; $Id: gtk.lisp,v 1.78 2007-07-10 08:45:06 espen Exp $
 
 
 (in-package "GTK")
@@ -329,7 +329,7 @@
   (multiple-value-bind (key modifiers) (parse-accelerator accelerator)
     (%accel-groups-activate object key modifiers)))
 
-(defbinding accel-groups-from-object () (gslist accel-groups)
+(defbinding accel-groups-from-object () (gslist accel-group)
   (object gobject))
 
 (defbinding accelerator-valid-p (key &optional modifiers) boolean
