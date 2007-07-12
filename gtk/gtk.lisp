@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.80 2007-07-12 13:13:34 espen Exp $
+;; $Id: gtk.lisp,v 1.81 2007-07-12 13:55:59 espen Exp $
 
 
 (in-package "GTK")
@@ -1322,7 +1322,7 @@
 
 
 (defmethod shared-initialize ((dialog message-dialog) names &rest initargs
-			      &key buttons text 
+			      &key message-type buttons button text 
 			      #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 			      secondary-text)
   (declare (ignore names))
@@ -1331,6 +1331,13 @@
   #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
   (when secondary-text
     (message-dialog-format-secondary-markup dialog secondary-text))
+  (when (and (not buttons) (not button))
+    (loop
+     for (key value) on initargs by #'cddr
+     when (and (eq key :signal) (eq (first value) :close))
+     do (warn "Default button configuration changed from ~A to ~A" :close
+	 (if (eq message-type :question) :yes-no :ok))
+        (loop-finish)))
   (if (typep buttons 'buttons-type)
       (apply #'call-next-method dialog names (plist-remove :buttons initargs))
     (call-next-method)))
