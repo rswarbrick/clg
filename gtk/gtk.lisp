@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.78 2007-07-10 08:45:06 espen Exp $
+;; $Id: gtk.lisp,v 1.79 2007-07-12 09:02:13 espen Exp $
 
 
 (in-package "GTK")
@@ -806,9 +806,10 @@
 
 (defun dialog-find-response (dialog id)
   "Finds a symbolic response given a numeric id"
-  (if (< id 0)
-      (int-to-response-type id)
-    (aref (user-data dialog 'responses) id)))
+  (cond 
+   ((not (numberp id)) id)
+   ((< id 0) (int-to-response-type id))
+   ((aref (user-data dialog 'responses) id))))
 
 
 (defmethod compute-signal-id ((dialog dialog) signal)
@@ -820,11 +821,15 @@
   (declare (ignore function object args))
   (let ((callback (call-next-method))
 	(id (dialog-response-id dialog signal)))
-    (if id
-	#'(lambda (dialog response)
-	    (when (= response id)
-	      (funcall callback dialog)))
-      callback)))
+    (cond
+     (id
+      #'(lambda (dialog response)
+	  (when (= response id)
+	    (funcall callback dialog))))
+     ((eq signal 'response)
+      #'(lambda (dialog response)	  
+	  (funcall callback dialog (dialog-find-response dialog response))))
+     (callback))))
 
 (defbinding dialog-run () nil
   (dialog dialog))
@@ -1304,11 +1309,20 @@
 ;;; Message dialog
 
 (defmethod allocate-foreign ((dialog message-dialog) &key (message-type :info)
-			     (buttons :close) flags transient-parent)
-  (%message-dialog-new transient-parent flags message-type buttons))
+			     button buttons flags transient-parent)
+  (let ((stock-buttons 
+	 (cond
+	  ((and (not buttons) (not button))
+	   (case message-type
+	     (:question :yes-no)
+	     (t :ok)))
+	  ((listp buttons) :none)
+	  (t buttons))))
+    (%message-dialog-new transient-parent flags message-type stock-buttons)))
 
 
-(defmethod shared-initialize ((dialog message-dialog) names &key text 
+(defmethod shared-initialize ((dialog message-dialog) names &rest initargs
+			      &key buttons text 
 			      #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 			      secondary-text)
   (declare (ignore names))
@@ -1317,7 +1331,9 @@
   #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
   (when secondary-text
     (message-dialog-format-secondary-markup dialog secondary-text))
-  (call-next-method))
+  (if (typep buttons 'buttons-type)
+      (apply #'call-next-method dialog names (plist-remove :buttons initargs))
+    (call-next-method)))
 
 
 (defbinding %message-dialog-new () pointer
