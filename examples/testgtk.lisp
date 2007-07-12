@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.40 2007-06-20 10:20:47 espen Exp $
+;; $Id: testgtk.lisp,v 1.41 2007-07-12 09:18:30 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -544,7 +544,7 @@
 	   :message-type :error :visible t
 	   :text "<b>Failed to load an image</b>" 
 	   :secondary-text (glib:gerror-message condition)
-	   :signal (list :close #'widget-destroy :object t))
+	   :signal (list :ok #'widget-destroy :object t))
 	  (return-from load-pixbufs nil))))
     t)
 
