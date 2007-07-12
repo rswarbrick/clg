@@ -20,13 +20,13 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: utils.lisp,v 1.2 2006-04-25 20:26:04 espen Exp $
+;; $Id: utils.lisp,v 1.3 2007-07-12 09:02:53 espen Exp $
 
 (defpackage #:clg-utils
   (:use #:common-lisp)
   (:export #:read-lines #:mklist #:namep #:funcallable #:return-if #:when-bind
 	   #:visible-char-p #:whitespace-p #:split-string-if #:split-string
-	   #:concatenate-strings #:string-prefix-p #:get-all 
+	   #:concatenate-strings #:string-prefix-p #:get-all #:plist-remove
 	   #:delete-collect-if))
 	   
 (in-package #:clg-utils)
@@ -109,6 +109,12 @@
     (when tail
       (cons value (get-all (cddr tail) property)))))
 
+(defun plist-remove (key plist &key (test #'eq))
+  (loop
+   for (%key value) on plist by #'cddr
+   while (and %key value)
+   unless (funcall test key %key)
+   nconc (list %key value)))
 
 (defun delete-collect-if (predicate seq)
   (let ((head (cons nil seq)))
