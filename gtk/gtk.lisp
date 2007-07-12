@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.79 2007-07-12 09:02:13 espen Exp $
+;; $Id: gtk.lisp,v 1.80 2007-07-12 13:13:34 espen Exp $
 
 
 (in-package "GTK")
@@ -826,7 +826,7 @@
       #'(lambda (dialog response)
 	  (when (= response id)
 	    (funcall callback dialog))))
-     ((eq signal 'response)
+     ((string-equal signal "response")
       #'(lambda (dialog response)	  
 	  (funcall callback dialog (dialog-find-response dialog response))))
      (callback))))
