@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.25 2007-07-03 08:43:21 espen Exp $
+;; $Id: gparam.lisp,v 1.26 2007-08-20 10:50:25 espen Exp $
 
 (in-package "GLIB")
 
@@ -42,10 +42,10 @@
 (defbinding (gvalue-unset "g_value_unset") () nil
   (value gvalue))
 
-(defun gvalue-init (gvalue type &optional (value nil value-p))
+(defun gvalue-init (gvalue type &optional (value nil value-p) temp-p)
   (%gvalue-init gvalue (find-type-number type))
   (when value-p
-    (funcall (writer-function type) value gvalue +gvalue-value-offset+)))
+    (funcall (writer-function type :temp temp-p) value gvalue +gvalue-value-offset+)))
 
 (defun gvalue-new (&optional type (value nil value-p))
   (let ((gvalue (allocate-memory +gvalue-size+)))
@@ -99,7 +99,7 @@
 (defmacro with-gvalue ((gvalue &optional type (value nil value-p)) &body body)
   `(with-memory (,gvalue +gvalue-size+)
      ,(cond
-       ((and type value-p) `(gvalue-init ,gvalue ,type ,value))
+       ((and type value-p) `(gvalue-init ,gvalue ,type ,value t))
        (type `(gvalue-init ,gvalue ,type)))
      ,@body
      ,(unless value-p `(gvalue-take ,gvalue))))
