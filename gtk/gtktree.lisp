@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.28 2007-08-20 10:33:05 espen Exp $
+;; $Id: gtktree.lisp,v 1.29 2007-08-20 11:20:21 espen Exp $
 
 
 (in-package "GTK")
@@ -417,7 +417,7 @@
   (coerce
    (loop
     with iter = (ensure-tree-iter model row)
-    for index from 0 to (tree-model-n-columns model)
+    for index from 0 below (tree-model-n-columns model)
     collect (tree-model-value model iter index))
    'vector))
 
