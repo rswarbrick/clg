@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.27 2007-05-10 20:20:05 espen Exp $
+;; $Id: gtktree.lisp,v 1.28 2007-08-20 10:33:05 espen Exp $
 
 
 (in-package "GTK")
@@ -181,8 +181,7 @@
   (when data (setf (tree-model-row-data store iter) data))
   iter)
 
-(defbinding %list-store-insert-after 
-    (list-store &optional sibling (tree-iter (make-instance 'tree-iter))) nil
+(defbinding %list-store-insert-after () nil
   (list-store list-store)
   (tree-iter tree-iter)
   (sibling (or null tree-iter)))
@@ -841,7 +840,10 @@ then the model will sort using this function."
   (column tree-view-column)
   (base-column (or null tree-view-column)))
 
-;;(defbinding tree-view-set-column drag-function ...)
+(define-callback-setter tree-view-set-column-drag-function tree-view boolean
+  (column tree-view-column) 
+  (prev tree-view-column) 
+  (next tree-view-column))
 
 (defbinding tree-view-scroll-to-point () nil
   (tree-view tree-view)
@@ -856,13 +858,8 @@ then the model will sort using this function."
   (row-align single-float)
   (col-align single-float))
 
-(defbinding tree-view-set-cursor () nil
-  (tree-view tree-view)
-  (path tree-path)
-  (focus-column tree-view-column)
-  (start-editing boolean))
-
-(defbinding tree-view-set-cursor-on-cell () nil
+(defbinding (tree-view-set-cursor "gtk_tree_view_set_cursor_on_cell") 
+    (tree-view path &key focus-column focus-cell start-editing) nil
   (tree-view tree-view)
   (path tree-path)
   (focus-column (or null tree-view-column))
@@ -1083,18 +1080,18 @@ then the model will sort using this function."
     (start-path tree-path :out)
     (end-path tree-path :out))
 
-;;   (defbinding icon-view-enable-model-drag-source () nil
-;;     (icon-view icon-view)
-;;     (start-button-mask gdk:modifier-type)
-;;     (targets (vector target-entry))
-;;     ((length targets) unsigned-int)
-;;     (actions gdk:drag-action))
+  (defbinding icon-view-enable-model-drag-source () nil
+    (icon-view icon-view)
+    (start-button-mask gdk:modifier-type)
+    (targets (vector (inlined target-entry)))
+    ((length targets) unsigned-int)
+    (actions gdk:drag-action))
 
-;;   (defbinding icon-view-enable-model-drag-dest () nil
-;;     (icon-view icon-view)
-;;     (targets (vector target-entry))
-;;     ((length targets) unsigned-int)
-;;     (actions gdk:drag-action))
+  (defbinding icon-view-enable-model-drag-dest () nil
+    (icon-view icon-view)
+    (targets (vector (inlined target-entry)))
+    ((length targets) unsigned-int)
+    (actions gdk:drag-action))
 
   (defbinding icon-view-unset-model-drag-source () nil
     (icon-view icon-view))
