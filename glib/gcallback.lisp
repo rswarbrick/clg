@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.45 2007-06-25 13:49:05 espen Exp $
+;; $Id: gcallback.lisp,v 1.46 2007-08-20 11:15:13 espen Exp $
 
 (in-package "GLIB")
 
@@ -35,6 +35,17 @@
 (defun register-callback-function (function)
   (check-type function (or null symbol function))
   (register-user-data function))
+
+(deftype user-callback () '(or function symbol))
+
+(define-type-method alien-type ((type user-callback))
+  (declare (ignore type))
+  (alien-type 'pointer-data))
+
+(define-type-method to-alien-form ((type user-callback) func &optional copy-p)
+  (declare (ignore type copy-p))
+  `(register-callback-function ,func))
+
 
 ;; Callback marshaller for regular signal handlers
 (define-callback signal-handler-marshal nil
@@ -90,9 +101,9 @@
 	  (disconnect () :report "Disconnect and exit signal handler"
 	    (when (signal-handler-is-connected-p instance handler-id)
 	      (signal-handler-disconnect instance handler-id))
-	    (values nil t))))
+	    (values nil t)))
       (when (signal-handler-is-connected-p instance handler-id)
-	(signal-handler-unblock instance handler-id))))
+	(signal-handler-unblock instance handler-id)))))
 
 (defun invoke-callback (callback-id return-type &rest args)
   (restart-case (apply (find-user-data callback-id) args)
