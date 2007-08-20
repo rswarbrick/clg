@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.81 2007-07-12 13:55:59 espen Exp $
+;; $Id: gtk.lisp,v 1.82 2007-08-20 10:54:38 espen Exp $
 
 
 (in-package "GTK")
@@ -552,7 +552,7 @@
   (define-callback-marshal %assistant-page-func-callback int
     ((current-page int)))
 
-  (defbinding assistant-set-forward-func (assistant function) nil
+  (defbinding assistant-set-forward-page-func (assistant function) nil
     (assistant assistant)
     (%assistant-page-func-callback callback)
     ((register-callback-function function) pointer-data)
