@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.13 2007-06-04 10:42:53 espen Exp $
+;; $Id: cairo.lisp,v 1.14 2007-08-23 21:12:43 espen Exp $
 
 (in-package "CAIRO")
 
@@ -40,7 +40,7 @@
   (define-enum-type fill-rule :winding :even-odd)
   (define-enum-type line-cap :butt :round :square)
   (define-enum-type line-join :miter :round :bevel)    
-  (define-enum-type font-slant :normal :itaic :oblique)
+  (define-enum-type font-slant :normal :italic :oblique)
   (define-enum-type font-weight :normal :bold)
 
   (define-enum-type operator
@@ -470,9 +470,9 @@
 
 (defmacro defpath (name args &optional relative-p)
   (flet ((def (name type)
-	   `(progn
-	      ,(when (eq type 'optimized-double-float)
-		 `(declaim (ftype (function (context ,@(loop repeat (length args) collect 'double-float))) ,(first name))))
+ 	   `(progn
+ 	      ,(when (eq type 'optimized-double-float)
+ 		 `(declaim (inline ,(first name))))
 	      (defbinding ,name () nil
 		(cr context)
 		,@(mapcar #'(lambda (arg) (list arg type)) args)))))
