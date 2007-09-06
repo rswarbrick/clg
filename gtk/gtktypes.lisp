@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.56 2007-07-09 12:50:21 espen Exp $
+;; $Id: gtktypes.lisp,v 1.57 2007-09-06 14:24:54 espen Exp $
 
 (in-package "GTK")
 
@@ -1087,6 +1087,20 @@
      :reader assistant-current-page
      :type int)))
 
+  #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
+  ("GtkRecentChooser"
+   :slots
+   ((current-item
+     :allocation :virtual
+     :getter "gtk_recent_chooser_get_current_item"
+     :reader recent-chooser-current-item
+     :type recent-info)
+    (current-uri
+     :allocation :virtual
+     :getter "gtk_recent_chooser_get_current_uri"
+     :setter %recent-chooser-set-current-uri
+     :accessor recent-chooser-current-uri
+     :type string)))
 
   ;; Not needed
   ("GtkFundamentalType" :ignore t)
