@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.8 2005-04-23 16:48:52 espen Exp $ */
+/* $Id: glue.c,v 1.9 2007-09-06 14:27:07 espen Exp $ */
 
 
 #include <gtk/gtk.h>
@@ -56,11 +56,12 @@ gtk_widget_get_state (GtkWidget *widget)
   return widget->state;
 }
 
-gboolean
-gtk_widget_mapped_p (GtkWidget *widget)
+gint32
+gtk_widget_flags (GtkWidget *widget)
 {
-  return GTK_WIDGET_MAPPED (widget);
+  return GTK_WIDGET_FLAGS (widget);
 }
+
 
 void
 gtk_widget_get_size_allocation (GtkWidget *widget, int *width, int *height)

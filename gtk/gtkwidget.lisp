@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.28 2007-06-20 10:20:47 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.29 2007-09-06 14:27:07 espen Exp $
 
 (in-package "GTK")
 
@@ -525,8 +525,20 @@ widget or a list of containers."
 
 ;;; Additional bindings and functions
 
-(defbinding (widget-mapped-p "gtk_widget_mapped_p") () boolean
+(defbinding %widget-flags () int
   (widget widget))
+
+(defun widget-flags (widget)
+  (let ((flags (%widget-flags widget)))
+    (nconc 
+     (int-to-object-flags flags)
+     (int-to-widget-flags flags))))
+
+(defun widget-mapped-p (widget)
+  (find :mapped (widget-flags widget)))
+
+(defun widget-realized-p (widget)
+  (find :realized (widget-flags widget)))
 
 (defbinding widget-get-size-allocation () nil
   (widget widget)
