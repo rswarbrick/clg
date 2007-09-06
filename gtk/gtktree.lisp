@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.29 2007-08-20 11:20:21 espen Exp $
+;; $Id: gtktree.lisp,v 1.30 2007-09-06 14:32:03 espen Exp $
 
 
 (in-package "GTK")
@@ -255,11 +255,12 @@
     location))
 
 (defun %tree-path-to-vector (location)
-  (let ((indices (%tree-path-get-indices location))
-	(depth (%tree-path-get-depth location)))
-    (if (null-pointer-p indices)
-	#()
-      (map-c-vector 'vector #'identity indices 'int depth))))
+  (unless (null-pointer-p location)
+    (let ((indices (%tree-path-get-indices location))
+	  (depth (%tree-path-get-depth location)))
+      (if (null-pointer-p indices)
+	  #()
+	(map-c-vector 'vector #'identity indices 'int depth)))))
 
 (defmacro %with-tree-path ((var path) &body body)
   (let* ((pointer-offset (adjust-offset (size-of 'int) 'pointer))
