@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.43 2007-06-25 13:56:56 espen Exp $
+;; $Id: gtkobject.lisp,v 1.44 2007-09-06 14:22:19 espen Exp $
 
 
 (in-package "GTK")
@@ -256,3 +256,23 @@
     (mapcar #'param-value-type (query-container-class-child-properties type)))))
 
 (register-derivable-type 'container "GtkContainer" 'expand-container-type 'container-dependencies)
+
+
+(defmacro define-callback-setter (name arg return-type &rest rest-args)
+  (let ((callback (gensym)))
+    (if arg
+	`(progn 
+	   (define-callback-marshal ,callback ,return-type 
+	     ,(cons arg rest-args))
+	   (defbinding ,name () nil
+	     ,arg
+	     (,callback callback)
+	     (function user-callback)
+	     (user-data-destroy-callback callback)))
+      `(progn 
+	 (define-callback-marshal ,callback ,return-type ,rest-args)
+	 (defbinding ,name () nil
+	   (,callback callback)
+	   (function user-callback)
+	   (user-data-destroy-callback callback))))))
+
