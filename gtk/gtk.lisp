@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.82 2007-08-20 10:54:38 espen Exp $
+;; $Id: gtk.lisp,v 1.83 2007-09-06 14:18:56 espen Exp $
 
 
 (in-package "GTK")
@@ -187,12 +187,12 @@
 	   (find-package "SWANK")
 	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) :spawn)))
       (error "When running clg in Slime, the communication style :spawn must be used in combination with multi threaded event handling. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information."))
+    (gdk:threads-init)	 
     (let ((main-running (sb-thread:make-waitqueue)))
       (gdk:with-global-lock
        (setf *main-thread*
         (sb-thread:make-thread 
 	 #'(lambda () 
-	     (gdk:threads-init)	 
 	     (gdk:with-global-lock 
 	       (gdk:display-open display)
 	       #+win32(gdk:timeout-add-with-lock (/ *event-poll-interval* 1000)
@@ -206,8 +206,8 @@
     ;; This will *only* protect code entered directly in the REPL.
     (when (find-package "SWANK")
       (push #'(lambda (form) 
-		(within-main-loop (eval form)))
-       swank::*slime-repl-eval-hooks*))))
+ 		(within-main-loop (eval form)))
+       (symbol-value (find-symbol "*SLIME-REPL-EVAL-HOOKS*" "SWANK"))))))
 
 #-sb-thread
 (defmacro within-main-loop (&body body)
