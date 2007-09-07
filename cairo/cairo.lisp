@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.14 2007-08-23 21:12:43 espen Exp $
+;; $Id: cairo.lisp,v 1.15 2007-09-07 07:13:55 espen Exp $
 
 (in-package "CAIRO")
 
@@ -578,10 +578,11 @@
 (defun scale-to-device (cr &optional keep-rotation-p)
   (if keep-rotation-p
       (multiple-value-call #'scale cr (device-to-user-distance cr 1.0))
-    (multiple-value-bind (x y) 
-	(multiple-value-call #'user-to-device cr (get-current-point cr))
-;      (identity-matrix cr)
-      (setf (matrix cr) (matrix-init-identity))
+    (multiple-value-bind (x y)
+	(with-context (cr)
+	  (move-to cr 0.0 0.0)
+	  (multiple-value-call #'user-to-device cr (get-current-point cr)))
+      (identity-matrix cr)
       (translate cr x y))))
 
 (defbinding rotate () nil
