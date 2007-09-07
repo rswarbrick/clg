@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pango.lisp,v 1.14 2007-06-06 10:43:54 espen Exp $
+;; $Id: pango.lisp,v 1.15 2007-09-07 07:39:59 espen Exp $
 
 (in-package "PANGO")
 
@@ -37,16 +37,16 @@
 (defclass font-description (boxed)
   ((family
     :allocation :virtual
-    :initarg :family
+    :initarg :family :initform "Sans"
     :getter "pango_font_description_get_family"
     :setter "pango_font_description_set_family"
     :boundp %font-description-family-boundp
     :makunbound %font-description-family-makunbound
     :accessor font-description-family
-    :type string)
+    :type (static string))
    (style
     :allocation :virtual
-    :initarg :style
+    :initarg :style :initform :normal
     :getter "pango_font_description_get_style"
     :setter "pango_font_description_set_style"
     :boundp %font-description-style-boundp
@@ -55,7 +55,7 @@
     :type style)
    (variant
    :allocation :virtual
-   :initarg :variant
+   :initarg :variant :initform :normal
    :getter "pango_font_description_get_variant"
    :setter "pango_font_description_set_variant"
    :boundp %font-description-variant-boundp
@@ -63,7 +63,7 @@
    :accessor font-description-variant
    :type variant)
    (weight
-   :allocation :virtual
+   :allocation :virtual :initform :normal
    :initarg :weight
    :getter "pango_font_description_get_weight"
    :setter "pango_font_description_set_weight"
@@ -72,7 +72,7 @@
    :accessor font-description-weight
    :type weight)
    (stretch
-   :allocation :virtual
+   :allocation :virtual :initform :normal
    :initarg :stretch
    :getter "pango_font_description_get_stretch"
    :setter "pango_font_description_set_stretch"
@@ -82,16 +82,18 @@
    :type stretch)
    (size
    :allocation :virtual
-   :initarg :size
-   :setter (setf font-description-size)
+;   :initarg :size :initform 16 ; handled by initialize instance
+;   :setter (setf font-description-size)
+   :setter %set-font-description-size
    :getter "pango_font_description_get_size"
    :boundp %font-description-size-boundp
    :makunbound %font-description-size-makunbound
    :reader font-description-size
    :type integer)
    #?(pkg-exists-p "pango" :atleast-version "1.8.0")
-   (absolute-size-p
+   (size-is-absolute-p
    :allocation :virtual
+;   :initarg :size-is-absolute :initform nil ; handled by initialize instance
    :getter "pango_font_description_get_size_is_absolute"
    :boundp %font-description-size-boundp
    :reader font-description-size-is-absolute-p
@@ -106,11 +108,11 @@
     :type context)
    (text
     :allocation :virtual
-    :initarg text
+    :initarg :text
     :getter "pango_layout_get_text"
     :setter %layout-set-text
     :accessor layout-text
-    :type string)
+    :type (static string))
    (attributes 
     :allocation :virtual
     :initarg :attributes
@@ -130,6 +132,7 @@
     :initarg :width
     :getter "pango_layout_get_width"
     :setter "pango_layout_set_width"
+    :unbound -1
     :accessor layout-width
     :type int)
    (wrap
@@ -181,12 +184,12 @@
     :setter "pango_layout_set_alignment"
     :accessor layout-alignment
     :type alignment)
-   (tab-array
+   (tabs
     :allocation :virtual
-    :initarg :tab-array
-    :getter "pango_layout_tab_array"
-    :setter "pango_layout_tab-array"
-    :accessor layout-tab-array
+    :initarg :tabs
+    :getter "pango_layout_get_tabs"
+    :setter "pango_layout_set_tabs"
+    :accessor layout-tabs
     :type tab-array)
    (single-paragraph
     :allocation :virtual
@@ -209,10 +212,9 @@
 
 ;;;; Font description
 
-(defmethod initialize-instance ((desc font-description) &key absolute-size)
+(defmethod initialize-instance ((desc font-description) &key (size 16) size-is-absolute)
   (call-next-method)
-  (when absolute-size
-    (setf (font-description-size desc t) absolute-size)))
+  (setf (font-description-size desc size-is-absolute) size))
 
 (defbinding %font-description-new () pointer)
 
@@ -272,13 +274,24 @@
   (desc font-description)
   (size double-float))
 
-(defun (setf font-description-size) (size desc &optional absolute-p)
-  (if absolute-p
+(defun (setf font-description-size) (size desc &optional (absolute-p nil absolute-given-p))
+  (cond
+    (absolute-p
       #?(pkg-exists-p "pango" :atleast-version "1.8.0")
       (%font-description-set-absolute-size desc size)
       #?-(pkg-exists-p "pango" :atleast-version "1.8.0")
-      (error "Setting of absolute font size requires at least Pango 1.8.0")
-    (%font-description-set-size desc size)))
+      (error "Setting of absolute font size requires at least Pango 1.8.0"))
+    (#?(pkg-exists-p "pango" :atleast-version "1.8.0") absolute-given-p
+     #?-(pkg-exists-p "pango" :atleast-version "1.8.0") t
+     (%font-description-set-size desc size))
+    #?(pkg-exists-p "pango" :atleast-version "1.8.0")
+    (t (if (font-description-size-is-absolute-p desc)
+	   (%font-description-set-absolute-size desc size)
+	 (%font-description-set-size desc size))))
+  size)
+
+(defun %set-font-description-size (size desc)
+  (setf (font-description-size desc) size))
 
 (defbinding font-description-merge (desc merge-desc &optional replace-p) nil
   (desc font-description)
@@ -295,6 +308,17 @@
 
 (defbinding font-description-to-string () string
   (desc font-description))
+
+(defbinding font-description-copy () font-description
+  (font-description font-description))
+
+(defun ensure-font-description (font-description &optional copy-p)
+  (etypecase font-description
+    (font-description (if copy-p
+			  (font-description-copy font-description)
+			font-description))
+    (string (font-description-from-string font-description))
+    (list (apply #'make-instance 'font-description font-description))))
 
 
 ;;;; Layout
@@ -318,7 +342,7 @@
 (defbinding layout-context-changed () nil
   (layout layout))
 
-(defbinding %layout-set-text () nil
+(defbinding %layout-set-text (text layout) nil
   (layout layout)
   (text string)
   (-1 int))
@@ -327,6 +351,16 @@
   (layout layout)
   (markup string)
   (-1 int))
+
+(defbinding layout-get-size () nil
+  (layout layout)
+  (width int :out)
+  (height int :out))
+
+(defbinding layout-get-pixel-size () nil
+  (layout layout)
+  (width int :out)
+  (height int :out))
 
 
 
