@@ -20,12 +20,11 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: defpackage.lisp,v 1.24 2007-09-07 07:31:40 espen Exp $
+;; $Id: defpackage.lisp,v 1.25 2007-09-07 07:53:03 espen Exp $
 
 
 (defpackage "GLIB"
-  (:use "COMMON-LISP" "GFFI" "AUTOEXPORT" "PKG-CONFIG" "CLG-UTILS" #+sbcl"SB-SIMPLE-STREAMS" ;#+sbcl"SB-GRAY"
-	)
+  (:use "COMMON-LISP" "GFFI" "AUTOEXPORT" "PKG-CONFIG" "CLG-UTILS")
   #+cmu(:use "PCL" "EXT")
   #+sbcl(:use "SB-MOP" "SB-EXT")
   #+sb-thread(:use "SB-THREAD")
