@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.7 2007-06-02 19:17:47 espen Exp $ */
+/* $Id: glue.c,v 1.8 2007-09-07 07:38:22 espen Exp $ */
 
 
 #include <gdk/gdk.h>
@@ -48,12 +48,16 @@ GdkWindow *clg_gdk_cairo_surface_get_window (cairo_surface_t *surface)
      portable way to find the GdkWindow of a Cairo surface. */
   
 #ifdef GDK_WINDOWING_X11
+  g_return_if_fail (cairo_surface_get_type (surface) == CAIRO_SURFACE_TYPE_XLIB);
+  
   Display* display = cairo_xlib_surface_get_display (surface);
-  Drawable window = cairo_xlib_surface_get_drawable (surface);
-  if (display && window)
-    return gdk_window_lookup_for_display (window, display);
-  else
-    return NULL;
+  if (display) {
+    Drawable window = cairo_xlib_surface_get_drawable (surface);
+    if (window)
+      return gdk_window_lookup_for_display (window, display);
+  }
+
+  return NULL;
 #elif defined (G_OS_WIN32)
   HDC hdc = (HDC)cairo_win32_surface_get_dc (surface);
   if (hdc)
