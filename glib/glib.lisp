@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.40 2007-06-15 12:25:16 espen Exp $
+;; $Id: glib.lisp,v 1.41 2007-09-07 07:33:51 espen Exp $
 
 
 (in-package "GLIB")
@@ -51,6 +51,11 @@
 
 (setf *memory-allocator* #'%allocate-memory)
 (setf *memory-deallocator* #'%deallocate-memory)
+
+(defbinding (reallocate-memory "g_realloc") () pointer
+  (address pointer)
+  (size unsigned-long))
+
 
 ;;;; User data mechanism
 
@@ -178,6 +183,12 @@
 (define-type-method alien-type ((type glist))
   (declare (ignore type))
   (alien-type 'pointer))
+
+(define-type-method argument-type ((type glist))
+  'list)
+
+(define-type-method return-type ((type glist))
+  'list)
 
 (define-type-method size-of ((type glist) &key inlined)
   (assert-not-inlined type inlined)
@@ -331,6 +342,12 @@
 (define-type-method alien-type ((type gslist))
   (declare (ignore type))
   (alien-type 'pointer))
+
+(define-type-method argument-type ((type gslist))
+  'list)
+
+(define-type-method return-type ((type gslist))
+  'list)
 
 (define-type-method size-of ((type gslist) &key inlined)
   (assert-not-inlined type inlined)
