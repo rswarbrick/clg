@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.7 2006-04-28 08:27:22 espen Exp $
+;; $Id: gerror.lisp,v 1.8 2007-09-07 07:32:26 espen Exp $
 
 
 (in-package "GLIB")
@@ -30,8 +30,8 @@
    (code :allocation :alien :type int :reader gerror-code)
    (message :allocation :alien :type string :reader gerror-message))
   (:metaclass struct-class)
-  (:ref gerror-copy)
-  (:unref gerror-free))
+  (:ref %gerror-copy)
+  (:unref %gerror-free))
 
 (defbinding (%gerror-copy "g_error_copy") () pointer
   (location pointer))
