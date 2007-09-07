@@ -20,10 +20,23 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.4 2007-06-18 10:13:07 espen Exp $
+;; $Id: vectors.lisp,v 1.5 2007-09-07 07:28:42 espen Exp $
 
 
 (in-package "GFFI")
+
+
+;;; Accessor functions for raw memory access
+
+(define-memory-accessor int-16)
+(define-memory-accessor int-32)
+(define-memory-accessor int-64)
+(define-memory-accessor uint-16)
+(define-memory-accessor uint-32)
+(define-memory-accessor uint-64)
+(define-memory-accessor single-float)
+(define-memory-accessor double-float)
+
 
 ;;; Vector
 
@@ -100,6 +113,19 @@
 (define-type-method alien-type ((type vector))
   (declare (ignore type))
   (alien-type 'pointer))
+
+(defun vector-type (type)
+  (destructuring-bind (element-type &optional (length '*)) 
+      (rest (type-expand-to 'vector type))
+    (if (constantp length)
+	`(vector ,(return-type element-type) ,length)
+      `(vector ,(return-type element-type) *))))
+
+(define-type-method argument-type ((type vector))
+  (vector-type type))
+
+(define-type-method return-type ((type vector))
+  (vector-type type))
 
 (define-type-method size-of ((type vector) &key inlined)
   (if inlined
@@ -575,3 +601,50 @@
 	       repeat length
 	       for element from counter-size by element-size
 	       do (funcall copy-element from-vector to-vector element))))))))
+
+
+;;;; Accessor functions for raw memory access
+
+(defun vector-reader-function (type &key (start 0) end)
+  "Returns a function for reading values from raw C vectors"
+  (let ((element-size (size-of type))
+	(reader (reader-function type)))
+    #'(lambda (vector index)
+	(assert (and (>= index start) (or (not end) (< index end))))
+	(funcall reader vector (* index element-size)))))
+
+(defun vector-writer-function (type &key (start 0) end)
+  "Returns a function for writing values to raw C vectors"
+  (let ((element-size (size-of type))
+	(writer (writer-function type)))
+    #'(lambda (value vector index)
+	(assert (and (>= index start) (or (not end) (< index end))))
+	(funcall writer value vector (* index element-size)))))
+
+
+(defmacro define-vector-accessor (type)
+  (let ((name (intern (format nil "VECTOR-REF-~A" type)))
+	(ref (intern (format nil "REF-~A" type))))
+    `(progn     
+       (declaim 
+	(ftype (function (pointer fixnum) ,type) ,name)
+	(inline ,name))
+       (defun ,name (vector index)
+	 (,ref vector (* ,(size-of type) index)))
+       (declaim 
+	(ftype (function (,type pointer fixnum) ,type) (setf ,name))
+	(inline (setf ,name)))
+       (defun (setf ,name) (value vector index)
+	 (setf (,ref vector (* ,(size-of type) index)) value)))))
+
+(define-vector-accessor int-8)
+(define-vector-accessor uint-8)
+(define-vector-accessor int-16)
+(define-vector-accessor uint-16)
+(define-vector-accessor int-32)
+(define-vector-accessor uint-32)
+(define-vector-accessor int-64)
+(define-vector-accessor uint-64)
+(define-vector-accessor double-float)
+(define-vector-accessor single-float)
+

@@ -20,11 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.4 2007-06-02 07:26:23 espen Exp $
+;; $Id: memory.lisp,v 1.5 2007-09-07 07:28:42 espen Exp $
 
 
 (in-package "GFFI")
 
+(deftype pointer () 
+  #+(or cmu sbcl) 'system-area-pointer
+  #+clisp 'ffi:foreign-address)
 
 (defun make-pointer (address)
   #+(or cmu sbcl)(int-sap address)
@@ -61,56 +64,198 @@
    #+clisp(ffi:memory-as location 'ffi:c-pointer offset)
    pointer))
 
+
+(deftype int-8 () '(signed-byte 8))
+(deftype uint-8 () '(unsigned-byte 8))
+(deftype int-16 () '(signed-byte 16))
+(deftype uint-16 () '(unsigned-byte 16))
+(deftype int-32 () '(signed-byte 32))
+(deftype uint-32 () '(unsigned-byte 32))
+(deftype int-64 () '(signed-byte 64))
+(deftype uint-64 () '(unsigned-byte 64))
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) int-8) ref-int-8)
+ (inline ref-int-8))
+(defun ref-int-8 (location &optional (offset 0))
+  #+(or cmu sbcl)(signed-sap-ref-8 location offset)
+  #+clisp(ffi:memory-as location 'ffi:char offset))
+
+(declaim 
+ (ftype (function (int-8 pointer &optional fixnum) int-8) (setf ref-int-8))
+ (inline (setf ref-int-8)))
+(defun (setf ref-int-8) (byte location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(signed-sap-ref-8 location offset)
+   #+clisp(ffi:memory-as location 'ffi:char offset)
+   byte))
+
+;; Deprecated functions
 (defun ref-byte (location &optional (offset 0))
+  (ref-int-8 location offset))
+(defun (setf ref-byte) (byte location &optional (offset 0))
+  (setf (ref-int-8 location offset) byte))
+
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) uint-8) ref-uint-8)
+ (inline ref-uint-8))
+(defun ref-uint-8 (location &optional (offset 0))
   #+(or cmu sbcl)(sap-ref-8 location offset)
   #+clisp(ffi:memory-as location 'ffi:uchar offset))
 
-(defun (setf ref-byte) (byte location &optional (offset 0))
+(declaim 
+ (ftype (function (uint-8 pointer &optional fixnum) uint-8) (setf ref-uint-8))
+ (inline (setf ref-uint-8)))
+(defun (setf ref-uint-8) (byte location &optional (offset 0))
   (setf 
    #+(or cmu sbcl)(sap-ref-8 location offset)
    #+clisp(ffi:memory-as location 'ffi:uchar offset)
    byte))
 
-(defun ref-int-32 (location &optional (offset 0))
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) int-16) ref-native-int-16)
+ (inline ref-native-int-16))
+(defun ref-native-int-16 (location &optional (offset 0))
+  #+(or cmu sbcl)(signed-sap-ref-16 location offset)
+  #+clisp(ffi:memory-as location 'ffi:sint16 offset))
+
+(declaim 
+ (ftype 
+  (function (uint-16 pointer &optional fixnum) int-16) 
+  (setf ref-native-int-16))
+ (inline (setf ref-native-int-16)))
+(defun (setf ref-native-int-16) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(signed-sap-ref-16 location offset)
+   #+clisp(ffi:memory-as location 'ffi:sint16 offset)
+   value))
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) uint-16) ref-native-uint-16)
+ (inline ref-native-uint-16))
+(defun ref-native-uint-16 (location &optional (offset 0))
+  #+(or cmu sbcl)(sap-ref-16 location offset)
+  #+clisp(ffi:memory-as location 'ffi:int16 offset))
+
+(declaim 
+ (ftype 
+  (function (uint-16 pointer &optional fixnum) uint-16) 
+  (setf ref-native-uint-16))
+ (inline (setf ref-native-uint-16)))
+(defun (setf ref-native-uint-16) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(sap-ref-16 location offset)
+   #+clisp(ffi:memory-as location 'ffi:int16 offset)
+   value))
+
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) int-32) ref-native-int-32)
+ (inline ref-native-int-32))
+(defun ref-native-int-32 (location &optional (offset 0))
   #+(or cmu sbcl)(signed-sap-ref-32 location offset)
   #+clisp(ffi:memory-as location 'ffi:sint32 offset))
 
-(defun (setf ref-int-32) (value location &optional (offset 0))
+(declaim 
+ (ftype (function (int-32 pointer &optional fixnum) int-32) (setf ref-native-int-32))
+ (inline (setf ref-native-int-32)))
+(defun (setf ref-native-int-32) (value location &optional (offset 0))
   (setf 
    #+(or cmu sbcl)(signed-sap-ref-32 location offset)
    #+clisp(ffi:memory-as location 'ffi:sint32 offset)
    value))
 
-(defun ref-uint-32 (location &optional (offset 0))
+(declaim 
+ (ftype (function (pointer &optional fixnum) uint-32) ref-native-uint-32)
+ (inline ref-native-uint-32))
+(defun ref-native-uint-32 (location &optional (offset 0))
   #+(or cmu sbcl)(sap-ref-32 location offset)
   #+clisp(ffi:memory-as location 'ffi:uint32 offset))
 
-(defun (setf ref-uint-32) (value location &optional (offset 0))
+(declaim 
+ (ftype 
+  (function (uint-32 pointer &optional fixnum) uint-32) 
+  (setf ref-native-uint-32))
+ (inline (setf ref-native-uint-32)))
+(defun (setf ref-native-uint-32) (value location &optional (offset 0))
   (setf 
    #+(or cmu sbcl)(sap-ref-32 location offset)
    #+clisp(ffi:memory-as location 'ffi:uint32 offset)
    value))
 
-(defun ref-single-float (location &optional (offset 0))
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) int-64) ref-native-int-64)
+ (inline ref-native-int-64))
+(defun ref-native-int-64 (location &optional (offset 0))
+  #+(or cmu sbcl)(signed-sap-ref-64 location offset)
+  #+clisp(ffi:memory-as location 'ffi:sint64 offset))
+
+(declaim 
+ (ftype (function (int-64 pointer &optional fixnum) int-64) (setf ref-native-int-64))
+ (inline (setf ref-native-int-64)))
+(defun (setf ref-native-int-64) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(signed-sap-ref-64 location offset)
+   #+clisp(ffi:memory-as location 'ffi:sint64 offset)
+   value))
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) uint-64) ref-native-uint-64)
+ (inline ref-native-uint-64))
+(defun ref-native-uint-64 (location &optional (offset 0))
+  #+(or cmu sbcl)(sap-ref-64 location offset)
+  #+clisp(ffi:memory-as location 'ffi:uint64 offset))
+
+(declaim 
+ (ftype 
+  (function (uint-64 pointer &optional fixnum) uint-64) 
+  (setf ref-native-uint-64))
+ (inline (setf ref-native-uint-64)))
+(defun (setf ref-native-uint-64) (value location &optional (offset 0))
+  (setf 
+   #+(or cmu sbcl)(sap-ref-64 location offset)
+   #+clisp(ffi:memory-as location 'ffi:uint64 offset)
+   value))
+
+
+(declaim 
+ (ftype (function (pointer &optional fixnum) single-float) ref-native-single-float)
+ (inline ref-native-single-float))
+(defun ref-native-single-float (location &optional (offset 0))
   #+(or cmu sbcl)(sap-ref-single location offset)
   #+clisp(ffi:memory-as location 'single-float offset))
 
-(defun (setf ref-single-float) (value location &optional (offset 0))
+(declaim 
+ (ftype 
+  (function (single-float pointer &optional fixnum) single-float) 
+  (setf ref-native-single-float))
+ (inline (setf ref-native-single-float)))
+(defun (setf ref-native-single-float) (value location &optional (offset 0))
   (setf 
    #+(or cmu sbcl)(sap-ref-single location offset)
    #+clisp(ffi:memory-as location 'single-float offset)
    value))
 
-(defun ref-double-float (location &optional (offset 0))
+(declaim 
+ (ftype (function (pointer &optional fixnum) double-float) ref-native-double-float)
+ (inline ref-native-double-float))
+(defun ref-native-double-float (location &optional (offset 0))
   #+(or cmu sbcl)(sap-ref-double location offset)
   #+clisp(ffi:memory-as location 'double-float offset))
 
-(defun (setf ref-double-float) (value location &optional (offset 0))
+(declaim 
+ (ftype 
+  (function (double-float pointer &optional fixnum) double-float) 
+  (setf ref-native-double-float))
+ (inline (setf ref-native-double-float)))
+(defun (setf ref-native-double-float) (value location &optional (offset 0))
   (setf 
    #+(or cmu sbcl)(sap-ref-double location offset)
    #+clisp(ffi:memory-as location 'double-float offset)
    value))
-
 
 
 (defparameter *memory-allocator* nil)
@@ -120,7 +265,6 @@
   (if *memory-allocator*
       (funcall *memory-allocator* size)
     (error "Memory allocator not set")))
-(declaim (ftype (function (integer) system-area-pointer) allocate-memory))
 
 (defun deallocate-memory (location)
   (if *memory-deallocator*
@@ -133,7 +277,7 @@
   #-(or cmu sbcl)
   (loop
    for offset below length
-   do (setf (ref-byte to offset) (ref-byte from offset)))
+   do (setf (ref-uint-88 to offset) (ref-uint-8 from offset)))
   to)
 
 (defun clear-memory (from length &optional (offset 0))
@@ -142,13 +286,13 @@
   (loop
    repeat length
    for byte-offset from offset
-   do (setf (ref-byte from byte-offset) 0)))
+   do (setf (ref-uint-8 from byte-offset) 0)))
 
 (defun memory-clear-p (from length &optional (offset 0))
   (loop
    repeat length
    for byte-offset from offset
-   unless (zerop (ref-byte from byte-offset))
+   unless (zerop (ref-uint-8 from byte-offset))
    do (return-from memory-clear-p nil))
   t)
 
@@ -194,3 +338,42 @@
     (/ (sb-alien-internals:alien-type-alignment
 	(sb-alien-internals:parse-alien-type type nil))
        8)))
+
+
+(deftype endian () '(member :native :little :big))
+
+(defmacro define-memory-accessor (type)
+  (let* ((get-swapped (intern (format nil "GET-~A-SWAPPED" type)))
+	 (set-swapped (intern (format nil "SET-~A-SWAPPED" type)))
+	 (ref (intern (format nil "REF-~A" type)))
+	 (ref-native (intern (format nil "REF-NATIVE-~A" type))))
+    `(progn
+       (declaim (inline ,get-swapped) (inline ,set-swapped))
+       (defbinding ,get-swapped () ,type
+	 (location pointer)
+	 (offset int))
+       (defbinding ,set-swapped () nil
+	 (location pointer)
+	 (offset int)
+	 (value ,type))
+       (declaim 
+	(ftype (function (pointer &optional fixnum endian) ,type) ,ref)
+	(inline ,ref))
+       (defun ,ref (location &optional offset (endian :native))
+	 (ecase endian
+	   ((:native #-big-endian :little #+big-endian :big)
+	    (,ref-native location offset))	   
+	   ((#-big-endian :big #+big-endian :little)
+	    (,get-swapped location offset))))
+       (declaim 
+	(ftype 
+	 (function (,type pointer &optional fixnum endian) ,type) 
+	 (setf ,ref))
+	(inline (setf ,ref)))
+       (defun (setf ,ref) (value location &optional offset (endian :native))
+	 (ecase endian
+	   ((:native #-big-endian :little #+big-endian :big)
+	    (setf (,ref-native location offset) value))
+	   ((#-big-endian :big #+big-endian :little)
+	    (,set-swapped location offset value)
+	    value))))))

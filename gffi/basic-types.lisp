@@ -20,11 +20,12 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.9 2007-06-20 09:49:06 espen Exp $
+;; $Id: basic-types.lisp,v 1.10 2007-09-07 07:28:42 espen Exp $
 
 (in-package "GFFI")
 
 
+(deftype byte () '(unsigned-byte 8))
 (deftype int ()
   '(signed-byte #+sbcl #.(sb-sizeof-bits 'sb-alien:int)
 		#+clisp #.(ffi:bitsizeof 'ffi:int)
@@ -52,9 +53,6 @@
 (deftype signed (&optional (size '*)) `(signed-byte ,size))
 (deftype unsigned (&optional (size '*)) `(unsigned-byte ,size))
 (deftype char () 'base-char)
-(deftype pointer () 
-  #+(or cmu sbcl) 'system-area-pointer
-  #+clisp 'ffi:foreign-address)
 (deftype pointer-data () 
   '(unsigned-byte #+sbcl #.(sb-sizeof-bits 'sb-alien:system-area-pointer)
 		  #+clisp #.(ffi:bitsizeof 'ffi:c-pointer)
@@ -69,6 +67,10 @@
 
 (define-type-generic alien-type (type)
   "Returns the foreign type corresponding to TYPE")
+(define-type-generic argument-type (type)
+  "Returns the type to be used in argument declarations for TYPE.")
+(define-type-generic return-type (type)
+  "Returns the type to be used in return type declarations for TYPE.")
 (define-type-generic size-of (type &key inlined)
   "Returns the foreign size of TYPE. The default value of INLINED is
 T for basic C types and NIL for other types.")
@@ -153,6 +155,12 @@ have been written as temporal.")
 
 (define-type-method alien-type ((type t))
   (error "No alien type corresponding to the type specifier ~A" type))
+
+(define-type-method argument-type ((type t))
+  type)
+
+(define-type-method return-type ((type t))
+  type)
 
 (define-type-method to-alien-form ((type t) form &optional copy-p)
   (declare (ignore form copy-p))
@@ -289,26 +297,10 @@ have been written as temporal.")
 		    (second (type-expand-to 'signed-byte 'int))
 		  size)))
       (ecase size
-	( 8 #'(lambda (value location &optional (offset 0))
-		(setf 
-		 #+(or cmu sbcl)(signed-sap-ref-8 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:sint8 offset)
-		 value)))
-	(16 #'(lambda (value location &optional (offset 0))
-		(setf 
-		 #+(or cmu sbcl)(signed-sap-ref-16 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:sint16 offset)
-		 value)))
-	(32 #'(lambda (value location &optional (offset 0))	       
-		(setf 
-		 #+(or cmu sbcl)(signed-sap-ref-32 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:sint32 offset)
-		 value)))
-	(64 #'(lambda (value location &optional (offset 0))
-		(setf 
-		 #+(or cmu sbcl)(signed-sap-ref-64 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:sint64 offset)
-		 value)))))))
+	( 8 #'(setf ref-int-8))
+	(16 #'(setf ref-native-int-16))
+	(32 #'(setf ref-native-int-32))
+	(64 #'(setf ref-native-int-64))))))
 
 (define-type-method reader-function ((type signed-byte) &key ref (inlined t))
   (declare (ignore ref))
@@ -319,19 +311,10 @@ have been written as temporal.")
 		    (second (type-expand-to 'signed-byte 'int))
 		  size)))
       (ecase size
-	( 8 #'(lambda (location &optional (offset 0)) 
-		#+(or cmu sbcl)(signed-sap-ref-8 location offset)
-		#+clisp(ffi:memory-as location 'ffi:sint8 offset)))
-	(16 #'(lambda (location &optional (offset 0))
-		#+(or cmu sbcl)(signed-sap-ref-16 location offset)
-		#+clisp(ffi:memory-as location 'ffi:sint16 offset)))
-	(32 #'(lambda (location &optional (offset 0)) 
-		#+(or cmu sbcl)(signed-sap-ref-32 location offset)
-		#+clisp(ffi:memory-as location 'ffi:sint32 offset)))
-	(64 #'(lambda (location &optional (offset 0)) 
-		#+(or cmu sbcl)(signed-sap-ref-64 location offset)
-		#+clisp(ffi:memory-as location 'ffi:sint64 offset)))))))
-
+	( 8 #'ref-int-8)
+	(16 #'ref-native-int-16)
+	(32 #'ref-native-int-32)
+	(64 #'ref-native-int-64)))))
 
 
 ;;; Unsigned Byte
@@ -382,26 +365,10 @@ have been written as temporal.")
 		    (second (type-expand-to 'signed-byte 'int))
 		  size)))
       (ecase size
-	( 8 #'(lambda (value location &optional (offset 0))		
-		(setf 
-		 #+(or cmu sbcl)(sap-ref-8 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:uint8 offset)
-		 value)))
-	(16 #'(lambda (value location &optional (offset 0))
-		(setf 
-		 #+(or cmu sbcl)(sap-ref-16 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:uint16 offset)
-		 value)))
-	(32 #'(lambda (value location &optional (offset 0))	       
-		(setf 
-		 #+(or cmu sbcl)(sap-ref-32 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:uint32 offset)
-		 value)))
-	(64 #'(lambda (value location &optional (offset 0))
-		(setf 
-		 #+(or cmu sbcl)(sap-ref-64 location offset)
-		 #+clisp(ffi:memory-as location 'ffi:uint64 offset)
-		 value)))))))
+	( 8 #'(setf ref-uint-8))
+	(16 #'(setf ref-native-uint-16))
+	(32 #'(setf ref-native-uint-32))
+	(64 #'(setf ref-native-uint-64))))))
       
 (define-type-method reader-function ((type unsigned-byte) &key ref (inlined t))
   (declare (ignore ref))
@@ -412,19 +379,10 @@ have been written as temporal.")
 		    (second (type-expand-to 'signed-byte 'int))
 		  size)))
       (ecase size
-	( 8 #'(lambda (location &optional (offset 0)) 
-		#+(or cmu sbcl)(sap-ref-8 location offset)
-		#+clisp(ffi:memory-as location 'ffi:uint8 offset)))
-	(16 #'(lambda (location &optional (offset 0))
-		#+(or cmu sbcl)(sap-ref-16 location offset)
-		#+clisp(ffi:memory-as location 'ffi:uint16 offset)))
-	(32 #'(lambda (location &optional (offset 0)) 
-		#+(or cmu sbcl)(sap-ref-32 location offset)
-		#+clisp(ffi:memory-as location 'ffi:uint32 offset)))
-	(64 #'(lambda (location &optional (offset 0)) 
-		#+(or cmu sbcl)(sap-ref-64 location offset)
-		#+clisp(ffi:memory-as location 'ffi:uint64 offset)))))))
-
+	( 8 #'ref-uint-8)
+	(16 #'ref-native-uint-16)
+	(32 #'ref-native-uint-32)
+	(64 #'ref-native-uint-64)))))
 
 
 ;;; Single Float
@@ -434,6 +392,10 @@ have been written as temporal.")
   #+cmu 'alien:single-float 
   #+sbcl 'sb-alien:single-float
   #+clisp 'single-float)
+
+(define-type-method argument-type ((type single-float))
+  (declare (ignore type))
+  'number)
 
 (define-type-method size-of ((type single-float) &key (inlined t))
   (assert-inlined type inlined)
@@ -460,12 +422,12 @@ have been written as temporal.")
   (declare (ignore temp))
   (assert-inlined type inlined)
   #'(lambda (number location &optional (offset 0))
-      (setf (ref-single-float location offset) (coerce number 'single-float))))
+      (setf (ref-native-single-float location offset) (coerce number 'single-float))))
 
 (define-type-method reader-function ((type single-float) &key ref (inlined t))
   (declare (ignore ref))
   (assert-inlined type inlined)
-  #'ref-single-float)
+  #'ref-native-single-float)
 
 
 
@@ -476,6 +438,10 @@ have been written as temporal.")
   #+cmu 'alien:double-float 
   #+sbcl 'sb-alien:double-float
   #+clisp 'double-float)
+
+(define-type-method argument-type ((type double-float))
+  (declare (ignore type))
+  'number)
 
 (define-type-method size-of ((type double-float) &key (inlined t))
   (assert-inlined type inlined)
@@ -502,18 +468,22 @@ have been written as temporal.")
   (declare (ignore temp))
   (assert-inlined type inlined)
   #'(lambda (value location &optional (offset 0))
-      (setf (ref-double-float location offset) (coerce value 'double-float))))
+      (setf (ref-native-double-float location offset) (coerce value 'double-float))))
 
 (define-type-method reader-function ((type double-float) &key ref (inlined t))
   (declare (ignore ref))
   (assert-inlined type inlined)
-  #'ref-double-float)
+  #'ref-native-double-float)
 
 (deftype optimized-double-float () 'double-float)
 
 (define-type-method to-alien-form ((type optimized-double-float) form &optional copy-p)
   (declare (ignore type copy-p))
   form)
+
+(define-type-method argument-type ((type optimized-double-float))
+  (declare (ignore type))
+  'double-float)
 
 
 
@@ -555,16 +525,13 @@ have been written as temporal.")
   (declare (ignore temp))
   (assert-inlined type inlined)
   #'(lambda (char location &optional (offset 0))
-      #+(or cmu sbcl)
-      (setf (sap-ref-8 location offset) (char-code char))
-      #+clisp(setf (ffi:memory-as location 'ffi:character offset) char)))
+      (setf (ref-int-8 location offset) (char-code char))))
 
 (define-type-method reader-function ((type base-char) &key ref (inlined t))
   (declare (ignore ref))
   (assert-inlined type inlined)
   #'(lambda (location &optional (offset 0))
-      #+(or cmu sbcl)(code-char (sap-ref-8 location offset))
-      #+clisp(ffi:memory-as location 'ffi:character offset)))
+      (code-char (ref-int-8 location offset))))
 
 
 
@@ -590,27 +557,27 @@ have been written as temporal.")
      as char-code = (char-code char)
      do (flet ((encode (size)
 		 (let ((rem (mod size 6)))
-		   (setf (ref-byte location i)
+		   (setf (ref-uint-8 location i)
 		    (deposit-field 
 		     #xFF (byte (- 7 rem) (1+ rem))
 		     (ldb (byte rem (- size rem)) char-code)))
 		   (loop
 		    for pos from (- size rem 6) downto 0 by 6
-		    do (setf (ref-byte location (incf i)) 
+		    do (setf (ref-uint-8 location (incf i)) 
 		        (+ 128 (ldb (byte 6 pos) char-code)))))))
 	  (cond
-	   ((< char-code #x80) (setf (ref-byte location i) char-code))
+	   ((< char-code #x80) (setf (ref-uint-8 location i) char-code))
 	   ((< char-code #x800) (encode 11))
 	   ((< char-code #x10000) (encode 16))
 	   ((< char-code #x200000) (encode 21)))))
-    (setf (ref-byte location (1- len)) 0)
+    (setf (ref-uint-8 location (1- len)) 0)
     location))
 
 (defun decode-utf8-string (c-string)
   (with-output-to-string (string)
     (loop
      for i from 0
-     as octet = (ref-byte c-string i)
+     as octet = (ref-uint-8 c-string i)
      until (zerop octet)
      do (flet ((decode (size)
 		 (loop
@@ -618,7 +585,7 @@ have been written as temporal.")
 		  for pos from (- size rem) downto 0 by 6
 		  as code = (dpb (ldb (byte rem 0) octet) (byte rem pos) 0)
 		  then (dpb 
-			(ldb (byte 6 0) (ref-byte c-string (incf i)))
+			(ldb (byte 6 0) (ref-uint-8 c-string (incf i)))
 			(byte 6 pos) code)
 		  finally (write-char (code-char code) string))))
 	  (cond
@@ -651,6 +618,12 @@ have been written as temporal.")
 (define-type-method alien-type ((type string))
   (declare (ignore type))
   (alien-type 'pointer))
+
+(define-type-method argument-type ((type string))
+  'string)
+
+(define-type-method return-type ((type string))
+  'string)
 
 (define-type-method size-of ((type string) &key inlined)
   (assert-not-inlined type inlined)
@@ -730,7 +703,7 @@ have been written as temporal.")
     (let* ((string (ref-pointer from offset))
 	   (length (loop
 		    for i from 0
-		    until (zerop (ref-byte string i))
+		    until (zerop (ref-uint-8 string i))
 		    finally (return (1+ i)))))
       (setf (ref-pointer to offset) (copy-memory string length)))))
 
@@ -745,6 +718,10 @@ have been written as temporal.")
 (define-type-method alien-type ((type pathname))
   (declare (ignore type))
   (alien-type 'string))
+
+(define-type-method argument-type ((type pathname))
+  (declare (ignore type))
+  '(or pathname string))
 
 (define-type-method size-of ((type pathname) &key inlined)
   (assert-not-inlined type inlined)
@@ -872,6 +849,10 @@ have been written as temporal.")
   (declare (ignore type))
   (alien-type 'bool))
 
+(define-type-method argument-type ((type boolean))
+  (declare (ignore type))
+  t)
+
 (define-type-method size-of ((type boolean) &key (inlined t))
   (assert-inlined type inlined)
   (size-of 'bool))
@@ -918,6 +899,11 @@ have been written as temporal.")
       (error "No common alien type specifier for union type: ~A" type))
     alien-type))
 
+(define-type-method argument-type ((type or))
+  (let ((expanded-type (type-expand-to 'or type)))
+    `(or ,@(mapcar #'argument-type (rest expanded-type)))))
+
+
 (define-type-method size-of ((type or) &key (inlined nil inlined-p))
   (loop
    for subtype in (type-expand-to 'or type)
@@ -941,14 +927,21 @@ have been written as temporal.")
 	      `(,type ,(alien-arg-wrapper type var value style form copy-in-p)))
 	  (rest (type-expand-to 'or type)))))
    ((in-arg-p style)
-    (let ((body (make-symbol "BODY")))
-      `(flet ((,body (,var)
-	         ,form))
-	 (etypecase ,value
-	   ,@(mapcar	 
-	      #'(lambda (type)
-		  `(,type ,(alien-arg-wrapper type var value style `(,body ,var) copy-in-p)))
-	      (rest (type-expand-to 'or type)))))))
+    ;; If the unexpanded type has explicit alien-type and
+    ;; to-alien-form methods, we just call the default arg wrapper
+    (if (and 
+	 (not (eq (first (mklist type)) 'or))
+	 (find-type-method 'alien-type type nil) 
+	 (find-type-method 'to-alien-form type nil))
+	(funcall (find-type-method 'alien-arg-wrapper t) type var value style form copy-in-p)
+      (let ((body (make-symbol "BODY")))
+	`(flet ((,body (,var)
+		       ,form))
+	   (etypecase ,value
+	     ,@(mapcar	 
+		#'(lambda (type)
+		    `(,type ,(alien-arg-wrapper type var value style `(,body ,var) copy-in-p)))
+		(rest (type-expand-to 'or type))))))))
    ((out-arg-p style)
     #+(or cmu sbcl)
     `(with-alien ((,var ,(alien-type type)))
@@ -1080,6 +1073,9 @@ have been written as temporal.")
 
 ;;; Copy-of
 
+(define-type-method return-type ((type copy-of))
+  (return-type (second type)))
+
 (define-type-method from-alien-form ((type copy-of) form &key (ref :copy))
   (if (eq ref :copy)
       (from-alien-form (second (type-expand-to 'copy-of type)) form :ref ref)
@@ -1122,6 +1118,9 @@ have been written as temporal.")
 
 
 ;;; Static
+
+(define-type-method return-type ((type static))
+  (return-type (second type)))
 
 (define-type-method from-alien-form ((type static) form &key (ref :static))
   (if (eq ref :static)
@@ -1173,6 +1172,9 @@ have been written as temporal.")
 (define-type-method size-of ((type inlined) &key (inlined t))
   (assert-inlined type inlined)
   (size-of (second (type-expand-to 'inlined type)) :inlined t))
+
+(define-type-method return-type ((type inlined))
+  (return-type (second type)))
 
 (define-type-method type-alignment ((type inlined) &key (inlined t))
   (assert-inlined type inlined)

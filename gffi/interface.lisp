@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.5 2007-04-06 16:06:24 espen Exp $
+;; $Id: interface.lisp,v 1.6 2007-09-07 07:28:42 espen Exp $
 
 (in-package "GFFI")
 
@@ -99,13 +99,17 @@
 		       
     (let* ((lambda-list-supplied-p lambda-list)
 	   (lambda-list (unless (equal lambda-list '(nil)) lambda-list))
-	   (aux-vars ())
+	   (arg-types ())
+	   (aux-bindings ())
 	   (doc-string (when (stringp (first args)) (pop args)))
 	   (parsed-args	         
 	    (mapcar 
 	     #'(lambda (arg)
 		 (destructuring-bind 
-		     (expr type &optional (style :in) (out-type type)) arg
+		     (expr type &optional (style :in) (out-type type)) 
+		     (if (atom arg) 
+			 (list arg arg)
+		       arg)
 		   (cond
 		    ((find style '(:in-out :return))
 		     (warn "Deprecated argument style: ~S" style))
@@ -113,12 +117,14 @@
 		     (error "Bogus argument style: ~S" style)))
 		   (when (and 
 			  (not lambda-list-supplied-p) 
-			  (namep expr) (in-arg-p style))
-		     (push expr lambda-list))
+			  (namep expr) (in-arg-p style)
+			  (not (find expr lambda-list)))
+		     (push expr lambda-list)
+		     (push type arg-types))
 		   (let ((aux (unless (or (not (in-arg-p style)) (namep expr))
 				(gensym))))
 		     (when aux
-		       (push `(,aux ,expr) aux-vars))
+		       (push (list aux expr) aux-bindings))
 		     (list 
 		      (cond 
 		       ((and (namep expr) (not (in-arg-p style))) expr)
@@ -129,7 +135,8 @@
   
       (%defbinding c-name lisp-name
        (if lambda-list-supplied-p lambda-list (nreverse lambda-list))
-       aux-vars return-type doc-string parsed-args))))
+       (not lambda-list-supplied-p) (nreverse arg-types)
+       aux-bindings return-type doc-string parsed-args))))
 
 
 #+(or cmu sbcl)
@@ -174,7 +181,7 @@
 
 ;; TODO: check if in and out types (if different) translates to same
 ;; alien type
-(defun %defbinding (cname lisp-name lambda-list aux-vars return-type doc args)
+(defun %defbinding (cname lisp-name lambda-list declare-p arg-types aux-bindings return-type doc args)
   (let ((out (loop
 	      for (var expr type style out-type) in args
 	      when (or (out-arg-p style) (return-arg-p style))
@@ -189,12 +196,26 @@
 		     (alien-arg-wrapper type var expr style
 		      (create-wrapper (rest args) body)))
 		 body)))
-       `(defun ,lisp-name ,lambda-list
+       `(progn
+	  ,(when declare-p
+	     `(declaim 
+	       (ftype 
+		(function 
+		 ,(mapcar #'argument-type arg-types)
+		 (values 
+		  ,@(when return-type (list (return-type return-type)))
+		  ,@(loop
+		     for (var expr type style out-type) in args
+		     when (out-arg-p style)
+		     collect (return-type out-type)
+		     when (return-arg-p style)
+		     collect (return-type type)))))))
+	  (defun ,lisp-name ,lambda-list
 	  ,doc
-	  (let ,aux-vars
+	  (let ,aux-bindings
 	    ,(if return-type
 		 (create-wrapper args `(values ,fcall ,@out))
-	       (create-wrapper args `(progn ,fcall (values ,@out)))))))))
+	       (create-wrapper args `(progn ,fcall (values ,@out))))))))))
 
 
 
@@ -414,6 +435,18 @@
 
 ;;;; Type methods
 
+(defun find-type-method (name type-spec &optional (error-p t))
+  (let ((type-methods (get name 'type-methods))
+	(specifier (if (atom type-spec)
+		       type-spec
+		     (first type-spec))))
+    (or
+     (gethash specifier type-methods)
+     (when error-p 
+       (error 
+	"No explicit type method for ~A when call width type specifier ~A found"
+	name type-spec)))))
+
 (defun find-next-type-method (name type-spec &optional (error-p t))
   (let ((type-methods (get name 'type-methods)))
     (labels ((search-method-in-cpl-order (classes)
@@ -463,17 +496,14 @@
 	  name type-spec))))))
 
 (defun find-applicable-type-method (name type-spec &optional (error-p t))
-  (let ((type-methods (get name 'type-methods))
-	(specifier (if (atom type-spec)
-		       type-spec
-		     (first type-spec))))
-    (or
-     (gethash specifier type-methods)
-     (find-next-type-method name type-spec nil)
-     (when error-p 
-       (error 
-	"No applicable type method for ~A when call width type specifier ~A"
-	name type-spec)))))
+  (or
+   (find-type-method name type-spec nil)
+   (find-next-type-method name type-spec nil)
+   (when error-p 
+     (error 
+      "No applicable type method for ~A when call width type specifier ~A"
+      name type-spec))))
+
 
 (defun insert-type-in-hierarchy (specifier function nodes)
   (cond
