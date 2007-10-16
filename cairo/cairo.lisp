@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.15 2007-09-07 07:13:55 espen Exp $
+;; $Id: cairo.lisp,v 1.16 2007-10-16 07:48:39 espen Exp $
 
 (in-package "CAIRO")
 
@@ -206,7 +206,7 @@
      (stride
       :allocation :virtual 
       :getter "cairo_image_surface_get_stride"
-      :reader surface-height
+      :reader surface-stride
       :type int))
     (:metaclass surface-class))
 
@@ -577,7 +577,8 @@
 
 (defun scale-to-device (cr &optional keep-rotation-p)
   (if keep-rotation-p
-      (multiple-value-call #'scale cr (device-to-user-distance cr 1.0))
+      (multiple-value-bind (dx dy) (device-to-user-distance cr 1.0 0.0)
+	(scale cr (sqrt (+ (* dx dx) (* dy dy)))))
     (multiple-value-bind (x y)
 	(with-context (cr)
 	  (move-to cr 0.0 0.0)
@@ -831,6 +832,11 @@
   :success)
 
 
+(defmacro with-surface ((surface cr) &body body)
+  `(let ((,cr (make-instance 'context :target ,surface)))
+     ,@body))
+
+
 ;; Image Surface
 
 ;; Should data be automatically freed when the surface is GCed?
@@ -982,12 +988,18 @@
 (defbinding matrix-init-identity (&optional (matrix (make-instance 'matrix))) nil
   (matrix matrix :in/return))
 
+(defun identity-matrix-p (matrix)
+  (with-slots (xx yx xy yy x0 y0) matrix
+    (and 
+     (= xx 1.0d0) (= yx 0.0d0) (= xy 0.0d0)
+     (= yy 1.0d0) (= x0 0.0d0) (= y0 0.0d0))))
+
 (defbinding matrix-init-translate () nil
   (matrix matrix :in/return)
   (tx double-float)
   (ty double-float))
 
-(defbinding matrix-init-scale () nil
+(defbinding matrix-init-scale (matrix sx &optional (sy sx)) nil
   (matrix matrix :in/return)
   (sx double-float)
   (sy double-float))
@@ -1001,7 +1013,7 @@
   (tx double-float)
   (ty double-float))
 
-(defbinding matrix-scale () nil
+(defbinding matrix-scale (matrix sx &optional (sy sx)) nil
   (matrix matrix :in/return)
   (sx double-float)
   (sy double-float))
@@ -1018,15 +1030,12 @@
   (a matrix)
   (b matrix))
 
-(defbinding matrix-transform-distance () nil
-  (matrix matrix :in/return)
-  (dx double-float)
-  (dy double-float))
+(defbinding matrix-transform-distance (matrix dx &optional (dy dx)) nil
+  (matrix matrix)
+  (dx double-float :in/out)
+  (dy double-float :in/out))
 
 (defbinding matrix-transform-point () nil
-  (matrix matrix :in/return)
-  (x double-float)
-  (y double-float))
-
-
-
+  (matrix matrix)
+  (x double-float :in/out)
+  (y double-float :in/out))
