@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.44 2007-09-07 07:36:26 espen Exp $
+;; $Id: gdk.lisp,v 1.45 2007-10-17 18:04:47 espen Exp $
 
 
 (in-package "GDK")
@@ -851,7 +851,7 @@
   (depth int))
 
 (defmethod allocate-foreign ((pximap pixmap) &key width height depth window)
-  (%pixmap-new window width height depth))
+  (%pixmap-new window (or width (drawable-width window)) (or height (drawable-height window)) (or depth -1)))
 
 (defun pixmap-new (width height depth &key window)
   (warn "PIXMAP-NEW is deprecated, use (make-instance 'pixmap ...) instead")
@@ -1073,6 +1073,7 @@
 (defbinding (keyval-is-lower-p "gdk_keyval_is_lower") () boolean
   (keyval unsigned-int))
 
+
 ;;; Cairo interaction
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.8.0")
@@ -1090,9 +1091,15 @@
     (cr cairo:context)
     (color color))
 
-  (defbinding cairo-set-source-pixbuf () nil
+  (defbinding cairo-set-source-pixbuf (cr pixbuf &optional (x 0.0) (y 0.0)) nil
     (cr cairo:context)
     (pixbuf pixbuf)
+    (x double-float)
+    (y double-float))
+ 
+  (defbinding cairo-set-source-pixmap (cr pixmap &optional (x 0.0) (y 0.0)) nil
+    (cr cairo:context)
+    (pixmap pixmap)
     (x double-float)
     (y double-float))
  
@@ -1100,9 +1107,9 @@
     (cr cairo:context)
     (rectangle rectangle))
  
-  (defbinding cairo-region () nil
+  (defbinding cairo-region (cr region) nil
     (cr cairo:context)
-    (region region))
+    ((ensure-region region) region))
 
   (defbinding (cairo-surface-get-window "clg_gdk_cairo_surface_get_window") () window
     (surface cairo:surface))
@@ -1146,8 +1153,8 @@
     (%leave-fn callback))
 
   (defun threads-init ()
-    (%threads-set-lock-functions)
-    (setq *global-lock* (sb-thread:make-mutex :name "global GDK lock")))
+    (setq *global-lock* (sb-thread:make-mutex :name "global GDK lock"))
+    (%threads-set-lock-functions))
 
   (defmacro with-global-lock (&body body)
     `(progn
