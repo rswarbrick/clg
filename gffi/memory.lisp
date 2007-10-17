@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.5 2007-09-07 07:28:42 espen Exp $
+;; $Id: memory.lisp,v 1.6 2007-10-17 17:04:56 espen Exp $
 
 
 (in-package "GFFI")
@@ -137,7 +137,7 @@
  (inline ref-native-uint-16))
 (defun ref-native-uint-16 (location &optional (offset 0))
   #+(or cmu sbcl)(sap-ref-16 location offset)
-  #+clisp(ffi:memory-as location 'ffi:int16 offset))
+  #+clisp(ffi:memory-as location 'ffi:uint16 offset))
 
 (declaim 
  (ftype 
@@ -147,7 +147,7 @@
 (defun (setf ref-native-uint-16) (value location &optional (offset 0))
   (setf 
    #+(or cmu sbcl)(sap-ref-16 location offset)
-   #+clisp(ffi:memory-as location 'ffi:int16 offset)
+   #+clisp(ffi:memory-as location 'ffi:uint16 offset)
    value))
 
 
