@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.46 2007-08-20 11:15:13 espen Exp $
+;; $Id: gcallback.lisp,v 1.47 2007-10-17 14:31:19 espen Exp $
 
 (in-package "GLIB")
 
@@ -243,6 +243,8 @@
 
 
 ;;;; Signal connecting and controlling
+
+(define-flags-type connect-flags :after :swapped)
 
 (defvar *overridden-signals* (make-hash-table :test 'equalp))
 
