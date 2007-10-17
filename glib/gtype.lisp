@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.64 2007-06-25 21:31:09 espen Exp $
+;; $Id: gtype.lisp,v 1.65 2007-10-17 14:33:50 espen Exp $
 
 (in-package "GLIB")
 
@@ -437,8 +437,8 @@
 (register-type 'unsigned-long "gulong")
 (register-type 'single-float "gfloat")
 (register-type 'double-float "gdouble")
-(register-type 'pathname "gchararray")
 (register-type 'string "gchararray")
+(register-type-alias 'pathname 'string)
 
 
 ;;;; Introspection of type information
