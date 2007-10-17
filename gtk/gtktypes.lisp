@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.59 2007-10-17 16:59:12 espen Exp $
+;; $Id: gtktypes.lisp,v 1.60 2007-10-17 18:02:05 espen Exp $
 
 (in-package "GTK")
 
@@ -41,13 +41,13 @@
 (defclass allocation (struct)
   ((x
     :allocation :alien
-    :accessor allocation-width
+    :accessor allocation-x
     :initarg :x
     :type int)
    (y
     :allocation :alien
-    :accessor allocation-width
-    :initarg :width
+    :accessor allocation-y
+    :initarg :y
     :type int)
    (width
     :allocation :alien
