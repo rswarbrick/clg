@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.57 2007-09-06 14:24:54 espen Exp $
+;; $Id: gtktypes.lisp,v 1.58 2007-10-17 16:55:47 espen Exp $
 
 (in-package "GTK")
 
@@ -678,8 +678,16 @@
      :reader entry-completion-entry
      :type entry)
     (minimum-key-length :merge t :unbound -1)
+    ;; Need to be manually defined, as this value through the property
+    ;; mechanism doesn't work
     #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-    (text-column :merge t :unbound -1)))
+    (text-column
+     :allocation :virtual
+     :getter "gtk_entry_completion_get_text_column"
+     :setter "gtk_entry_completion_set_text_column"
+     :unbound -1
+     :accessor entry-completion-text-column
+     :type int)))
 
   ("GtkRadioButton"
    :slots
