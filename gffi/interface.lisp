@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.6 2007-09-07 07:28:42 espen Exp $
+;; $Id: interface.lisp,v 1.7 2007-10-17 17:04:15 espen Exp $
 
 (in-package "GFFI")
 
@@ -306,7 +306,10 @@
   (let ((define-callback 
 	  #+cmu'alien:def-callback 	              
 	  #+(and sbcl alien-callbacks)'sb-alien::define-alien-callback
-	  #+(and sbcl (not alien-callbacks))'sb-alien:define-alien-function))
+	  #+(and sbcl (not alien-callbacks))'sb-alien:define-alien-function)
+	(args (mapcar #'(lambda (arg)
+			  (if (atom arg) (list arg arg) arg))
+		      args)))
     `(progn
        #+cmu(defparameter ,name nil)
        (,define-callback ,name 
@@ -383,8 +386,11 @@
   ;;; translated according to RETTYPE.  Obtain a pointer that can be
   ;;; passed to C code for this callback by calling %CALLBACK.
   (defmacro define-callback (name return-type args &body body)
-    (let ((arg-names (mapcar #'first args))
-	  (arg-types (mapcar #'second args)))
+    (let* ((args (mapcar #'(lambda (arg)
+			     (if (atom arg) (list arg arg) arg))
+			 args))
+	   (arg-names (mapcar #'first args))
+	   (arg-types  (mapcar #'second args)))
       `(progn
 	 (defvar ,name ',name)
 	 (register-callback ',name 
