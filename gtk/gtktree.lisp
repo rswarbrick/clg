@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.30 2007-09-06 14:32:03 espen Exp $
+;; $Id: gtktree.lisp,v 1.31 2007-10-17 14:47:10 espen Exp $
 
 
 (in-package "GTK")
@@ -384,6 +384,11 @@
   (model tree-model)
   (iter tree-iter :in/return)
   (path tree-path))
+
+(defmethod allocate-foreign ((tree-iter tree-iter) &rest initargs)
+  (declare (ignore initargs))
+  (let ((size (foreign-size (class-of tree-iter))))
+    (slice-alloc size)))
  
 (defun ensure-tree-iter (model row)
   (etypecase row
