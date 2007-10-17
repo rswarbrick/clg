@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.41 2007-09-07 07:33:51 espen Exp $
+;; $Id: glib.lisp,v 1.42 2007-10-17 14:30:41 espen Exp $
 
 
 (in-package "GLIB")
@@ -56,21 +56,25 @@
   (address pointer)
   (size unsigned-long))
 
+(deftype gsize () 'unsigned-int)
 
-;;;; User data mechanism
+(defbinding (slice-alloc "g_slice_alloc0") () pointer
+  (block-size gsize))
+
+;;;; User data is a mechanism to store references to lisp objects in
+;;;; foreign code
 
 (defvar *user-data-lock* (make-mutex))
 (defvar *user-data* (make-hash-table))
-(defvar *user-data-count* 0)
+(defvar *user-data-next-id* 1)
 
 (defun register-user-data (object &optional destroy-function)
   (check-type destroy-function (or null symbol function))
   (with-mutex (*user-data-lock*)
-    (incf *user-data-count*)
     (setf
-     (gethash *user-data-count* *user-data*)
+     (gethash *user-data-next-id* *user-data*)
      (cons object destroy-function))
-    *user-data-count*))
+    (1- (incf *user-data-next-id*))))
 
 (defun find-user-data (id)
   (check-type id fixnum)
@@ -95,10 +99,33 @@
 (defun destroy-user-data (id)
   (check-type id fixnum)
   (with-mutex (*user-data-lock*)
-    (let ((user-data (gethash id *user-data*)))
-      (when (cdr user-data)
-	(funcall (cdr user-data) (car user-data))))
-    (remhash id *user-data*)))
+    (multiple-value-bind (user-data exists-p) (gethash id *user-data*)
+      (cond
+;       ((not exists-p) (error "User data id ~A does not exist" id))
+       (t
+	(when (cdr user-data)
+	  (funcall (cdr user-data) (car user-data)))
+	(remhash id *user-data*))))))
+
+(defun take-user-data (id)
+  (check-type id fixnum)
+  (multiple-value-bind (user-data exists-p) (gethash id *user-data*)
+    (cond
+      ((not exists-p) (error "User data id ~A does not exist" id))
+      (t 
+	(when (cdr user-data)
+	  (funcall (cdr user-data) (car user-data)))
+	(remhash id *user-data*)
+	(car user-data)))))
+
+(defmacro with-user-data ((var object) &body body)
+  `(let ((,var (register-user-data ,object)))
+     (unwind-protect
+	  ,@body
+       (destroy-user-data ,var))))
+
+
+(deftype user-data-id () 'pointer-data)
 
 
 ;;;; Quarks
