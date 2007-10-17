@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.58 2007-10-17 16:55:47 espen Exp $
+;; $Id: gtktypes.lisp,v 1.59 2007-10-17 16:59:12 espen Exp $
 
 (in-package "GTK")
 
@@ -223,7 +223,15 @@
     (width-request
      :merge t :unbound -1)
     (height-request
-     :merge t :unbound -1)))
+     :merge t :unbound -1)
+    #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
+    (tooltip-window
+     :allocation :virtual
+     :getter "gtk_widget_get_tooltip_window"
+     :setter "gtk_widget_set_tooltip_window"
+     :accessor widget-tooltip-window
+     :initarg :tooltip-window
+     :type window)))
      
   ("GtkContainer"
    :slots
@@ -376,6 +384,7 @@
      :accessor menu-item-right-justified-p
      :initarg :right-justified
      :type boolean)
+    #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
     (submenu
      :allocation :virtual
      :getter "gtk_menu_item_get_submenu"

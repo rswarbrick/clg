@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.83 2007-09-06 14:18:56 espen Exp $
+;; $Id: gtk.lisp,v 1.84 2007-10-17 16:59:12 espen Exp $
 
 
 (in-package "GTK")
@@ -2503,9 +2503,46 @@
     ((register-callback-function function) unsigned-int)
     (user-data-destroy-callback callback)))
 
+
+;;; Tooltip
+
+;; #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
+;; (progn
+;;   (defbinding %tooltip-set-markup () nil
+;;     tooltip
+;;     (markup string))
+
+;;   (defbinding %tooltip-set-text () nil
+;;     tooltip
+;;     (text string))
+
+;;   (defbinding %tooltip-set-icon () nil
+;;     tooltip
+;;     (icon gdk:pixbuf))
+
+;;   (defbinding %tooltip-set-from-stock-icon () nil
+;;     tooltip
+;;     (stock-id string)
+;;     icon-size)
+
+;;   (defbinding %tooltip-set-custom () nil
+;;     tooltip
+;;     widget)
+
+;;   (defun tooltip-set (tooltip value &key (markup t) (icon-size :button))
+;;     (etypecase value
+;;       (string (if markup
+;; 		  (tooltip-set-markup tooltip value)
+;; 		(tooltip-set-text tooltip value)))
+;;       (pixbuf (tooltip-set-icon tooltip value))
+;;       (keyword (tooltip-set-icon-from-stock tooltip value icon-size))
+      
   
 
-;;; Tooltips
+;;; Tooltips 
+
+;; GtkTooltips has been deprecated in favor of the new tooltip API
+;; introduced in in GTK+ 2.12
 
 (defbinding tooltips-enable () nil
   (tooltips tooltips))
@@ -2601,8 +2638,6 @@
   (%plug-new (or id 0)))
 
 
-;;;; New stuff in Gtk+ 2.10
-
 ;;; Link button
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
@@ -2613,3 +2648,64 @@
     (%link-button-uri-callback callback)
     ((register-callback-function function) unsigned-int)
     (user-data-destroy-callback callback)))
+
+
+;;; Builder
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
+(progn
+  (defmethod initialize-instance ((builder builder) &key interface 
+				  (connect-signals t) (package *package*))
+    (call-next-method)
+    (etypecase interface
+      (null)
+      (string (builder-add-from-string builder interface))
+      (pathname (builder-add-from-file builder interface)))
+    (when connect-signals
+      (builder-connect-signals builder package)))
+
+
+  (defbinding builder-add-from-file () boolean
+   builder
+   pathname
+   (nil gerror-signal :out))
+
+  (defbinding builder-add-from-string () boolean
+   builder
+   (buffer string)
+   (-1 int) ; TODO: add gsize type
+   (nil gerror-signal :out))
+
+  (defbinding builder-get-object () gobject
+   builder
+   (name string))
+
+  (defbinding builder-get-objects () (gslist gobject)
+   builder)
+
+  (defun intern-with-package-prefix (name default-package)
+    (let ((pos (position #\: name)))
+      (if pos
+	  (intern 
+	   (string-upcase (subseq name (1+ pos)))
+	   (string-upcase (subseq name 0 pos)))
+	(intern (string-upcase name) default-package))))
+
+  (define-callback %builder-connect-function nil
+    (builder (object gobject) (signal-name string) (handler-name string)
+     (connect-object gobject) connect-flags (package user-data-id))
+    (format t "Connect signal ~A for ~A to ~A in default package ~A with flags ~A~%" signal-name object handler-name (find-user-data package) connect-flags)
+    (signal-connect 
+     object signal-name 
+     (intern-with-package-prefix handler-name (find-user-data package))
+     :object (or connect-object object) :after (find :after connect-flags)))
+
+  (defbinding %builder-connect-signals-full (builder package) nil
+    builder    
+    (%builder-connect-function callback)
+    (package user-data-id))
+
+  (defun builder-connect-signals (builder &optional (package *package*))
+    (with-user-data (id package)
+      (%builder-connect-signals-full builder id))))
+
