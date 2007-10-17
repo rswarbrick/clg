@@ -20,9 +20,14 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pango.lisp,v 1.15 2007-09-07 07:39:59 espen Exp $
+;; $Id: pango.lisp,v 1.16 2007-10-17 18:07:32 espen Exp $
 
 (in-package "PANGO")
+
+(defconstant +pango-scale+ 1024)
+
+(defun device-to-pango-units (device-units)
+  (round (* device-units +pango-scale+)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (init-types-in-library pango "libpango-1.0" :prefix "pango_")
@@ -153,7 +158,7 @@
     :allocation :virtual
     :initarg :indent
     :getter "pango_layout_get_indent"
-    :setter "pango_layout_set_indetn"
+    :setter "pango_layout_set_indent"
     :accessor layout-indent
     :type int)
    (spacing
