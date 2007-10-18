@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.47 2007-10-17 14:31:19 espen Exp $
+;; $Id: gcallback.lisp,v 1.48 2007-10-18 10:39:32 espen Exp $
 
 (in-package "GLIB")
 
@@ -506,7 +506,7 @@ function."
 	       finally 
 	       (if return-type
 		   (return 
-		    (with-gvalue (return-value)
+		    (with-gvalue (return-value return-type)
 		      (%signal-emitv params signal-id detail return-value)))
 		 (%signal-emitv params signal-id detail (make-pointer 0))))
 	    (loop
