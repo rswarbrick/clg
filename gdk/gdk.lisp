@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.45 2007-10-17 18:04:47 espen Exp $
+;; $Id: gdk.lisp,v 1.46 2007-10-18 10:55:34 espen Exp $
 
 
 (in-package "GDK")
@@ -999,22 +999,20 @@
 
 (defbinding %draw-layout () nil
   (drawable drawable) (gc gc) 
-  (font pango:font)
   (x int) (y int)
   (layout pango:layout))
 
 (defbinding %draw-layout-with-colors () nil
   (drawable drawable) (gc gc) 
-  (font pango:font)
   (x int) (y int)
   (layout pango:layout)
   (foreground (or null color))
   (background (or null color)))
 
-(defun draw-layout (drawable gc font x y layout &optional foreground background)
+(defun draw-layout (drawable gc x y layout &optional foreground background)
   (if (or foreground background)
-      (%draw-layout-with-colors drawable gc font x y layout foreground background)
-    (%draw-layout drawable gc font x y layout)))
+      (%draw-layout-with-colors drawable gc x y layout foreground background)
+    (%draw-layout drawable gc x y layout)))
 
 (defbinding draw-drawable 
     (drawable gc src src-x src-y dest-x dest-y &optional width height) nil
