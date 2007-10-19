@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.16 2007-10-16 07:48:39 espen Exp $
+;; $Id: cairo.lisp,v 1.17 2007-10-19 10:12:25 espen Exp $
 
 (in-package "CAIRO")
 
@@ -326,11 +326,12 @@
     (:unref %destroy))
 
 
-;;   (defclass path (proxy)
-;;     ()
-;;     (:metaclass proxy-class))
-
-  )
+   (defclass path (struct)
+     ((status :allocation :alien :type status)
+      (data :allocation :alien :type pointer)
+      (length :allocation :alien :type int))
+     (:metaclass proxy-class)
+     (:unref %path-destroy)))
 
 
 ;;; Cairo context
@@ -452,6 +453,19 @@
 
 
 ;;; Paths
+
+(defbinding %path-destroy () nil
+  (location pointer))
+
+(defbinding copy-path () path
+  (cr context))
+
+(defbinding copy-path-flat () path
+  (cr context))
+
+(defbinding append-path () nil
+  (cr context)
+  (path path))
 
 (defbinding get-current-point () nil
   (cr context)
