@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktext.lisp,v 1.9 2007-10-17 14:52:19 espen Exp $
+;; $Id: gtktext.lisp,v 1.10 2007-10-22 09:21:50 espen Exp $
 
 
 (in-package "GTK")
@@ -343,6 +343,7 @@
 
 ;;; Text Iter
 
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.10.0")
 (defmethod allocate-foreign ((text-iter text-iter) &rest initargs)
   (declare (ignore initargs))
   (let ((size (foreign-size (class-of text-iter))))
