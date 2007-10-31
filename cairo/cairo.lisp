@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.17 2007-10-19 10:12:25 espen Exp $
+;; $Id: cairo.lisp,v 1.18 2007-10-31 11:52:53 espen Exp $
 
 (in-package "CAIRO")
 
@@ -140,6 +140,13 @@
 	 :accessor matrix-y0 :type double-float))
     (:metaclass struct-class))
 
+  (defclass font-extents (struct)
+    ((ascent :allocation :alien :reader font-extents-ascent :type double-float)
+     (descent :allocation :alien :reader font-extents-descent :type double-float)
+     (height :allocation :alien :reader font-extents-height :type double-float)
+     (max-x-advance :allocation :alien :reader font-extents-max-x-advance :type double-float)
+     (max-y-advance :allocation :alien :reader font-extents-max-y-advance :type double-float))
+    (:metaclass struct-class))
 
   (defclass text-extents (struct)
     ((x-bearing :allocation :alien :reader text-extents-x-bearing :type double-float)
@@ -657,8 +664,9 @@
   (glyphs (vector glyph))
   ((length glyphs) int))
 
-(defbinding font-extents () boolean
-  (cr context))
+(defbinding font-extents (cr &optional (extents (make-instance 'font-extents))) nil
+  (cr context)
+  (extents font-extents :in/return))
 
 (defbinding text-extents (cr text &optional (extents (make-instance 'text-extents))) nil
   (cr context)
