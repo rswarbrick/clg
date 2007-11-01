@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.84 2007-10-17 16:59:12 espen Exp $
+;; $Id: gtk.lisp,v 1.85 2007-11-01 15:05:00 espen Exp $
 
 
 (in-package "GTK")
@@ -876,6 +876,7 @@
     (when (functionp response)
        (signal-connect dialog signal response :object object :after after))
     (when default
+      (setf (widget-can-default-p widget) t)
       (%dialog-set-default-response dialog id))
     widget))
 
