@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: virtual-slots.lisp,v 1.10 2007-06-20 13:34:53 espen Exp $
+;; $Id: virtual-slots.lisp,v 1.11 2007-11-08 13:49:26 espen Exp $
 
 (in-package "GFFI")
 
@@ -239,7 +239,8 @@
 
 #-clisp
 (defmethod initialize-internal-slot-functions ((slotd effective-virtual-slot-definition))
-  #?-(sbcl>= 0 9 15) ; Delayed to avoid recursive call of finalize-inheritanze
+;;   #?-(sbcl>= 0 9 15) ; Delayed to avoid recursive call of finalize-inheritanze
+  #+nil ;; 2007-11-08: done this for all implementations
   (setf 
    (slot-value slotd 'reader-function) (compute-slot-reader-function slotd)
    (slot-value slotd 'boundp-function) (compute-slot-boundp-function slotd)
@@ -317,22 +318,23 @@
 ;; of finalize-instance being called recursivly we have to delay the
 ;; initialization of slot functions until after an instance has been
 ;; created.
-#?(or (sbcl>= 0 9 15) (featurep :clisp))
+;; 2007-11-08: done this for all implementations
+;; #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'reader-function)))
   (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-reader-function slotd)))
 
-#?(or (sbcl>= 0 9 15) (featurep :clisp))
+;; #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'boundp-function)))
   (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-boundp-function slotd)))
 
-#?(or (sbcl>= 0 9 15) (featurep :clisp))
+;; #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'writer-function)))
   (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-writer-function slotd)))
 
-#?(or (sbcl>= 0 9 15) (featurep :clisp))
+;; #?(or (sbcl>= 0 9 15) (featurep :clisp))
 (defmethod slot-unbound (class (slotd effective-virtual-slot-definition) (name (eql 'makunbound-function)))
   (declare (ignore class))
   (setf (slot-value slotd name) (compute-slot-makunbound-function slotd)))
