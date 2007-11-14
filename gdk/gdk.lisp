@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.46 2007-10-18 10:55:34 espen Exp $
+;; $Id: gdk.lisp,v 1.47 2007-11-14 12:52:32 espen Exp $
 
 
 (in-package "GDK")
@@ -1047,7 +1047,7 @@
 
 ;;; Key values
 
-(defbinding keyval-name () string
+(defbinding keyval-name () (static string)
   (keyval unsigned-int))
 
 (defbinding %keyval-from-name () unsigned-int
