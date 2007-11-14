@@ -6,22 +6,28 @@
  #-(or darwin win32)"so" #+darwin"dylib" #+win32"dll")
 
 
-;;; The following code is more or less copied frm sb-bsd-sockets.asd,
-;;; but extended to allow flags to be set in a general way
+;;; The following code is more or less copied from sb-bsd-sockets.asd,
+;;; but extended to allow flags to be set in a general way. The class
+;;; has been renamed from unix-dso to shared-object as this code no
+;;; longer is unix specific
 
-(defclass unix-dso (module)
+(defclass shared-object (module)
   ((ldflags :initform nil :initarg :ldflags)))
 
-(defun unix-name (pathname)
+;; For backwards compatibility
+(defclass unix-dso (shared-object)
+  ())
+
+(defun ensure-namestring (pathname)
   (namestring 
    (typecase pathname
      (logical-pathname (translate-logical-pathname pathname))
      (t pathname))))
 
-(defmethod input-files ((operation compile-op) (dso unix-dso))
+(defmethod input-files ((operation compile-op) (dso shared-object))
   (mapcar #'component-pathname (module-components dso)))
 
-(defmethod output-files ((operation compile-op) (dso unix-dso))
+(defmethod output-files ((operation compile-op) (dso shared-object))
   (let ((dir (component-pathname dso)))
     (list
      (make-pathname :type *dso-extension*
@@ -29,9 +35,9 @@
 		    :directory (butlast (pathname-directory dir))
 		    :defaults dir))))
 
-(defmethod perform :after ((operation compile-op) (dso unix-dso))
+(defmethod perform :after ((operation compile-op) (dso shared-object))
   (let ((output (first (output-files operation dso)))
-	(inputs (mapcar #'unix-name
+	(inputs (mapcar #'ensure-namestring
 		 (mapcan #'(lambda (c)
 			     (output-files operation c))
 		  (module-components dso)))))
@@ -41,12 +47,12 @@
 	      #+darwin "-bundle"
 	      #+win32
 	      (format nil "-shared -Wl,--out-implib,~S"
-	       (unix-name
+	       (ensure-namestring
 		(make-pathname 
 		 :type "a" 
 		 :name (format nil "lib~Adll" (pathname-name output))
 		 :defaults output)))
-	      (unix-name output)
+	      (ensure-namestring output)
 	      inputs
 	      (slot-value dso 'ldflags)))
       (error 'operation-error :operation operation :component dso))))
@@ -54,19 +60,20 @@
 #+clisp
 (defvar *loaded-libraries* ())
 
-(defun load-dso (filename)
-  #+sbcl(sb-alien:load-shared-object filename)
-  #+cmu(ext:load-foreign filename)
-  #+clisp
-  (unless (find filename *loaded-libraries* :test #'equal)
-    (ffi::foreign-library (namestring filename))
-    (push filename *loaded-libraries*)))
+(defun load-shared-object (pathname)
+  (let ((namestring (ensure-namestring pathname)))
+    #+sbcl(sb-alien:load-shared-object namestring)
+    #+cmu(ext:load-foreign namestring)
+    #+clisp
+    (unless (find namestring *loaded-libraries* :test #'equal)
+      (ffi::foreign-library namestring)
+      (push namestring *loaded-libraries*))))
 
 
-(defmethod perform ((o load-op) (c unix-dso))
+(defmethod perform ((o load-op) (c shared-object))
   (let ((co (make-instance 'compile-op)))
-    (let ((filename (car (output-files co c))))
-      (load-dso filename))))
+    (let ((pathname (car (output-files co c))))
+      (load-shared-object pathname))))
 
 
 
@@ -96,8 +103,8 @@
 	      for path in (slot-value c 'include-paths)
 	      collect (format nil "-I~A" path))
 	     (slot-value c 'cflags))
-	    (unix-name (first (output-files op c)))
-	    (unix-name (component-pathname c))))
+	    (ensure-namestring (first (output-files op c)))
+	    (ensure-namestring (component-pathname c))))
     (error 'operation-error :operation op :component c)))
 
 
@@ -108,7 +115,7 @@
 ;;; Shared libraries
 
 (defclass library (component) 
-  ((libdir :initarg :libdir)
+  ((libdir :initarg :libdir :initform nil)
    (libname :initarg :libname :initform nil)))
 
 
@@ -129,26 +136,17 @@
 		 :name (or (slot-value lib 'libname) (component-name lib))
 		 :directory (split-path (slot-value lib 'libdir))))
 
-;; --fix: is UNIX-NAME really necessary for win32?  i know it will bomb
-;;        without using it while doing (ASDF:OOS 'ASDF:LOAD-OP :GLIB) but
-;;        loading the complete pathname for libglib-2.0-0.dll with
-;;        SB-ALIEN:LOAD-SHARED-OBJECT by hand won't explode.  weird.
-;;         - cph 18-May-2007
 (defmethod perform ((o load-op) (c library))
-  (load-dso #-win32 (component-pathname c)
-	    #+win32 (unix-name (component-pathname c))))
+  (load-shared-object (component-pathname c)))
 
 (defmethod perform ((operation operation) (c library))
   nil)
 
 (defmethod operation-done-p ((o load-op) (c library))
-  #+sbcl(find (sb-ext::unix-namestring (component-pathname c)) sb-alien::*shared-objects* :key #'sb-alien::shared-object-file :test #'equal)
-  #+cmu(rassoc (unix::unix-namestring (component-pathname c)) 
-	system::*global-table* 
-	:key #'(lambda (pathname)
-		 (when pathname (unix::unix-namestring pathname)))
-	:test #'equal)
-  #+clisp(find (component-pathname c) *loaded-libraries* :test #'equal))
+  (let ((namestring (ensure-namestring (component-pathname c))))
+    #+sbcl(find namestring sb-alien::*shared-objects* :key #'sb-alien::shared-object-file :test #'equal)
+    #+cmu(rassoc namestring system::*global-table* :test #'equal)
+    #+clisp(find namestring *loaded-libraries* :test #'equal)))
 
 (defmethod operation-done-p ((o operation) (c library))
   t)
