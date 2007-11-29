@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.7 2007-10-17 17:04:15 espen Exp $
+;; $Id: interface.lisp,v 1.8 2007-11-29 18:37:14 espen Exp $
 
 (in-package "GFFI")
 
@@ -128,8 +128,15 @@
 		     (list 
 		      (cond 
 		       ((and (namep expr) (not (in-arg-p style))) expr)
-		       ((namep expr) (make-symbol (string expr)))
-		       ((gensym)))
+		       ((namep expr)			
+			#-clisp(make-symbol (string expr))
+			;; The above used to work in CLISP, but I'm
+			;; not sure exactly at which version it
+			;; broke. The following could potentially
+			;; cause variable capturing
+			#+clisp(intern (format nil "~A-~A" (string expr) (gensym))))
+		       (#-clisp(gensym)
+			#+clisp(intern (string (gensym)))))
 		      (or aux expr) type style out-type))))
 	     args)))
   
