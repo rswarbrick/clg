@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.18 2007-10-31 11:52:53 espen Exp $
+;; $Id: cairo.lisp,v 1.19 2007-12-02 14:50:41 espen Exp $
 
 (in-package "CAIRO")
 
@@ -299,15 +299,15 @@
       :type double-float)
      (font-matrix
       :allocation :virtual 
-      :getter "cairo_get_font_matrix"
+      :getter font-matrix
       :setter "cairo_set_font_matrix"
-      :accessor font-matrix
+      :writer (setf font-matrix)
       :type matrix)
      (font-options
       :allocation :virtual 
-      :getter "cairo_get_font_options"
+      :getter font-options
       :setter "cairo_set_font_options"
-      :accessor font-options
+      :writer (setf font-options)
       :type font-options)
      (font-face
       :allocation :virtual 
@@ -315,6 +315,13 @@
       :setter "cairo_set_font_face"
       :accessor font-face
       :type font-face)
+     #?(pkg-exists-p "cairo" :atleast-version "1.4")
+     (scaled-font
+      :allocation :virtual 
+      :getter "cairo_get_scaled_font"
+      :setter "cairo_set_scaled_font"
+      :accessor scaled-font
+      :type scaled-font)
      (operator
       :allocation :virtual 
       :getter "cairo_get_operator"
@@ -654,6 +661,14 @@
 (defbinding set-font-size () nil
   (cr context)
   (size double-float))
+
+(defbinding (font-matrix "cairo_get_font_matrix") () nil
+  (cr context)
+  ((make-instance 'matrix) matrix :in/return))
+
+(defbinding (font-options "cairo_get_font_options") () nil
+  (cr context)
+  ((make-instance 'font-options) font-options :in/return))
 
 (defbinding show-text () nil
   (cr context)
