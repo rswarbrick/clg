@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.6 2007-10-17 17:04:56 espen Exp $
+;; $Id: memory.lisp,v 1.7 2007-12-11 12:01:34 espen Exp $
 
 
 (in-package "GFFI")
@@ -277,7 +277,7 @@
   #-(or cmu sbcl)
   (loop
    for offset below length
-   do (setf (ref-uint-88 to offset) (ref-uint-8 from offset)))
+   do (setf (ref-uint-8 to offset) (ref-uint-8 from offset)))
   to)
 
 (defun clear-memory (from length &optional (offset 0))
