@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: proxy.lisp,v 1.9 2007-06-20 11:13:45 espen Exp $
+;; $Id: proxy.lisp,v 1.10 2007-12-11 14:26:11 espen Exp $
 
 (in-package "GFFI")
 
@@ -599,7 +599,7 @@ object at the give location."))
 
 (define-type-method callback-wrapper ((type struct) var arg form)
   (let ((class (type-expand type)))
-    `(let ((,var (ensure-proxy-instance ',class ,arg :finalize nil)))
+    `(let ((,var (ensure-proxy-instance ',class ,arg :reference nil :finalize nil)))
        (unwind-protect
 	   ,form
 	 (invalidate-instance ,var)))))
