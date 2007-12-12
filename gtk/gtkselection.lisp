@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.9 2006-04-26 12:30:30 espen Exp $
+;; $Id: gtkselection.lisp,v 1.10 2007-12-12 15:10:04 espen Exp $
 
 
 (in-package "GTK")
@@ -43,8 +43,8 @@
 
 (defbinding target-list-add (target-list target &optional flags info) nil
   (target-list target-list)
-  (target gdk:atom)
-  (flags unsigned-int)
+  ((gdk:atom-intern target) gdk:atom)
+  (flags target-flags)
   (info unsigned-int))
 
 (defbinding target-list-add-table (target-list targets) nil
@@ -75,14 +75,23 @@
     (info unsigned-int)
     (writable-p boolean)))
 
-(defbinding target-list-remove () nil
+(defbinding target-list-remove (target-list target) nil
   (target-list target-list)
-  (target gdk:atom))
+  ((gdk:atom-intern target) gdk:atom))
 
-;; (defbinding target-list-find () nil
-;;   (target-list target-list)
-;;   (target gdk:atom)
-;;   ...)
+(defbinding target-list-find (target-list target) boolean
+  (target-list target-list)
+  ((gdk:atom-intern target) gdk:atom)
+  (info unsigned-int :out))
+
+(defbinding target-table-new-from-list () (vector (inlined target-entry) n-targets)
+  (target-list target-list)
+  (n-targets int :out))
+
+(defun ensure-target-table (targets)
+  (etypecase targets
+    (target-list (target-table-new-from-list targets))
+    ((or vector list) targets)))
 
 (defbinding (selection-set-owner "gtk_selection_owner_set_for_display")
     (widget selection time &optional (display (gdk:display-get-default))) 
@@ -92,15 +101,15 @@
   ((gdk:atom-intern selection) gdk:atom)
   (time (unsigned 32)))
 
-(defbinding selection-add-target () nil
+(defbinding selection-add-target (widget selection target info) nil
   (widget widget)
-  (selection gdk:atom)
-  (target gdk:atom)
+  ((gdk:atom-intern selection) gdk:atom)
+  ((gdk:atom-intern target) gdk:atom)
   (info unsigned-int))
 
 (defbinding selection-add-targets (widget selection targets) nil
   (widget widget)
-  (selection gdk:atom)
+  ((gdk:atom-intern selection) gdk:atom)
   ((etypecase targets 
      ((or vector list) targets)
      (target-entry (vector targets)))
@@ -110,19 +119,19 @@
      (target-entry 1))
    int))
 
-(defbinding selection-clear-targets () nil
+(defbinding selection-clear-targets (widget selection) nil
   (widget widget)
-  (selection gdk:atom))
+  ((gdk:atom-intern selection) gdk:atom))
 
-(defbinding selection-convert () boolean
+(defbinding selection-convert (widget selection target time) boolean
   (widget widget)
-  (selection gdk:atom)
-  (target gdk:atom)
+  ((gdk:atom-intern selection) gdk:atom)
+  ((gdk:atom-intern target) gdk:atom)
   (time unsigned-int))
 
-(defbinding selection-data-set () boolean
+(defbinding selection-data-set (selection-data type format data length) boolean
   (selection-data selection-data)
-  (type gdk:atom)
+  ((gdk:atom-intern type) gdk:atom)
   (format int)
   (data pointer)
   (length int))
@@ -151,17 +160,23 @@
   (defbinding selection-data-get-uris () (null-terminated-vector string)
     (selection-data selection-data)))
 
-(defbinding selection-data-get-targets () boolean
+(defbinding %selection-data-get-targets () boolean
   (selection-data selection-data)
-  (targets (vector gdk:atom n-atoms))
-  (n-atoms int))
+  (targets (vector gdk:atom n-targets) :out)
+  (n-targets int :out))
+
+(defun selection-data-get-targets (selection-data)
+  (multiple-value-bind (valid-p targets) 
+      (%selection-data-get-targets selection-data) 
+    (when valid-p
+      (map-into targets #'gdk:atom-name targets))))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding selection-data-targets-include-image-p (selection-data &optional writable-p) boolean
   (selection-data selection-data)
   (writable-p boolean))
 
-(defbinding selection-data-targets-include-text-p (selection-data) boolean
+(defbinding selection-data-targets-include-text-p () boolean
   (selection-data selection-data))
 
 (defbinding selection-remove-all () boolean
@@ -175,10 +190,9 @@
   (display gdk:display)
   ((gdk:atom-intern selection) gdk:atom))
 
-
 (define-callback %clipboard-get-callback nil
     ((clipboard pointer) (selection-data selection-data)
-     (info int) (callback-ids unsigned-int))
+     (info unsigned-int) (callback-ids unsigned-int))
   (declare (ignore clipboard))
   (funcall (car (find-user-data callback-ids)) selection-data info))
 
@@ -187,7 +201,7 @@
   (declare (ignore clipboard))
   (funcall (cdr (find-user-data callback-ids))))
 
-(defbinding clipboard-set-with-data (clipboard targets get-func clear-func) gobject
+(defbinding %clipboard-set-with-data (clipboard targets get-func clear-func) boolean
   (clipboard clipboard)
   (targets (vector (inlined target-entry)))
   ((length targets) unsigned-int)
@@ -195,10 +209,14 @@
   (%clipboard-clear-callback callback)
   ((register-user-data (cons get-func clear-func)) unsigned-int))
 
+(defun clipboard-set-with-data (clipboard targets get-func &optional clear-func)
+  (%clipboard-set-with-data clipboard (ensure-target-table targets) 
+   get-func (or clear-func #'(lambda ()))))
+
 (defbinding clipboard-clear () nil
   (clipboard clipboard))
 
-(defbinding clipboard-set-text (clipboard text) nil
+(defbinding clipboard-set-text () nil
   (clipboard clipboard)
   (text string)
   ((length text) int))
@@ -247,15 +265,16 @@
     ((clipboard pointer) (atoms (vector gdk:atom n-atoms))
      (n-atoms unsigned-int) (callback-id unsigned-int))
   (declare (ignore clipboard))
-  (funcall (find-user-data callback-id) atoms))
+  (funcall (find-user-data callback-id) (map-into atoms #'gdk:atom-name atoms)))
 
 (defbinding clipboard-request-targets (clipboard callback) nil
   (clipboard clipboard)
   (%clipboard-targets-receive-callback callback)
   ((register-callback-function callback) unsigned-int))
 
-(defbinding clipboard-wait-for-contents () selection-data
-  (clipboard clipboard))
+(defbinding clipboard-wait-for-contents (clipboard target) selection-data
+  (clipboard clipboard)
+  ((gdk:atom-intern target) gdk:atom))
 
 (defbinding clipboard-wait-for-text () string
   (clipboard clipboard))
@@ -271,20 +290,26 @@
 (defbinding clipboard-wait-is-image-available-p () boolean
   (clipboard clipboard))
 
-(defbinding clipboard-wait-for-targets () boolean
+(defbinding %clipboard-wait-for-targets () boolean
   (clipboard clipboard)
   (targets (vector gdk:atom n-targets) :out)
   (n-targets unsigned-int :out))
 
-#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-(defbinding clipboard-wait-is-target-available-p () boolean
-  (clipboard clipboard)
-  (target gdk:atom))
+(defun clipboard-wait-for-targets (clipboard)
+  (multiple-value-bind (valid-p targets) 
+      (%clipboard-wait-for-targets clipboard) 
+    (when valid-p
+      (map-into targets #'gdk:atom-name targets))))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-(defbinding clipboard-set-can-store () nil
+(defbinding clipboard-wait-is-target-available-p (clipboard target) boolean
   (clipboard clipboard)
-  (targets (vector gdk:atom))
+  ((gdk:atom-intern target) gdk:atom))
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+(defbinding clipboard-set-can-store (clipboard targets) nil
+  (clipboard clipboard)
+  ((map 'vector #'gdk:atom-intern targets) (vector gdk:atom))
   ((length targets) int))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
