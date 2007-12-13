@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.11 2007-12-12 15:47:29 espen Exp $
+;; $Id: gtkselection.lisp,v 1.12 2007-12-13 14:29:59 espen Exp $
 
 
 (in-package "GTK")
@@ -45,7 +45,7 @@
   (target-list target-list)
   ((gdk:atom-intern target) gdk:atom)
   (flags target-flags)
-  (info unsigned-int))
+  ((or info 0) unsigned-int))
 
 (defbinding target-list-add-table (target-list targets) nil
   (target-list target-list)
@@ -60,19 +60,19 @@
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (progn
-  (defbinding target-list-add-text-targets (target-list info &optional writable-p) nil
+  (defbinding target-list-add-text-targets (target-list  &optional info writable-p) nil
     (target-list target-list)
-    (info unsigned-int)
+    ((or info 0) unsigned-int)
     (writable-p boolean))
   
-  (defbinding target-list-add-image-targets (target-list info &optional writable-p) nil
+  (defbinding target-list-add-image-targets (target-list &optional info writable-p) nil
     (target-list target-list)
-    (info unsigned-int)
+    ((or info 0) unsigned-int)
     (writable-p boolean))
 
-  (defbinding target-list-add-uri-targets (target-list info &optional writable-p) nil
+  (defbinding target-list-add-uri-targets (target-list &optional info writable-p) nil
     (target-list target-list)
-    (info unsigned-int)
+    ((or info 0) unsigned-int)
     (writable-p boolean)))
 
 (defbinding target-list-remove (target-list target) nil
@@ -201,7 +201,7 @@
   (declare (ignore clipboard))
   (funcall (cdr (find-user-data callback-ids))))
 
-;; Deprecated, use clipboard-set
+;; Deprecated, use clipboard-set-content
 (defbinding clipboard-set-with-data (clipboard targets get-func clear-func) boolean
   (clipboard clipboard)
   (targets (vector (inlined target-entry)))
@@ -210,7 +210,7 @@
   (%clipboard-clear-callback callback)
   ((register-user-data (cons get-func clear-func)) unsigned-int))
 
-(defun clipboard-set (clipboard targets get-func &optional clear-func)
+(defun clipboard-set-content (clipboard targets get-func &optional clear-func)
   (%clipboard-set-with-data clipboard (ensure-target-table targets) 
    get-func (or clear-func #'(lambda ()))))
 
@@ -227,11 +227,14 @@
   (clipboard clipboard)
   (pixbuf gdk:pixbuf))
 
-(defun clipboard-set (clipboard object)
-  (etypecase object
-    (string (clipboard-set-text clipboard object))
-    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-    (gdk:pixbuf (clipboard-set-image clipboard object))))
+(defgeneric clipboard-set (clipboard object))
+
+(defmethod clipboard-set ((clipboard clipboard) (text string))
+  (clipboard-set-text clipboard text))
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
+(defmethod clipboard-set ((clipboard clipboard) (image gdk:pixbuf))
+  (clipboard-set-image clipboard image))
 
 (define-callback-marshal %clipboard-receive-callback nil 
  ((:ignore clipboard) selection-data))
