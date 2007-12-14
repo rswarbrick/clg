@@ -13,16 +13,15 @@
     :depends-on (gffi glib gdk pango atk)
     :components ((:file "defpackage")
 		 (:library "libgtk-2.0" 
-			   :libdir #.(pkg-libdir "gtk+-2.0")
-			   :libname #-win32 "libgtk-x11-2.0"
-			            #+win32 "libgtk-win32-2.0-0")
-		 (:unix-dso "alien"
-			    :ldflags #.(pkg-libs "gtk+-2.0")
-			    :components ((:c-source-file "glue"
-					  :cflags #.(pkg-cflags "gtk+-2.0")))
-			    :depends-on (#+cmu "libgtk-2.0"))
-		 (:file "gtkobject" 
-			:depends-on ("defpackage" "alien" "libgtk-2.0"))
+		  :libdir #.(pkg-libdir "gtk+-2.0")
+		  :libname #-win32 "libgtk-x11-2.0"
+		           #+win32 "libgtk-win32-2.0-0")
+		 (:shared-object "gtk-alien" :pathname "alien/"
+		  :ldflags #.(pkg-libs "gtk+-2.0")
+		  :components ((:c-source-file "glue"
+				:cflags #.(pkg-cflags "gtk+-2.0")))
+		  :depends-on (#+cmu "libgtk-2.0"))
+		 (:file "gtkobject" :depends-on ("defpackage" "gtk-alien" "libgtk-2.0"))
  		 (:file "gtktypes" :depends-on ("gtkobject"))
 		 (:file "gtkwidget" :depends-on ("gtktypes"))
 		 (:file "gtkcontainer" :depends-on ("gtktypes"))
