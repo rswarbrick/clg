@@ -31,7 +31,7 @@
   (let ((dir (component-pathname dso)))
     (list
      (make-pathname :type *dso-extension*
-		    :name (car (last (pathname-directory dir)))
+		    :name (component-name dso)
 		    :directory (butlast (pathname-directory dir))
 		    :defaults dir))))
 
