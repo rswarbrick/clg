@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.8 2007-09-07 07:32:26 espen Exp $
+;; $Id: gerror.lisp,v 1.9 2007-12-29 19:21:26 espen Exp $
 
 
 (in-package "GLIB")
@@ -40,7 +40,7 @@
   (location pointer))
 
 (define-condition glib-error (error)
-  ((code :initarg :domain :reader gerror-code)
+  ((code :initarg :code :reader gerror-code)
    (message :initarg :message :reader gerror-message))
   (:report (lambda (condition stream)
 	     (write-string (gerror-message condition) stream))))
