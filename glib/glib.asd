@@ -29,7 +29,7 @@
 		           #+win32 "libglib-2.0-0"
 		  :depends-on ("glib-preload"))
 		 (:library "libgobject-2.0"
-		  :libdir #.(pkg-libdir "glib-2.0")
+		  :libdir #.(pkg-libdir "gobject-2.0")
 		  :libname #-win32 "libgobject-2.0"
 		           #+win32 "libgobject-2.0-0"
 		  :depends-on ("libglib-2.0"))
