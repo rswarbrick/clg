@@ -8,15 +8,12 @@
 
 ;;; The following code is more or less copied from sb-bsd-sockets.asd,
 ;;; but extended to allow flags to be set in a general way. The class
-;;; has been renamed from unix-dso to shared-object as this code no
-;;; longer is unix specific
+;;; has been renamed from unix-dso to shared-object as this code is no
+;;; longer specific to unix
 
 (defclass shared-object (module)
-  ((ldflags :initform nil :initarg :ldflags)))
-
-;; For backwards compatibility
-(defclass unix-dso (shared-object)
-  ())
+  ((ldflags :initform nil :initarg :ldflags)
+   (absolute :initform nil :initarg :absolute :reader absolute-p)))
 
 (defun ensure-namestring (pathname)
   (namestring 
@@ -60,20 +57,37 @@
 #+clisp
 (defvar *loaded-libraries* ())
 
-(defun load-shared-object (pathname)
-  (let ((namestring (ensure-namestring pathname)))
-    #+sbcl(sb-alien:load-shared-object namestring)
-    #+cmu(ext:load-foreign namestring)
-    #+clisp
-    (unless (find namestring *loaded-libraries* :test #'equal)
+(defun load-shared-object (pathname &optional (absolute-p t))
+  (let* ((namestring (ensure-namestring pathname))
+	 (directory (namestring (pathname-sans-name+type namestring)))
+	 (name+type (subseq namestring (length directory))))
+    #+sbcl
+    (progn
+      (sb-alien:load-shared-object namestring)
+      (unless absolute-p
+	(let ((shared-object (find namestring sb-alien::*shared-objects* 
+			      :key #'sb-alien::shared-object-file 
+			      :test #'equal)))
+	  (setf (sb-alien::shared-object-file shared-object) name+type))))
+    #+cmu
+    (progn
+      (ext:load-foreign namestring)
+      (unless absolute-p
+	(let ((shared-object (rassoc namestring system::*global-table* 
+			      :test #'equal)))
+	  (setf (cdr shared-object) name+type))))
+    #+clisp 
+    (progn
       (ffi::foreign-library namestring)
-      (push namestring *loaded-libraries*))))
+      (pushnew 
+       (if absolute-p namestring name+type)
+       *loaded-libraries* :test #'string=))))
 
 
-(defmethod perform ((o load-op) (c shared-object))
+(defmethod perform ((o load-op) (dso shared-object))
   (let ((co (make-instance 'compile-op)))
-    (let ((pathname (car (output-files co c))))
-      (load-shared-object pathname))))
+    (let ((pathname (car (output-files co dso))))
+      (load-shared-object pathname (absolute-p dso)))))
 
 
 
@@ -116,7 +130,8 @@
 
 (defclass library (component) 
   ((libdir :initarg :libdir :initform nil)
-   (libname :initarg :libname :initform nil)))
+   (libname :initarg :libname :initform nil)
+   (absolute :initform nil :initarg :absolute :reader absolute-p)))
 
 
 (defun split-path (path)
@@ -136,17 +151,21 @@
 		 :name (or (slot-value lib 'libname) (component-name lib))
 		 :directory (split-path (slot-value lib 'libdir))))
 
-(defmethod perform ((o load-op) (c library))
-  (load-shared-object (component-pathname c)))
+(defmethod perform ((o load-op) (lib library))
+  (load-shared-object (component-pathname lib) (absolute-p lib)))
 
-(defmethod perform ((operation operation) (c library))
+(defmethod perform ((operation operation) (lib library))
   nil)
 
-(defmethod operation-done-p ((o load-op) (c library))
-  (let ((namestring (ensure-namestring (component-pathname c))))
-    #+sbcl(find namestring sb-alien::*shared-objects* :key #'sb-alien::shared-object-file :test #'equal)
-    #+cmu(rassoc namestring system::*global-table* :test #'equal)
-    #+clisp(find namestring *loaded-libraries* :test #'equal)))
+(defmethod operation-done-p ((o load-op) (lib library))
+  (let* ((namestring (ensure-namestring (component-pathname lib)))
+	 (directory (namestring (pathname-sans-name+type namestring)))
+	 (name+type (subseq namestring (length directory)))
+	 (stored-name (if (absolute-p lib) namestring name+type)))
 
-(defmethod operation-done-p ((o operation) (c library))
+    #+sbcl(find stored-name sb-alien::*shared-objects* :key #'sb-alien::shared-object-file :test #'equal)
+    #+cmu(rassoc stored-name system::*global-table* :test #'equal)
+    #+clisp(find stored-name *loaded-libraries* :test #'equal)))
+
+(defmethod operation-done-p ((o operation) (lib library))
   t)
