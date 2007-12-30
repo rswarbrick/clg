@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.85 2007-11-01 15:05:00 espen Exp $
+;; $Id: gtk.lisp,v 1.86 2007-12-30 18:37:12 espen Exp $
 
 
 (in-package "GTK")
@@ -103,7 +103,7 @@
     (when (and 
 	   (find-package "SWANK")
 	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) style)))
-      (error "When running clg in Slime, the communication style ~A must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information." style)))
+      (error "When running clg in Slime, the communication style ~S must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information." style)))
 
   #?(or (featurep :cmu) (sbcl< 1 0 6))
   (progn
@@ -205,9 +205,12 @@
     ;; We need to hook into the Swank server to protect calls to GDK properly.
     ;; This will *only* protect code entered directly in the REPL.
     (when (find-package "SWANK")
-      (push #'(lambda (form) 
- 		(within-main-loop (eval form)))
-       (symbol-value (find-symbol "*SLIME-REPL-EVAL-HOOKS*" "SWANK"))))))
+      (let ((repl-eval-hook (find-symbol "*SLIME-REPL-EVAL-HOOKS*" "SWANK")))
+	(if repl-eval-hook
+	    (push #'(lambda (form) 
+		      (within-main-loop (eval form)))
+	     (symbol-value (find-symbol "*SLIME-REPL-EVAL-HOOKS*" "SWANK")))
+	  (warn "Your version of Slime does not have *SLIME-REPL-EVAL-HOOKS* so all calls to Gtk+ functions have to be explicit protected by wrapping them in a WITHIN-MAIN-LOOP form"))))))
 
 #-sb-thread
 (defmacro within-main-loop (&body body)
