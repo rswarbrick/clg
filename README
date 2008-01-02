@@ -38,23 +38,13 @@ Build instructions
 
 2. Set up paths to match your system:
 
-   - Add a logical-pathname-translation to the clg root directory in
-     ~/.cmucl-init.lisp, ~/.sbclrc or some other startup file, like
-     this:
-
-       (setf
-         (logical-pathname-translations "clg")
-         '(("**;*.*.*" "/home/espen/src/clg/**/")))
-
    - Set the correct pkg-config search path if your Gtk+ installation
      is in an unusual place, by adding it to the PKG_CONFIG_PATH
      environment variable before starting lisp.
 
    - Make sure ASDF finds the system definition files:
        
-       (push
-        (translate-logical-pathname "clg:systems;")
-         asdf:*central-registry*)
+       (push "/path/to/clg/systems/" asdf:*central-registry*)
 
 
      When checking out of CVS also do the following:
