@@ -29,4 +29,4 @@
 		 (:file "gdkevents" :depends-on ("gdktypes"))
 		 (:file "pixbuf" :depends-on ("gdktypes"))
 		 (:file "gdk" :depends-on ("gdkevents"))
-		 (:file "export" :depends-on ("gdkevents" "gdktypes" "gdk"))))
+		 (:file "export" :depends-on ("gdktypes" "gdkevents" "pixbuf" "gdk"))))
