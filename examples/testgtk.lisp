@@ -26,7 +26,7 @@
 ;; Kimball, Josh MacDonald and others.
 
 
-;; $Id: testgtk.lisp,v 1.41 2007-07-12 09:18:30 espen Exp $
+;; $Id: testgtk.lisp,v 1.42 2008-01-02 16:07:14 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -1795,7 +1795,7 @@ This one is underlined in quite a funky fashion"
    :child (create-label "Below")))
 
 
-;;; Tooltips test
+;;; Tooltips test. Note that GtkTooltips has been deprecated in GTK+ 2.12
 
 (define-simple-dialog create-tooltips (dialog "Tooltips" :default-width 200)
   (let ((tooltips (make-instance 'tooltips)))
