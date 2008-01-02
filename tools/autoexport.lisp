@@ -3,7 +3,7 @@
   (:export "LIST-AUTOEXPORTED-SYMBOLS" "LIST-AUTOEXPORTED-SYMBOLS-IN-FILE"
 	   "DEFEXPORT" "EXPORT-FROM-FILE" "EXPORT-FROM-FILES" "INTERNAL"
 	   "WITH-EXPORT-HANDLERS" "EXPORT-HANDLER-MAKUNBOUND"
-	   "EXPORT-DEFCLASS-FORM"))
+	   "EXPORT-DEFCLASS-FORM" "EXPORT-FROM-SYSTEM"))
 
 (in-package "AUTOEXPORT")
 
@@ -65,6 +65,15 @@
 (defmacro export-from-files (files &optional package)
   `(progn 
      ,@(loop for file in files collect `(export-from-file ,file ,package))))
+
+(defmacro export-from-system (&optional package)
+  (let ((depends-on (cdar (asdf:component-depends-on asdf:*operation* asdf:*component*))))
+    `(progn 
+       ,@(loop
+	  for component in depends-on
+	  as pathname = (asdf:component-pathname 
+			 (asdf:find-component asdf:*system* component))
+	  collect `(export-from-file ,pathname ,package)))))
 
 (defun copy-hash-table (hash-table)
   (let ((new-hash-table (make-hash-table 
