@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.13 2007-12-13 14:34:41 espen Exp $
+;; $Id: gtkselection.lisp,v 1.14 2008-01-02 16:01:17 espen Exp $
 
 
 (in-package "GTK")
@@ -211,7 +211,7 @@
   ((register-user-data (cons get-func clear-func)) unsigned-int))
 
 (defun clipboard-set-contents (clipboard targets get-func &optional clear-func)
-  (%clipboard-set-with-data clipboard (ensure-target-table targets) 
+  (clipboard-set-with-data clipboard (ensure-target-table targets) 
    get-func (or clear-func #'(lambda ()))))
 
 (defbinding clipboard-clear () nil
