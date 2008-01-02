@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.60 2007-10-17 18:02:05 espen Exp $
+;; $Id: gtktypes.lisp,v 1.61 2008-01-02 16:00:22 espen Exp $
 
 (in-package "GTK")
 
@@ -676,8 +676,23 @@
      :accessor entry-completion
      :type entry-completion)
     (max-length :merge t :unbound 0)
+    (alignment
+     :allocation :virtual
+     :getter "gtk_entry_get_alignment"
+     :setter "gtk_entry_set_alignment"
+     :initarg :alignment
+     :accessor entry-alignment
+     :type single-float)
     #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-    (width-chars :merge t :unbound -1)))
+    (width-chars :merge t :unbound -1)
+    #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
+    (cursor-adjustment
+     :allocation :virtual
+     :getter "gtk_entry_get_cursor_hadjustment"
+     :setter "gtk_entry_set_cursor_hadjustment"
+     :initarg :cursor-hadjustment
+     :accessor entry-cursor-hadjustment
+     :type adjustment)))
 
   ("GtkEntryCompletion"
    :slots
@@ -883,6 +898,10 @@
      :getter "gtk_tree_model_get_n_columns"
      :reader tree-model-n-columns 
      :type int)))
+
+  ("GtkTreeModelFilter"
+   :slots
+   ((virtual-root :merge t :type tree-path)))
 
   ("GtkTreeSelection"
    :slots
