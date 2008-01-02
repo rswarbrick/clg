@@ -20,5 +20,4 @@
 
 
 ;;; Autogenerating exported symbols
-(export-from-file #p"clg:cairo;cairo.lisp")
-  
+(export-from-system)
