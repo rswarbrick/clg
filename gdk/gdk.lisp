@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.47 2007-11-14 12:52:32 espen Exp $
+;; $Id: gdk.lisp,v 1.48 2008-01-02 15:26:46 espen Exp $
 
 
 (in-package "GDK")
@@ -1120,25 +1120,26 @@
 #+sb-thread
 (progn
   (defvar *global-lock* nil)
+  (defvar *recursion-count* 0)
 
   (defun %global-lock-p ()
-    (eq (car (sb-thread:mutex-value *global-lock*)) sb-thread:*current-thread*))
+    (eq (sb-thread:mutex-value *global-lock*) sb-thread:*current-thread*))
 
   (defun threads-enter ()
     (when *global-lock*
       (if (%global-lock-p)
-	  (incf (cdr (sb-thread:mutex-value *global-lock*)))
-	(sb-thread:get-mutex *global-lock* (cons sb-thread:*current-thread* 0)))))
+	  (incf *recursion-count*)
+        (sb-thread:get-mutex *global-lock*))))
     
   (defun threads-leave (&optional flush-p)
     (when *global-lock*
       (assert (%global-lock-p))
       (cond
-       ((zerop (cdr (sb-thread:mutex-value *global-lock*)))
+       ((zerop *recursion-count*)
 	(when flush-p
 	  (flush))
 	(sb-thread:release-mutex *global-lock*))
-       (t (decf (cdr (sb-thread:mutex-value *global-lock*)))))))
+       (t (decf *recursion-count*)))))
 
   (define-callback %enter-fn nil ()
     (threads-enter))
@@ -1146,7 +1147,7 @@
   (define-callback %leave-fn nil ()
     (threads-leave))
   
-  (defbinding %threads-set-lock-functions (&optional) nil
+  (defbinding %threads-set-lock-functions (nil) nil
     (%enter-fn callback)
     (%leave-fn callback))
 
