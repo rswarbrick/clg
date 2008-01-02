@@ -1,6 +1,6 @@
 (in-package :asdf)
 
-(export '*dso-extension*)
+(export '(*dso-extension* *operation* *system* *component*))
 
 (defparameter *dso-extension* 
  #-(or darwin win32)"so" #+darwin"dylib" #+win32"dll")
@@ -169,3 +169,16 @@
 
 (defmethod operation-done-p ((o operation) (lib library))
   t)
+
+
+;;; Binding of dynamic variables during perform
+
+(defvar *operation* nil)
+(defvar *system* nil)
+(defvar *component* nil)
+
+(defmethod perform :around ((operation operation) (c component))
+  (let ((*operation* operation)
+	(*component* c)
+	(*system* (component-system c)))
+    (call-next-method)))
