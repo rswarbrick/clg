@@ -12,7 +12,7 @@
 
 (defsystem clg-tools
   :depends-on (#+sbcl sb-posix)
-  :components ((:file "autoexport")
-	       (:file "utils")
+  :components ((:file "utils")
 	       (:file "config" :depends-on ("utils"))
-	       (:file "asdf-extensions" :depends-on ("utils"))))
+	       (:file "asdf-extensions" :depends-on ("utils"))
+	       (:file "autoexport" :depends-on ("asdf-extensions"))))
