@@ -32,4 +32,4 @@
 		 (:file "gtkstyle" :depends-on ("gtktypes"))
 		 (:file "gtk" :depends-on ("gtktypes" "gtkcontainer"))
 		 (:file "gtkutils" :depends-on ("gtk"))
-		 (:file "export" :depends-on ("gtktypes" "gtkwidget" "gtkcontainer" "gtk" "gtktree" "gtkaction" "gtkselection" "gtkutils" "gtkstyle"))))
+		 (:file "export" :depends-on ("gtktypes" "gtkwidget" "gtkcontainer" "gtk" "gtktree" "gtktext" "gtkaction" "gtkselection" "gtkutils" "gtkstyle"))))
