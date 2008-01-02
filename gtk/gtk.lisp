@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.86 2007-12-30 18:37:12 espen Exp $
+;; $Id: gtk.lisp,v 1.87 2008-01-02 15:57:57 espen Exp $
 
 
 (in-package "GTK")
@@ -970,6 +970,10 @@
   (user-data-destroy-callback callback))
 
 (defbinding entry-completion-complete () nil
+  (completion entry-completion))
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
+(defbinding entry-completion-get-completion-prefix () string
   (completion entry-completion))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
