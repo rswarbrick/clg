@@ -16,3 +16,10 @@
 	       (:file "config" :depends-on ("utils"))
 	       (:file "asdf-extensions" :depends-on ("utils"))
 	       (:file "autoexport" :depends-on ("asdf-extensions"))))
+
+
+
+;; For backward compatibility
+(setf
+ (logical-pathname-translations "clg")
+ `(("**;*.*.*" ,(make-pathname :directory (append (butlast (pathname-directory (asdf:component-pathname (asdf:find-system :clg-tools)))) (list :wild-inferiors))))))
