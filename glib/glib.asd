@@ -6,11 +6,6 @@
 (defpackage "GLIB-SYSTEM"
   (:use "COMMON-LISP" "ASDF" "PKG-CONFIG"))
 
-;;; Better put this in ~/.cmucl-init.lisp or some other file read at startup
-;; (setf
-;;  (logical-pathname-translations "clg")
-;;  '(("**;*.*.*" "/home/espen/src/clg/**/")))
-
 (in-package "GLIB-SYSTEM")
 
 (pkg-exists-p "glib-2.0" :atleast-version "2.4.0" :error t)
