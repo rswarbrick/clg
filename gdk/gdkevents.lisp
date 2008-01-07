@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdkevents.lisp,v 1.12 2006-04-26 09:20:20 espen Exp $
+;; $Id: gdkevents.lisp,v 1.13 2008-01-07 16:02:23 espen Exp $
 
 (in-package "GDK")
 
@@ -75,14 +75,13 @@
       :type (bool 8)))
     (:metaclass boxed-class)))
 
-(defmethod initialize-instance ((event event) &rest initargs)
+(defmethod initialize-instance :after ((event event) &rest initargs)
   (declare (ignore initargs))
-  (call-next-method)
   (setf (slot-value event '%type) (event-class-type (class-of event))))
 
-(defmethod make-proxy-instance :around ((class (eql (find-class 'event))) location &rest initargs)
+(defmethod make-proxy-instance ((class (eql (find-class 'event))) location &rest initargs)
   (let ((class (%event-class location)))
-    (apply #'call-next-method class location initargs)))
+    (apply #'make-proxy-instance class location initargs)))
 
 
 (defclass timed-event (event)
