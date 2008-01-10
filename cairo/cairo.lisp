@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.20 2008-01-10 13:31:39 espen Exp $
+;; $Id: cairo.lisp,v 1.21 2008-01-10 13:32:34 espen Exp $
 
 (in-package "CAIRO")
 
@@ -1076,3 +1076,17 @@
   (matrix matrix)
   (x double-float :in/out)
   (y double-float :in/out))
+
+
+;; Version information
+
+(defbinding %version () int)
+
+(defun version ()
+  (let ((version (%version)))
+    (values 
+     (mod (truncate version 10000) 100)
+     (mod (truncate version 100) 100)
+     (mod version 100))))
+
+(defbinding version-string () (static string))
