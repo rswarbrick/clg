@@ -506,11 +506,13 @@
     (make-instance 'v-box
      :parent main-window
      :child-args '(:expand nil)
-     :child (list (make-instance 'label :label (gtk-version)) :fill nil)
+     :child (list (make-instance 'label 
+		   :label (format nil "Cairo ~A" (cairo:version-string)))
+		  :fill nil)
      :child (list (make-instance 'label :label (clg-version)) :fill nil)
      :child (list (make-instance 'label 			  
 		   :label #-cmu
-		          (format nil "~A (~A)" 
+		          (format nil "~A ~A" 
 			   (lisp-implementation-type)
 			   #-clisp
 			   (lisp-implementation-version)
