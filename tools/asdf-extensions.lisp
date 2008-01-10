@@ -1,10 +1,12 @@
 (in-package :asdf)
 
-(export '(*dso-extension* *operation* *system* *component*))
+(export '(*absolute-paths-as-default* *dso-extension*
+	  *operation* *system* *component*))
 
 (defparameter *dso-extension* 
  #-(or darwin win32)"so" #+darwin"dylib" #+win32"dll")
 
+(defparameter *absolute-paths-as-default* nil)
 
 ;;; The following code is more or less copied from sb-bsd-sockets.asd,
 ;;; but extended to allow flags to be set in a general way. The class
@@ -13,7 +15,8 @@
 
 (defclass shared-object (module)
   ((ldflags :initform nil :initarg :ldflags)
-   (absolute :initform nil :initarg :absolute :reader absolute-p)))
+   (absolute :initform *absolute-paths-as-default* 
+	     :initarg :absolute :reader absolute-p)))
 
 (defun ensure-namestring (pathname)
   (namestring 
@@ -131,7 +134,8 @@
 (defclass library (component) 
   ((libdir :initarg :libdir :initform nil)
    (libname :initarg :libname :initform nil)
-   (absolute :initform nil :initarg :absolute :reader absolute-p)))
+   (absolute :initform *absolute-paths-as-default*
+	     :initarg :absolute :reader absolute-p)))
 
 
 (defun split-path (path)
