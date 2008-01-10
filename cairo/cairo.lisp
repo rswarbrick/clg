@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.19 2007-12-02 14:50:41 espen Exp $
+;; $Id: cairo.lisp,v 1.20 2008-01-10 13:31:39 espen Exp $
 
 (in-package "CAIRO")
 
@@ -676,7 +676,7 @@
 
 (defbinding show-glyphs () nil
   (cr context)
-  (glyphs (vector glyph))
+  (glyphs (vector (inlined glyph)))
   ((length glyphs) int))
 
 (defbinding font-extents (cr &optional (extents (make-instance 'font-extents))) nil
