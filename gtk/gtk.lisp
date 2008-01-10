@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.87 2008-01-02 15:57:57 espen Exp $
+;; $Id: gtk.lisp,v 1.88 2008-01-10 22:11:15 espen Exp $
 
 
 (in-package "GTK")
@@ -706,10 +706,13 @@
 
 ;;; Color selection
 
-(defbinding (color-selection-is-adjusting-p
-	     "gtk_color_selection_is_adjusting") () boolean
+(defbinding color-selection-is-adjusting-p () boolean
   (colorsel color-selection))
 
+(defbinding (color-selection-previous-color
+	     "gtk_color_selection_get_previous_color") () nil
+  (colorsel color-selection)
+  ((make-instance 'gdk:color) gdk:color :in/return))
 
 
 ;;; Color selection dialog -- no functions

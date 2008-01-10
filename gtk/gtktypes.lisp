@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.61 2008-01-02 16:00:22 espen Exp $
+;; $Id: gtktypes.lisp,v 1.62 2008-01-10 22:11:15 espen Exp $
 
 (in-package "GTK")
 
@@ -1058,16 +1058,16 @@
    ((previous-alpha
      :allocation :virtual
      :getter "gtk_color_selection_get_previous_alpha"
-     :setter "gtk_color_selection_get_previous_alpha"
+     :setter "gtk_color_selection_set_previous_alpha"
      :initarg :previous-alpha
      :accessor color-selection-previous-alpha
      :type (unsigned 16))
     (previous-color
      :allocation :virtual
-     :getter "gtk_color_selection_get_previous_color"
-     :setter "gtk_color_selection_get_previous_color"
+     :getter color-selection-previous-color
+     :setter "gtk_color_selection_set_previous_color"
      :initarg :previous-color
-     :accessor color-selection-previous-color
+     :writer (setf color-selection-previous-color)
      :type gdk:color)))
 
   ("GtkFontSelection"
