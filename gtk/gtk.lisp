@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.88 2008-01-10 22:11:15 espen Exp $
+;; $Id: gtk.lisp,v 1.89 2008-01-11 14:44:28 espen Exp $
 
 
 (in-package "GTK")
@@ -129,15 +129,19 @@
   #?-(or (featurep :cmu) (sbcl< 1 0 6))
   ;; When running in Slime we need to hook into the Swank server
   ;; to handle events asynchronously.
-  (if (find-package "SWANK")
-      (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
-	    (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK")))))
-	(setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
-	 #'(lambda ()
-	     (loop
-	      (case (socket-status (cons stream :input) 0 *event-poll-interval*)
-		((:input :eof) (return (funcall read-from-emacs)))
-		(otherwise (main-iterate-all)))))))
+  (unless (and
+	   (find-package "SWANK")
+	   (let ((connection (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK"))))
+	     (when connection
+	       (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
+		     (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") connection)))
+		 (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
+		  #'(lambda ()
+		      (loop
+		       (case (socket-status (cons stream :input) 0 
+			      *event-poll-interval*)
+			 ((:input :eof) (return (funcall read-from-emacs)))
+			 (otherwise (main-iterate-all))))))))))
     #-(and clisp readline)
     (warn "Asynchronous event handling not supported on this platform. An explicit main loop has to be started."))
 
