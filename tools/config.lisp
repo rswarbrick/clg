@@ -144,30 +144,32 @@
 #+sbcl
 (progn
   (defun sbcl-version ()
-    (let* ((dot1 (position #\. (lisp-implementation-version)))
-	   (dot2 (position #\. (lisp-implementation-version) :start (1+ dot1))))
-      (values 
-       (parse-integer (lisp-implementation-version) :end dot1)
-       (parse-integer (lisp-implementation-version) :start (1+ dot1) :end dot2)
-       (if dot2
-	   (parse-integer (lisp-implementation-version) :start (1+ dot2) :junk-allowed t)
-	 0))))
-  (defun sbcl>= (req-major req-minor req-micro)
-    (multiple-value-bind (major minor micro) (sbcl-version)      
+    (values-list
+     (loop
+      repeat 4
+      for part in (split-string (lisp-implementation-version) :delimiter #\.)
+      while (every #'digit-char-p part)
+      collect (parse-integer part))))
+  (defun sbcl>= (major minor micro &optional patch)
+    (multiple-value-bind (%major %minor %micro %patch) (sbcl-version)      
       (or 
-       (> major req-major)
-       (and (= major req-major) (> minor req-minor))
-       (and (= major req-major) (= minor req-minor) (>= micro req-micro)))))
-  (defun sbcl< (req-major req-minor req-micro)
-    (not (sbcl>= req-major req-minor req-micro))))
+       (> %major major)
+       (and (= %major major) (> %minor minor))
+       (and (= %major major) (= %minor minor) (>= %micro micro))
+       (and (= %major major) (= %minor minor) (>= %micro micro))
+       (and 
+	(= %major major) (= %minor minor) (= %micro micro)
+	(>= (or %patch 0) (or patch 0))))))
+  (defun sbcl< (major minor micro &optional patch)
+    (not (sbcl>= major minor micro patch))))
 
 #-sbcl
 (progn
-  (defun sbcl>= (req-major req-minor req-micro)
-    (declare (ignore req-major req-minor req-micro))
+  (defun sbcl>= (major minor micro &optional patch)
+    (declare (ignore major minor micro patch))
     nil)
-  (defun sbcl< (req-major req-minor req-micro)
-    (declare (ignore req-major req-minor req-micro))
+  (defun sbcl< (major minor micro &optional patch)
+    (declare (ignore major minor micro patch))
     nil))
 
 #+clisp
