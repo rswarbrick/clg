@@ -155,8 +155,7 @@
       (or 
        (> %major major)
        (and (= %major major) (> %minor minor))
-       (and (= %major major) (= %minor minor) (>= %micro micro))
-       (and (= %major major) (= %minor minor) (>= %micro micro))
+       (and (= %major major) (= %minor minor) (> %micro micro))
        (and 
 	(= %major major) (= %minor minor) (= %micro micro)
 	(>= (or %patch 0) (or patch 0))))))
