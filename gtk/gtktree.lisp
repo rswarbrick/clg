@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.32 2007-10-22 09:21:50 espen Exp $
+;; $Id: gtktree.lisp,v 1.33 2008-02-27 21:48:53 espen Exp $
 
 
 (in-package "GTK")
@@ -575,15 +575,15 @@
 
 (defbinding %tree-selection-select-iter () nil
   (tree-selection tree-selection)
-  (tree-path tree-path))
+  (tree-iter tree-iter))
 
 (defbinding %tree-selection-unselect-iter () nil
   (tree-selection tree-selection)
-  (tree-path tree-path))
+  (tree-iter tree-iter))
 
 (defbinding %tree-selection-iter-is-selected () boolean
   (tree-selection tree-selection)
-  (tree-path tree-path))
+  (tree-iter tree-iter))
 
 (defun tree-selection-select (selection row)
   (etypecase row
