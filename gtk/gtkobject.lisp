@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.44 2007-09-06 14:22:19 espen Exp $
+;; $Id: gtkobject.lisp,v 1.45 2008-02-28 18:33:12 espen Exp $
 
 
 (in-package "GTK")
@@ -181,7 +181,7 @@
 	  value))))
 
 
-(defmethod add-reader-method ((class container-child-class) generic-function slot-name #?(sbcl>= 1 0 2)slot-documentation)
+(defmethod add-reader-method ((class container-child-class) generic-function slot-name #?(sbcl>= 1 0 2)slot-documentation #?(sbcl>= 1 0 14)source-location)
   (add-method
    generic-function
    (make-instance 'standard-method
@@ -192,7 +192,7 @@
 		  (declare (ignore next-methods))
 		  (child-property-value (first args) slot-name)))))
 
-(defmethod add-writer-method ((class container-child-class) generic-function slot-name #?(sbcl>= 1 0 2)slot-documentation)
+(defmethod add-writer-method ((class container-child-class) generic-function slot-name #?(sbcl>= 1 0 2)slot-documentation #?(sbcl>= 1 0 14)source-location)
   (add-method
    generic-function
    (make-instance 'standard-method
