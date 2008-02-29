@@ -13,8 +13,10 @@
      (pkg-config:featurep :cmu) 
      (and (pkg-config:sbcl< 1 0 6) (not (pkg-config:featurep :win32))))
   (:import-from #+cmu"LISP" #+sbcl"SB-IMPL"
-	   "*PERIODIC-POLLING-FUNCTION*" "*MAX-EVENT-TO-SEC*" 
- 	   "*MAX-EVENT-TO-USEC*")		
+   "*PERIODIC-POLLING-FUNCTION*" "*MAX-EVENT-TO-SEC*" "*MAX-EVENT-TO-USEC*")
+  #?(and (pkg-config:sbcl>= 1 0 15 6) (not (pkg-config:featurep :win32)))
+  (:import-from "SB-IMPL"
+   "*PERIODIC-POLLING-FUNCTION*" "*PERIODIC-POLLING-PERIOD*")
   #+clisp
   (:import-from "SOCKET" "SOCKET-STATUS")
   (:export "EVENTS-PENDING-P" "GET-CURRENT-EVENT" "MAIN-DO-EVENT" "MAIN"

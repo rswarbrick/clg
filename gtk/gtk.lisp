@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.89 2008-01-11 14:44:28 espen Exp $
+;; $Id: gtk.lisp,v 1.90 2008-02-29 18:34:19 espen Exp $
 
 
 (in-package "GTK")
@@ -50,8 +50,12 @@
 
 ;;;; Initalization and display handling
 
-(defparameter *event-poll-interval* 10000) ; in microseconds
+(defparameter *event-polling-interval* 0.01)
 
+#?(or (featurep :clisp) (featurep :cmu) (and (sbcl>= 1 0 6) (sbcl< 1 0 15 6)))
+(defun decompose-time (time)
+  (multiple-value-bind (sec subsec) (truncate *event-polling-interval*)
+    (values sec (truncate (* subsec 1e6)))))
 
 (defbinding (gtk-init "gtk_parse_args") () boolean
   "Initializes the library without opening the display."
@@ -80,7 +84,7 @@
   (clg-init display t))
 
 
-#?(sbcl>= 1 0 6)
+#?(and (sbcl>= 1 0 6) (sbcl< 1 0 15 6))
 ;; A very minimal implementation of CLISP's socket-status
 (defun socket-status (socket seconds microseconds)
   (sb-alien:with-alien ((read-fds (sb-alien:struct sb-unix:fd-set)))
@@ -98,14 +102,15 @@
 	    :eof))))))
 
 (defun %init-async-event-handling (display)
-  (let ((style #?(or (featurep :cmu) (sbcl< 1 0 6)) :fd-handler
-	       #?-(or (featurep :cmu) (sbcl< 1 0 6)) nil))
+  (let ((style 
+	 #?(or (featurep :cmu) (sbcl< 1 0 6) (sbcl>= 1 0 15 6)) :fd-handler
+	 #?-(or (featurep :cmu) (sbcl< 1 0 6) (sbcl>= 1 0 15 6)) nil))
     (when (and 
 	   (find-package "SWANK")
 	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) style)))
       (error "When running clg in Slime, the communication style ~S must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information." style)))
 
-  #?(or (featurep :cmu) (sbcl< 1 0 6))
+  #?(or (featurep :cmu) (sbcl< 1 0 6) (sbcl>= 1 0 15 6))
   (progn
     (signal-connect (gdk:display-manager) 'display-opened
      #'(lambda (display)
@@ -119,14 +124,17 @@
 		    (declare (ignore is-error-p))
 		    (remove-fd-handler handler))))))))
     (setq *periodic-polling-function* #'main-iterate-all)
-    (setq *max-event-to-sec* 0)
-    (setq *max-event-to-usec* *event-poll-interval*))
+    #?(or (featurep :cmu) (sbcl< 1 0 6))
+    (multiple-value-setq (*max-event-to-sec* *max-event-to-usec*)
+      (decompose-time *event-polling-interval*))
+    #?(sbcl>= 1 0 15 6)
+    (setq *periodic-polling-period* *event-polling-interval*))
   
   #+(and clisp readline)
   ;; Readline will call the event hook at most ten times per second
   (setf readline:event-hook #'main-iterate-all)
   
-  #?-(or (featurep :cmu) (sbcl< 1 0 6))
+  #?(or (featurep :clisp) (and (sbcl>= 1 0 6) (sbcl< 1 0 15 6)))
   ;; When running in Slime we need to hook into the Swank server
   ;; to handle events asynchronously.
   (unless (and
@@ -135,13 +143,15 @@
 	     (when connection
 	       (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
 		     (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") connection)))
-		 (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
-		  #'(lambda ()
-		      (loop
-		       (case (socket-status (cons stream :input) 0 
-			      *event-poll-interval*)
-			 ((:input :eof) (return (funcall read-from-emacs)))
-			 (otherwise (main-iterate-all))))))))))
+		 (multiple-value-bind (sec usec) 
+		     (decompose-time *event-polling-interval*)
+		   (setf 
+		    (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
+		    #'(lambda ()
+			(loop
+			 (case (socket-status (cons stream :input) sec usec)
+			   ((:input :eof) (return (funcall read-from-emacs)))
+			   (otherwise (main-iterate-all)))))))))))
     #-(and clisp readline)
     (warn "Asynchronous event handling not supported on this platform. An explicit main loop has to be started."))
 
