@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.45 2008-02-28 18:33:12 espen Exp $
+;; $Id: gtkobject.lisp,v 1.46 2008-03-04 16:03:38 espen Exp $
 
 
 (in-package "GTK")
@@ -56,6 +56,9 @@
 
 ;;;; Main loop and event handling
 
+(defparameter *reentrant-main-iteration* t)
+(defvar *running-main-iteration* nil)
+
 (defbinding events-pending-p () boolean)
 
 (defbinding get-current-event () gdk:event)
@@ -74,9 +77,11 @@
 
 (defun main-iterate-all (&rest args)
   (declare (ignore args))
-  (loop
-   while (events-pending-p)
-   do (main-iteration-do nil))
+  (unless (and (not *reentrant-main-iteration*) *running-main-iteration*)
+    (let ((*running-main-iteration* t))
+      (loop
+       while (events-pending-p)
+       do (main-iteration-do nil))))
   #+clisp 0)
 
 
