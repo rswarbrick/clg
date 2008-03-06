@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.46 2008-03-04 16:03:38 espen Exp $
+;; $Id: gtkobject.lisp,v 1.47 2008-03-06 22:02:08 espen Exp $
 
 
 (in-package "GTK")
@@ -226,12 +226,18 @@
   (class pointer)
   (n-properties unsigned-int :out))
 
-(defun query-container-class-child-properties (type-number)
+(defun query-container-class-child-properties (type-number &optional owner-only-p)
   (let ((class (type-class-ref type-number)))
     (multiple-value-bind (array length)
 	(%container-class-list-child-properties class)
       (unwind-protect
-	  (map-c-vector 'list #'identity array 'param length)
+	  (let ((properties (map-c-vector 'list #'identity array 'param length)))
+	    (if owner-only-p
+		(delete-if 
+		  #'(lambda (property)
+		      (not (eql (slot-value property 'glib::owner-type) type-number)))
+		  properties)
+	      properties))
 	(deallocate-memory array)))))
 
 (defun default-container-child-name (container-class)
@@ -245,11 +251,12 @@
 	(expand-gobject-type type t options)
       `(progn
 	 ,(expand-gobject-type type nil options)
-	 (defclass ,child-class (,(default-container-child-name super))
-	   ,(slot-definitions child-class 
-	     (query-container-class-child-properties type) nil)
-	   (:metaclass container-child-class)
-	   (:container ,class))))))
+	 ,(let ((child-properties (query-container-class-child-properties type t)))
+	    (when child-properties
+	      `(defclass ,child-class (,(default-container-child-name super))
+	         ,(slot-definitions child-class child-properties nil)
+		 (:metaclass container-child-class)
+		 (:container ,class))))))))
 
 (defun container-child-class (container-class)
   (gethash container-class *container-to-child-class-mappings*))
