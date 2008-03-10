@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.11 2007-01-14 23:22:19 espen Exp $
+;; $Id: gtkaction.lisp,v 1.12 2008-03-10 18:51:13 espen Exp $
 
 
 (in-package "GTK")
@@ -208,9 +208,9 @@
 (defvar *valid-ui-elements*
   '((:ui :menubar :toolbar :popup :accelerator)
     (:menubar :menuitem :separator :placeholder :menu)
-    (:menu :menuitem :separator :placehoder :menu)
-    (:popup :menuitem :separator :placehoder :menu)
-    (:toolbar :toolitem :separator :placehoder)
+    (:menu :menuitem :separator :placeholder :menu)
+    (:popup :menuitem :separator :placeholder :menu)
+    (:toolbar :toolitem :separator :placeholder)
     (:placeholder :menuitem :toolitem :separator :placeholder :menu)
     (:menuitem)
     (:toolitem)
