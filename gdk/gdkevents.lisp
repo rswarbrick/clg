@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdkevents.lisp,v 1.13 2008-01-07 16:02:23 espen Exp $
+;; $Id: gdkevents.lisp,v 1.14 2008-03-18 14:52:54 espen Exp $
 
 (in-package "GDK")
 
@@ -47,7 +47,9 @@
   
 (let ((reader (reader-function 'event-type)))
   (defun %event-class (location)
-    (gethash (funcall reader location 0) *event-classes*)))
+    (or
+     (gethash (funcall reader location 0) *event-classes*)
+     (error "No class defined for event type: ~S" (funcall reader location 0)))))
 
 (defmethod make-proxy-instance :around ((class event-class) location 
 					&rest initargs)
@@ -559,3 +561,16 @@
   (:metaclass event-class)
   (:event-type :owner-change))
 
+(defclass grab-broken-event (event)
+  ((keyboard
+    :allocation :alien
+    :accessor event-keyboard
+    :initarg :keyboard
+    :type boolean)
+   (implicit
+    :allocation :alien
+    :accessor event-implicit
+    :initarg :implicit
+    :type boolean))
+  (:metaclass event-class)
+  (:event-type :grab-broken))
