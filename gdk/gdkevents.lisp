@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdkevents.lisp,v 1.14 2008-03-18 14:52:54 espen Exp $
+;; $Id: gdkevents.lisp,v 1.15 2008-03-18 15:08:08 espen Exp $
 
 (in-package "GDK")
 
@@ -571,6 +571,11 @@
     :allocation :alien
     :accessor event-implicit
     :initarg :implicit
-    :type boolean))
+    :type boolean)
+   (grab-window
+    :allocation :alien
+    :accessor event-grab-window
+    :initarg :grab-window
+    :type window))
   (:metaclass event-class)
   (:event-type :grab-broken))
