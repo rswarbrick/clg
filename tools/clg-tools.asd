@@ -20,6 +20,6 @@
 
 
 ;; For backward compatibility
-(setf
- (logical-pathname-translations "clg")
- `(("**;*.*.*" ,(make-pathname :directory (append (butlast (pathname-directory (asdf:component-pathname (asdf:find-system :clg-tools)))) (list :wild-inferiors))))))
+(let ((dir (asdf:component-pathname (asdf:find-system :clg-tools))))
+  (setf (logical-pathname-translations "clg")
+   `(("**;*.*.*" ,(make-pathname :directory (append (butlast (pathname-directory dir)) (list :wild-inferiors)) :defaults dir)))))
