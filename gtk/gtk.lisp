@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.90 2008-02-29 18:34:19 espen Exp $
+;; $Id: gtk.lisp,v 1.91 2008-03-20 15:44:01 espen Exp $
 
 
 (in-package "GTK")
@@ -108,7 +108,7 @@
     (when (and 
 	   (find-package "SWANK")
 	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) style)))
-      (error "When running clg in Slime, the communication style ~S must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/slime_45.html> for more information." style)))
+      (error "When running clg in Slime, the communication style ~S must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/Communication-style.html> for more information." style)))
 
   #?(or (featurep :cmu) (sbcl< 1 0 6) (sbcl>= 1 0 15 6))
   (progn
