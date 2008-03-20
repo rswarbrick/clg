@@ -22,4 +22,4 @@
 ;; For backward compatibility
 (let ((dir (asdf:component-pathname (asdf:find-system :clg-tools))))
   (setf (logical-pathname-translations "clg")
-   `(("**;*.*.*" ,(make-pathname :directory (append (butlast (pathname-directory dir)) (list :wild-inferiors)) :defaults dir)))))
+   `(("**;*.*.*" ,(make-pathname :directory (append (butlast (pathname-directory dir)) (list :wild-inferiors)) #+win32 :defaults #+win32 dir)))))
