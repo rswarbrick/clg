@@ -23,10 +23,11 @@
 ;; Parts of this file are direct translations of code from 'testgtk.c'
 ;; distributed with the Gtk+ library, and thus covered by the GNU
 ;; Lesser General Public License and copyright Peter Mattis, Spencer
-;; Kimball, Josh MacDonald and others.
+;; Kimball, Josh MacDonald and others. To be safe the entire file
+;; should probably be considered as being GPL'ed.
 
 
-;; $Id: testgtk.lisp,v 1.42 2008-01-02 16:07:14 espen Exp $
+;; $Id: testgtk.lisp,v 1.43 2008-03-20 16:05:31 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
