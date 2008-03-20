@@ -262,6 +262,36 @@
   (cairo:stroke cr))
 
 
+(define-snippet fill-style (cr)
+  (cairo:scale cr (/ 256.0) (/ 256.0))
+  (setf (cairo:line-width cr) 6)
+  (cairo:rectangle cr 12 12 232 70)
+  (cairo:new-sub-path cr)
+  (cairo:arc cr 64 64 40 0 (* 2 pi))
+  (cairo:new-sub-path cr)
+  (cairo:arc-negative cr 192 64 40 0 (* -2 pi))
+
+  (setf (cairo:fill-rule cr) :even-odd)
+  (cairo:set-source-color cr 0 0.7 0)
+  (cairo:fill cr t)
+  (cairo:set-source-color cr 0 0 0)
+  (cairo:stroke cr)
+
+  (cairo:translate cr 0 128)
+  (cairo:rectangle cr 12 12 232 70)
+  (cairo:new-sub-path cr)
+  (cairo:arc cr 64 64 40 0 (* 2 pi))
+  (cairo:new-sub-path cr)
+  (cairo:arc-negative cr 192 64 40 0 (* -2 pi))
+
+  (setf (cairo:fill-rule cr) :winding)
+  (cairo:set-source-color cr 0 0 0.9)
+  (cairo:fill cr t)
+  (cairo:set-source-color cr 0 0 0)
+  (cairo:stroke cr))
+
+
+
 (define-snippet gradient (cr)
   (let ((pattern (cairo:pattern-create-linear 0.0 0.0 0.0 1.0)))
     (cairo:pattern-add-color-stop pattern 1.0 0.0 0.0 0.0 1.0)
@@ -284,7 +314,7 @@
     (cairo:rotate cr (deg-to-rad 45.0))
     (let ((width (cairo:surface-width image))
 	  (height (cairo:surface-height image)))
-      (cairo:scale cr (/ 1.0 width) (/ 1.0 height))  
+      (cairo:scale cr (/ 1.0 width) (/ 1.0 height))
       (cairo:translate cr (* -0.5 width) (* -0.5 height)))
     (cairo:set-source-surface cr image 0 0)
     (cairo:paint cr)))
