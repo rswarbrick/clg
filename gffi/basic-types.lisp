@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.10 2007-09-07 07:28:42 espen Exp $
+;; $Id: basic-types.lisp,v 1.11 2008-03-25 02:00:58 espen Exp $
 
 (in-package "GFFI")
 
@@ -906,16 +906,16 @@ have been written as temporal.")
 
 (define-type-method size-of ((type or) &key (inlined nil inlined-p))
   (loop
-   for subtype in (type-expand-to 'or type)
+   for subtype in (cdr (type-expand-to 'or type))
    maximize (if inlined-p
-		(size-of subtype inlined)
+		(size-of subtype :inlined inlined)
 	      (size-of subtype))))
 
 (define-type-method type-alignment ((type or) &key (inlined nil inlined-p))
   (loop
-   for subtype in (type-expand-to 'or type)
+   for subtype in (cdr (type-expand-to 'or type))
    maximize (if inlined-p
-		(type-alignment subtype inlined)
+		(type-alignment subtype :inlined inlined)
 	      (type-alignment subtype))))
 
 (define-type-method alien-arg-wrapper ((type or) var value style form &optional copy-in-p)
