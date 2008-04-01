@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.42 2007-10-17 14:30:41 espen Exp $
+;; $Id: glib.lisp,v 1.43 2008-04-01 21:17:59 espen Exp $
 
 
 (in-package "GLIB")
@@ -152,9 +152,12 @@
 (deftype glist (type) 
   `(or null (cons ,type list)))
 
-(defbinding (%glist-append "g_list_append") () pointer
+(defbinding (%glist-prepend "g_list_prepend") () pointer
   (glist (or null pointer))
   (nil null))
+
+(defbinding (%glist-reverse "g_list_reverse") () pointer
+  (glist (or null pointer)))
 
 (defun make-glist (element-type list &optional temp-p)
   (let ((writer (if (functionp element-type)
@@ -162,9 +165,9 @@
 		  (writer-function element-type :temp temp-p))))
     (loop
      for element in list
-     as glist = (%glist-append nil) then (%glist-append glist)
+     as glist = (%glist-prepend nil) then (%glist-prepend glist)
      do (funcall writer element glist)
-     finally (return glist))))
+     finally (return (%glist-reverse glist)))))
 
 (defun glist-next (glist)
   (unless (null-pointer-p glist)
@@ -324,12 +327,11 @@
       #'(lambda (from to &optional (offset 0))
 	  (unless (null-pointer-p (ref-pointer from offset))
 	    (loop
-	     as from-list = (ref-pointer from offset) 
-	                    then (glist-next from-list)
-	     as to-list = (setf (ref-pointer to offset) (%glist-append nil)) 
-	                  then (%glist-append to-list)
+	     as from-list = (ref-pointer from offset) then (glist-next from-list)
+	     as to-list = (%glist-prepend nil) then (%glist-prepend to-list)
 	     do (funcall copy-element from-list to-list)
-	     while (glist-next from-lisT)))))))
+	     while (glist-next from-list)
+	     finally (setf (ref-pointer to offset) (%glist-reverse to-list))))))))
 
 
 ;;;; Single linked list (GSList)
