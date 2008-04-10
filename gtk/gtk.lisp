@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.91 2008-03-20 15:44:01 espen Exp $
+;; $Id: gtk.lisp,v 1.92 2008-04-10 20:38:49 espen Exp $
 
 
 (in-package "GTK")
@@ -45,7 +45,7 @@
       (format nil "Gtk+ v~A.~A.~A" major minor micro))))
 
 (defun clg-version ()
-  "clg 0.93")
+  "clg 0.94")
 
 
 ;;;; Initalization and display handling
@@ -2396,7 +2396,7 @@
 
 (defun spin-button-spin (spin-button value)
   (etypecase value
-    (real (%spin-button-spin spin-button :spin-user-defined value))
+    (real (%spin-button-spin spin-button :user-defined value))
     (spin-type (%spin-button-spin spin-button value 0))))
 
 
