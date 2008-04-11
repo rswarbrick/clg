@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.5 2007-09-07 07:28:42 espen Exp $
+;; $Id: vectors.lisp,v 1.6 2008-04-11 20:19:09 espen Exp $
 
 
 (in-package "GFFI")
@@ -114,18 +114,16 @@
   (declare (ignore type))
   (alien-type 'pointer))
 
-(defun vector-type (type)
+(define-type-method argument-type ((type vector))
+  (declare (ignore type))
+  'sequence)
+
+(define-type-method return-type ((type vector))
   (destructuring-bind (element-type &optional (length '*)) 
       (rest (type-expand-to 'vector type))
     (if (constantp length)
 	`(vector ,(return-type element-type) ,length)
       `(vector ,(return-type element-type) *))))
-
-(define-type-method argument-type ((type vector))
-  (vector-type type))
-
-(define-type-method return-type ((type vector))
-  (vector-type type))
 
 (define-type-method size-of ((type vector) &key inlined)
   (if inlined
