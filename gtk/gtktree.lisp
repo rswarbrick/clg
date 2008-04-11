@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktree.lisp,v 1.33 2008-02-27 21:48:53 espen Exp $
+;; $Id: gtktree.lisp,v 1.34 2008-04-11 20:53:32 espen Exp $
 
 
 (in-package "GTK")
@@ -369,7 +369,7 @@
 (defmethod allocate-foreign ((reference tree-row-reference) &key model path)
   (%tree-row-reference-new model path))
 
-(defbinding tree-row-reference-get-path () tree-path
+(defbinding tree-row-reference-get-path () (or null tree-path)
   (reference tree-row-reference))
 
 (defbinding (tree-row-reference-valid-p "gtk_tree_row_reference_valid") () boolean
