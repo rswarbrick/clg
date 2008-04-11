@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkselection.lisp,v 1.14 2008-01-02 16:01:17 espen Exp $
+;; $Id: gtkselection.lisp,v 1.15 2008-04-11 18:38:56 espen Exp $
 
 
 (in-package "GTK")
@@ -169,7 +169,7 @@
   (multiple-value-bind (valid-p targets) 
       (%selection-data-get-targets selection-data) 
     (when valid-p
-      (map-into targets #'gdk:atom-name targets))))
+      (map 'vector #'gdk:atom-name targets))))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding selection-data-targets-include-image-p (selection-data &optional writable-p) boolean
@@ -269,7 +269,7 @@
     ((clipboard pointer) (atoms (vector gdk:atom n-atoms))
      (n-atoms unsigned-int) (callback-id unsigned-int))
   (declare (ignore clipboard))
-  (funcall (find-user-data callback-id) (map-into atoms #'gdk:atom-name atoms)))
+  (funcall (find-user-data callback-id) (map 'vector #'gdk:atom-name atoms)))
 
 (defbinding clipboard-request-targets (clipboard callback) nil
   (clipboard clipboard)
@@ -303,7 +303,7 @@
   (multiple-value-bind (valid-p targets) 
       (%clipboard-wait-for-targets clipboard) 
     (when valid-p
-      (map-into targets #'gdk:atom-name targets))))
+      (map 'vector #'gdk:atom-name targets))))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding clipboard-wait-is-target-available-p (clipboard target) boolean
@@ -461,7 +461,7 @@
   
 (defbinding %drag-source-set-icon-stock () nil
   (widget widget)
-  (pixbuf gdk:pixbuf))
+  (stock-id string))
 
 (defun drag-source-set-icon (widget icon)
   (etypecase icon

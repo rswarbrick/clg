@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.62 2008-01-10 22:11:15 espen Exp $
+;; $Id: gtktypes.lisp,v 1.63 2008-04-11 18:40:23 espen Exp $
 
 (in-package "GTK")
 
@@ -884,7 +884,7 @@
      :allocation :virtual
      :getter "gtk_tree_view_get_columns"
      :reader tree-view-columns 
-     :type (glist tree-view-column))
+     :type (glist (copy-of tree-view-column)))
     (selection
      :allocation :virtual
      :getter "gtk_tree_view_get_selection"
@@ -1096,7 +1096,7 @@
     (markup-column
      :allocation :virtual
      :getter %icon-view-get-markup-column
-     :setter %icon-view-set-tmarkup-column
+     :setter %icon-view-set-markup-column
      :boundp %icon-view-markup-column-boundp
      :initarg :markup-column
      :accessor icon-view-markup-column)
