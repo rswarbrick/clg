@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.48 2008-01-02 15:26:46 espen Exp $
+;; $Id: gdk.lisp,v 1.49 2008-04-11 19:47:39 espen Exp $
 
 
 (in-package "GDK")
@@ -44,7 +44,7 @@
 	 (display-name display) (pointer-address (foreign-location display))))
     (call-next-method)))
 
-(defbinding %display-open () display
+(defbinding %display-open () (or null display)
   (display-name (or null string)))
 
 (defvar *display-aliases* ())
@@ -102,11 +102,11 @@
 (defbinding flush () nil)
 
 (defbinding display-get-event
-    (&optional (display (display-get-default))) event
+    (&optional (display (display-get-default))) (or null event)
   (display display))
 
 (defbinding display-peek-event
-    (&optional (display (display-get-default))) event
+    (&optional (display (display-get-default))) (or null event)
   (display display))
 
 (defbinding display-put-event
@@ -149,7 +149,7 @@
 
 ;;; Display manager
 
-(defbinding display-get-default () display)
+(defbinding display-get-default () (or null display))
 
 (defbinding (display-set-default "gdk_display_manager_set_default_display")
     (display) nil
@@ -303,14 +303,14 @@
 
 (defbinding (events-pending-p "gdk_events_pending") () boolean)
 
-(defbinding event-get () event)
+(defbinding event-get () (or null event))
 
-(defbinding event-peek () event)
+(defbinding event-peek () (pr null event))
 
 (defbinding event-get-graphics-expose () event
   (window window))
 
-(defbinding event-put () event
+(defbinding event-put () nil
   (event event))
 
 ;(defbinding event-handler-set () ...)
@@ -415,7 +415,9 @@
 (defbinding window-destroy () nil
   (window window))
 
-(defbinding window-at-pointer () window
+(defbinding (window-at-pointer "gdk_display_get_window_at_pointer") 
+    (&optional (display (display-get-default))) (or null window)
+  display
   (x int :out)
   (y int :out))
 
@@ -735,7 +737,7 @@
   (x int :out)
   (y int :out))
 
-(defbinding window-get-pointer () window
+(defbinding window-get-pointer () (or null window)
   (window window)
   (x int :out)
   (y int :out)

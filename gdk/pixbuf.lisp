@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pixbuf.lisp,v 1.6 2007-06-18 10:14:39 espen Exp $
+;; $Id: pixbuf.lisp,v 1.7 2008-04-11 19:47:39 espen Exp $
 
 
 (in-package "GDK")
@@ -31,13 +31,13 @@
 
 (defbinding %pixbuf-new-from-file () (referenced pixbuf)
   (filename pathname)
-  (nil gerror :out))
+  (nil (or null gerror) :out))
 
 (defbinding %pixbuf-new-from-file-at-size () (referenced pixbuf)
   (filename pathname)
   (width int)
   (height int)
-  (nil gerror :out))
+  (nil (or null gerror) :out))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
 (defbinding %pixbuf-new-from-file-at-scale () (referenced pixbuf)
@@ -45,7 +45,7 @@
   (width int)
   (height int)
   (preserve-aspect-ratio boolean)
-  (nil gerror :out))
+  (nil (or null gerror) :out))
 
 (defun pixbuf-load (filename &key width height size (preserve-aspect-ratio t))
   #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
@@ -83,7 +83,7 @@
   (type string)
   (keys strings)
   (values strings)
-  (nil gerror :out))
+  (nil (or null gerror) :out))
 
 (defun pixbuf-save (pixbuf filename type &rest options)
   (let ((keys (make-array 0 :adjustable t :fill-pointer t))
@@ -118,7 +118,7 @@
       (%pixbuf-copy pixbuf)
     (%pixbuf-new-subpixbuf pixbuf x y width height)))
 
-(defbinding %pixbuf-get-from-drawable () (referenced pixbuf)
+(defbinding %pixbuf-get-from-drawable () (or null (referenced pixbuf))
   (dest (or null pixbuf))
   (drawable drawable)
   (colormap (or null colormap))
