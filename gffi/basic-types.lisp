@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.11 2008-03-25 02:00:58 espen Exp $
+;; $Id: basic-types.lisp,v 1.12 2008-04-11 18:51:57 espen Exp $
 
 (in-package "GFFI")
 
@@ -93,6 +93,8 @@ representation. REF should be :FREE, :COPY, :STATIC or :TEMP")
   "Returns a function of one argument which will translate objects of the given type to alien repesentation. An optional function, taking the origional object and the alien representation as arguments, to clean up after the alien value is not needed any more may be returned as a second argument.")
 (define-type-generic from-alien-function (type &key ref)
   "Returns a function of one argument which will translate alien objects of the given type to lisp representation. REF should be :FREE, :COPY, :STATIC or :TEMP")
+(define-type-generic alien-typep-form (type alien)
+  "Returns a form evaluating to T if ALIEN is an alien representation of TYPE.")
 (define-type-generic callback-wrapper (type var arg form)
   "Creates a wrapper around FORM which binds the lisp translation of
 ARG to VAR during a C callback.")
@@ -959,6 +961,20 @@ have been written as temporal.")
 	      `(,type ,(to-alien-form type 'value copy-p)))
 	  (rest (type-expand-to 'or type))))))
 
+(define-type-method from-alien-form ((type or) form &key ref)
+  (declare (ignore ref))
+  `(let ((alien ,form))
+     (cond
+      ,@(loop
+	 for (type . rest) on (rest (type-expand-to 'or type)) 
+	 collect
+	 `(,(if (endp rest)
+		t
+	      (alien-typep-form type 'alien))
+	   ,(from-alien-form type 'alien))))))
+      
+
+
 (define-type-method to-alien-function ((type or) &optional copy-p)
   (let* ((expanded-type (type-expand-to 'or type))
 	 (functions (loop
@@ -1019,6 +1035,9 @@ have been written as temporal.")
   #'ref-pointer)
 
 
+
+;;; Null Pointer
+
 (define-type-method alien-type ((type null))
   (declare (ignore type))
   (alien-type 'pointer))
@@ -1026,6 +1045,14 @@ have been written as temporal.")
 (define-type-method size-of ((type null) &key (inlined t))
   (assert-inlined type inlined)
   (size-of 'pointer))
+
+(define-type-method alien-typep-form ((type null) null)
+  (declare (ignore type)) 
+  `(null-pointer-p ,null))
+
+(define-type-method from-alien-form ((type null) null &key ref)
+  (declare (ignore type null ref))
+  nil)
 
 (define-type-method to-alien-form ((type null) null &optional copy-p)
   (declare (ignore type copy-p))
