@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.48 2007-10-18 10:39:32 espen Exp $
+;; $Id: gcallback.lisp,v 1.49 2008-04-11 20:51:45 espen Exp $
 
 (in-package "GLIB")
 
@@ -170,7 +170,7 @@
   ((signal-name-to-string name) string)
   ((find-type-number type t) type-number))
 
-(defbinding signal-name () (copy-of string)
+(defbinding signal-name () (or null (copy-of string))
   (signal-id unsigned-int))
 
 (defbinding signal-list-ids (type) (vector unsigned-int n-ids)
