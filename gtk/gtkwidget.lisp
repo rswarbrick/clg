@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.29 2007-09-06 14:27:07 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.30 2008-04-11 18:42:40 espen Exp $
 
 (in-package "GTK")
 
@@ -60,8 +60,7 @@
    ((slot-boundp object 'parent)
     (with-slots (parent child-properties) object
       (setf child-properties
-       (make-instance 
-        (gethash (class-of parent) *container-to-child-class-mappings*)
+       (make-instance (find-child-class (class-of parent))
 	:parent parent :child object))))
    ((call-next-method))))
 
