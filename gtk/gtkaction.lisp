@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkaction.lisp,v 1.12 2008-03-10 18:51:13 espen Exp $
+;; $Id: gtkaction.lisp,v 1.13 2008-04-11 18:34:02 espen Exp $
 
 
 (in-package "GTK")
@@ -90,7 +90,7 @@
   (radio-action radio-action))
 
 (defbinding %radio-action-set-group () nil
-  (radio-button radio-button)
+  (radio-action radio-action)
   (group pointer))
 
 (defmethod add-to-radio-group ((action1 radio-action) (action2 radio-action))
