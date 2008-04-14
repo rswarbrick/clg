@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.92 2008-04-10 20:38:49 espen Exp $
+;; $Id: gtk.lisp,v 1.93 2008-04-14 19:10:41 espen Exp $
 
 
 (in-package "GTK")
@@ -1686,7 +1686,7 @@
   icons)
 
 (defbinding %window-set-default-icon () nil
-  (icons (glist gdk:pixbuf)))
+  (icon gdk:pixbuf))
 
 (defgeneric (setf window-default-icon) (icon))
 
