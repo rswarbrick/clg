@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdk.lisp,v 1.49 2008-04-11 19:47:39 espen Exp $
+;; $Id: gdk.lisp,v 1.50 2008-04-21 16:21:07 espen Exp $
 
 
 (in-package "GDK")
@@ -305,7 +305,7 @@
 
 (defbinding event-get () (or null event))
 
-(defbinding event-peek () (pr null event))
+(defbinding event-peek () (or null event))
 
 (defbinding event-get-graphics-expose () event
   (window window))
