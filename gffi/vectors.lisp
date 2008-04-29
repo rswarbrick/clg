@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.6 2008-04-11 20:19:09 espen Exp $
+;; $Id: vectors.lisp,v 1.7 2008-04-29 22:16:28 espen Exp $
 
 
 (in-package "GFFI")
@@ -283,6 +283,143 @@
 	      (let ((vector (allocate-memory size)))
 		(setf (ref-pointer to offset) vector)	    
 		(funcall copy-content (ref-pointer from offset) vector)))))))))
+
+;;;; Unboxed vector
+
+(deftype unboxed-vector (element-type &optional (length '*)) 
+  `(simple-array ,element-type (,length)))
+
+(define-type-method argument-type ((type unboxed-vector))
+  type)
+
+(define-type-method return-type ((type unboxed-vector))
+  (destructuring-bind (element-type &optional (length '*)) 
+      (rest (type-expand-to 'unboxed-vector type))
+    (if (constantp length)
+	`(unboxed-vector ,(return-type element-type) ,length)
+      `(unboxed-vector ,(return-type element-type) *))))
+
+(defun check-unboxed-vector (type)
+  #+(or sbcl cmu)
+  (unless (subtypep type 'simple-unboxed-array)
+    (error "~A is not a subtype of ~A" type 'simple-unboxed-array)))
+
+#+(or sbcl cmu)
+(progn
+  (define-type-method alien-arg-wrapper ((type unboxed-vector) var vector style form &optional copy-in-p)
+    (destructuring-bind (element-type &optional (length '*)) 
+	(rest (type-expand-to 'unboxed-vector type))
+      (check-unboxed-vector type)
+      (when (and (eq length '*) (out-arg-p style))
+	(error "Can't use vector with variable size as return type"))
+      (cond
+	((and (in-arg-p style) copy-in-p)
+	 `(with-pointer (,var (with-pinned-objects (,vector)
+				(copy-memory (vector-sap ,vector) 
+				 (* (length ,vector) ,(size-of element-type)))))
+	    ,form))
+	((in-arg-p style)
+	 `(with-pinned-objects (,vector)
+	    (let ((,var (vector-sap ,vector)))
+	      ,form)))
+	((out-arg-p style)
+	 `(with-pointer (,var)
+	    ,form)))))
+
+  (define-type-method to-alien-form ((type unboxed-vector) vector &optional copy-p)
+    (declare (ignore copy-p))
+    (destructuring-bind (element-type &optional (length '*)) 
+	(rest (type-expand-to 'unboxed-vector type))
+      (check-unboxed-vector type)
+      `(with-pinned-objects (,vector)
+	 (copy-memory 
+	  (vector-sap ,vector) 
+	  (* ,(if (eq length '*) `(length ,vector) length) 
+	     ,(size-of element-type))))))
+
+
+  (define-type-method from-alien-form ((type unboxed-vector) form &key (ref :free))
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (check-unboxed-vector type)
+      (when (eq length '*)
+	(error "Can't use vector of variable size as return type"))
+      `(let ((c-vector ,form)
+	     (vector (make-array ,length :element-type ',element-type)))
+	 (with-pinned-objects (vector)
+	   (copy-memory c-vector (* ,length ,(size-of element-type)) (vector-sap vector))
+	   ,(when (eq ref :free)
+	     `(deallocate-memory c-vector))
+	   vector))))
+
+  (define-type-method writer-function ((type unboxed-vector) &key temp inlined)
+    (declare (ignore temp))
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (check-unboxed-vector type)
+      (if inlined
+	  (if (eq length '*)
+	      (error "Can't inline vector with variable size: ~A" type)
+	      #'(lambda (vector location &optional (offset 0))
+		  (with-pinned-objects (vector)
+		    (copy-memory 
+		     (vector-sap vector) 
+		     (* length (size-of element-type))
+		     (pointer+ location offset)))))
+	  #'(lambda (vector location &optional (offset 0))
+	      (setf 
+	       (ref-pointer location offset)
+	       (with-pinned-objects (vector)
+		 (copy-memory (vector-sap vector) 
+		  (* (length vector) (size-of element-type)))))))))
+
+  (define-type-method reader-function ((type unboxed-vector) &key (ref :read) inlined)
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (check-unboxed-vector type)
+      (cond
+	((eq length '*)
+	 (error "Can't create reader function for vector with variable size"))
+	(inlined
+	 #'(lambda (location &optional (offset 0))
+	     (let ((vector (make-array length :element-type element-type)))
+	       (with-pinned-objects (vector)
+		 (copy-memory 
+		  (pointer+ location offset)
+		  (* length (size-of element-type))
+		  (vector-sap vector))
+		 vector))))
+	(t
+	 #'(lambda (location &optional (offset 0))
+	     (let ((vector (make-array length :element-type element-type)))
+	       (unless (null-pointer-p (ref-pointer location offset))
+		 (with-pinned-objects (vector)
+		   (copy-memory 
+		    (ref-pointer location offset)
+		    (* (length vector) (size-of element-type))
+		    (vector-sap vector)))
+		 (when (eq ref :get)
+		   (deallocate-memory (ref-pointer location offset))
+		   (setf (ref-pointer location offset) (make-pointer 0)))
+		 vector))))))))
+
+(define-type-method destroy-function ((type unboxed-vector) &key temp inlined)
+  (declare (ignore temp))
+  (destructuring-bind (element-type &optional (length '*))
+      (rest (type-expand-to 'unboxed-vector type))
+    (check-unboxed-vector type)
+    (cond
+     #+sbcl 
+     ((eq length '*)
+      (error "Can't create destroy function for vector with variable size"))
+     (inlined
+      #'(lambda (location &optional (offset 0))
+	  (clear-memory location (* length (size-of element-type)) offset)))
+     (t
+      #'(lambda (location &optional (offset 0))
+	  (unless (null-pointer-p (ref-pointer location offset))
+	    (deallocate-memory (ref-pointer location offset))
+	    (setf (ref-pointer location offset) (make-pointer 0))))))))
 
 
 ;;;; Null terminated vector
