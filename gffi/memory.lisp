@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: memory.lisp,v 1.7 2007-12-11 12:01:34 espen Exp $
+;; $Id: memory.lisp,v 1.8 2008-04-29 22:11:35 espen Exp $
 
 
 (in-package "GFFI")
@@ -258,8 +258,8 @@
    value))
 
 
-(defparameter *memory-allocator* nil)
-(defparameter *memory-deallocator* nil)
+(defvar *memory-allocator* nil)
+(defvar *memory-deallocator* nil)
 
 (defun allocate-memory (size)
   (if *memory-allocator*
@@ -297,23 +297,26 @@
   t)
 
 (defmacro with-memory ((var size) &body body)
-  #-clisp
-  (if (and #+(or cmu sbcl)t (constantp size))
-      (let ((memory (make-symbol "MEMORY"))
-	    (size (eval size)))
-	`(with-alien ((,memory (array #+sbcl(sb-alien:unsigned 8) #+cmu(alien:unsigned 8) ,size)))
-	   (let ((,var (alien-sap ,memory)))
-	     (clear-memory ,var ,size)
-	     ,@body)))
-    `(let ((,var (allocate-memory ,size)))
-       (unwind-protect
-	   (progn ,@body)
-	 (deallocate-memory ,var))))
-  #+clisp
-  (let ((memory (make-symbol "MEMORY")))	   
-    `(ffi:with-foreign-object (,memory `(ffi:c-array ffi:uint8 ,,size))
-       (let ((,var (ffi:foreign-address ,memory)))
-	 ,@body))))
+  (cond
+    #+(or cmu sbcl)
+    ((constantp size)
+     (let ((memory (make-symbol "MEMORY"))
+	   (size (eval size)))
+       `(with-alien ((,memory (array #+sbcl(sb-alien:unsigned 8) #+cmu(alien:unsigned 8) ,size)))
+	  (let ((,var (alien-sap ,memory)))
+	    (clear-memory ,var ,size)
+	    ,@body))))
+    (t
+     #-clisp
+     `(let ((,var (allocate-memory ,size)))
+	(unwind-protect
+	     (progn ,@body)
+	  (deallocate-memory ,var)))
+     #+clisp
+     (let ((memory (make-symbol "MEMORY")))	   
+       `(ffi:with-foreign-object (,memory `(ffi:c-array ffi:uint8 ,,size))
+	  (let ((,var (ffi:foreign-address ,memory)))
+	    ,@body))))))
 
 (defmacro with-pointer ((var &optional (pointer '(make-pointer 0))) &body body)
   "Binds POINTER to VAR in a way which makes it possible to pass the location of VAR to in foreign function call."
@@ -377,3 +380,9 @@
 	   ((#-big-endian :big #+big-endian :little)
 	    (,set-swapped location offset value)
 	    value))))))
+
+#+cmu
+(defmacro with-pinned-objects (objects &body body)
+  (declare (ignore objects))
+  `(without-gcing ,@body))
+
