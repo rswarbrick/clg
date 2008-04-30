@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: pixbuf.lisp,v 1.7 2008-04-11 19:47:39 espen Exp $
+;; $Id: pixbuf.lisp,v 1.8 2008-04-30 18:04:09 espen Exp $
 
 
 (in-package "GDK")
@@ -29,18 +29,18 @@
   (pixbuf pixbuf)
   (key string))
 
-(defbinding %pixbuf-new-from-file () (referenced pixbuf)
+(defbinding %pixbuf-new-from-file () (or null (referenced pixbuf))
   (filename pathname)
   (nil (or null gerror) :out))
 
-(defbinding %pixbuf-new-from-file-at-size () (referenced pixbuf)
+(defbinding %pixbuf-new-from-file-at-size () (or null (referenced pixbuf))
   (filename pathname)
   (width int)
   (height int)
   (nil (or null gerror) :out))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-(defbinding %pixbuf-new-from-file-at-scale () (referenced pixbuf)
+(defbinding %pixbuf-new-from-file-at-scale () (or null (referenced pixbuf))
   (filename pathname)
   (width int)
   (height int)
@@ -140,6 +140,46 @@
      ((colormap-get-system)))
     src-x src-y dest-x dest-y (or width -1) (or height -1))
    (error "Couldn't get pixbuf from drawable")))
+
+
+;;; Pixbuf Loader
+
+(defbinding %pixbuf-loader-new-with-type () pointer
+  (type string)
+  (nil gerror-signal :out))
+
+(defbinding %pixbuf-loader-new-with-mime-type () pointer
+  (mime-type string)
+  (nil gerror-signal :out))
+
+(defmethod allocate-foreign ((loader pixbuf-loader) &key type mime-type)
+  (cond
+   ((and type mime-type) 
+    (error "Only one of the keyword arguments :TYPE and :MIME-TYPE can be specified"))
+   (type (%pixbuf-loader-new-with-type type))
+   (mime-type (%pixbuf-loader-new-with-mime-type mime-type))
+   ((call-next-method))))
+
+(defbinding pixbuf-loader-write (loader buffer &optional (length (length buffer))) boolean
+  (loader pixbuf-loader)
+  (buffer (unboxed-vector (unsigned-byte 8)))
+  (length integer)  
+  (nil gerror-signal :out))
+
+(defbinding pixbuf-loader-close () boolean
+  (loader pixbuf-loader)
+  (nil gerror-signal :out))
+
+(defbinding pixbuf-loader-get-pixbuf () (or null pixbuf)
+  (loader pixbuf-loader))
+
+(defbinding pixbuf-loader-get-animation () (or null pixbuf-animation)
+  (loader pixbuf-loader))
+
+(defbinding pixbuf-loader-set-size () nil
+  (loader pixbuf-loader)
+  (width integer)
+  (height integer))
 
 
 ;;; Utilities
