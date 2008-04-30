@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.7 2008-04-29 22:16:28 espen Exp $
+;; $Id: vectors.lisp,v 1.8 2008-04-30 17:35:48 espen Exp $
 
 
 (in-package "GFFI")
@@ -284,6 +284,7 @@
 		(setf (ref-pointer to offset) vector)	    
 		(funcall copy-content (ref-pointer from offset) vector)))))))))
 
+
 ;;;; Unboxed vector
 
 (deftype unboxed-vector (element-type &optional (length '*)) 
@@ -307,9 +308,9 @@
 #+(or sbcl cmu)
 (progn
   (define-type-method alien-arg-wrapper ((type unboxed-vector) var vector style form &optional copy-in-p)
+    (check-unboxed-vector type)
     (destructuring-bind (element-type &optional (length '*)) 
 	(rest (type-expand-to 'unboxed-vector type))
-      (check-unboxed-vector type)
       (when (and (eq length '*) (out-arg-p style))
 	(error "Can't use vector with variable size as return type"))
       (cond
@@ -328,9 +329,9 @@
 
   (define-type-method to-alien-form ((type unboxed-vector) vector &optional copy-p)
     (declare (ignore copy-p))
+    (check-unboxed-vector type)
     (destructuring-bind (element-type &optional (length '*)) 
 	(rest (type-expand-to 'unboxed-vector type))
-      (check-unboxed-vector type)
       `(with-pinned-objects (,vector)
 	 (copy-memory 
 	  (vector-sap ,vector) 
@@ -339,9 +340,9 @@
 
 
   (define-type-method from-alien-form ((type unboxed-vector) form &key (ref :free))
+    (check-unboxed-vector type)
     (destructuring-bind (element-type &optional (length '*))
 	(rest (type-expand-to 'unboxed-vector type))
-      (check-unboxed-vector type)
       (when (eq length '*)
 	(error "Can't use vector of variable size as return type"))
       `(let ((c-vector ,form)
@@ -354,9 +355,9 @@
 
   (define-type-method writer-function ((type unboxed-vector) &key temp inlined)
     (declare (ignore temp))
+    (check-unboxed-vector type)
     (destructuring-bind (element-type &optional (length '*))
 	(rest (type-expand-to 'unboxed-vector type))
-      (check-unboxed-vector type)
       (if inlined
 	  (if (eq length '*)
 	      (error "Can't inline vector with variable size: ~A" type)
@@ -374,9 +375,9 @@
 		  (* (length vector) (size-of element-type)))))))))
 
   (define-type-method reader-function ((type unboxed-vector) &key (ref :read) inlined)
+    (check-unboxed-vector type)
     (destructuring-bind (element-type &optional (length '*))
 	(rest (type-expand-to 'unboxed-vector type))
-      (check-unboxed-vector type)
       (cond
 	((eq length '*)
 	 (error "Can't create reader function for vector with variable size"))
@@ -403,11 +404,44 @@
 		   (setf (ref-pointer location offset) (make-pointer 0)))
 		 vector))))))))
 
+
+#-(or sbcl cmu)
+(progn
+  (define-type-method alien-arg-wrapper ((type unboxed-vector) var vector style form &optional copy-in-p)
+    (check-unboxed-vector type)
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (alien-arg-wrapper `(vector ,element-type ,length) var vector style form copy-in-p)))
+
+  (define-type-method to-alien-form ((type unboxed-vector) vector &optional copy-p)
+    (check-unboxed-vector type)
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (to-alien-form `(vector ,element-type ,length) vector copy-p)))
+
+  (define-type-method from-alien-form ((type unboxed-vector) form &key (ref :free))
+    (check-unboxed-vector type)
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (from-alien-form `(vector ,element-type ,length) form :ref ref)))
+
+  (define-type-method writer-function ((type unboxed-vector) &key temp inlined)
+    (check-unboxed-vector type)
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (writer-function `(vector ,element-type ,length) :temp temp :inlined inlined)))
+
+  (define-type-method reader-function ((type unboxed-vector) &key (ref :read) inlined)
+    (check-unboxed-vector type)
+    (destructuring-bind (element-type &optional (length '*))
+	(rest (type-expand-to 'unboxed-vector type))
+      (reader-function `(vector ,element-type ,length) :ref ref :inlined inlined))))
+
 (define-type-method destroy-function ((type unboxed-vector) &key temp inlined)
   (declare (ignore temp))
+  (check-unboxed-vector type)
   (destructuring-bind (element-type &optional (length '*))
       (rest (type-expand-to 'unboxed-vector type))
-    (check-unboxed-vector type)
     (cond
      #+sbcl 
      ((eq length '*)
