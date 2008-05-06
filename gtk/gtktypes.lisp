@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.63 2008-04-11 18:40:23 espen Exp $
+;; $Id: gtktypes.lisp,v 1.64 2008-05-06 00:09:03 espen Exp $
 
 (in-package "GTK")
 
@@ -572,7 +572,7 @@
    ((active
      :allocation :virtual
      :getter "gtk_toggle_tool_button_get_active"
-     :setter "gtk_toggle_tool_button_get_active"
+     :setter "gtk_toggle_tool_button_set_active"
      :accessor toggle-tool-button-active-p
      :initarg :active
      :type boolean)))
@@ -849,7 +849,7 @@
     (current-folder
      :allocation :virtual
      :setter "gtk_file_chooser_set_current_folder"
-     :setter "gtk_file_chooser_get_current_folder"
+     :getter "gtk_file_chooser_get_current_folder"
      :accessor file-chooser-current-folder
      :initarg :current-folder
      :type string)
@@ -863,7 +863,7 @@
     (current-folder-uri
      :allocation :virtual
      :setter "gtk_file_chooser_set_current_folder_uri"
-     :setter "gtk_file_chooser_get_current_folder_uri"
+     :getter "gtk_file_chooser_get_current_folder_uri"
      :accessor file-chooser-current-folder-uri
      :initarg :current-folder-uri
      :type string)))
