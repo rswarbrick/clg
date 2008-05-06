@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.30 2008-04-11 18:42:40 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.31 2008-05-06 00:04:42 espen Exp $
 
 (in-package "GTK")
 
@@ -70,23 +70,23 @@
 (defmethod compute-signal-function ((widget widget) signal function object args)
   (let ((wrapper
 	 (if (eq object :parent)
-	     #'(lambda (&rest emission-args)
-		 (let ((all-args (nconc (rest emission-args) args)))
+	     #'(lambda (widget &rest emission-args)
+		 (let ((all-args (nconc emission-args args)))
 		   (if (slot-boundp widget 'parent)
 		       (apply function (widget-parent widget) all-args)
 		     ;; Delay until parent is set
 		     (signal-connect widget 'parent-set
 		      #'(lambda (old-parent)
 			  (declare (ignore old-parent))
-			  (apply #'signal-emit widget signal (rest emission-args)))
+			  (apply #'signal-emit widget signal emission-args))
 		      :remove t))))
 	   (call-next-method))))
     (if *widget-display-as-default-in-signal-handler-p*
-	#'(lambda (&rest args)
+	#'(lambda (widget &rest args)
 	    (let ((display (when (slot-boundp widget 'window)
 			     (gdk:drawable-display (widget-window widget)))))
 	      (gdk:with-default-display (display)
-	        (apply wrapper args))))
+	        (apply wrapper widget args))))
       wrapper)))
 
 

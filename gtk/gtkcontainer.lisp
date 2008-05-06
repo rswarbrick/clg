@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkcontainer.lisp,v 1.25 2008-03-06 22:02:08 espen Exp $
+;; $Id: gtkcontainer.lisp,v 1.26 2008-05-06 00:04:42 espen Exp $
 
 (in-package "GTK")
 
@@ -67,8 +67,8 @@
 (defmethod compute-signal-function ((container container) signal function object args)
   (declare (ignore signal))
   (if (eq object :children)
-      #'(lambda (&rest emission-args)
-	  (let ((all-args (nconc (rest emission-args) args)))
+      #'(lambda (container &rest emission-args)
+	  (let ((all-args (nconc emission-args args)))
 	    (container-foreach container
 	     #'(lambda (child)
 		 (apply function child all-args)))))

@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.49 2008-04-11 20:51:45 espen Exp $
+;; $Id: gcallback.lisp,v 1.50 2008-05-06 00:04:42 espen Exp $
 
 (in-package "GLIB")
 
@@ -453,28 +453,34 @@ handler will be called after the default handler for the signal. If
 :REMOVE is non NIL, the handler will be removed after beeing invoked
 once. ARGS is a list of additional arguments passed to the callback
 function."
-(let* ((signal-id (compute-signal-id gobject signal))
-       (detail-quark (if detail (quark-intern detail) 0))
-       (signal-stop-emission
-	#'(lambda ()
-	    (%signal-stop-emission gobject signal-id detail-quark)))
-       (callback (compute-signal-function gobject signal function object args))
-       (wrapper #'(lambda (&rest args)
-		    (let ((*signal-stop-emission* signal-stop-emission))
-		      (apply callback args)))))
-      (multiple-value-bind (closure-id callback-id)
-	  (make-callback-closure wrapper signal-handler-marshal)
-	(let ((handler-id (%signal-connect-closure-by-id 
-			   gobject signal-id detail-quark closure-id after)))
-	  (when remove
-	    (update-user-data callback-id
-	     #'(lambda (&rest args)
+  (let* ((signal-id (compute-signal-id gobject signal))
+	 (detail-quark (if detail (quark-intern detail) 0))
+	 (callback 
+	  (compute-signal-function gobject signal function object args))
+	 (wrapper 
+	  #'(lambda (&rest args)
+	      (let ((*signal-stop-emission*
+		     #'(lambda ()
+			 (%signal-stop-emission (first args) 
+			  signal-id detail-quark))))
+		(apply callback args)))))
+    (multiple-value-bind (closure-id callback-id)
+	(make-callback-closure wrapper signal-handler-marshal)
+      (let ((handler-id (%signal-connect-closure-by-id 
+			 gobject signal-id detail-quark closure-id after)))
+	(when remove
+	  (update-user-data callback-id
+	   #'(lambda (&rest args)
+	       (let ((gobject (first args)))
 		 (unwind-protect
-		     (let ((*signal-stop-emission* signal-stop-emission))
-		       (apply callback args))
+		      (let ((*signal-stop-emission*
+			     #'(lambda ()
+				 (%signal-stop-emission gobject 
+				  signal-id detail-quark))))
+			(apply callback args))
 		   (when (signal-handler-is-connected-p gobject handler-id)
-		     (signal-handler-disconnect gobject handler-id))))))
-	  handler-id))))
+		     (signal-handler-disconnect gobject handler-id)))))))
+	handler-id))))
 
 
 ;;;; Signal emission

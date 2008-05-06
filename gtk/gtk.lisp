@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.93 2008-04-14 19:10:41 espen Exp $
+;; $Id: gtk.lisp,v 1.94 2008-05-06 00:04:42 espen Exp $
 
 
 (in-package "GTK")
@@ -602,8 +602,8 @@
 (defmethod compute-signal-function ((bin bin) signal function object args)
   (declare (ignore signal))
   (if (eq object :child)
-      #'(lambda (&rest emission-args) 
-	  (apply function (bin-child bin) (nconc (rest emission-args) args)))
+      #'(lambda (bin &rest emission-args) 
+	  (apply function (bin-child bin) (nconc emission-args args)))
     (call-next-method)))
 
 
