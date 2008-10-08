@@ -122,9 +122,9 @@
 
 (defun |#?-reader| (stream subchar arg)
   (declare (ignore subchar arg))
-  (let ((not-p (when (char= (peek-char nil stream) #\-)
-		 (read-char stream)))
-	(conditional (read stream t nil t)))
+  (let* ((not-p (when (char= (peek-char nil stream) #\-)
+		  (read-char stream)))
+	 (conditional (read stream t nil t)))
     (cond
      (*read-suppress* (read stream t nil t))
      ((not *read-eval*)
