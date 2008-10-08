@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: rsvg.lisp,v 1.8 2007-06-18 11:39:43 espen Exp $
+;; $Id: rsvg.lisp,v 1.9 2008-10-08 18:24:01 espen Exp $
 
 (in-package "RSVG")
 
@@ -70,6 +70,11 @@
    (data (%handle-new-from-data data))
    (t (call-next-method))))
 
+(defmacro with-handle ((handle &rest args) &body body)
+  `(let ((,handle (make-instance 'handle ,@args)))
+     (unwind-protect
+	  (progn ,@body)
+       (handle-close ,handle))))
 
 ;;; Cairo interface
 
@@ -77,3 +82,22 @@
   (handle handle)
   (cr cairo:context)
   (id (or null string)))
+
+(defun image-surface-create-from-svg (filename &key width height (format :argb32)id)
+  (with-handle (handle :filename filename)
+    (multiple-value-bind (width height)
+	(cond
+	  ((and width height) (values width height))
+	  (width 
+	   (let ((ratio (/ (handle-height handle) (handle-width handle))))
+	     (values width (truncate (* width ratio)))))
+	  (height 
+	   (let ((ratio (/ (handle-width handle) (handle-height handle))))
+	     (values (truncate (* height ratio)) height)))
+	  (t (values (handle-width handle) (handle-height handle))))
+      (let ((image (make-instance 'cairo:image-surface 
+		    :width width :height height :format format)))
+	(cairo:with-surface (image cr)
+	  (cairo:scale cr (/ width (handle-width handle)) (/ height (handle-height handle)))
+	  (render-cairo handle cr id))
+	image))))
