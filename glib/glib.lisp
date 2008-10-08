@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.43 2008-04-01 21:17:59 espen Exp $
+;; $Id: glib.lisp,v 1.44 2008-10-08 18:11:12 espen Exp $
 
 
 (in-package "GLIB")
@@ -39,24 +39,20 @@
 
 ;;;; Memory management
 
-(defbinding (%allocate-memory "g_malloc0") () pointer
-  (size unsigned-long))
+(deftype gsize () 'unsigned-int)
 
-(defbinding (%deallocate-memory "g_free") () nil
+(defbinding malloc0 () pointer
+  (size gsize))
+
+(defbinding free () nil
   (address pointer))
 
-;; (setf
-;;  (symbol-function 'allocate-memory) #'%allocate-memory
-;;  (symbol-function 'deallocate-memory) #'%deallocate-memory)
-
-(setf *memory-allocator* #'%allocate-memory)
-(setf *memory-deallocator* #'%deallocate-memory)
+(setf *memory-allocator* #'malloc0)
+(setf *memory-deallocator* #'free)
 
 (defbinding (reallocate-memory "g_realloc") () pointer
   (address pointer)
-  (size unsigned-long))
-
-(deftype gsize () 'unsigned-int)
+  (size gsize))
 
 (defbinding (slice-alloc "g_slice_alloc0") () pointer
   (block-size gsize))
