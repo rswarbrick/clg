@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.8 2007-11-29 18:37:14 espen Exp $
+;; $Id: interface.lisp,v 1.9 2008-10-08 16:34:07 espen Exp $
 
 (in-package "GFFI")
 
@@ -216,7 +216,8 @@
 		     when (out-arg-p style)
 		     collect (return-type out-type)
 		     when (return-arg-p style)
-		     collect (return-type type)))))))
+		     collect (return-type type))))
+		,lisp-name)))
 	  (defun ,lisp-name ,lambda-list
 	  ,doc
 	  (let ,aux-bindings
