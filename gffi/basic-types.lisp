@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: basic-types.lisp,v 1.12 2008-04-11 18:51:57 espen Exp $
+;; $Id: basic-types.lisp,v 1.13 2008-10-08 16:27:09 espen Exp $
 
 (in-package "GFFI")
 
@@ -110,11 +110,16 @@ called will return the object at given location. REF should be :READ,
 :PEEK or :GET")
 (define-type-generic destroy-function (type &key temp inlined)
   "Returns a function taking an address and optional offset which when
-called will destroy the reference at the given location. This may
+called will destroy the object at the given location. This may
 involve freeing the foreign object being referenced or decreasing it's
 ref. count. If TEMP is non NIL then the reference is expected to
 have been written as temporal.")
-(define-type-generic copy-function (type &key inlined))
+(define-type-generic copy-function (type &key inlined)
+  "Returns a function taking source/destination addresses and optional
+common offset, which will copy the object at the source location to
+the destination. If INLINED is non NIL, the object is assumed to be
+inlined at the source location and will be inlined at the
+destination.")
 
 (define-type-generic unbound-value (type-spec)
   "Returns a value which should be interpreted as unbound for slots with virtual allocation")
@@ -1136,12 +1141,9 @@ have been written as temporal.")
       (declare (ignore location offset))))
 
 (define-type-method copy-function ((type copy-of) &key (inlined nil inlined-p))
-  (let ((size (if inlined-p 
-		  (size-of type :inlined inlined)
-		(size-of type))))
-    #'(lambda (from to &optional (offset 0))
-	(copy-memory (pointer+ from offset) size (pointer+ to offset)))))
-
+  (if inlined-p
+      (copy-function (second (type-expand-to 'copy-of type)) :inlined inlined)
+    (copy-function (second (type-expand-to 'copy-of type)))))
 
 
 ;;; Static
@@ -1186,11 +1188,9 @@ have been written as temporal.")
       (declare (ignore location offset))))
 
 (define-type-method copy-function ((type static) &key (inlined nil inlined-p))
-  (let ((size (if inlined-p 
-		  (size-of type :inlined inlined)
-		(size-of type))))
-    #'(lambda (from to &optional (offset 0))
-	(copy-memory (pointer+ from offset) size (pointer+ to offset)))))
+  (if inlined-p
+      (copy-function (second (type-expand-to 'copy-of type)) :inlined inlined)
+    (copy-function (second (type-expand-to 'copy-of type)))))
 
 
 
