@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.65 2007-10-17 14:33:50 espen Exp $
+;; $Id: gtype.lisp,v 1.66 2008-10-08 18:17:10 espen Exp $
 
 (in-package "GLIB")
 
@@ -413,7 +413,7 @@
 			   (unless (zerop type-number)
 			     (find-known-class (type-parent type-number))))))
 		 (find-known-class (%type-number-of-ginstance location)))))
-    ;; Note that chancing the class argument should not alter "the
+    ;; Note that changing the class argument must not alter "the
     ;; ordered set of applicable methods" as specified in the
     ;; Hyperspec
     (if class
