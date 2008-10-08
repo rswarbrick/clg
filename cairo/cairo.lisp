@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.21 2008-01-10 13:32:34 espen Exp $
+;; $Id: cairo.lisp,v 1.22 2008-10-08 16:24:11 espen Exp $
 
 (in-package "CAIRO")
 
@@ -230,15 +230,20 @@
       :type int))
     (:metaclass surface-class))
 
-  (defclass pdf-surface (surface)
+  (defclass vector-surface (surface)
+    ((width :allocation :virtual :getter surface-width)
+     (height :allocation :virtual :setter surface-height))
+    (:metaclass surface-class))
+
+  (defclass pdf-surface (vector-surface)
     ()
     (:metaclass surface-class))
   
-  (defclass ps-surface (surface)
+  (defclass ps-surface (vector-surface)
     ()
     (:metaclass surface-class))
     
-  (defclass svg-surface (surface)
+  (defclass svg-surface (vector-surface)
     ()
     (:metaclass surface-class))
 
@@ -868,6 +873,19 @@
 	(map-c-vector 'vector #'identity data '(unsigned-byte 8) length)))))
   :success)
 
+(define-callback stream-read-func status 
+    ((stream-id pointer-data) (data pointer) (length unsigned-int))
+  (let ((stream (find-user-data stream-id)))
+    (typecase stream
+      (stream
+       (loop for i below length do
+	(let ((byte (read-byte stream nil)))
+	  (if byte
+	      (setf (gffi::ref-uint-8 data i) byte)
+	    (return-from stream-read-func :read-error)))))
+      ((or symbol function) (funcall stream data length))))
+  :success)
+
 
 (defmacro with-surface ((surface cr) &body body)
   `(let ((,cr (make-instance 'context :target ,surface)))
@@ -877,9 +895,14 @@
 ;; Image Surface
 
 ;; Should data be automatically freed when the surface is GCed?
-(defmethod allocate-foreign ((surface image-surface) 
-			     &key filename width height stride format data)
+(defmethod allocate-foreign ((surface image-surface) &key stream filename 
+			     width height stride format data)
   (cond
+   (stream   
+    (let ((stream-id (register-user-data stream)))
+      (unwind-protect
+	   (%image-surface-create-from-png-stream stream-id)
+	(destroy-user-data stream-id))))
    (filename (%image-surface-create-from-png filename))
    ((not data) (%image-surface-create format width height))
    (t
@@ -905,25 +928,64 @@
 (defbinding %image-surface-create-from-png () pointer
   (filename pathname))
 
+(defbinding %image-surface-create-from-png-stream (stream) pointer
+  (stream-read-func callback)
+  (stream pointer-data))
+
 (defbinding surface-write-to-png () status
   (surface surface)
   (filename pathname))
 
 
+(defbinding %surface-write-to-png-stream (surface stream) status
+  (surface surface)
+  (stream-write-func callback)
+  (stream pointer-data))
+
+(defun surface-write-to-png-stream (surface stream)
+  (let ((stream-id (register-user-data stream)))
+    (unwind-protect
+	 (%surface-write-to-png-stream surface stream-id)
+      (destroy-user-data stream-id))))
+
+
+;;; Virtual size surface (abstract class)
+
+(defmethod initialize-instance :after ((surface vector-surface) &key
+				       width height)
+  (setf (user-data surface 'width) width)
+  (setf (user-data surface 'height) height))
+
+(defmethod surface-width ((surface vector-surface))
+  (user-data surface 'width))
+
+(defmethod surface-height ((surface vector-surface))
+  (user-data surface 'height))
+
+
+(defun allocate-vector-surface (surface-create surface-create-for-stream
+				&key output filename stream width height)
+  (let ((location
+	 (cond
+	   ((/= (count-if #'identity (list output filename stream)) 1)
+	    (error "One and only one of the arguments :OUTPUT, :FILENAME and :STREAM shoud be specified"))
+	   (filename (funcall surface-create filename width height))
+	   ((typep output '(or string pathname))
+	    (%svg-surface-create output width height))
+	   (t
+	    (let* ((stream-id (register-user-data (or stream output)))
+		   (location (funcall surface-create-for-stream 
+			      stream-id width height)))
+	      (%surface-set-user-data location 'stream stream-id)
+	      location)))))
+    location))
+
+
 ;;; PDF Surface
 
-(defmethod allocate-foreign ((surface pdf-surface)
-			     &key filename stream width height)
-  (cond
-   ((and filename stream)
-    (error "Only one of the arguments :filename and :stream may be specified"))
-   (filename (%pdf-surface-create filename width height))
-   (stream 
-    (let* ((stream-id (register-user-data stream))
-	   (location (%pdf-surface-create-for-stream stream-id width height)))
-      (%surface-set-user-data location 'stream stream-id)
-      location))))
-
+(defmethod allocate-foreign ((surface pdf-surface) &rest args)
+  (apply #'allocate-vector-surface 
+   #'%pdf-surface-create #'%pdf-surface-create-for-stream args))
 
 (defbinding %pdf-surface-create () pointer
   (filename pathname)
@@ -944,17 +1006,9 @@
 
 ;;; PS Surface
 
-(defmethod allocate-foreign ((surface ps-surface) 
-			     &key filename stream width height)
-  (cond
-   ((and filename stream)
-    (error "Only one of the arguments :filename and :stream may be specified"))
-   (filename (%ps-surface-create filename width height))
-   (stream 
-    (let* ((stream-id (register-user-data stream))
-	   (location (%ps-surface-create-for-stream stream-id width height)))
-      (%surface-set-user-data location 'stream stream-id)
-      location))))
+(defmethod allocate-foreign ((surface ps-surface) &rest args)
+  (apply #'allocate-vector-surface 
+   #'%ps-surface-create #'%ps-surface-create-for-stream args))
 
 (defbinding %ps-surface-create () pointer
   (filename pathname)
@@ -985,17 +1039,9 @@
 
 ;;; SVG Surface
 
-(defmethod allocate-foreign ((surface svg-surface) 
-			     &key filename stream width height)
-  (cond
-   ((and filename stream)
-    (error "Only one of the arguments :filename and :stream may be specified"))
-   (filename (%svg-surface-create filename width height))
-   (stream 
-    (let* ((stream-id (register-user-data stream))
-	   (location (%svg-surface-create-for-stream stream-id width height)))
-      (%surface-set-user-data location 'stream stream-id)
-      location))))
+(defmethod allocate-foreign ((surface svg-surface) &rest args)
+  (apply #'allocate-vector-surface 
+   #'%svg-surface-create #'%svg-surface-create-for-stream args))
 
 (defbinding %svg-surface-create () pointer
   (filename pathname)
@@ -1016,7 +1062,7 @@
 
 ;;; Matrices
 
-(defbinding matrix-init () nil
+(defbinding matrix-init (xx yx xy yy x0 y0 &optional (matrix (make-instance 'matrix))) nil
   (matrix matrix :in/return)
   (xx double-float) (yx double-float) 
   (xy double-float) (yy double-float) 
@@ -1031,19 +1077,19 @@
      (= xx 1.0d0) (= yx 0.0d0) (= xy 0.0d0)
      (= yy 1.0d0) (= x0 0.0d0) (= y0 0.0d0))))
 
-(defbinding matrix-init-translate () nil
+(defbinding matrix-init-translate (tx ty &optional (matrix (make-instance 'matrix))) nil
   (matrix matrix :in/return)
   (tx double-float)
   (ty double-float))
 
-(defbinding matrix-init-scale (matrix sx &optional (sy sx)) nil
+(defbinding matrix-init-scale (sx &optional (sy sx) (matrix (make-instance 'matrix))) nil
   (matrix matrix :in/return)
   (sx double-float)
   (sy double-float))
 
-(defbinding matrix-init-rotate () nil
+(defbinding matrix-init-rotate (rotation &optional (matrix (make-instance 'matrix))) nil
   (matrix matrix :in/return)
-  (radians double-float))
+  (rotation double-float))
 
 (defbinding matrix-translate () nil
   (matrix matrix :in/return)
@@ -1057,7 +1103,7 @@
 
 (defbinding matrix-rotate () nil
   (matrix matrix :in/return)
-  (radians double-float))
+  (rotation double-float))
 
 (defbinding matrix-invert () nil
   (matrix matrix :in/return))
