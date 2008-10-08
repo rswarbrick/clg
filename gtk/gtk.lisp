@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.94 2008-05-06 00:04:42 espen Exp $
+;; $Id: gtk.lisp,v 1.95 2008-10-08 18:18:52 espen Exp $
 
 
 (in-package "GTK")
@@ -2531,36 +2531,40 @@
 
 ;;; Tooltip
 
-;; #?-(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
-;; (progn
-;;   (defbinding %tooltip-set-markup () nil
-;;     tooltip
-;;     (markup string))
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.12.0")
+(progn
+  (defbinding tooltip-set-markup () nil
+    tooltip
+    (markup string))
 
-;;   (defbinding %tooltip-set-text () nil
-;;     tooltip
-;;     (text string))
+  (defbinding tooltip-set-text () nil
+    tooltip
+    (text string))
 
-;;   (defbinding %tooltip-set-icon () nil
-;;     tooltip
-;;     (icon gdk:pixbuf))
+  (defbinding %tooltip-set-icon () nil
+    tooltip
+    (icon gdk:pixbuf))
 
-;;   (defbinding %tooltip-set-from-stock-icon () nil
-;;     tooltip
-;;     (stock-id string)
-;;     icon-size)
+  (defbinding %tooltip-set-icon-from-stock () nil
+    tooltip
+    (stock-id string)
+    icon-size)
 
-;;   (defbinding %tooltip-set-custom () nil
-;;     tooltip
-;;     widget)
+  (defun tooltip-set-icon (tooltip icon &key (size :button))
+    (etypecase icon
+      (gdk:pixbuf (%tooltip-set-icon tooltip icon))
+      (string (%tooltip-set-icon-from-stock tooltip icon size))))
 
-;;   (defun tooltip-set (tooltip value &key (markup t) (icon-size :button))
-;;     (etypecase value
-;;       (string (if markup
-;; 		  (tooltip-set-markup tooltip value)
-;; 		(tooltip-set-text tooltip value)))
-;;       (pixbuf (tooltip-set-icon tooltip value))
-;;       (keyword (tooltip-set-icon-from-stock tooltip value icon-size))
+  (defbinding tooltip-set-custom () nil
+    tooltip
+    widget)
+
+  (defbinding tooltip-trigger-tooltip-query (&optional (display (gdk:display-get-default))) nil
+    (display gdk:display))
+
+  (defbinding tooltip-set-tip-area () nil
+    tooltip
+    gdk:rectangle))
       
   
 
