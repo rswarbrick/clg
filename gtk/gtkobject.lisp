@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.48 2008-10-09 18:20:52 espen Exp $
+;; $Id: gtkobject.lisp,v 1.49 2008-10-09 18:45:01 espen Exp $
 
 
 (in-package "GTK")
@@ -259,9 +259,6 @@
 	         ,(slot-definitions child-class child-properties nil)
 		 (:metaclass container-child-class)
 		 (:container ,class))))))))
-
-(defun container-child-class (container-class)
-  (gethash container-class *container-to-child-class-mappings*))
 
 (defun container-dependencies (type options)
   (delete-duplicates 
