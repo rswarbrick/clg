@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.57 2007-06-01 10:46:15 espen Exp $
+;; $Id: gobject.lisp,v 1.58 2008-10-09 18:20:52 espen Exp $
 
 (in-package "GLIB")
 
@@ -32,17 +32,25 @@
   (defclass gobject-class (ginstance-class)
     ((instance-slots-p :initform nil :reader instance-slots-p
       :documentation "Non NIL if the class has slots with instance allocation")))
-  (defmethod shared-initialize ((class gobject-class) names &rest initargs)
-    (declare (ignore names initargs))
-    (call-next-method)
-    (unless (slot-boundp class 'ref)
-      (setf (slot-value class 'ref) '%object-ref))
-    (unless (slot-boundp class 'unref)
-      (setf (slot-value class 'unref) '%object-unref)))
 
   (defmethod validate-superclass ((class gobject-class) (super standard-class))
 ;  (subtypep (class-name super) 'gobject)
     t))
+
+(defmethod slot-unbound (metaclass (class gobject-class) (slot (eql 'ref)))
+  (assert (class-direct-superclasses class))
+  (setf (slot-value class 'ref) 
+   #?-(pkg-exists-p "glib-2.0" :atleast-version "2.10.0") '%object-ref
+   #?(pkg-exists-p "glib-2.0" :atleast-version "2.10.0")
+   ;; We do this hack instead of creating a new metaclass to avoid
+   ;; breaking backward compatibility
+   (if (subtypep (class-name class) 'initially-unowned)
+       '%object-ref-sink
+     '%object-ref)))
+
+(defmethod slot-unbound (metaclass (class gobject-class) (slot (eql 'unref)))
+  (setf (slot-value class 'unref) '%object-unref))
+
 
 (defclass direct-property-slot-definition (direct-virtual-slot-definition)
   ((pname :reader slot-definition-pname :initarg :pname)
@@ -334,11 +342,12 @@
   (declare (ignore initargs))
   (prog1
       (call-next-method)
-    #+debug-ref-counting(%object-weak-ref (foreign-location object))
-    #?(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
-    (when (slot-value (class-of object) 'instance-slots-p)
-      (%object-add-toggle-ref (foreign-location object))
-      (%object-unref (foreign-location object)))))
+    (let ((location (foreign-location object)))
+      #+debug-ref-counting(%object-weak-ref location)
+      #?(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
+      (when (slot-value (class-of object) 'instance-slots-p)
+	(%object-add-toggle-ref location)
+	(%object-unref location)))))
 
 
 (defmethod instance-finalizer ((instance gobject))
@@ -347,11 +356,15 @@
     (if (slot-value (class-of instance) 'instance-slots-p)
 	#'(lambda ()
 	    #+debug-ref-counting
-	    (format t "Finalizing proxy for 0x~8,'0X~%" (pointer-address location))
+	    (format t "Finalizing proxy for 0x~8,'0X (~A)~%" 
+	     (pointer-address location) 
+	     (find-foreign-type-name (%type-number-of-ginstance location)))
 	    (%object-remove-toggle-ref location))
       #'(lambda ()
 	  #+debug-ref-counting
-	  (format t "Finalizing proxy for 0x~8,'0X~%" (pointer-address location))
+	  (format t "Finalizing proxy for 0x~8,'0X (~A)~%" 
+	   (pointer-address location)
+	   (find-foreign-type-name (%type-number-of-ginstance location)))
 	  (%object-unref location)))
     #?-(pkg-exists-p "glib-2.0" :atleast-version "2.8.0")
     #'(lambda ()
@@ -367,6 +380,25 @@
   (n-parameters unsigned-int)
   (params pointer))
 
+
+;;;; Floating references
+
+#?(pkg-exists-p "glib-2.0" :atleast-version "2.10.0")
+(progn
+  (defclass initially-unowned (gobject)
+    ()
+    (:metaclass gobject-class)
+    (:gtype "GInitiallyUnowned"))
+
+  (defbinding %object-ref-sink () pointer
+    (location pointer))
+
+  (defbinding %object-is-floating () boolean
+    (location pointer))
+
+  (defmethod initialize-instance :before ((object initially-unowned) &rest initargs)
+    (declare (ignore initargs))
+    (%object-ref-sink (foreign-location object))))
 
 
 ;;;; Property stuff

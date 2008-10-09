@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkobject.lisp,v 1.47 2008-03-06 22:02:08 espen Exp $
+;; $Id: gtkobject.lisp,v 1.48 2008-10-09 18:20:52 espen Exp $
 
 
 (in-package "GTK")
@@ -29,12 +29,12 @@
 ;;;; Superclass for the gtk class hierarchy
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (init-types-in-library gtk "libgtk-2.0")
+  (init-types-in-library gtk "libgtk-2.0"))
 
-  (defclass %object (gobject)
-    ()
-    (:metaclass gobject-class)
-    (:gtype |gtk_object_get_type|)))
+(defclass %object (initially-unowned)
+  ()
+  (:metaclass gobject-class)
+  (:gtype |gtk_object_get_type|))
 
 
 (defmethod initialize-instance ((object %object) &rest initargs &key signal)
@@ -43,16 +43,18 @@
   (dolist (signal-definition (get-all initargs :signal))
     (apply #'signal-connect object signal-definition)))
 
-(defmethod initialize-instance :around ((object %object) &rest initargs)
-  (declare (ignore initargs))
-  (call-next-method)
-  ;; Add a temorary reference which will be removed when the object is
-  ;; sinked
-  (funcall (reference-function '%object) (foreign-location object))
-  (%object-sink object))
-
-(defbinding %object-sink () nil
-  (object %object))
+#?-(pkg-exists-p "glib-2.0" :atleast-version "2.10.0")
+(progn
+  (defmethod initialize-instance :around ((object %object) &rest initargs)
+    (declare (ignore initargs))
+    (call-next-method)
+    ;; Add a temorary reference which will be removed when the object is
+    ;; sinked
+    (funcall (reference-function '%object) (foreign-location object))
+    (%object-sink object))
+  
+  (defbinding %object-sink () nil
+    (object %object)))
 
 ;;;; Main loop and event handling
 
