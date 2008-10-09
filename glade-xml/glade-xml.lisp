@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glade-xml.lisp,v 1.3 2006-09-28 10:21:29 espen Exp $
+;; $Id: glade-xml.lisp,v 1.4 2008-10-09 18:45:33 espen Exp $
 
 
 (in-package "GLADE-XML")
@@ -174,7 +174,7 @@
        as attributes = (rest (mklist tag))
        do (cond
 	   ((and (eq element :|child|) (not (eq (first body) :|placeholder|)))
-	    (let ((initargs (parse-properties (container-child-class class) (rest (second body)))))
+	    (let ((initargs (parse-properties (find-child-class class) (rest (second body)))))
 	      (add-child widget (build-widget (first body)) initargs)))
 
 	   ((eq element :|signal|)
