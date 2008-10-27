@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.22 2008-10-08 16:24:11 espen Exp $
+;; $Id: cairo.lisp,v 1.23 2008-10-27 18:39:30 espen Exp $
 
 (in-package "CAIRO")
 
@@ -875,16 +875,17 @@
 
 (define-callback stream-read-func status 
     ((stream-id pointer-data) (data pointer) (length unsigned-int))
-  (let ((stream (find-user-data stream-id)))
-    (typecase stream
-      (stream
-       (loop for i below length do
-	(let ((byte (read-byte stream nil)))
-	  (if byte
-	      (setf (gffi::ref-uint-8 data i) byte)
-	    (return-from stream-read-func :read-error)))))
-      ((or symbol function) (funcall stream data length))))
-  :success)
+  (block stream-read
+    (let ((stream (find-user-data stream-id)))
+      (typecase stream
+	(stream
+	 (loop for i below length do
+	  (let ((byte (read-byte stream nil)))
+	    (if byte
+		(setf (gffi::ref-uint-8 data i) byte)
+	      (return-from stream-read :read-error)))))
+	((or symbol function) (funcall stream data length))))
+    :success))
 
 
 (defmacro with-surface ((surface cr) &body body)
