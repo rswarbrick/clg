@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtktypes.lisp,v 1.64 2008-05-06 00:09:03 espen Exp $
+;; $Id: gtktypes.lisp,v 1.65 2008-10-27 18:42:01 espen Exp $
 
 (in-package "GTK")
 
@@ -153,6 +153,8 @@
   ("GtkTreeIter" :ignore t)
   ("GtkTreePath" :ignore t)
 ;  ("GtkStyle" :ignore t)
+
+  ("GtkMountOperation" :ignore t) ; Needs GIO
 
   ;; Manual override
   ("GtkWidget"

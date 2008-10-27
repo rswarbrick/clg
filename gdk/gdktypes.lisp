@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gdktypes.lisp,v 1.28 2007-06-06 10:43:54 espen Exp $
+;; $Id: gdktypes.lisp,v 1.29 2008-10-27 18:42:01 espen Exp $
 
 (in-package "GDK")
 
@@ -136,6 +136,9 @@
   ("GdkFont" :ignore t) ; deprecated
   ("GdkEventMask" :ignore t) ; manually defined
   ("GdkModifierType" :ignore t) ; manually defined
+
+  ("GdkAppLaunchContext" :ignore t) ; needs GIO
+
 
   ("GdkDisplay"
    :slots
