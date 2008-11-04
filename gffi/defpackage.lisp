@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: defpackage.lisp,v 1.13 2008-04-29 22:12:32 espen Exp $
+;; $Id: defpackage.lisp,v 1.14 2008-11-04 20:15:35 espen Exp $
 
 (defpackage "GFFI"
   (:use "COMMON-LISP" "AUTOEXPORT" "PKG-CONFIG" "CLG-UTILS")
@@ -29,7 +29,7 @@
   #+clisp(:use "CLOS" "EXT")
   #+(or cmu sbcl)(:shadow "POINTER")
   #+cmu(:shadowing-import-from "PCL" "CLASS-DIRECT-SUPERCLASSES")
-  #+clisp(:shadow "TYPE-EXPAND-1" "SLOT-DEFINITION-TYPE")
+  #+clisp(:shadow "TYPE-EXPAND-1" "SLOT-DEFINITION-TYPE" "BYTE")
   #+(or cmu sbcl)
   (:import-from #+cmu"PCL" #+sbcl"SB-PCL"
 	   "READER-FUNCTION" "WRITER-FUNCTION" "BOUNDP-FUNCTION" 
