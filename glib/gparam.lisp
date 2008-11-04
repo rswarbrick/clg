@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gparam.lisp,v 1.26 2007-08-20 10:50:25 espen Exp $
+;; $Id: gparam.lisp,v 1.27 2008-11-04 03:22:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -34,6 +34,9 @@
 (defconstant +gvalue-size+ (size-of-gvalue))
 (defconstant +gvalue-value-offset+ 
   (max (size-of 'type-number) (type-alignment '(unsigned-byte 64))))
+(defconstant +gvalue-flags-offset+ 
+  (+ +gvalue-value-offset+ (size-of '(unsigned-byte 64))))
+(defconstant +gvalue-nocopy-contents-flag+ 27)
 
 (defbinding (%gvalue-init "g_value_init") () nil
   (value gvalue)
@@ -76,6 +79,15 @@
 	 ;; This will signal an error if the type hierarchy is unknown
 	 (type-from-number type-number t))))))
 
+(let ((flags-reader nil))
+  (defun gvalue-static-p (gvalue)
+    (unless flags-reader
+      (setf flags-reader (reader-function 'unsigned-int)))
+    (prog1
+	(ldb-test (byte 1 +gvalue-nocopy-contents-flag+)
+	 (funcall flags-reader gvalue +gvalue-flags-offset+))
+      (force-output))))
+
 (defun gvalue-get (gvalue)
   (funcall (reader-function (gvalue-type gvalue))
    gvalue +gvalue-value-offset+))
@@ -85,7 +97,8 @@
    gvalue +gvalue-value-offset+))
 
 (defun gvalue-take (gvalue)
-  (funcall (reader-function (gvalue-type gvalue) :ref :get)
+  (funcall (reader-function (gvalue-type gvalue) 
+   :ref (if (gvalue-static-p gvalue) :peek :get))
    gvalue +gvalue-value-offset+))
 
 (defun gvalue-set (gvalue value)

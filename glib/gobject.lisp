@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gobject.lisp,v 1.58 2008-10-09 18:20:52 espen Exp $
+;; $Id: gobject.lisp,v 1.59 2008-11-04 03:22:23 espen Exp $
 
 (in-package "GLIB")
 
@@ -152,12 +152,15 @@
   (declare (ignore signal-unbound-p))
   (let* ((type (slot-definition-type slotd))
 	 (pname (slot-definition-pname slotd))
-	 (reader (reader-function type :ref :get)))
+	 (get-reader (reader-function type :ref :get))
+	 (peek-reader (reader-function type :ref :peek)))
     #'(lambda (object)
 	(with-memory (gvalue +gvalue-size+)
 	  (%gvalue-init gvalue (find-type-number type))
 	  (%object-get-property object pname gvalue)
-	  (funcall reader gvalue +gvalue-value-offset+)))))
+	  (if (gvalue-static-p gvalue)
+	      (funcall peek-reader gvalue +gvalue-value-offset+)
+	    (funcall get-reader gvalue +gvalue-value-offset+))))))
 
 (defmethod compute-slot-writer-function :around ((slotd effective-property-slot-definition))
   (if (construct-only-property-p slotd)
