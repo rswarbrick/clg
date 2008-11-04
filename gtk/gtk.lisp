@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.95 2008-10-08 18:18:52 espen Exp $
+;; $Id: gtk.lisp,v 1.96 2008-11-04 20:18:08 espen Exp $
 
 
 (in-package "GTK")
@@ -110,19 +110,21 @@
 	   (not (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" "SWANK")) style)))
       (error "When running clg in Slime, the communication style ~S must be used in combination with asynchronous event handling on this platform. See the README file and <http://common-lisp.net/project/slime/doc/html/Communication-style.html> for more information." style)))
 
+  #+(or cmu sbcl)
+  (signal-connect (gdk:display-manager) 'display-opened
+   #'(lambda (display)
+       (let ((fd (gdk:display-connection-number display)))
+	 (unless (< fd 0)
+	   (let ((handler (add-fd-handler 
+			   (gdk:display-connection-number display) 
+			   :input #'main-iterate-all)))
+	     (signal-connect display 'closed
+	      #'(lambda (is-error-p)
+		  (declare (ignore is-error-p))
+		  (remove-fd-handler handler))))))))
+
   #?(or (featurep :cmu) (sbcl< 1 0 6) (sbcl>= 1 0 15 6))
   (progn
-    (signal-connect (gdk:display-manager) 'display-opened
-     #'(lambda (display)
-	 (let ((fd (gdk:display-connection-number display)))
-	   (unless (< fd 0)
-	     (let ((handler (add-fd-handler 
-			     (gdk:display-connection-number display) 
-			     :input #'main-iterate-all)))
-	       (signal-connect display 'closed
-		#'(lambda (is-error-p)
-		    (declare (ignore is-error-p))
-		    (remove-fd-handler handler))))))))
     (setq *periodic-polling-function* #'main-iterate-all)
     #?(or (featurep :cmu) (sbcl< 1 0 6))
     (multiple-value-setq (*max-event-to-sec* *max-event-to-usec*)
@@ -130,30 +132,42 @@
     #?(sbcl>= 1 0 15 6)
     (setq *periodic-polling-period* *event-polling-interval*))
   
-  #+(and clisp readline)
-  ;; Readline will call the event hook at most ten times per second
-  (setf readline:event-hook #'main-iterate-all)
-  
   #?(or (featurep :clisp) (and (sbcl>= 1 0 6) (sbcl< 1 0 15 6)))
-  ;; When running in Slime we need to hook into the Swank server
-  ;; to handle events asynchronously.
-  (unless (and
-	   (find-package "SWANK")
-	   (let ((connection (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK"))))
-	     (when connection
-	       (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
-		     (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") connection)))
-		 (multiple-value-bind (sec usec) 
-		     (decompose-time *event-polling-interval*)
-		   (setf 
-		    (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
-		    #'(lambda ()
-			(loop
-			 (case (socket-status (cons stream :input) sec usec)
-			   ((:input :eof) (return (funcall read-from-emacs)))
-			   (otherwise (main-iterate-all)))))))))))
-    #-(and clisp readline)
-    (warn "Asynchronous event handling not supported on this platform. An explicit main loop has to be started."))
+  ;; When running in CLISP or certain versions of SBCL in Slime we need
+  ;; to hook into the Swank server to handle events asynchronously.
+  (cond
+    ((and (find-package "SWANK") (find-symbol "CHECK-SLIME-INTERRUPTS" "SWANK"))
+     (let ((check-slime-interrupts 
+	    (symbol-function (find-symbol "CHECK-SLIME-INTERRUPTS" "SWANK"))))
+       (setf 
+	(symbol-function (find-symbol "CHECK-SLIME-INTERRUPTS" "SWANK"))
+	#'(lambda ()
+	    (main-iterate-all)
+	    (funcall check-slime-interrupts)))))
+    ((and (find-package "SWANK") 
+	  (find-symbol "READ-FROM-EMACS" "SWANK")
+	  (find-symbol "*EMACS-CONNECTION*" "SWANK")
+	  (find-symbol "CONNECTION.SOCKET-IO" "SWANK"))
+     (let ((connection (symbol-value (find-symbol "*EMACS-CONNECTION*" "SWANK"))))
+       (when connection
+	 (let ((read-from-emacs (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK")))
+	       (stream (funcall (find-symbol "CONNECTION.SOCKET-IO" "SWANK") connection)))
+	   (multiple-value-bind (sec usec) 
+	       (decompose-time *event-polling-interval*)
+	     (setf (symbol-function (find-symbol "READ-FROM-EMACS" "SWANK"))
+	      #'(lambda ()
+		  (loop
+		     (case (socket-status (cons stream :input) sec usec)
+		       ((:input :eof) (return (funcall read-from-emacs)))
+		       (otherwise (main-iterate-all)))))))))))
+    ((flet ((warn-main-loop ()
+	      (warn "Asynchronous event handling not supported on this platform. An explicit main loop has to be started.")))
+       #+(and clisp readline)
+       (if (find-package "SWANK") 
+	   (warn-main-loop) ; assuming we're running in SLIME
+	 ;; Readline will call the event hook at most ten times per second
+	 (setf readline:event-hook #'main-iterate-all))
+       #-(and clisp readline)(warn-main-loop))))
 
   (gdk:display-open display))
 
