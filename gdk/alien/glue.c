@@ -21,10 +21,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glue.c,v 1.8 2007-09-07 07:38:22 espen Exp $ */
+/* $Id: glue.c,v 1.9 2008-11-06 17:27:39 espen Exp $ */
 
 
 #include <gdk/gdk.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
@@ -68,3 +69,28 @@ GdkWindow *clg_gdk_cairo_surface_get_window (cairo_surface_t *surface)
   return NULL;
 #endif
 }
+
+void clg_gdk_pixbuf_swap_rgb (GdkPixbuf *pixbuf)
+{
+
+  int n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+  guchar *p, *pixels = gdk_pixbuf_get_pixels (pixbuf);
+  int width = gdk_pixbuf_get_width (pixbuf);
+  int height = gdk_pixbuf_get_height (pixbuf);
+  int rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+  int x, y;
+
+  g_assert (gdk_pixbuf_get_bits_per_sample (pixbuf) == 8);
+  g_assert (gdk_pixbuf_get_has_alpha (pixbuf));
+  g_assert (n_channels == 4);
+
+  for (y = 0; y < height; y++) {
+    for (x = 0; x < width; x++) {
+      p = pixels + y * rowstride + x * n_channels;
+      guint tmp = p[0];
+      p[0] = p[2];
+      p[2] = tmp;
+    }
+  }
+}
+
