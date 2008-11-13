@@ -150,8 +150,7 @@
       ;; We use . and - as delimiters because some Linux
       ;; distributions tend to patch SBCL and add a distro-specific
       ;; version tag (like 1.0.19-gentoo).
-      for part in (split-string (lisp-implementation-version) :delimiter '(#\.\
- #\-))
+      for part in (split-string (lisp-implementation-version) :delimiter '(#\. #\-))
       while (every #'digit-char-p part)
       collect (parse-integer part))))
   (defun sbcl>= (major minor micro &optional patch)
