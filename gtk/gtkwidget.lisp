@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtkwidget.lisp,v 1.31 2008-05-06 00:04:42 espen Exp $
+;; $Id: gtkwidget.lisp,v 1.32 2008-11-25 22:17:08 espen Exp $
 
 (in-package "GTK")
 
@@ -520,6 +520,11 @@ widget or a list of containers."
 (defbinding widget-remove-mnemonic-label () nil
   (widget widget)
   (label widget))
+
+#?(pkg-exists-p "gtk+-2.0" :atleast-version "2.14.0")
+(defbinding widget-get-snapshot () gdk:pixmap
+  (widget widget)
+  (clip-rect (or null gdk:rectangle)))
 
 
 ;;; Additional bindings and functions
