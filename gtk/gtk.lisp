@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtk.lisp,v 1.97 2008-11-19 07:53:50 espen Exp $
+;; $Id: gtk.lisp,v 1.98 2008-11-25 22:11:08 espen Exp $
 
 
 (in-package "GTK")
@@ -788,7 +788,7 @@
   (text string))
 
 #?(pkg-exists-p "gtk+-2.0" :atleast-version "2.6.0")
-(defbinding combo-box-get-active-text () (or string null)
+(defbinding combo-box-get-active-text () (or null string)
   (combo-box combo-box))
 
 (defbinding combo-box-popup () nil
