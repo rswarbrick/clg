@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.23 2008-10-27 18:39:30 espen Exp $
+;; $Id: cairo.lisp,v 1.24 2008-11-28 19:26:04 espen Exp $
 
 (in-package "CAIRO")
 
@@ -350,7 +350,37 @@
       (data :allocation :alien :type pointer)
       (length :allocation :alien :type int))
      (:metaclass proxy-class)
-     (:unref %path-destroy)))
+     (:unref %path-destroy))
+
+  (defclass jpeg-parameter (struct)
+    ((quality     
+      :allocation :alien 
+      :initarg :quality
+      :initform 75
+      :type int)
+     (interlace     
+      :allocation :alien 
+      :initarg :interlace
+      :initform t
+      :type boolean))
+    (:metaclass struct-class)))
+
+
+(define-condition cairo-error (error)
+  ((status :initarg :status :reader cairo-status))
+  (:report (lambda (condition stream)
+	     (format stream "Cairo function returned with status code: ~A"
+	      (cairo-status condition)))))
+
+(deftype status-signal () 'status)
+
+(define-type-method from-alien-form ((type status-signal) status &key ref)
+  (declare (ignore type ref))
+  `(let ((status ,(from-alien-form 'status status)))
+     (unless (eq status :success)
+       (error 'cairo-error :status status))
+     status))
+
 
 
 ;;; Cairo context
@@ -778,6 +808,9 @@
 
 ;;; Surfaces
 
+(defgeneric user-data (surface key))
+(defgeneric (setf user-data) (value surface key))
+
 (defmethod make-proxy-instance :around ((class surface-class) location 
 					&rest initargs)
   (let ((class (find-class (%surface-get-type location))))
@@ -792,6 +825,17 @@
 (defbinding %surface-destroy () nil
   (location pointer))
 
+(defbinding %surface-status () status
+  pointer)
+
+(defmethod allocate-foreign :around ((surface image-surface) &key)
+  (let ((location (call-next-method)))
+    (cond
+      ((not (eq (%surface-status location) :success))
+       (%surface-destroy location)
+       (error 'cairo-error :status (%surface-status location)))
+      (t location))))
+
 (defmethod reference-function ((class surface-class))
   (declare (ignore class))
   #'%surface-reference)
@@ -800,7 +844,7 @@
   (declare (ignore class))
   #'%surface-destroy)
 
-(defbinding %surface-set-user-data (surface key data-id) status
+(defbinding %surface-set-user-data (surface key data-id) status-signal
   (surface pointer)
   ((quark-intern key) pointer-data)
   (data-id pointer-data)
@@ -861,32 +905,47 @@
   (x-pixels-per-inch double-float)
   (y-pixels-per-inch double-float))
 
+(defun %stream-write-func (stream-id data length)
+  (let ((stream (find-user-data stream-id))
+	(sequence 
+	 (map-c-vector 'vector #'identity data '(unsigned-byte 8) length)))
+    (handler-case (etypecase stream
+		    (stream 
+		     (write-sequence sequence stream)
+		     length)
+		    ((or symbol function) 
+		     (funcall stream sequence)))
+      (serious-condition (condition)
+	(declare (ignore condition))
+	0))))
+
 (define-callback stream-write-func status 
     ((stream-id pointer-data) (data pointer) (length unsigned-int))
-  (let ((stream (find-user-data stream-id)))
-    (typecase stream
-      (stream
-       (map-c-vector 'nil #'(lambda (octet) (write-byte octet stream))
-	data '(unsigned-byte 8) length))
-      ((or symbol function)
-       (funcall stream 
-	(map-c-vector 'vector #'identity data '(unsigned-byte 8) length)))))
-  :success)
+  (if (= (%stream-write-func stream-id data length) length)
+      :success
+    :write-error))
+
+(defun %stream-read-func (stream-id data length)
+  (let* ((stream (find-user-data stream-id))
+	 (sequence (make-array length :element-type '(unsigned-byte 8)))
+	 (bytes-read 
+	  (handler-case (etypecase stream
+			  (stream 
+			   (read-sequence sequence stream))
+			  ((or symbol function) 
+			   (funcall stream sequence)))
+	    (serious-condition (condition)
+	      (declare (ignore condition))
+	      0))))
+    (make-c-vector '(unsigned-byte 8) bytes-read 
+     :content sequence :location data)
+    bytes-read))
 
 (define-callback stream-read-func status 
     ((stream-id pointer-data) (data pointer) (length unsigned-int))
-  (block stream-read
-    (let ((stream (find-user-data stream-id)))
-      (typecase stream
-	(stream
-	 (loop for i below length do
-	  (let ((byte (read-byte stream nil)))
-	    (if byte
-		(setf (gffi::ref-uint-8 data i) byte)
-	      (return-from stream-read :read-error)))))
-	((or symbol function) (funcall stream data length))))
-    :success))
-
+  (if (= (%stream-read-func stream-id data length) length)
+      :success
+    :read-error))
 
 (defmacro with-surface ((surface cr) &body body)
   `(let ((,cr (make-instance 'context :target ,surface)))
@@ -895,23 +954,41 @@
 
 ;; Image Surface
 
-;; Should data be automatically freed when the surface is GCed?
-(defmethod allocate-foreign ((surface image-surface) &key stream filename 
-			     width height stride format data)
-  (cond
-   (stream   
-    (let ((stream-id (register-user-data stream)))
+(defmethod allocate-foreign ((surface image-surface) &key source type
+			     width height stride format)
+  (etypecase source
+   (stream
+    (let ((stream-id (register-user-data source)))
       (unwind-protect
-	   (%image-surface-create-from-png-stream stream-id)
+	   (cond
+	     ((member type '("png" "image/png") :test #'equal)
+	      (%image-surface-create-from-png-stream stream-id))
+	     ((member type '("jpeg" "image/jpeg") :test #'equal)
+	      (%image-surface-create-from-jpeg-stream stream-id))
+	     ((not type) (error "Image type must be specified"))
+	     ((error "Can't handle image type ~A" type)))
 	(destroy-user-data stream-id))))
-   (filename (%image-surface-create-from-png filename))
-   ((not data) (%image-surface-create format width height))
-   (t
-    (%image-surface-create-for-data data format width height 
-     (or 
-      stride
-      (let ((element-size (cdr (assoc format '((:argb32 . 4) (:rgb24 . 4) (:a8 . 1) (:a1 1/8))))))
-	(ceiling (* width element-size))))))))
+   ((or string pathname)
+    (cond 
+      ((member type '("png" "image/png") :test #'equal)
+       (%image-surface-create-from-png source))
+      ((member type '("jpeg" "image/jpeg") :test #'equal)
+       (%image-surface-create-from-jpeg source))
+      ((not type) (error "Image type must be specified"))
+      ((error "Can't handle image type ~A" type))))
+   (pointer
+    (%image-surface-create-for-data source format width height 
+     (or stride (format-stride-for-width format width))))
+   (null (%image-surface-create format width height))))
+
+#?(pkg-exists-p "cairo" :atleast-version "1.6")
+(defbinding format-stride-for-width () int
+  surface-format (width int))
+
+#?-(pkg-exists-p "cairo" :atleast-version "1.6")
+(defun format-stride-for-width (format width)
+  (let ((element-size (cdr (assoc format '((:argb32 . 4) (:rgb24 . 4) (:a8 . 1) (:a1 1/8))))))
+    (ceiling (* width element-size))))
 
 
 (defbinding %image-surface-create () pointer
@@ -933,20 +1010,85 @@
   (stream-read-func callback)
   (stream pointer-data))
 
-(defbinding surface-write-to-png () status
+(defbinding %surface-write-to-png () status-signal
   (surface surface)
   (filename pathname))
 
-
-(defbinding %surface-write-to-png-stream (surface stream) status
+(defbinding %surface-write-to-png-stream (surface stream) status-signal
   (surface surface)
   (stream-write-func callback)
   (stream pointer-data))
 
-(defun surface-write-to-png-stream (surface stream)
+(defgeneric surface-write-to-png (surface dest))
+
+(defmethod surface-write-to-png (surface filename)
+  (%surface-write-to-png surface filename))
+
+(defmethod surface-write-to-png (surface (stream stream))
   (let ((stream-id (register-user-data stream)))
     (unwind-protect
 	 (%surface-write-to-png-stream surface stream-id)
+      (destroy-user-data stream-id))))
+
+
+;;; JPEG support
+
+(define-callback jpeg-stream-write-func unsigned
+    ((stream-id pointer-data) (data pointer) (length unsigned-int))
+  (%stream-write-func stream-id data length))
+
+(define-callback jpeg-stream-read-func unsigned
+    ((stream-id pointer-data) (data pointer) (length unsigned-int))
+  (%stream-read-func stream-id data length))
+
+(defbinding %image-surface-create-from-jpeg () pointer
+  (filename pathname)
+  (status status-signal :out))
+
+(defbinding %image-surface-create-from-jpeg-stream (stream) pointer
+  (jpeg-stream-read-func callback)
+  (stream pointer-data)
+  (status status-signal :out))
+
+(defgeneric surface-write-to-jpeg (surface dest &key quality interlace))
+
+(defun %surface-acquire-image (surface)
+  (typecase surface
+    (image-surface surface)
+    ((let ((image (make-instance 'image-surface
+		   :width (surface-width surface)
+		   :height (surface-height surface)
+		   :format :argb32)))
+       (with-surface (image cr)
+	 (set-source-surface cr surface)
+	 (setf (operator cr) :source)
+	 (paint cr))
+       image))))
+
+(defbinding %surface-write-to-jpeg () status-signal
+  (surface image-surface)
+  (filename pathname)
+  (param jpeg-parameter))
+
+(defmethod surface-write-to-jpeg (surface filename &key 
+				  (quality 75) (interlace t))
+  (let ((param (make-instance 'jpeg-parameter 
+		:quality quality :interlace interlace)))
+    (%surface-write-to-jpeg (%surface-acquire-image surface) filename param)))
+
+(defbinding %surface-write-to-jpeg-stream (surface stream param) status-signal
+  (surface surface)
+  (jpeg-stream-write-func callback)
+  (stream pointer-data)
+  (param jpeg-parameter))
+
+(defmethod surface-write-to-jpeg (surface (stream stream) &key 
+				  (quality 75) (interlace t))
+  (let ((stream-id (register-user-data stream))
+	(param (make-instance 'jpeg-parameter 
+		:quality quality :interlace interlace)))
+    (unwind-protect
+	 (%surface-write-to-jpeg-stream (%surface-acquire-image surface) stream-id param)
       (destroy-user-data stream-id))))
 
 
