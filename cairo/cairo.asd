@@ -17,6 +17,12 @@
 		            :libname #-win32 "libcairo" 
 			             #+win32 "libcairo-2" 
 			    :libdir #.(pkg-libdir "cairo"))
+		 (:library "libjpeg")
+		 (:shared-object "cairo-alien" :pathname "alien/"
+		  :components ((:c-source-file "cairo-jpeg" 
+				:cflags #.(pkg-cflags "cairo")))
+		  :depends-on ("libcairo" "libjpeg"))
 		 (:file "defpackage")
-		 (:file "cairo" :depends-on ("defpackage" "libcairo"))
+		 (:file "cairo" 
+		  :depends-on ("defpackage" "libcairo" "cairo-alien"))
 		 (:file "export" :depends-on ("cairo"))))
