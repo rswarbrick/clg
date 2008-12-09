@@ -27,7 +27,7 @@
 ;; should probably be considered as being GPL'ed.
 
 
-;; $Id: testgtk.lisp,v 1.43 2008-03-20 16:05:31 espen Exp $
+;; $Id: testgtk.lisp,v 1.44 2008-12-09 19:37:19 espen Exp $
 
 #+sbcl(require :gtk)
 #+(or cmu clisp)(asdf:oos 'asdf:load-op :gtk)
@@ -951,8 +951,8 @@ This one is underlined in quite a funky fashion"
 	
 (define-simple-dialog create-notebook (dialog "Notebook")
   (let ((main (make-instance 'v-box :parent dialog)))
-    (let ((book-open (gdk:pixbuf-new-from-xpm-data book-open-xpm))
- 	  (book-closed (gdk:pixbuf-new-from-xpm-data book-closed-xpm))
+    (let ((book-open (make-instance 'gdk:pixbuf :source book-open-xpm))
+ 	  (book-closed (make-instance 'gdk:pixbuf :source book-closed-xpm))
  	  (notebook (make-instance 'notebook 
 		     :border-width 10 :tab-pos :top :parent main)))
 
