@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: vectors.lisp,v 1.8 2008-04-30 17:35:48 espen Exp $
+;; $Id: vectors.lisp,v 1.9 2008-12-10 02:41:40 espen Exp $
 
 
 (in-package "GFFI")
@@ -44,16 +44,23 @@
   (let* ((element-size (size-of type))
 	 (location (or location (allocate-memory (* element-size length))))
 	 (writer (writer-function type :temp temp)))
-    (etypecase content
-      (vector
+
+    (cond
+      #+(or cmu sbcl)
+      ((and 
+	(typep content 'simple-unboxed-array) 
+	(type-equal-p type (array-element-type content)))
+       (with-pinned-objects (content)
+	 (copy-memory (vector-sap content) (* length element-size) location)))
+      ((listp content)
        (loop
-	for element across content
+	for element in content
 	for i below length
 	for offset by element-size
 	do (funcall writer element location offset)))
-      (list
+      (t
        (loop
-	for element in content
+	for element across content
 	for i below length
 	for offset by element-size
 	do (funcall writer element location offset))))
@@ -64,7 +71,7 @@
 		     &optional (ref :read))
   (let ((reader (reader-function element-type :ref ref))
 	(element-size (size-of element-type)))
-    (case seqtype 
+    (case seqtype
      ((nil)
       (loop
        for i below length
@@ -75,6 +82,23 @@
        for i below length
        for offset by element-size
        collect (funcall function (funcall reader location offset))))
+     (vector
+      (let ((vector (make-array length :element-type element-type)))
+	(cond
+	  #+(or cmu sbcl)
+	  ((and 
+	    (typep vector 'simple-unboxed-array)
+	    (or (eq function 'identity) (eq function #'identity)))
+	   (with-pinned-objects (vector)
+	     (copy-memory location (* length element-size) (vector-sap vector))))
+	  (t
+	   (loop
+	    for i below length
+	    for offset by element-size
+	    do (setf 
+		(aref vector i)
+		(funcall function (funcall reader location offset))))))
+	vector))
      (t
       (loop
        with sequence = (make-sequence seqtype length)
