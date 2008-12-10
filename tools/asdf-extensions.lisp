@@ -1,7 +1,7 @@
 (in-package :asdf)
 
 (export '(*absolute-paths-as-default* *dso-extension*
-	  *operation* *system* *component*))
+	  *operation* *system* *component* library shared-object))
 
 (defparameter *dso-extension* 
  #-(or darwin win32)"so" #+darwin"dylib" #+win32"dll")
@@ -81,7 +81,10 @@
 	  (setf (cdr shared-object) name+type))))
     #+clisp 
     (progn
+      #?-(pkg-config:clisp>= 2 45)
       (ffi::foreign-library namestring)
+      #?(pkg-config:clisp>= 2 45)
+      (ffi:open-foreign-library namestring)
       (pushnew 
        (if absolute-p namestring name+type)
        *loaded-libraries* :test #'string=))))
@@ -107,7 +110,7 @@
 
 (defmethod perform ((op compile-op) (c c-source-file))
   (unless
-      (= 0 (run-shell-command "gcc ~A~{ ~A~} -o ~S -c ~S"
+      (= 0 (run-shell-command "gcc -Wall ~A~{ ~A~} -o ~S -c ~S"
 	    #-win32 "-fPIC"
 	    #+win32 "-DBUILD_DLL"
 	    (nconc
@@ -139,21 +142,29 @@
 
 
 (defun split-path (path)
-  (labels ((split (path)
-	     (unless (zerop (length path))
-	       (let ((slash (position #\/ path)))
-		 (if slash
-		     (cons (subseq path 0 slash) (split (subseq path (1+ slash))))
-		   (list path))))))
-    (if (and (not (zerop (length path))) (char= (char path 0) #\/))
-	(cons :absolute (split (subseq path 1)))
-      (cons :relative (split path)))))
-
+  (when path
+    (labels ((split (path)
+	       (unless (zerop (length path))
+		 (let ((slash (position #\/ path)))
+		   (if slash
+		       (cons (subseq path 0 slash) (split (subseq path (1+ slash))))
+		       (list path))))))
+      (if (and (not (zerop (length path))) (char= (char path 0) #\/))
+	  (cons :absolute (split (subseq path 1)))
+	(cons :relative (split path))))))
+  
 
 (defmethod component-pathname ((lib library))
-  (make-pathname :type *dso-extension*
-		 :name (or (slot-value lib 'libname) (component-name lib))
-		 :directory (split-path (slot-value lib 'libdir))))
+  (or
+   (when (slot-value lib 'libname)
+     (let ((filename (format nil "~A~A" (namestring (make-pathname :directory (split-path (slot-value lib 'libdir)))) (slot-value lib 'libname))))
+       (when (probe-file filename)
+	 (pathname filename))))
+   
+   (make-pathname
+    :type *dso-extension*
+    :name (or (slot-value lib 'libname) (component-name lib))
+    :directory (split-path (slot-value lib 'libdir)))))
 
 (defmethod perform ((o load-op) (lib library))
   (load-shared-object (component-pathname lib) (absolute-p lib)))
