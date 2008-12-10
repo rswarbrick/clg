@@ -8,11 +8,13 @@
 (pkg-exists-p "gdk-2.0" :atleast-version "2.4.0" :error t)
 
 (defsystem gdk
-    :depends-on (gffi glib pango #?(pkg-exists-p "gdk-2.0" :atleast-version "2.8.0") cairo)
+    :depends-on (gffi glib pango
+		 #?(pkg-exists-p "gdk-2.0" :atleast-version "2.14.0")gio 
+		 #?(pkg-exists-p "gdk-2.0" :atleast-version "2.8.0")cairo)
     :components ((:file "defpackage")
 		 (:library "libgdk_pixbuf-2.0" 
 		  :libdir #.(pkg-libdir "gdk-2.0")
-		  :libname #-win32 "libgdk_pixbuf-2.0" 
+		  :libname #-win32 "libgdk_pixbuf-2.0"
 		           #+win32 "libgdk_pixbuf-2.0-0")
 		 (:library "libgdk-2.0" 
 		  :libdir #.(pkg-libdir "gdk-2.0")
