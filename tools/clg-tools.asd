@@ -14,7 +14,7 @@
   :depends-on (#+sbcl sb-posix)
   :components ((:file "utils")
 	       (:file "config" :depends-on ("utils"))
-	       (:file "asdf-extensions" :depends-on ("utils"))
+	       (:file "asdf-extensions" :depends-on ("utils" "config"))
 	       (:file "autoexport" :depends-on ("asdf-extensions"))))
 
 
