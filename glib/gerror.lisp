@@ -20,24 +20,43 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gerror.lisp,v 1.10 2008-04-11 20:35:48 espen Exp $
+;; $Id: gerror.lisp,v 1.11 2008-12-10 02:49:17 espen Exp $
 
 
 (in-package "GLIB")
 
-(defclass gerror (struct)
-  ((domain :allocation :alien :type quark :reader gerror-domain)
-   (code :allocation :alien :type int :reader gerror-code)
-   (message :allocation :alien :type string :reader gerror-message))
-  (:metaclass struct-class)
-  (:ref %gerror-copy)
-  (:unref %gerror-free))
+(define-enum-type file-error-enum
+  :exist :isdir :acces :name-too-long :noent :notdir :nxio :nodev :rofs :txtbsy
+  :fault :loop :nospc :nomem :mfile :nfile :badf :inval :pipe :again :intr
+  :io :perm :nosys :failed)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defclass gerror (struct)
+    ((domain :allocation :alien :type quark :reader gerror-domain)
+     (code :allocation :alien :type int :reader gerror-code)
+     (message :allocation :alien :type string :reader gerror-message))
+    (:metaclass struct-class)
+    (:ref %gerror-copy)
+    (:unref %gerror-free)))
 
 (defbinding (%gerror-copy "g_error_copy") () pointer
   (location pointer))
 
 (defbinding (%gerror-free "g_error_free") () nil
   (location pointer))
+
+(defbinding (gerror-new "g_error_new_literal") 
+    (domain code format &rest args) gerror
+  (domain quark)
+  (code int)
+  ((apply #'format nil format args) string))
+
+(defbinding (gerror-set "g_set_error_literal") 
+    (gerror domain code format &rest args) nil
+  gerror
+  (domain quark)
+  (code int)
+  ((apply #'format nil format args) string))
 
 (define-condition glib-error (error)
   ((code :initarg :code :reader gerror-code)
@@ -48,14 +67,26 @@
 (define-condition glib-file-error (glib-error)
   ())
 
-(defbinding file-error-quark () quark)
+(defbinding (file-error-domain "g_file_error_quark") () quark)
 
 (defun signal-gerror (gerror)
   (let ((condition
 	 (cond
-	  ((= (gerror-domain gerror) (file-error-quark)) 'glib-file-error)
+	  ((= (gerror-domain gerror) (file-error-domain)) 'glib-file-error)
 	  (t 'glib-error))))
     (error condition :code (gerror-code gerror) :message (gerror-message gerror))))
+
+;; This temporary hack is necessary until define-callback gets support
+;; for :in/out parameters
+(defun gerror-set-in-callback (indirect-location domain code format &rest args)
+  (unless (null-pointer-p indirect-location)
+    (if (null-pointer-p (ref-pointer indirect-location))
+	(setf (ref-pointer indirect-location) 
+	 (funcall (to-alien-function 'gerror) 
+	  (apply #'gerror-new domain code format args)))
+      (let ((gerror (funcall (from-alien-function '(static gerror)) 
+		     (ref-pointer indirect-location))))
+	(apply #'gerror-set gerror domain code format args)))))
 
 
 (deftype gerror-signal () 'gerror)
