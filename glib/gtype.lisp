@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.66 2008-10-08 18:17:10 espen Exp $
+;; $Id: gtype.lisp,v 1.67 2008-12-10 02:54:17 espen Exp $
 
 (in-package "GLIB")
 
@@ -128,9 +128,12 @@
 (defun type-from-glib-name (name)
   (type-from-number (type-number-from-glib-name name) t))
 
+(defun type-registered-p (type)
+  (nth-value 1 (gethash type *lisp-type-to-type-number*)))
+
 (defun register-type (type id)
   (cond
-   ((find-type-number type))
+   ((type-registered-p type) (find-type-number type))
    ((not id) (warn "Can't register type with no foreign id: ~A" type))
    (t    
     (pushnew (cons type id) *registered-types* :key #'car)
@@ -179,8 +182,13 @@
     (symbol
      (or
       (gethash type *lisp-type-to-type-number*)
+      (let ((class (find-class type nil)))
+	(when (and class (not (class-finalized-p class)))
+	  (finalize-inheritance class)
+	  (gethash type *lisp-type-to-type-number*)))
       (and error-p (error "Type not registered: ~A" type))))
-    (class (find-type-number (class-name type) error-p))))
+    (class 
+     (find-type-number (class-name type) error-p))))
  
 (defun type-from-number (type-number &optional error)
   (multiple-value-bind (type found)
@@ -214,6 +222,14 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *type-initializers* ())
+
+  (defun library-filename (system library)
+  (let ((component (asdf:find-component (asdf:find-system system) library)))
+    (etypecase component
+      (asdf:shared-object 
+       (first (asdf:output-files (make-instance 'asdf:compile-op) component)))
+      (asdf:library (asdf:component-pathname component)))))
+
   (defun %find-types-in-library (pathname prefixes ignore)
     (let ((outname (tmpname "types")))
       (unwind-protect
@@ -263,20 +279,25 @@
 	(delete-file outname)))))
 
 
+(defun car-eq-p (ob1 ob2)
+  (eq (car ob1) (car ob2)))
+
 (defmacro init-types-in-library (system library &key prefix ignore)
-  (let* ((filename (asdf:component-pathname (asdf:find-component (asdf:find-system system) library)))
+  (let* ((filename (library-filename system library))
 	 (names (%find-types-in-library filename prefix ignore)))
     `(progn
-       ,@(mapcar #'(lambda (name)
-		     `(progn
-			(defbinding (,(intern name) ,name) () type-number)
-			(,(intern name))
-			(pushnew ',(intern name) *type-initializers*)))
-		 names))))
+       ,@(mapcar 
+	  #'(lambda (name)	      
+	      `(progn
+		 (defbinding (,(intern name) ,name) () type-number)
+		 (,(intern name))
+		 (pushnew (cons ',(intern name) ,filename) *type-initializers* 
+		  :test #'car-eq-p)))
+	  names))))
 
 (defun find-type-init-function (type-number)
   (loop
-   for type-init in *type-initializers*
+   for (type-init) in *type-initializers*
    when (= type-number (funcall type-init))
    do (return type-init)))
 
@@ -353,22 +374,16 @@
 	   (super (most-specific-proxy-superclass class))
 	   (gtype (or 
 		   (first (ginstance-class-gtype class))
-		   (default-alien-type-name class-name)))
-	   (type-number
-	    (or 
-	     (find-type-number class-name)
-	     (let ((type-number
-		    (if (or 
-			 (symbolp gtype)
-			 (type-number-from-glib-name gtype nil))
-			(register-type class-name gtype)
-		      (register-new-type class-name (class-name super) gtype))))
-	       (type-class-ref type-number)
-	       type-number))))
+		   (default-alien-type-name class-name))))
+      (unless (type-registered-p class-name)
+	(type-class-ref
+	 (if (or (symbolp gtype) (type-number-from-glib-name gtype nil))
+	     (register-type class-name gtype)
+	   (register-new-type class-name (class-name super) gtype))))
       #+nil
       (when (and
-	     (supertype type-number) 
-	     (not (eq (class-name super) (supertype type-number))))
+	     (supertype (find-type-number class))
+	     (not (eq (class-name super) (supertype (find-type-number class)))))
 	(warn "Super class mismatch between CLOS and GObject for ~A" 
 	      class-name)))
     (update-size class))
@@ -583,64 +598,88 @@
 			   t))))))
 
 
-(defun expand-type-definitions (prefix &optional args)
+(defun expand-type-definitions (type-list &optional args)
   (flet ((type-options (type-number)
 	   (let ((name (find-foreign-type-name type-number)))
 	     (cdr (assoc name args :test #'string=)))))
 
-   (let ((type-list
-	  (delete-if
-	   #'(lambda (type-number)
-	       (let ((name (find-foreign-type-name type-number)))
-		 (or
-		  (getf (type-options type-number) :ignore)
-		  (find-if
-		   #'(lambda (options)
-		       (and
-			(string-prefix-p (first options) name)
-			(getf (cdr options) :ignore-prefix)
-			(not (some
-			      #'(lambda (exception)
-				  (string= name exception))
-			      (getf (cdr options) :except)))))
-		   args))))
-	   (find-types prefix))))
+    (setq type-list
+     (delete-if
+      #'(lambda (type-number)
+	  (let ((name (find-foreign-type-name type-number)))
+	    (or
+	     (getf (type-options type-number) :ignore)
+	     (find-if
+	      #'(lambda (options)
+		  (and
+		   (string-prefix-p (first options) name)
+		   (getf (cdr options) :ignore-prefix)
+		   (not (some
+			 #'(lambda (exception)
+			     (string= name exception))
+			 (getf (cdr options) :except)))))
+	      args))))
+      type-list))
 
-     (dolist (type-number type-list)
-       (let ((name (find-foreign-type-name type-number)))
-	 (register-type
-	  (getf (type-options type-number) :type (default-type-name name))
-	  (register-type-as type-number))))
+    (dolist (type-number type-list)
+      (let ((name (find-foreign-type-name type-number)))
+	(register-type
+	 (getf (type-options type-number) :type (default-type-name name))
+	 (register-type-as type-number))))
 
-     ;; This is needed for some unknown reason to get type numbers right
-     (mapc #'find-type-dependencies type-list)
+    ;; This is needed for some unknown reason to get type numbers right
+    (mapc #'find-type-dependencies type-list)
 
-     (let ((sorted-type-list 
-	    #+clisp (mapcar #'list type-list)
-	    #-clisp
-	    (sort-types-topologicaly 
-	     (mapcar 
-	      #'(lambda (type)
-		  (cons type (find-type-dependencies type (type-options type))))
-	      type-list))))
-       `(progn
-	  ,@(mapcar
-	     #'(lambda (pair)
-		 (destructuring-bind (type . forward-p) pair
-		   (expand-type-definition type forward-p (type-options type))))
-	     sorted-type-list)
-	  ,@(mapcar
-	     #'(lambda (pair)
-		 (destructuring-bind (type . forward-p) pair
-		   (when forward-p
-		     (expand-type-definition type nil (type-options type)))))
-	     sorted-type-list))))))
+    (let ((sorted-type-list 
+	   #+clisp (mapcar #'list type-list)
+	   #-clisp
+	   (sort-types-topologicaly 
+	    (mapcar 
+	     #'(lambda (type)
+		 (cons type (find-type-dependencies type (type-options type))))
+	     type-list))))
+      `(progn
+	 ,@(mapcar
+	    #'(lambda (pair)
+		(destructuring-bind (type . forward-p) pair
+		  (expand-type-definition type forward-p (type-options type))))
+	    sorted-type-list)
+	 ,@(mapcar
+	    #'(lambda (pair)
+		(destructuring-bind (type . forward-p) pair
+		  (when forward-p
+		    (expand-type-definition type nil (type-options type)))))
+	    sorted-type-list)))))
+
+(defun expand-types-with-prefix (prefix args)
+  (expand-type-definitions (find-types prefix) args))
+
+(defun expand-types-in-library (system library args)
+  (let* ((filename (library-filename system library))
+	 (types (loop 
+	         for (type-init . %filename) in *type-initializers*
+		 when (equal filename %filename)
+		 collect (funcall type-init))))
+    (expand-type-definitions types args)))
+
+(defun list-types-in-library (system library)
+  (let ((filename (library-filename system library)))
+    (loop 
+     for (type-init . %filename) in *type-initializers*
+     when (equal filename %filename)
+     collect type-init)))
 
 (defmacro define-types-by-introspection (prefix &rest args)
-  (expand-type-definitions prefix args))
+  (expand-types-with-prefix prefix args))
 
 (defexport define-types-by-introspection (prefix &rest args)
-  (list-autoexported-symbols (expand-type-definitions prefix args)))
+  (list-autoexported-symbols (expand-types-with-prefix prefix args)))
+
+(defmacro define-types-in-library (system library &rest args)
+  (expand-types-in-library system library args))
+
+(defexport define-types-in-library (system library &rest args)
+  (list-autoexported-symbols (expand-types-in-library system library args)))
 
 
 ;;;; Initialize all non static types in GObject
