@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: interface.lisp,v 1.9 2008-10-08 16:34:07 espen Exp $
+;; $Id: interface.lisp,v 1.10 2008-12-10 02:40:18 espen Exp $
 
 (in-package "GFFI")
 
@@ -445,6 +445,8 @@
 		   (error "~A can not be expanded to ~A" form type))))))
     (expand form)))
 
+(defun type-equal-p (type1 type2)
+  (and (subtypep type1 type2) (subtypep type2 type1)))
 
 
 ;;;; Type methods
