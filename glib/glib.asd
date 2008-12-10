@@ -40,4 +40,5 @@
 		 (:file "gobject" :depends-on ("gparam"))
 		 (:file "ginterface" :depends-on ("gobject"))
 		 (:file "gcallback" :depends-on ("gtype" "gparam" "gobject"))
-		 (:file "gerror" :depends-on ("gcallback"))))
+		 (:file "gerror" :depends-on ("gcallback"))
+		 (:file "main-loop" :depends-on ("defpackage"))))
