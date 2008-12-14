@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: glib.lisp,v 1.44 2008-10-08 18:11:12 espen Exp $
+;; $Id: glib.lisp,v 1.45 2008-12-14 21:37:25 espen Exp $
 
 
 (in-package "GLIB")
@@ -40,6 +40,9 @@
 ;;;; Memory management
 
 (deftype gsize () 'unsigned-int)
+(deftype gssize () 'int)
+(deftype goffset () '(unsigned-int 64))
+
 
 (defbinding malloc0 () pointer
   (size gsize))
@@ -59,6 +62,8 @@
 
 ;;;; User data is a mechanism to store references to lisp objects in
 ;;;; foreign code
+
+;; TODO: move to gffi
 
 (defvar *user-data-lock* (make-mutex))
 (defvar *user-data* (make-hash-table))
