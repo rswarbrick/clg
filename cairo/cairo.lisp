@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: cairo.lisp,v 1.24 2008-11-28 19:26:04 espen Exp $
+;; $Id: cairo.lisp,v 1.25 2009-02-09 11:45:03 espen Exp $
 
 (in-package "CAIRO")
 
@@ -828,7 +828,7 @@
 (defbinding %surface-status () status
   pointer)
 
-(defmethod allocate-foreign :around ((surface image-surface) &key)
+(defmethod allocate-foreign :around ((surface surface) &key)
   (let ((location (call-next-method)))
     (cond
       ((not (eq (%surface-status location) :success))
@@ -926,20 +926,21 @@
     :write-error))
 
 (defun %stream-read-func (stream-id data length)
-  (let* ((stream (find-user-data stream-id))
-	 (sequence (make-array length :element-type '(unsigned-byte 8)))
-	 (bytes-read 
-	  (handler-case (etypecase stream
-			  (stream 
-			   (read-sequence sequence stream))
-			  ((or symbol function) 
-			   (funcall stream sequence)))
-	    (serious-condition (condition)
-	      (declare (ignore condition))
-	      0))))
-    (make-c-vector '(unsigned-byte 8) bytes-read 
-     :content sequence :location data)
-    bytes-read))
+  (let* ((stream (find-user-data stream-id)))
+    (handler-case                              
+        (multiple-value-bind (sequence bytes-read)
+            (etypecase stream
+              (stream
+               (let ((sequence (make-array length
+                                :element-type '(unsigned-byte 8))))
+                 (values sequence (read-sequence sequence stream))))
+              ((or symbol function) (funcall stream length)))
+          (make-c-vector '(unsigned-byte 8) (or bytes-read (length sequence))
+           :content sequence :location data)
+          (or bytes-read (length sequence)))
+      (serious-condition (condition)
+        (declare (ignore condition))
+        0))))
 
 (define-callback stream-read-func status 
     ((stream-id pointer-data) (data pointer) (length unsigned-int))
@@ -957,7 +958,8 @@
 (defmethod allocate-foreign ((surface image-surface) &key source type
 			     width height stride format)
   (etypecase source
-   (stream
+   (null (%image-surface-create format width height))
+   ((or stream function symbol)
     (let ((stream-id (register-user-data source)))
       (unwind-protect
 	   (cond
@@ -978,8 +980,7 @@
       ((error "Can't handle image type ~A" type))))
    (pointer
     (%image-surface-create-for-data source format width height 
-     (or stride (format-stride-for-width format width))))
-   (null (%image-surface-create format width height))))
+     (or stride (format-stride-for-width format width))))))
 
 #?(pkg-exists-p "cairo" :atleast-version "1.6")
 (defbinding format-stride-for-width () int
