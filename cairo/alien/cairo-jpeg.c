@@ -393,7 +393,14 @@ cairo_status_t stdio_write_func (void *closure,
                                  const unsigned char *data,
                                  unsigned int length)
 {
-  return fwrite(data, 1, length, (FILE *)closure);
+  int bytes_written;
+  do {
+    bytes_written = fwrite(data, 1, length, (FILE *)closure);
+    data += bytes_written;
+    length -= bytes_written;
+  } while (bytes_written > 0 && length > 0);
+  
+  return CAIRO_STATUS_SUCCESS;  
 }
 
 /*
