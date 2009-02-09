@@ -4,7 +4,7 @@
   (:import-from #:sb-int #:featurep)
   (:export #:pkg-cflags #:pkg-libs #:pkg-exists-p #:pkg-version
            #:pkg-variable #:pkg-libdir #:tmpname)
-  (:export #:featurep #:sbcl>= #:sbcl< #:clisp>=))
+  (:export #:featurep #:sbcl>= #:sbcl< #:clisp>= #:clisp<))
 
 (in-package #:pkg-config)
 
@@ -185,9 +185,15 @@
     (multiple-value-bind (major minor) (clisp-version)      
       (or 
        (> major req-major)
-       (and (= major req-major) (> minor req-minor))))))
+       (and (= major req-major) (> minor req-minor)))))
+  (defun clisp< (req-major req-minor)
+    (not (clisp>= req-major req-minor))))
 
 #-clisp
-(defun clisp>= (req-major req-minor)
-  (declare (ignore req-major req-minor))
-  nil)
+(progn
+  (defun clisp>= (req-major req-minor)
+    (declare (ignore req-major req-minor))
+    nil)
+  (defun clisp< (req-major req-minor)
+    (declare (ignore req-major req-minor))
+    nil))
