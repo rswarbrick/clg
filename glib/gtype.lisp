@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.67 2008-12-10 02:54:17 espen Exp $
+;; $Id: gtype.lisp,v 1.68 2009-02-09 12:22:53 espen Exp $
 
 (in-package "GLIB")
 
@@ -131,7 +131,7 @@
 (defun type-registered-p (type)
   (nth-value 1 (gethash type *lisp-type-to-type-number*)))
 
-(defun register-type (type id)
+(defun register-type (type id &optional (error-p t))
   (cond
    ((type-registered-p type) (find-type-number type))
    ((not id) (warn "Can't register type with no foreign id: ~A" type))
@@ -139,7 +139,7 @@
     (pushnew (cons type id) *registered-types* :key #'car)
     (let ((type-number 
 	   (typecase id
-	     (string (type-number-from-glib-name id))
+	     (string (type-number-from-glib-name id error-p))
 	     (symbol (funcall id)))))
       (setf (gethash type *lisp-type-to-type-number*) type-number)
       (setf (gethash type-number *type-number-to-lisp-type*) type)
@@ -156,7 +156,7 @@
   (clrhash *type-number-to-lisp-type*)
   (type-init) ; initialize the glib type system
   (mapc #'(lambda (type) 
-	    (register-type (car type) (cdr type)))
+	    (register-type (car type) (cdr type) nil))
 	*registered-types*)
   (mapc #'(lambda (type) 
 	    (apply #'register-new-type type))
@@ -165,14 +165,11 @@
 	    (register-type-alias (car type) (cdr type)))
 	*registered-type-aliases*))
 
-(pushnew 'reinitialize-all-types 
-  #+cmu *after-save-initializations*
-  #+sbcl *init-hooks*
-  #+clisp custom:*init-hooks*)
-
 #+cmu
-(pushnew 'system::reinitialize-global-table ; we shouldn't have to do this?
- *after-save-initializations*)
+(asdf:install-init-hook 'system::reinitialize-global-table 
+ *after-save-initializations*) ; we shouldn't need to do this?
+(asdf:install-init-hook 'reinitialize-all-types)
+
 
 
 (defun find-type-number (type &optional error-p)

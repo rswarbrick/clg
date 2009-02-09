@@ -1,12 +1,90 @@
 (in-package :asdf)
 
-(export '(*absolute-paths-as-default* *dso-extension*
-	  *operation* *system* *component* library shared-object))
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (use-package :pkg-config))
 
-(defparameter *dso-extension* 
+(export '(*search-library-path-on-reload* *dso-extension*
+	  *operation* *system* *component* library shared-object
+	  install-init-hook))
+
+(defvar *dso-extension* 
  #-(or darwin win32)"so" #+darwin"dylib" #+win32"dll")
 
-(defparameter *absolute-paths-as-default* nil)
+(defvar *search-library-path-on-reload* t)
+
+
+;;; Since Common Lisp implementations doesn't seem to agree on how to
+;;; run init hooks, we have to add our own compatibility layer.
+
+(defvar *init-hooks* ())
+
+(defun install-init-hook (func &optional (only-once t))
+  (if only-once
+      (pushnew func *init-hooks*)
+    (push func *init-hooks*)))
+
+(defun run-init-hooks ()
+  (mapcar #'funcall (reverse *init-hooks*)))
+
+(pushnew 'run-init-hooks
+  #+cmu ext:*after-save-initializations*
+  #+sbcl sb-ext:*init-hooks*
+  #+clisp custom:*init-hooks*)
+
+(defvar *reload-shared-objects* ()
+  "List of shared objects which should be reloaded from library search
+  path in saved images.")
+
+#?-(sbcl>= 1 0 22)
+(defvar *dont-save-shared-objects* ()
+  "List of shared objects which should not be saved in images.")
+
+(defun namestring-name (namestring)
+  (let ((pos (position #\/ namestring :from-end t)))
+    (if pos
+	(subseq namestring (1+ pos))
+      namestring)))
+
+(defun load-shared-object (pathname &optional dont-save-p (reload-p dont-save-p))
+  (let* ((namestring (ensure-namestring pathname)))
+    #?(sbcl< 1 0 22)(sb-alien:load-shared-object namestring)
+    #?(sbcl>= 1 0 22)
+    (sb-alien:load-shared-object namestring :dont-save dont-save-p)
+    #+cmu(ext:load-foreign namestring)
+    #?(clisp< 2 45)(ffi::foreign-library namestring)
+    #?(clisp>= 2 45)(ffi:open-foreign-library namestring)
+    (when dont-save-p
+      #?-(sbcl>= 1 0 22)
+      (pushnew namestring *dont-save-shared-objects* :test #'string=)
+      (when reload-p
+	(pushnew (namestring-name namestring)
+	 *reload-shared-objects* :test #'string=)))))
+
+#?(or (sbcl< 1 0 22) (featurep :cmu))
+(progn
+  (defun remove-shared-objects ()    
+    (dolist (namestring *dont-save-shared-objects*)
+      #+sbcl
+      (setf sb-alien::*shared-objects* 
+       (remove namestring sb-alien::*shared-objects* 
+        :key #'sb-alien::shared-object-file 
+	:test #'string=))
+      #+cmu
+      (setf system::*global-table* 
+       (remove namestring system::*global-table* 
+	:key #'cdr :test #'string=))))
+  (pushnew 'remove-shared-objects
+   #+sbcl sb-ext:*save-hooks*
+   #+cmu ext:*before-save-initializations*))
+
+(defun reload-shared-objects ()
+  (handler-bind (#+sbcl (style-warning #'muffle-warning))
+    (dolist (namestring (reverse *reload-shared-objects*))
+      (load-shared-object namestring))))
+
+(install-init-hook 'reload-shared-objects)
+
+
 
 ;;; The following code is more or less copied from sb-bsd-sockets.asd,
 ;;; but extended to allow flags to be set in a general way. The class
@@ -15,8 +93,8 @@
 
 (defclass shared-object (module)
   ((ldflags :initform nil :initarg :ldflags)
-   (absolute :initform *absolute-paths-as-default* 
-	     :initarg :absolute :reader absolute-p)))
+   (search  :initform *search-library-path-on-reload* :initarg :search 
+	    :reader search-library-path-on-reload)))
 
 (defun ensure-namestring (pathname)
   (namestring 
@@ -57,43 +135,10 @@
 	      (slot-value dso 'ldflags)))
       (error 'operation-error :operation operation :component dso))))
 
-#+clisp
-(defvar *loaded-libraries* ())
-
-(defun load-shared-object (pathname &optional (absolute-p t))
-  (let* ((namestring (ensure-namestring pathname))
-	 (directory (namestring (pathname-sans-name+type namestring)))
-	 (name+type (subseq namestring (length directory))))
-    #+sbcl
-    (progn
-      (sb-alien:load-shared-object namestring)
-      (unless absolute-p
-	(let ((shared-object (find namestring sb-alien::*shared-objects* 
-			      :key #'sb-alien::shared-object-file 
-			      :test #'equal)))
-	  (setf (sb-alien::shared-object-file shared-object) name+type))))
-    #+cmu
-    (progn
-      (ext:load-foreign namestring)
-      (unless absolute-p
-	(let ((shared-object (rassoc namestring system::*global-table* 
-			      :test #'equal)))
-	  (setf (cdr shared-object) name+type))))
-    #+clisp 
-    (progn
-      #?-(pkg-config:clisp>= 2 45)
-      (ffi::foreign-library namestring)
-      #?(pkg-config:clisp>= 2 45)
-      (ffi:open-foreign-library namestring)
-      (pushnew 
-       (if absolute-p namestring name+type)
-       *loaded-libraries* :test #'string=))))
-
-
 (defmethod perform ((o load-op) (dso shared-object))
   (let ((co (make-instance 'compile-op)))
     (let ((pathname (car (output-files co dso))))
-      (load-shared-object pathname (absolute-p dso)))))
+      (load-shared-object pathname (search-library-path-on-reload dso)))))
 
 
 
@@ -137,8 +182,8 @@
 (defclass library (component) 
   ((libdir :initarg :libdir :initform nil)
    (libname :initarg :libname :initform nil)
-   (absolute :initform *absolute-paths-as-default*
-	     :initarg :absolute :reader absolute-p)))
+   (search  :initform *search-library-path-on-reload* :initarg :search 
+	    :reader search-library-path-on-reload)))
 
 
 (defun split-path (path)
@@ -166,21 +211,19 @@
     :name (or (slot-value lib 'libname) (component-name lib))
     :directory (split-path (slot-value lib 'libdir)))))
 
+
+(defvar *loaded-libraries* ())
+
 (defmethod perform ((o load-op) (lib library))
-  (load-shared-object (component-pathname lib) (absolute-p lib)))
+  (load-shared-object (component-pathname lib) 
+   (search-library-path-on-reload lib))
+  (pushnew lib *loaded-libraries*))
 
 (defmethod perform ((operation operation) (lib library))
   nil)
 
 (defmethod operation-done-p ((o load-op) (lib library))
-  (let* ((namestring (ensure-namestring (component-pathname lib)))
-	 (directory (namestring (pathname-sans-name+type namestring)))
-	 (name+type (subseq namestring (length directory)))
-	 (stored-name (if (absolute-p lib) namestring name+type)))
-
-    #+sbcl(find stored-name sb-alien::*shared-objects* :key #'sb-alien::shared-object-file :test #'equal)
-    #+cmu(rassoc stored-name system::*global-table* :test #'equal)
-    #+clisp(find stored-name *loaded-libraries* :test #'equal)))
+  (find lib *loaded-libraries*))
 
 (defmethod operation-done-p ((o operation) (lib library))
   t)
