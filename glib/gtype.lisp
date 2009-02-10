@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gtype.lisp,v 1.68 2009-02-09 12:22:53 espen Exp $
+;; $Id: gtype.lisp,v 1.69 2009-02-10 15:16:34 espen Exp $
 
 (in-package "GLIB")
 
@@ -348,6 +348,8 @@
 
 ;;;; Metaclass for subclasses of ginstance
 
+(defvar *referenced-ginstance-classes* ())
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defclass ginstance-class (proxy-class)
     ((gtype :initarg :gtype :initform nil :reader ginstance-class-gtype))))
@@ -376,7 +378,8 @@
 	(type-class-ref
 	 (if (or (symbolp gtype) (type-number-from-glib-name gtype nil))
 	     (register-type class-name gtype)
-	   (register-new-type class-name (class-name super) gtype))))
+	   (register-new-type class-name (class-name super) gtype)))
+	(push class-name *referenced-ginstance-classes*))
       #+nil
       (when (and
 	     (supertype (find-type-number class))
@@ -385,6 +388,12 @@
 	      class-name)))
     (update-size class))
   #-clisp(call-next-method))
+
+(defun reinitialize-ginstance-classes ()
+  (mapc #'type-class-ref *referenced-ginstance-classes*))
+
+(asdf:install-init-hook 'reinitialize-ginstance-classes)
+
 
 
 (defmethod shared-initialize ((class ginstance-class) names &rest initargs)
