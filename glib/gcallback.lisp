@@ -20,7 +20,7 @@
 ;; TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ;; SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-;; $Id: gcallback.lisp,v 1.50 2008-05-06 00:04:42 espen Exp $
+;; $Id: gcallback.lisp,v 1.51 2009-02-10 15:18:15 espen Exp $
 
 (in-package "GLIB")
 
@@ -246,27 +246,38 @@
 
 (define-flags-type connect-flags :after :swapped)
 
-(defvar *overridden-signals* (make-hash-table :test 'equalp))
+(defvar *signal-override-closures* (make-hash-table :test 'equalp))
 
-(defbinding %signal-override-class-closure () nil
+(defbinding %%signal-override-class-closure () nil
   (signal-id unsigned-int)
   (type-number type-number)
   (callback-closure pointer))
 
 
+(defun %signal-override-class-closure (type name function)
+  (multiple-value-bind (callback-closure callback-id)
+      (make-callback-closure function class-handler-marshal)
+    (let ((signal-id (ensure-signal-id-from-type name type)))
+      (%%signal-override-class-closure signal-id (find-type-number type t) callback-closure))
+    (setf 
+     (gethash (list type name) *signal-override-closures*)
+     (list callback-id function))))
+
 (defun signal-override-class-closure (name type function)
-  (let* ((signal-id (ensure-signal-id-from-type name type))
-	 (type-number (find-type-number type t))
-	 (callback-id (gethash (cons type-number signal-id) *overridden-signals*)))
+  (let ((callback-id 
+	 (first (gethash (list type name) *signal-override-closures*))))
     (if callback-id
 	(update-user-data callback-id function)
-      (multiple-value-bind (callback-closure callback-id)
-	  (make-callback-closure function class-handler-marshal)
-	(%signal-override-class-closure signal-id type-number callback-closure)
-	(setf 
-	 (gethash (cons type-number signal-id) *overridden-signals*)
-	 callback-id)))))
+      (%signal-override-class-closure type name function))))
 
+(defun reinitialize-signal-override-class-closures ()
+  (maphash 
+   #'(lambda (key value)
+       (destructuring-bind (type name) key
+	 (destructuring-bind (callback-id function) value
+	   (declare (ignore callback-id))
+	   (%signal-override-class-closure type name function))))
+   *signal-override-closures*))
 
 (defbinding %signal-chain-from-overridden () nil
   (args pointer)
@@ -292,7 +303,6 @@
 	 for offset from 0 by +gvalue-size+
 	 do (gvalue-unset (pointer+ params offset)))
 	(deallocate-memory params)))))
-
 
 (defmacro define-signal-handler (name ((object class) &rest args) &body body)
   (let* ((info (signal-query (ensure-signal-id-from-type name class)))
@@ -536,6 +546,8 @@ function."
 
 ;;;; Signal registration
 
+(defvar *registered-signals* ())
+
 (defbinding %signal-newv (name itype flags return-type param-types) 
     unsigned-int
   ((signal-name-to-string name) string)
@@ -551,7 +563,14 @@ function."
 
 (defun signal-new (name itype flags return-type param-types)
   (when (zerop (signal-lookup name itype))
+    (push (list name itype flags return-type param-types) *registered-signals*)
     (%signal-newv name itype flags return-type param-types)))
+
+(defun reinitialize-signals ()
+  (mapc #'(lambda (args) (apply #'%signal-newv args)) *registered-signals*))
+
+(asdf:install-init-hook 'reinitialize-signals)
+(asdf:install-init-hook 'reinitialize-signal-override-class-closures)
 
 ;;;; Convenient macros
 
