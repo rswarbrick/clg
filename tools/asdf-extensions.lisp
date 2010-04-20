@@ -152,6 +152,9 @@
 (defmethod output-files ((op compile-op) (c c-source-file))
   (list (make-pathname :type "o" :defaults (component-pathname c))))
 
+(defmethod component-pathname ((c c-source-file))
+  (make-pathname :type "c" :name (component-name c)
+                 :directory (pathname-directory (call-next-method))))
 
 (defmethod perform ((op compile-op) (c c-source-file))
   (unless
