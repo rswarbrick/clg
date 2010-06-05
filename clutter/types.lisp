@@ -13,4 +13,22 @@
   ;; to have been registered before we define that type.
   (register-type 'glib::initially-unowned "GInitiallyUnowned")
 
-  (define-types-by-introspection "Clutter"))
+  (define-types-by-introspection
+      "Clutter"
+      ("ClutterColor"
+       (red :allocation :alien
+            :accessor color-red
+            :initarg :red
+            :type (unsigned-byte 8))
+       (green :allocation :alien
+              :accessor color-green
+              :initarg :green
+              :type (unsigned-byte 8))
+       (blue :allocation :alien
+             :accessor color-blue
+             :initarg :blue
+             :type (unsigned-byte 8))
+       (alpha :allocation :alien
+              :accessor color-alpha
+              :initarg :alpha
+              :type (unsigned-byte 8)))))

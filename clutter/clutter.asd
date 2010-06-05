@@ -11,4 +11,6 @@
   :components
   ((:library "libclutter-glx-1.0" :libdir #.(pkg-libdir "clutter-1.0"))
    (:file "defpackage")
-   (:file "types" :depends-on ("defpackage" "libclutter-glx-1.0"))))
+   (:file "types" :depends-on ("defpackage" "libclutter-glx-1.0"))
+
+   (:file "colors" :depends-on ("types"))))
