@@ -587,9 +587,10 @@
 	(class  (type-from-number type))
 	(slots (getf options :slots)))
     (when (member nil supers)
-      (error "Got NIL as a supertype for ~A (full list: ~A).~%~
+      (error "Got NIL as a supertype for ~A (supertype name: ~A).~%~
               This shouldn't happen - is the parent type correctly registered?"
-             (find-foreign-type-name type) supers))
+             (find-foreign-type-name type)
+             (find-foreign-type-name (type-parent type))))
     `(defclass ,class ,supers
 	 ,(unless forward-p
 	    (slot-definitions class (query-object-class-properties type) slots))
