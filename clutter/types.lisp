@@ -13,8 +13,10 @@
   ;; to have been registered before we define that type.
   (register-type 'glib::initially-unowned "GInitiallyUnowned")
 
-  (define-types-by-introspection
-      "Clutter"
+  (define-types-by-introspection "Clutter"
+      
+      ("ClutterEvent" :ignore t)
+
       ("ClutterColor"
        (red :allocation :alien
             :accessor color-red

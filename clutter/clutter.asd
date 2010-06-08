@@ -7,7 +7,7 @@
 (pkg-exists-p "clutter-1.0" :atleast-version "1.2" :error t)
 
 (defsystem clutter
-  :depends-on (:gffi :glib :gdk :cairo)
+  :depends-on (:gffi :glib :gdk :cairo :glib-json)
   :components
   ((:library "libclutter-glx-1.0" :libdir #.(pkg-libdir "clutter-1.0"))
    (:file "defpackage")
@@ -18,5 +18,7 @@
    
    (:file "actor" :depends-on ("types"))
    (:file "stage" :depends-on ("types" "actor" "global"))
+
+   (:file "events" :depends-on ("types"))
 
    (:file "debug" :depends-on ("types"))))
