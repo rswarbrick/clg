@@ -145,6 +145,11 @@
   (declare (ignore type ref))
   (reader-function 'int))
 
+;; Register GtkObject in advance so that eg GtkTooltips, which inherits from it,
+;; gets a proper supertype. TODO: This is a hack. Where is it supposed to
+;; happen?
+(register-type '%object "GtkObject")
+
 (define-types-by-introspection "Gtk"
   ;; Manually defined
   ("GtkObject" :ignore t)

@@ -72,15 +72,19 @@
       #'string-capitalize    
       (cons prefix (split-string (symbol-name type-name) :delimiter #\-))))))
 
-(defun default-type-name (alien-name)
-  (let ((parts
-	 (mapcar
-	  #'string-upcase
-	  (split-string-if alien-name #'upper-case-p))))
-    (intern
-     (concatenate-strings (rest parts) #\-)
-     (find-prefix-package (first parts)))))
+(defun split-alien-name (alien-name)
+  (let ((parts (split-string-if alien-name #'upper-case-p)))
+    (do ((prefix (first parts) (concatenate 'string prefix (first rest)))
+         (rest (rest parts) (cdr rest)))
+        ((null rest)
+         (error "Couldn't split alien name '~A' to find a registered prefix"
+                alien-name))
+      (when (find-prefix-package prefix)
+        (return (values (string-upcase (concatenate-strings rest #\-))
+                        (find-prefix-package prefix)))))))
 
+(defun default-type-name (alien-name)
+  (multiple-value-call #'intern (split-alien-name alien-name)))
 
 (defun in-arg-p (style)
   (find style '(:in :in/out :in/return :in-out :return)))
