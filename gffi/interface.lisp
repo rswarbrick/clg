@@ -73,15 +73,18 @@
       (cons prefix (split-string (symbol-name type-name) :delimiter #\-))))))
 
 (defun split-alien-name (alien-name)
-  (let ((parts (split-string-if alien-name #'upper-case-p)))
-    (do ((prefix (first parts) (concatenate 'string prefix (first rest)))
-         (rest (rest parts) (cdr rest)))
+  "Consider the possible splittings into prefix:name and (assuming there is a
+valid prefix in there somewhere) return the splitting with the longest prefix."
+  (let ((partsb (nreverse (split-string-if alien-name #'upper-case-p))))
+    (do ((name-lst (list (first partsb)) (cons (first rest) name-lst))
+         (rest (rest partsb) (cdr rest)))
         ((null rest)
          (error "Couldn't split alien name '~A' to find a registered prefix"
                 alien-name))
-      (when (find-prefix-package prefix)
-        (return (values (string-upcase (concatenate-strings rest #\-))
-                        (find-prefix-package prefix)))))))
+      (let ((prefix (concatenate-strings (reverse rest))))
+        (when (find-prefix-package prefix)
+          (return (values (string-upcase (concatenate-strings name-lst #\-))
+                          (find-prefix-package prefix))))))))
 
 (defun default-type-name (alien-name)
   (multiple-value-call #'intern (split-alien-name alien-name)))

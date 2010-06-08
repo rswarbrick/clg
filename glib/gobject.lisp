@@ -591,6 +591,11 @@
               This shouldn't happen - is the parent type correctly registered?"
              (find-foreign-type-name type)
              (find-foreign-type-name (type-parent type))))
+    (unless class
+      (error "It seems that the class for ~A hasn't been correctly registered.~
+              This might mean that you've forgotten to shadow an import in~
+              your defpackage?"
+             (find-foreign-type-name type)))
     `(defclass ,class ,supers
 	 ,(unless forward-p
 	    (slot-definitions class (query-object-class-properties type) slots))
