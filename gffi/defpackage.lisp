@@ -30,12 +30,6 @@
   #+(or cmu sbcl)(:shadow "POINTER")
   #+cmu(:shadowing-import-from "PCL" "CLASS-DIRECT-SUPERCLASSES")
   #+clisp(:shadow "TYPE-EXPAND-1" "SLOT-DEFINITION-TYPE" "BYTE")
-  #+(or cmu sbcl)
-  (:import-from #+cmu"PCL" #+sbcl"SB-PCL"
-	   "READER-FUNCTION" "WRITER-FUNCTION" "BOUNDP-FUNCTION" 
-	   "INITIALIZE-INTERNAL-SLOT-FUNCTIONS" "COMPUTE-SLOT-ACCESSOR-INFO"
-	   "COMPUTE-EFFECTIVE-SLOT-DEFINITION-INITARGS"
-	   #?-(pkg-config:sbcl>= 0 9 8)"INITIALIZE-INTERNAL-SLOT-GFS")
   #+cmu(:import-from "ALIEN" "CALLBACK")
   #+(or cmu sbcl)
   (:import-from #+cmu"ALIEN" #+sbcl"SB-ALIEN" 
