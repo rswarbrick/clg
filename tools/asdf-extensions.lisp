@@ -1,6 +1,9 @@
 (in-package :asdf)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
+  ;; ASDF defines featurep, which we don't want to clobber. As such, shadow it
+  ;; here and then reference it with a pkg-config: prefix below.
+  (shadow :featurep)
   (use-package :pkg-config))
 
 (export '(*search-library-path-on-reload* *dso-extension*
@@ -60,7 +63,7 @@
 	(pushnew (namestring-name namestring)
 	 *reload-shared-objects* :test #'string=)))))
 
-#?(or (sbcl< 1 0 22) (featurep :cmu))
+#?(or (sbcl< 1 0 22) (pkg-config:featurep :cmu))
 (progn
   (defun remove-shared-objects ()    
     (dolist (namestring *dont-save-shared-objects*)
