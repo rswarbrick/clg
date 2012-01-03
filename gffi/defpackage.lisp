@@ -38,6 +38,14 @@
 	   "ALIEN-SAP")
   #+cmu(:import-from "C-CALL" "VOID" "C-STRING")
   #+sbcl(:import-from "SB-ALIEN" "VOID" "C-STRING")
+
+  ;; We override COMPUTE-EFFECTIVE-SLOT-DEFINITION-INITARGS for virtual slots
+  ;; and proxy classes.
+  #+(or cmu sbcl)
+  (:import-from
+   #+cmu"PCL" #+sbcl"SB-PCL"
+   "COMPUTE-EFFECTIVE-SLOT-DEFINITION-INITARGS")
+
   ;; Symbols from memory.lisp
   (:export "MAKE-POINTER" "POINTER-ADDRESS" "NULL-POINTER-P" "POINTER=" 
 	   "POINTER+" "REF-POINTER" 

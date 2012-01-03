@@ -239,15 +239,8 @@
 
 #-clisp
 (defmethod initialize-internal-slot-functions ((slotd effective-virtual-slot-definition))
-;;   #?-(sbcl>= 0 9 15) ; Delayed to avoid recursive call of finalize-inheritanze
-  #+nil ;; 2007-11-08: done this for all implementations
-  (setf 
-   (slot-value slotd 'reader-function) (compute-slot-reader-function slotd)
-   (slot-value slotd 'boundp-function) (compute-slot-boundp-function slotd)
-   (slot-value slotd 'writer-function) (compute-slot-writer-function slotd)
-   (slot-value slotd 'makunbound-function) (compute-slot-makunbound-function slotd))
-
-  #?-(sbcl>= 0 9 8)(initialize-internal-slot-gfs (slot-definition-name slotd)))
+  #?-(sbcl>= 0 9 8)
+  (initialize-internal-slot-gfs (slot-definition-name slotd)))
 
 
 #-clisp
@@ -289,29 +282,27 @@
      (append '(:special t) (call-next-method)))
     (t (call-next-method))))
 
-#?(or (not (sbcl>= 0 9 14)) (featurep :clisp))
-(defmethod slot-value-using-class
-    ((class virtual-slots-class) (object virtual-slots-object)
-     (slotd effective-virtual-slot-definition))
-    (funcall (slot-value slotd 'reader-function) object))
+(defmacro vsc-slot-x-using-class (x x-slot-name computer)
+  (let ((generic-name (intern (concatenate 'string
+                                           "SLOT-" (string x) "-USING-CLASS"))))
+    `(defmethod ,generic-name
+         ((class virtual-slots-class) (object virtual-slots-object)
+          (slotd effective-virtual-slot-definition))
+       (unless (slot-boundp slotd ',x-slot-name)
+         (setf (slot-value slotd ',x-slot-name) (,computer slotd)))
+       (funcall (slot-value slotd ',x-slot-name) object))))
 
-#?(or (not (sbcl>= 0 9 14)) (featurep :clisp))
-(defmethod slot-boundp-using-class
-    ((class virtual-slots-class) (object virtual-slots-object)
-     (slotd effective-virtual-slot-definition))
-    (funcall (slot-value slotd 'boundp-function) object))
+(vsc-slot-x-using-class value getter compute-slot-reader-function)
+(vsc-slot-x-using-class boundp boundp-function compute-slot-boundp-function)
+(vsc-slot-x-using-class makunbound makunbound-function
+                        compute-slot-makunbound-function)
 
-#?(or (not (sbcl>= 0 9 14)) (featurep :clisp))
-(defmethod (setf slot-value-using-class) 
-    (value (class virtual-slots-class) (object virtual-slots-object)
-     (slotd effective-virtual-slot-definition))
-  (funcall (slot-value slotd 'writer-function) value object))
-
-(defmethod slot-makunbound-using-class
-    ((class virtual-slots-class) (object virtual-slots-object)
-     (slotd effective-virtual-slot-definition))
-  (funcall (slot-value slotd 'makunbound-function) object))
-
+(defmethod (setf slot-value-using-class) (value (class virtual-slots-class)
+                                          (object virtual-slots-object)
+                                          (slotd effective-virtual-slot-definition))
+  (unless (slot-boundp slotd 'setter)
+    (setf (slot-value slotd 'setter) (compute-slot-writer-function slotd)))
+  (funcall (slot-value slotd 'setter) value object))
 
 ;; In CLISP and SBCL (0.9.15 or newler) a class may not have been
 ;; finalized when update-slots are called. So to avoid the possibility
