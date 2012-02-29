@@ -424,6 +424,12 @@
 
 ;;;; Type expansion
 
+;; A hack to make the TYPE-EXPAND code for SBCL work.
+#?+(pkg-config:sbcl>= 1 0 35 15)
+(sb-ext:without-package-locks
+  (setf (symbol-function 'sb-kernel::type-expand)
+        (lambda (form) (typexpand form))))
+
 (defun type-expand-1 (form)
   #+(or cmu sbcl)
   (let ((def (cond ((symbolp form)
