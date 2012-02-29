@@ -35,7 +35,8 @@
 
 (define-types-in-library gio "libgio-2.0"
   ("GIOErrorEnum" :type io-error)
-  ("GIOModule" :ignore t))
+  ("GIOModule" :ignore t)
+  ("GProxy" :type network-proxy))
 
 (define-types-in-library gio "gio-alien")
 
