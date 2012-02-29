@@ -282,17 +282,21 @@
      (append '(:special t) (call-next-method)))
     (t (call-next-method))))
 
-(defmacro vsc-slot-x-using-class (x x-slot-name computer)
+(defmacro vsc-slot-x-using-class (x x-slot-name computer &key allow-string-fun-p)
   (let ((generic-name (intern (concatenate 'string
                                            "SLOT-" (string x) "-USING-CLASS"))))
     `(defmethod ,generic-name
          ((class virtual-slots-class) (object virtual-slots-object)
           (slotd effective-virtual-slot-definition))
-       (unless (slot-boundp slotd ',x-slot-name)
+       (unless (and (slot-boundp slotd ',x-slot-name)
+                    ,@(when allow-string-fun-p
+                         `((not
+                            (stringp (slot-value slotd ',x-slot-name))))))
          (setf (slot-value slotd ',x-slot-name) (,computer slotd)))
        (funcall (slot-value slotd ',x-slot-name) object))))
 
-(vsc-slot-x-using-class value getter compute-slot-reader-function)
+(vsc-slot-x-using-class value getter compute-slot-reader-function
+                        :allow-string-fun-p t)
 (vsc-slot-x-using-class boundp boundp-function compute-slot-boundp-function)
 (vsc-slot-x-using-class makunbound makunbound-function
                         compute-slot-makunbound-function)
