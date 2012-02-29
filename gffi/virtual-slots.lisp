@@ -47,6 +47,7 @@
    #+clisp(writer-function)
    #+clisp(boundp-function)
    makunbound-function
+   boundp-function
    #+clisp(type :initarg :type :reader slot-definition-type)))
 
 (defclass direct-special-slot-definition (standard-direct-slot-definition)
