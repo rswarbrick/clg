@@ -283,31 +283,30 @@
      (append '(:special t) (call-next-method)))
     (t (call-next-method))))
 
-(defmacro vsc-slot-x-using-class (x x-slot-name computer &key allow-string-fun-p)
+(defmacro vsc-slot-x-using-class (x x-slot-name computer
+                                  &key allow-string-fun-p setf-p)
   (let ((generic-name (intern (concatenate 'string
                                            "SLOT-" (string x) "-USING-CLASS"))))
-    `(defmethod ,generic-name
-         ((class virtual-slots-class) (object virtual-slots-object)
+    `(defmethod ,(if setf-p `(setf ,generic-name) generic-name)
+         (,@(when setf-p '(value))
+          (class virtual-slots-class) (object virtual-slots-object)
           (slotd effective-virtual-slot-definition))
        (unless (and (slot-boundp slotd ',x-slot-name)
                     ,@(when allow-string-fun-p
-                         `((not
-                            (stringp (slot-value slotd ',x-slot-name))))))
+                         `((not (stringp (slot-value slotd ',x-slot-name))))))
          (setf (slot-value slotd ',x-slot-name) (,computer slotd)))
-       (funcall (slot-value slotd ',x-slot-name) object))))
+       (funcall (slot-value slotd ',x-slot-name)
+                ,@(when setf-p '(value))
+                object))))
 
 (vsc-slot-x-using-class value getter compute-slot-reader-function
                         :allow-string-fun-p t)
+(vsc-slot-x-using-class value setter compute-slot-writer-function
+                        :allow-string-fun-p t :setf-p t)
+
 (vsc-slot-x-using-class boundp boundp-function compute-slot-boundp-function)
 (vsc-slot-x-using-class makunbound makunbound-function
                         compute-slot-makunbound-function)
-
-(defmethod (setf slot-value-using-class) (value (class virtual-slots-class)
-                                          (object virtual-slots-object)
-                                          (slotd effective-virtual-slot-definition))
-  (unless (slot-boundp slotd 'setter)
-    (setf (slot-value slotd 'setter) (compute-slot-writer-function slotd)))
-  (funcall (slot-value slotd 'setter) value object))
 
 ;; In CLISP and SBCL (0.9.15 or newler) a class may not have been
 ;; finalized when update-slots are called. So to avoid the possibility
