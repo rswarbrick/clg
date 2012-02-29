@@ -1920,7 +1920,7 @@ This one is underlined in quite a funky fashion"
  	    ("cursors" create-cursors)
  	    ("dialog" create-dialog)
  	    ("entry" create-entry)
- 	    ("enxpander" create-expander)
+ 	    ("expander" create-expander)
  	    ("file chooser" create-file-chooser)
  	    ("font selection" create-font-selection)
  	    ("handle box" create-handle-box)
