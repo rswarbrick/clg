@@ -1702,7 +1702,7 @@ This one is underlined in quite a funky fashion"
 	   :tip-private "Toolbar/Horizontal"
 	   :signal (list 'clicked 
 		    #'(lambda (toolbar) 
-			(setf (toolbar-orientation toolbar) :horizontal))
+			(setf (orientable-orientation toolbar) :horizontal))
 		    :object :parent))
 
    :child (make-instance 'tool-button
@@ -1711,7 +1711,7 @@ This one is underlined in quite a funky fashion"
 	   :tip-private "Toolbar/Vertical"
 	   :signal (list 'clicked 
 		    #'(lambda (toolbar) 
-			(setf (toolbar-orientation toolbar) :vertical))
+			(setf (orientable-orientation toolbar) :vertical))
 		    :object :parent))
 
    :child (make-instance 'separator-tool-item)
