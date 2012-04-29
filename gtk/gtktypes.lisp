@@ -84,6 +84,9 @@
     :type int))
   (:metaclass boxed-class))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (register-type 'border '|gtk_border_get_type|))
+
 (defclass stock-item (struct)
   ((id
     :allocation :alien
