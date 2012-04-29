@@ -96,6 +96,29 @@
   (find style '(:in/return :return)))
 
 (defmacro defbinding (name lambda-list return-type &rest args)
+  "This defines a foreign function call. NAME should either be a symbol or a
+list (LISP-SYM STRING). The lisp function will be given the name of the lisp
+symbol and the foreign function name is either the string given or automatically
+generated using DEFAULT-ALIEN-FNAME.
+
+If LAMBDA-LIST is nil, the lambda list for the generated lisp function is
+automatically computed from the input arguments as described below. If it is
+non-nil, it gives the lambda list for the function. To manually specify an empty
+lambda list, pass (NIL) which gets recognised as a special value.
+
+RETURN-TYPE should be a valid type.
+
+A normal element of ARGS is a list matching
+
+  (EXPR TYPE &OPTIONAL (STYLE :IN) (OUT-TYPE TYPE))
+
+however a shorthand form for an input parameter with name the same as its type
+is that you can just give the atom TYPE as an argument. The lambda-list for the
+function is the list of all input arguments, although if an EXPR is repeated, it
+will only appear once. To add a constant argument, define one with STYLE :IN and
+EXPR the value it should take.
+
+To give the binding a docstring, pass a string as the first element of ARGS."
   (multiple-value-bind (lisp-name c-name)
       (if (atom name)
  	  (values name (default-alien-fname name))
